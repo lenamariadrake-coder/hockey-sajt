@@ -1,0 +1,4717 @@
+<!DOCTYPE html>
+<html lang="sv">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tippar vem som blir först</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        /* =========================================================
+   1) FÄRGPALETT (CSS-variabler)  ✅ Punkt 1
+   Ändra färger här – så slår det igenom överallt.
+   ========================================================= */
+        :root {
+            --bg-page: #f7f8fa;
+            --card-bg: #ffffff;
+            --text: #0f172a;
+            --text-muted: #6b7280;
+            --accent: #2563eb;
+            --link-blue: #2563eb;
+            --border: rgba(15, 17, 34, 0.06);
+            --shadow: 0 8px 24px rgba(15, 17, 34, 0.06);
+            --maxw: 900px;
+
+            /* Behåll dina specifika badge-färger */
+            --badge-full: #8ad69d;
+            --badge-half: #f2c9a1;
+            --badge-grey: #cccccc;
+            --row-green: #f0f7f0;
+            --row-orange: #faf0e6;
+        }
+
+        /* =========================================================
+   BAS / LAYOUT  ✅ Punkt 4 (struktur)
+   ========================================================= */
+        body {
+            margin: 0;
+            padding: 2rem 1rem;
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            line-height: 1.45;
+            color: var(--text);
+            background: var(--bg-page);
+        }
+
+        .container {
+            max-width: var(--maxw);
+            margin: 0 auto;
+            padding: 1.25rem 1.5rem;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid rgba(15, 17, 34, 0.04);
+            box-shadow: var(--shadow);
+            box-sizing: border-box;
+            /* Viktigt för att padding inte ska öka bredden */
+        }
+
+        /* Mobiljustering för containern */
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem;
+            }
+
+            .container {
+                padding: 1rem;
+                border-radius: 10px;
+            }
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--brand-grey);
+            margin: 0;
+            font-size: 2em;
+        }
+
+        /* Loading */
+        #loading {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ffeeba;
+            text-align: center;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        /* =========================================================
+   TABELLER  ✅ Punkt 4 (struktur)
+   ========================================================= */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th {
+            text-align: left;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid var(--border);
+            padding: 10px 10px 10px 17px;
+        }
+
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .rank {
+            font-weight: bold;
+            color: #888;
+            width: 30px;
+        }
+
+        .players-table {
+            margin-top: 10px;
+            /* matchar dina övriga tabeller */
+        }
+
+        /* Stramar åt sifferkolumner (3 och 4) i alla relevanta vyer */
+        .players-table th:nth-child(3),
+        .players-table td:nth-child(3),
+        .players-table th:nth-child(4),
+        .players-table td:nth-child(4),
+        #view-players table th:nth-child(3),
+        #view-players table td:nth-child(3),
+        #view-players table th:nth-child(4),
+        #view-players table td:nth-child(4),
+        #view-toplists table th:nth-child(3),
+        #view-toplists table td:nth-child(3),
+        #view-toplists table th:nth-child(4),
+        #view-toplists table td:nth-child(4) {
+            width: 1%;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        /* Säkerställer att kolumnen för Namn/Tippare (2) expanderar */
+        #view-players table th:nth-child(2),
+        #view-toplists table th:nth-child(2) {
+            width: auto;
+        }
+
+        /* Ny klass för att linjera nakna siffror med länk-badgar */
+        .cell-number-plain {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            /* Samma padding som .link-color */
+            margin: 2px 0;
+            /* Samma marginal som .link-color */
+            border: 1px solid transparent;
+            /* Samma border-vikt */
+        }
+
+
+        /* Highlight på hela tabellraden vid hover */
+        /* Ny diskret hover som fungerar på alla radfärger */
+        @media (hover: hover) {
+            tbody tr:hover td {
+                /* En aning mörkare lager som släpper igenom färgen under */
+                background-color: rgba(0, 0, 0, 0.03) !important;
+                transition: background-color 0.15s ease;
+            }
+        }
+
+        /* Om raden redan har en färg (full/half/grey), gör den lite mörkare vid hover istället */
+        tr.row-full:hover td {
+            background-color: #b9dbba;
+        }
+
+        tr.row-half:hover td {
+            background-color: #f5d6a7;
+        }
+
+        tr.row-grey:hover td {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+
+
+        /* LÄNKAR / KLICKBARA NAMN - Proffsjusterad Hover */
+        .tipper-name,
+        .link-color,
+        .players-link,
+        .question-link,
+        .tipper-tip-name.link-color,
+        #breadcrumb .breadcrumb-link {
+            font-weight: bold;
+            color: var(--link-blue);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+
+            /* FIX FÖR LINJERING: Använder flex för att centrera text och parenteser perfekt */
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+
+            padding: 2px 6px;
+            margin: 2px 0;
+            /* Justerad marginal för att inte knuffa text i sidled */
+            line-height: 1.2;
+            /* Låser höjden så att namn och (siffra) blir identiska */
+            border-radius: 6px;
+            border: 1px solid transparent;
+        }
+
+        /* Ger lite luft mellan namn-badgen och (siffran) om de ligger bredvid varandra */
+        .result-tippers-link,
+        .players-tippers-link,
+        .question-player-tippers {
+            margin-left: 2px;
+        }
+
+        /* Hover-effekt för namn och frågor utan badge-bakgrund */
+        @media (hover: hover) {
+
+            .link-color:hover,
+            .tipper-name:hover,
+            .players-link:hover,
+            .question-link:hover {
+                color: #003d7a;
+                background-color: rgba(0, 86, 179, 0.08);
+                border-color: rgba(0, 86, 179, 0.15);
+            }
+        }
+
+        /* Fix för att badges ska ha samma radavstånd som vanliga länkar */
+        .full-point.link-color,
+        .half-point.link-color,
+        .winner-cell.link-color,
+        .question-facit-untipped.link-color {
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+            line-height: 1.2;
+            /* Matchar länkarnas nya marginal för att skapa space mellan rader */
+            margin: 2px 0;
+        }
+
+        @media (hover: hover) {
+
+            .full-point.link-color:hover,
+            .half-point.link-color:hover,
+            .winner-cell.link-color:hover,
+            .question-facit-untipped.link-color:hover {
+                background-color: inherit;
+                filter: brightness(0.92);
+                border-color: transparent;
+            }
+        }
+
+        /* Behåll dessa som de var */
+        .tipper-tip-name.no-tip {
+            color: #6b7280;
+            cursor: default;
+        }
+
+
+        /* Uppdaterad stil för 0 tippare för att matcha länk-strukturen */
+        .player-zero-tippers,
+        .question-zero-tippers {
+            color: var(--text-muted);
+
+            /* Kopierat exakt från .link-color för perfekt linjering */
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+
+            padding: 2px 6px;
+            margin: 2px 0;
+            line-height: 1.2;
+            border-radius: 6px;
+
+            /* En genomskinlig border så att den tar exakt lika mycket plats */
+            border: 1px solid transparent;
+
+            /* Valfritt: Om du vill att den ska ha samma marginal till vänster */
+            margin-left: 2px;
+        }
+
+        .muted {
+            margin: 0.25rem 0 0.75rem 0;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        /* =========================================================
+   2) BADGES (namn) – ENDAST .badge + modifierare  ✅ Punkt 2
+   ========================================================= */
+        .badge {
+            display: inline-flex;
+            /* Ändrat från inline-block för bättre kontroll */
+            align-items: center;
+            /* Centrerar texten vertikalt inuti badgen */
+            vertical-align: middle;
+            /* Justerar hela badgen mot texten utanför */
+            padding: 2px 6px;
+            border-radius: 6px;
+            line-height: 1.2;
+            /* Matchar nu exakt med dina länkar */
+        }
+
+        /* Badge-bakgrunder */
+        .badge--full {
+            background: var(--badge-full);
+        }
+
+        .badge--half {
+            background: var(--badge-half);
+        }
+
+        .badge--grey {
+            background: var(--badge-grey);
+        }
+
+        /* =========================================================
+           LEGEND – namn- och radfärger
+           ========================================================= */
+        .result-legend {
+            margin: 10px 0 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(2px);
+            overflow: hidden;
+        }
+
+        .result-legend-summary {
+            cursor: pointer;
+            padding: 10px 12px;
+            font-weight: 700;
+            user-select: none;
+            list-style: none;
+
+            border-radius: 10px;
+        }
+
+        /* När legend är öppen – rundning bara upptill */
+        .result-legend[open] .result-legend-summary {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .result-legend-summary:hover {
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        /* Dölj default-triangeln i vissa browsers, men behåll klickbarheten */
+        .result-legend-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        /* Växla text beroende på om details är öppet */
+        .result-legend[open] .result-legend-summary-show {
+            display: none;
+        }
+
+        .result-legend:not([open]) .result-legend-summary-hide {
+            display: none;
+        }
+
+        /* Chevron (triangel) för summary */
+        .result-legend-summary {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            /* avstånd mellan text och chevron */
+        }
+
+        .result-legend-summary::after {
+            content: "▸";
+            font-size: 1.1em;
+            line-height: 1;
+            transition: transform 0.2s ease;
+            opacity: 0.7;
+        }
+
+        /* Roterad chevron när details är öppet */
+        .result-legend[open] .result-legend-summary::after {
+            transform: rotate(90deg);
+        }
+
+
+        .result-legend-body {
+            padding: 0 12px 10px;
+        }
+
+        .result-legend-title {
+            font-weight: 700;
+            margin: 0 0 6px;
+        }
+
+        .result-legend-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            line-height: 1.25;
+        }
+
+        .legend-swatch {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            flex: 0 0 18px;
+        }
+
+        .legend-swatch--full {
+            background: var(--badge-full);
+        }
+
+        .legend-swatch--half {
+            background: var(--badge-half);
+        }
+
+        .legend-swatch--grey {
+            background: var(--badge-grey);
+        }
+
+        .legend-swatch--row-full {
+            background: var(--row-green);
+        }
+
+        .legend-swatch--row-half {
+            background: var(--row-orange);
+        }
+
+        .result-legend-note {
+            margin: 8px 0 0;
+            font-size: 0.95em;
+            color: var(--muted);
+        }
+
+        /* Viktigt: klickbara badges ska fortfarande ha blå text */
+        .badge.link-color {
+            color: var(--link-blue);
+        }
+
+        /* “Ej tippat / ingen poäng”: ingen badge-bakgrund */
+        .no-result {
+            color: #6c757d;
+            background: transparent;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* =========================================================
+   3) RADFÄRGER – slå ihop team/spelar-vy  ✅ Punkt 3
+   Nu räcker det att <tr> får row-full/row-half/row-grey,
+   oavsett om det är team-question-row eller player-question-row.
+   ========================================================= */
+        .row-full td {
+            background: var(--row-green);
+        }
+
+        .row-half td {
+            background: var(--row-orange);
+        }
+
+        /* Behåll rad-separering även när bakgrund sätts */
+        .row-full td,
+        .row-half td,
+        .row-grey td {
+            border-bottom-color: var(--border);
+        }
+
+        /* =========================================================
+   NY APP-STRUKTUR (vy-hantering)  ✅ Punkt 4
+   ========================================================= */
+        .app-view {
+            display: none;
+        }
+
+        .app-view.app-view--active {
+            display: block;
+        }
+
+        /* Breadcrumbs - Perfekt linjering och modern hover */
+        #breadcrumb {
+            font-size: 0.9rem;
+            color: #444;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        #breadcrumb .breadcrumb-link,
+        #breadcrumb .breadcrumb-current {
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+            padding: 2px 6px;
+            line-height: 1.2;
+            border: 1px solid transparent;
+        }
+
+        #breadcrumb .breadcrumb-link {
+            text-decoration: none;
+            color: var(--link-blue);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 6px;
+        }
+
+        #breadcrumb .breadcrumb-link:hover {
+            background-color: rgba(0, 86, 179, 0.08);
+            /* Mycket subtil blå bakgrund vid hover */
+            color: #003d7a;
+            opacity: 0.9;
+        }
+
+        #breadcrumb .breadcrumb-current {
+            color: var(--text-muted);
+            cursor: default;
+        }
+
+        /* Den lilla pilen mellan länkarna */
+        #breadcrumb span:not([class]) {
+            display: inline-flex;
+            align-items: center;
+            color: #999;
+            font-weight: normal;
+            user-select: none;
+            /* Hindrar att man råkar markera pilen */
+        }
+
+        /* Navigationsknappar */
+        #back-button,
+        #forward-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 0 4px 1.5rem 0;
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--link-blue);
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+            /* FIX FÖR MOBIL: Tar bort den feta ramen vid klick */
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Hover-effekt - triggas nu bara på datorer med mus */
+        @media (hover: hover) {
+
+            #back-button:hover:not(:disabled),
+            #forward-button:hover:not(:disabled) {
+                background-color: #f8f9fa;
+                border-color: var(--link-blue);
+                transform: translateY(-1px);
+                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        /* Aktivt läge (när man trycker ner fingret/musen) */
+        #back-button:active:not(:disabled),
+        #forward-button:active:not(:disabled) {
+            transform: scale(0.96);
+            /* Ger en tydlig "tryck-effekt" på mobilen */
+            background-color: #e9ecef;
+        }
+
+        #back-button:disabled,
+        #forward-button:disabled {
+            opacity: 0.2;
+            /* Gjorde den ännu lite ljusare för tydlighet */
+            cursor: default;
+            filter: grayscale(1);
+            box-shadow: none;
+            border-color: #eee;
+        }
+
+        .app-loading {
+            padding: 12px 14px;
+            margin: 10px 0 14px 0;
+            border: 1px solid #e6e8ee;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #1f2937;
+        }
+
+        /* GAMLA DEMON: håll dold */
+        #app-content {
+            display: none;
+        }
+
+        /* Topplista – förklaring */
+        .toplists-explain summary {
+            cursor: pointer;
+            font-weight: 700;
+            margin: 0.25rem 0 0.5rem 0;
+        }
+
+        .toplists-explain-body {
+            margin-top: 0.5rem;
+        }
+
+        .toplists-explain-body ul {
+            margin: 0.5rem 0 0 1.1rem;
+        }
+
+        /* Debug */
+        #debug-log {
+            font-family: monospace;
+            font-size: 10px;
+            color: #999;
+            margin-top: 50px;
+            white-space: pre-wrap;
+        }
+
+        /* Snyggare lag-summering (infobar) - Slutgiltig version */
+        .team-summary {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-muted);
+            margin: 10px 0 20px 0;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            /* Detta hindrar interna radbrytningar i hela raden */
+        }
+
+        /* Centrerar bullets och separatorer vertikalt i linje med texten */
+        .team-summary .muted {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 1.2em;
+            line-height: 1;
+            margin: 0;
+            font-weight: bold;
+        }
+
+        .team-summary .nowrap {
+            white-space: normal;
+            /* tillåt radbrytning mellan items */
+        }
+
+        .team-summary .summary-pair {
+            display: inline-flex;
+            align-items: baseline;
+            /* håller ordet på samma “textlinje” som siffran */
+            white-space: nowrap;
+            /* ingen brytning mellan siffra och ord */
+            line-height: inherit;
+            /* undvik höjd-shifts */
+        }
+
+        .team-summary .summary-word {
+            line-height: inherit;
+        }
+
+        .team-summary .summary-word::before {
+            content: "\00a0";
+            /* NBSP: exakt ett hårt mellanslag */
+        }
+
+
+
+        /* Gör siffrorna till små moderna badges */
+        .team-summary .link-color,
+        .team-summary-players-link,
+        .team-summary-tippers-link {
+            background-color: #edbcf7;
+            /* color: var(--brand-grey); */
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        /* Hover-effekt för siffer-badges */
+        .team-summary .link-color:hover {
+            background-color: var(--link-blue);
+            color: white;
+            border-color: var(--link-blue);
+            text-decoration: none;
+        }
+
+        /* Fix för "se topplista" för naturligt avstånd */
+        .team-summary-toplists-link {
+            margin-left: 2px;
+        }
+
+        /* Global fix för att synka vanlig text med klickbara "boxar" */
+        p,
+        .muted,
+        #tipper-detail-player-name {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+            line-height: 1.5;
+            vertical-align: middle;
+        }
+
+        /* Tippar-detaljvy */
+        #tipper-detail-player-name {
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            font-weight: normal;
+        }
+
+        #tipper-detail-player-name span {
+            font-weight: bold;
+        }
+
+        /* Listor */
+        .simple-list {
+            list-style: none;
+            /* tar bort bullets */
+            margin: 0;
+            /* neutral, vi styr luft i vyerna */
+            padding: 0;
+            /* ingen default-indrag */
+        }
+
+        /* Numrerad variant (för <ol>) – egen “rank-kolumn” så allt linjerar */
+        .simple-list.simple-list--numbered {
+            list-style: none;
+            /* stäng av browserns marker */
+            padding-left: 0;
+            /* vi styr indraget själva */
+            margin: 0;
+            counter-reset: tipperRank;
+        }
+
+        /* Behåll din rad-layout, men gör plats för en fast numrerkolumn */
+        .simple-list.simple-list--numbered li {
+            padding: 8px 0;
+            border-bottom: 1px dotted var(--border);
+            counter-increment: tipperRank;
+            display: flex;
+            align-items: center;
+            /* <-- viktig: linjerar siffran snyggt med “badgen” */
+            gap: 12px;
+            /* avstånd mellan siffra och namn */
+        }
+
+        /* Själva siffran: fast bredd + högerställd => perfekt linjering */
+        .simple-list.simple-list--numbered li::before {
+            content: counter(tipperRank) ".";
+            width: 2.2rem;
+            /* justera om du vill ha bredare */
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+            flex: 0 0 auto;
+        }
+
+        /* Numrerad variant (för <ol>) – egen “rank-kolumn” så allt linjerar */
+        .simple-list.simple-list--numbered {
+            list-style: none;
+            /* stäng av browserns marker */
+            padding-left: 0;
+            /* vi styr indraget själva */
+            margin: 0;
+            counter-reset: tipperRank;
+        }
+
+        /* Behåll din rad-layout, men gör plats för en fast numrerkolumn */
+        .simple-list.simple-list--numbered li {
+            padding: 8px 0;
+            border-bottom: 1px dotted var(--border);
+            counter-increment: tipperRank;
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            /* avstånd mellan siffra och namn */
+        }
+
+        /* Själva siffran: fast bredd + högerställd => perfekt linjering */
+        .simple-list.simple-list--numbered li::before {
+            content: counter(tipperRank) ".";
+            width: 2.2rem;
+            /* justera om du vill ha bredare */
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+            flex: 0 0 auto;
+        }
+
+        #top-navigation {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 0;
+        }
+
+        /* Mer luft mellan rubrik och första rad på “list-vyer” */
+        #view-tippers h1,
+        #view-question-player h1,
+        #view-player-tippers h1 {
+            margin-bottom: 14px;
+        }
+
+
+        #history-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        #history-buttons button {
+            font-size: 1rem;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        /* --- STARTVY: INTRO & LIGOR --- */
+        .intro-section {
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .league-container {
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .league-summary {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            list-style: none;
+            user-select: none;
+        }
+
+        .league-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .league-summary::after {
+            content: "▸";
+            transition: transform 0.2s;
+        }
+
+        .league-container[open] .league-summary::after {
+            transform: rotate(90deg);
+        }
+
+        /* Grid för lagen inuti en liga */
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+            padding: 15px;
+            background: #fff;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Lag-knapparna */
+        .team-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 10px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--link-blue);
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        @media (hover: hover) {
+            .team-button:hover {
+                background-color: rgba(0, 86, 179, 0.05);
+                border-color: var(--link-blue);
+                transform: translateY(-1px);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            }
+        }
+
+        .team-button:active {
+            transform: translateY(0);
+            background-color: #f0f4f8;
+        }
+
+        /* --- PROGRESS BAR / LADDNINGSVY --- */
+        #app-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin: 20px 0;
+        }
+
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
+            height: 12px;
+            background-color: #eee;
+            border-radius: 10px;
+            margin: 20px 0 10px 0;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--link-blue);
+            transition: width 0.3s ease;
+        }
+
+        .loading-status {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Positionering för hus-ikonen */
+        .container {
+            position: relative;
+            /* Krävs för att ikonen ska kunna sitta i hörnet */
+        }
+
+        .home-icon-link {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            text-decoration: none;
+            font-size: 1.5rem;
+            border-radius: 12px;
+            transition: background-color 0.2s ease;
+            z-index: 100;
+            /* Se till att den ligger överst */
+        }
+
+        /* Den mjuka hover-effekten från din skärmdump/kod */
+        @media (hover: hover) {
+            .home-icon-link:hover {
+                background: rgba(15, 23, 42, 0.06);
+                text-decoration: none;
+            }
+        }
+
+        .home-icon-link:active {
+            background: rgba(15, 23, 42, 0.12);
+        }
+
+        /* Mobiljustering: Om det blir trångt på små skärmar */
+        @media (max-width: 640px) {
+            .home-icon-link {
+                top: 8px;
+                right: 8px;
+                width: 38px;
+                height: 38px;
+            }
+        }
+
+        /* --- STARTVY: REGLER & FRÅGOR --- */
+
+.section-heading {
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0.5rem;
+}
+
+.rules-section {
+    line-height: 1.6;
+}
+
+.rules-section p {
+    margin-bottom: 1rem;
+    display: block; /* Återställ från flex-fixen i din fil för just dessa p */
+}
+
+.questions-container {
+    background: #fdfdfd;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+
+.questions-container .section-heading {
+    margin-top: 0;
+    border-bottom: none;
+}
+
+/* Denna del sköter spalterna på stora skärmar */
+.fragor-list {
+    margin: 0;
+    padding-left: 1.5rem; 
+    columns: 2; 
+    column-gap: 3rem;
+    list-style-position: outside; 
+    color: var(--text);
+}
+
+.fragor-list li {
+    break-inside: avoid; 
+    padding-left: 0.5rem;
+    margin-bottom: 0.8rem;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem;
+}
+
+/* --- MOBILANPASSNING --- */
+@media (max-width: 640px) {
+    .fragor-list {
+        columns: 1; /* Gå tillbaka till en kolumn på mobilen */
+    }
+    
+    /* Behåll denna! Den ger luft inuti den grå boxen på mobilen */
+    .questions-container {
+        padding: 1rem;
+    }
+}
+
+/* Fix för att badgarna ska ligga i linje med texten i reglerna */
+.rules-section p .badge {
+    display: inline-block;   /* Bryt flex-beteendet just här */
+    vertical-align: middle;  /* Centrera mot textens mitt */
+    line-height: 1;          /* Tajta till höjden */
+    position: relative;
+    top: -1px;               /* Mikrojustering uppåt för ögat */
+    margin: 0 2px;           /* Lite extra luft på sidorna */
+}
+
+    </style>
+</head>
+
+<body>
+
+
+    <div id="app-root" class="container">
+        <a class="home-icon-link" href="../index.html" title="Till startsidan" aria-label="Till startsidan">🏠</a>
+        <div id="app-loading" class="app-loading" aria-live="polite">
+            Hämtar data från 7 tabeller...
+        </div>
+
+        <div id="top-navigation">
+            <div id="history-buttons">
+                <button id="back-button" type="button" aria-label="Tillbaka" title="Tillbaka">←</button>
+                <button id="forward-button" type="button" aria-label="Framåt" title="Framåt">→</button>
+            </div>
+
+            <nav id="breadcrumb"></nav>
+        </div>
+        <main>
+            <!-- STARTVY - mer kommer senare -->
+            <section id="view-start" class="app-view"></section>
+            <!-- KOMMANDE VYER (placeholder, lämna kommenterade för nu) -->
+
+            <!-- LAGVY – enkel placeholder än så länge -->
+            <section id="view-team" class="app-view">
+                <h1>Frågelista &amp; resultat</h1>
+                <p class="muted">Välj ett lag på startsidan.</p>
+            </section>
+            <section id="view-question" class="app-view">
+                <!-- innehåll sätts av renderQuestionView -->
+            </section>
+            <section id="view-player" class="app-view"></section>
+            <section id="view-players" class="app-view"></section>
+            <section id="view-tippers" class="app-view"></section>
+            <section id="view-tipper" class="app-view"></section>
+            <section id="view-player-tippers" class="app-view"></section>
+            <section id="view-question-player" class="app-view"></section>
+            <section id="view-toplists" class="app-view"></section>
+            <section id="view-playerlist" class="app-view"></section>
+
+        </main>
+    </div>
+
+
+    <script>
+        // ==========================================
+        // KONFIGURATION - LÄNKAR TILL GOOGLE SHEETS
+        // ==========================================
+
+        const URLS = {
+            leagues: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQG2UhaQIwPNc045HCzcse55Iprd2cZ3XpO-ud7ejUPsjXbmzs4JKFPQa4H_pTqO0tQ8CYNbmTfztBZ/pub?gid=0&single=true&output=tsv',
+            teams: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQG2UhaQIwPNc045HCzcse55Iprd2cZ3XpO-ud7ejUPsjXbmzs4JKFPQa4H_pTqO0tQ8CYNbmTfztBZ/pub?gid=49725518&single=true&output=tsv',
+            players: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQG2UhaQIwPNc045HCzcse55Iprd2cZ3XpO-ud7ejUPsjXbmzs4JKFPQa4H_pTqO0tQ8CYNbmTfztBZ/pub?gid=1186803594&single=true&output=tsv',
+            tippers: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQG2UhaQIwPNc045HCzcse55Iprd2cZ3XpO-ud7ejUPsjXbmzs4JKFPQa4H_pTqO0tQ8CYNbmTfztBZ/pub?gid=1451882361&single=true&output=tsv',
+            questions: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQG2UhaQIwPNc045HCzcse55Iprd2cZ3XpO-ud7ejUPsjXbmzs4JKFPQa4H_pTqO0tQ8CYNbmTfztBZ/pub?gid=386012733&single=true&output=tsv',
+            tips: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQG2UhaQIwPNc045HCzcse55Iprd2cZ3XpO-ud7ejUPsjXbmzs4JKFPQa4H_pTqO0tQ8CYNbmTfztBZ/pub?gid=547011104&single=true&output=tsv',
+
+            // NYTT: en results-flik per lag (lägg in fler när du skapat dem)
+            // Nyckeln MÅSTE vara samma som team_id i teams-tabellen (t.ex. "team_modo").
+            resultsByTeam: {
+                team_modo: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQG2UhaQIwPNc045HCzcse55Iprd2cZ3XpO-ud7ejUPsjXbmzs4JKFPQa4H_pTqO0tQ8CYNbmTfztBZ/pub?gid=1572654175&single=true&output=tsv',
+                team_dif: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQG2UhaQIwPNc045HCzcse55Iprd2cZ3XpO-ud7ejUPsjXbmzs4JKFPQa4H_pTqO0tQ8CYNbmTfztBZ/pub?gid=22973535&single=true&output=tsv'
+            }
+        };
+
+
+        // TEAM ID FÖR FILTRERING 
+        const MODO_TEAM_ID = 'team_modo';
+
+
+
+        // ==========================================
+        // DATA MOTORN & LOGIK
+        // ==========================================
+
+        const db = {};
+        let processedQuestions = [];
+        let questionMap = {};
+        let tipperMap = {};
+
+        // ==========================================
+        // GLOBALT API (window.TIPS) – Fas 1
+        // Syfte: Samla allt som delas mellan <script>-blocken.
+        //
+        // Regel:
+        // – Allt som ska delas mellan script-block ska exponeras via window.TIPS.
+        // – Router-/vy-scriptet ska inte läsa fria globals direkt.
+        //
+        // Fas 2:
+        // – Byt router/vyer till:
+        //     const TIPS = window.TIPS;
+        //     och använd TIPS.db / TIPS.maps / TIPS.data / TIPS.utils
+        // ==========================================
+
+
+        window.TIPS = window.TIPS || {};
+
+        // --- App-/UI-state (t.ex. om datan är laddad) --------------------
+        window.TIPS.state = window.TIPS.state || {};
+        window.TIPS.state.isReady = false;
+
+        // --- Konstanter (delade id:n / nycklar) --------------------
+        window.TIPS.constants = window.TIPS.constants || {};
+        window.TIPS.constants.MODO_TEAM_ID = MODO_TEAM_ID;
+
+        // --- Databasen (processad data som vyerna läser) ------------
+        window.TIPS.db = db;
+
+        // --- Maps/uppslag (snabba index för vyer) -------------------
+        window.TIPS.maps = window.TIPS.maps || {};
+        window.TIPS.maps.questionMap = questionMap;
+        window.TIPS.maps.tipperMap = tipperMap;
+
+        // --- Data med getter (för variabler som återassignas) --------
+        window.TIPS.data = window.TIPS.data || {};
+        // Getter så vi alltid får “nuvarande” processedQuestions
+        // (processedQuestions återassignas i processData)
+        window.TIPS.data.processedQuestions = () => processedQuestions;
+
+        // --- Utilities (funktioner som används av router/vyer) -------
+        window.TIPS.utils = window.TIPS.utils || {};
+        window.TIPS.utils.getPlayerName = getPlayerName;
+        window.TIPS.utils.applyCompetitionRanking = applyCompetitionRanking;
+
+        // --- Team-label (teamId -> snyggt namn) ----------------------------
+        window.TIPS.utils.getTeamLabel = function getTeamLabel(teamId) {
+            if (teamId == null) return "";
+
+            const idStr = String(teamId);
+
+            // 1) Försök via teams-tabellen (om den finns)
+            const teams = window.TIPS?.db?.teams;
+            if (Array.isArray(teams)) {
+                const t = teams.find(x => String(x.team_id ?? x.id ?? x.teamId) === idStr);
+                if (t) {
+                    const label = (t.team_label ?? t.team_name ?? t.name ?? t.label);
+                    if (label != null && String(label).trim() !== "") return String(label);
+                }
+            }
+
+            // 2) Fallback: visa id om vi inte hittar label
+            return idStr;
+        };
+
+
+
+
+
+
+
+
+
+
+
+        async function init() {
+            try {
+                log("Startar hämtning av data...");
+                const appLoadingEl = document.getElementById("app-loading");
+
+                // 1) Förbered mätaren i HTML
+                if (appLoadingEl) {
+                    appLoadingEl.style.display = "flex";
+                    appLoadingEl.innerHTML = `
+                <div style="font-weight:bold; font-size:1.2rem;">Synkar data...</div>
+                <div class="progress-container">
+                    <div id="progress-bar"></div>
+                </div>
+                <div id="progress-status" class="loading-status">Initierar anslutning...</div>
+            `;
+                }
+
+                const progressBar = document.getElementById("progress-bar");
+                const progressStatus = document.getElementById("progress-status");
+
+                // 2) Identifiera alla URL:er som ska laddas
+                const baseKeys = ["leagues", "teams", "players", "tippers", "questions", "tips"];
+                const resultEntries = Object.entries(URLS.resultsByTeam || {});
+
+                const totalToLoad = baseKeys.length + resultEntries.length;
+                let loadedCount = 0;
+
+                const updateProgress = (label) => {
+                    loadedCount++;
+                    const percent = Math.round((loadedCount / totalToLoad) * 100);
+                    if (progressBar) progressBar.style.width = percent + "%";
+                    if (progressStatus) progressStatus.textContent = `Hämtar ${label}... (${percent}%)`;
+                };
+
+                // 3) Hämta bas-tabeller
+                const basePromises = baseKeys.map(key => {
+                    return fetchCsv(URLS[key]).then(data => {
+                        db[key] = data;
+                        updateProgress(key);
+                    });
+                });
+
+                await Promise.all(basePromises);
+
+                // 4) Hämta resultat-flikar
+                db.resultsByTeamRaw = {};
+                db.results = [];
+
+                const resultPromises = resultEntries.map(([teamId, url]) => {
+                    return fetchCsv(url).then(rows => {
+                        db.resultsByTeamRaw[teamId] = rows;
+                        rows.forEach(r => db.results.push({ ...r, _team_id: teamId }));
+                        updateProgress(`resultat för ${teamId}`);
+                    });
+                });
+
+                await Promise.all(resultPromises);
+
+                // 5) Färdigställ
+                log("All data hämtad!");
+                processData();
+                window.TIPS.state.isReady = true;
+
+                if (appLoadingEl) {
+                    appLoadingEl.style.display = "none";
+                }
+
+                // TROLLFORMEL: Visa navigeringsraden nu när allt är klart
+                const topNav = document.getElementById("top-navigation");
+                if (topNav) {
+                    topNav.style.display = "flex";
+                }
+
+                if (window.appRouter && typeof window.appRouter.showView === "function") {
+                    window.appRouter.showView("start");
+                }
+
+            } catch (error) {
+                console.error("[FEL]", error);
+                const appLoadingEl = document.getElementById("app-loading");
+                if (appLoadingEl) {
+                    appLoadingEl.style.backgroundColor = "#f8d7da";
+                    appLoadingEl.innerHTML = `<div style="color:#721c24; padding:20px;">
+                <strong>Ett fel uppstod:</strong><br>${error.message}
+            </div>`;
+                }
+            }
+        }
+
+
+        function fetchCsv(url) {
+            return new Promise((resolve, reject) => {
+                Papa.parse(url, {
+                    download: true,
+                    header: true,
+                    skipEmptyLines: true,
+                    delimiter: '\t',
+                    complete: (results) => resolve(results.data),
+                    error: (err) => reject(err)
+                });
+            });
+        }
+
+        // Konvertera player_id till spelarens namn och nummer
+        function getPlayerName(playerId, short = false) {
+            if (!playerId) return '-';
+            const player = db.players.find(p => p.player_id === playerId);
+            if (player) {
+                const name = `${player.player_first_name} ${player.player_last_name}`;
+                return short ? name : `#${player.player_jersey} ${name}`;
+            }
+            return `[Okänd: ${playerId}]`;
+        }
+
+        /**
+         * Tillämpar Competition Ranking (1, 2, 2, 4...) på en sorterad array.
+         */
+
+        // RANKING-PRINCIP:
+        // – Alla angivna tiebreakers ska ingå i applyCompetitionRanking-jämförelsen (de bryter delad rank).
+        // – "Stabilitet" (t.ex. tröjnummer eller namn) ska bara styra visningsordning inom helt identiska rader.
+
+        function applyCompetitionRanking(sortedArray, comparisonFn) {
+            if (sortedArray.length === 0) return [];
+
+            let rank = 1;
+            sortedArray[0].rank = 1;
+
+            for (let i = 1; i < sortedArray.length; i++) {
+                if (comparisonFn(sortedArray[i], sortedArray[i - 1])) {
+                    sortedArray[i].rank = rank;
+                } else {
+                    rank = i + 1;
+                    sortedArray[i].rank = rank;
+                }
+            }
+            return sortedArray;
+        }
+
+        // Logik för att räkna ut poäng och mappa data
+        function processData() {
+
+            // --- 0. Förbered spelardata (alla spelare, inte lag-specifikt) ---
+            const allPlayerIds = new Set();
+            db.players.forEach(p => {
+                if (p && p.player_id) allPlayerIds.add(p.player_id);
+            });
+
+            // --- 1. Initiera maps och räknare ---
+
+            db.questions.forEach(q => questionMap[q.question_id] = q);
+
+            db.tippers.forEach(t => tipperMap[t.tipper_id] = { ...t, full: 0, half: 0, participated: false, tips: {} });
+
+            const playerTipsCountMap = {};
+            const playerScoreMap = {};
+            const playerProfilesMap = {};
+            const uniqueTippersPerPlayer = {};
+            const resolvedQuestionsByTips = new Set();
+
+            db.players.forEach(p => {
+                if (!p || !p.player_id) return;
+
+                playerScoreMap[p.player_id] = {
+                    id: p.player_id,
+                    jersey: parseInt(p.player_jersey),
+                    count_first: 0,
+                    count_second: 0
+                };
+            });
+
+            // --- 2. Mappa resultat ---
+            // Mål:
+            //  A) resultsByTeam[teamId][questionId]  -> lagspecifikt facit (team härleds från first_player)
+            //  B) resultsAll[questionId]            -> union över alla lag (för t.ex. spelarsidor, generella listor)
+
+            const resultsByTeam = {};
+            const resultsAll = {};
+
+            function splitIds(str) {
+                return str ? String(str).split(";").map(s => s.trim()).filter(Boolean) : [];
+            }
+
+            function ensureAll(questionId) {
+                if (!resultsAll[questionId]) resultsAll[questionId] = { first: [], second: [] };
+                return resultsAll[questionId];
+            }
+
+            function addUnique(arr, ids) {
+                ids.forEach(id => { if (!arr.includes(id)) arr.push(id); });
+            }
+
+            // NYTT: bygg facit från db.resultsByTeamRaw (en flik per lag)
+            if (db.resultsByTeamRaw && Object.keys(db.resultsByTeamRaw).length > 0) {
+
+                Object.entries(db.resultsByTeamRaw).forEach(([teamId, rows]) => {
+                    if (!resultsByTeam[teamId]) resultsByTeam[teamId] = {};
+
+                    rows.forEach(r => {
+                        const questionId = r.question;
+                        const firstIds = splitIds(r.first_player);
+                        const secondIds = splitIds(r.second_player);
+
+                        // Samma varning som tidigare – men nu utan lag-härledning
+                        if (firstIds.length === 0) {
+                            if (secondIds.length > 0) {
+                                console.warn("[results][WARN] second_player ifylld men first_player saknas:", {
+                                    teamId,
+                                    questionId,
+                                    secondIds,
+                                    rawRow: r
+                                });
+                            }
+                            // union kan fortfarande byggas (second)
+                            const all = ensureAll(questionId);
+                            addUnique(all.second, secondIds);
+                            return;
+                        }
+
+                        // Lagspecifik lagring (teamId kommer från fliken, inte från spelaren)
+                        resultsByTeam[teamId][questionId] = { first: firstIds, second: secondIds };
+
+                        // Union (för globalt bruk)
+                        const all = ensureAll(questionId);
+                        addUnique(all.first, firstIds);
+                        addUnique(all.second, secondIds);
+                    });
+                });
+
+            } else {
+
+                // Fallback: gammal logik (om du råkar köra utan resultsByTeamRaw)
+                console.warn("[results][WARN] resultsByTeamRaw saknas – använder fallback via db.results + härledning.");
+
+                db.results.forEach(r => {
+                    const questionId = r.question;
+                    const firstIds = splitIds(r.first_player);
+                    const secondIds = splitIds(r.second_player);
+
+                    if (firstIds.length === 0) {
+                        if (secondIds.length > 0) {
+                            console.warn("[results][WARN] second_player ifylld men first_player saknas:", {
+                                questionId,
+                                secondIds,
+                                rawRow: r
+                            });
+                        }
+                        const all = ensureAll(questionId);
+                        addUnique(all.second, secondIds);
+                        return;
+                    }
+
+                    const firstPlayerId = firstIds[0];
+                    const firstPlayer = (Array.isArray(db.players) ? db.players : []).find(p => p.player_id === firstPlayerId);
+
+                    if (!firstPlayer) {
+                        console.warn("[results][WARN] first_player finns inte i players-tabellen:", {
+                            questionId,
+                            firstPlayerId,
+                            rawRow: r
+                        });
+                        const all = ensureAll(questionId);
+                        addUnique(all.first, firstIds);
+                        addUnique(all.second, secondIds);
+                        return;
+                    }
+
+                    const teamId = firstPlayer.player_team;
+
+                    if (!resultsByTeam[teamId]) resultsByTeam[teamId] = {};
+                    resultsByTeam[teamId][questionId] = { first: firstIds, second: secondIds };
+
+                    const all = ensureAll(questionId);
+                    addUnique(all.first, firstIds);
+                    addUnique(all.second, secondIds);
+                });
+            }
+
+
+            // Exponera på db så vyer kan använda dem
+            db.resultsByTeam = resultsByTeam;
+            db.resultsAll = resultsAll;
+
+            const resultsMap = resultsAll; // kompatibilitet: resten av koden väntar sig resultsMap
+
+
+            console.log("[results] byggt", {
+                teams: Object.keys(resultsByTeam).length,
+                questionsAll: Object.keys(resultsAll).length
+            });
+
+
+            // --- 2B. Bygg separat lista: Spelare som varit 1:a i facit (oavsett om någon tippat) ---
+            // Detta används i 'Alla spelare' när man växlar till läget "Först i facit".
+            // Endast spelare som faktiskt varit 1:a i någon fråga ska ingå.
+            const firstWinnersMap = {};
+
+            db.results.forEach(r => {
+                const qId = r.question;
+                const firstIds = r.first_player ? r.first_player.split(';').map(s => s.trim()).filter(Boolean) : [];
+                if (firstIds.length === 0) return;
+
+                firstIds.forEach(playerId => {
+                    // Vi kan bara visa spelare som finns i players-tabellen (annars saknas namn/tröja)
+                    const p = db.players.find(pp => pp.player_id === playerId);
+                    if (!p) return;
+
+                    if (!firstWinnersMap[playerId]) {
+                        firstWinnersMap[playerId] = {
+                            playerId,
+                            jersey: parseInt(p.player_jersey) || 999,
+                            count_first: 0
+                        };
+                    }
+                    firstWinnersMap[playerId].count_first += 1;
+                });
+            });
+
+            db.playerFirstWinners = Object.values(firstWinnersMap)
+                .filter(x => (x.count_first || 0) > 0)
+                .slice()
+                .sort((a, b) => {
+                    if ((b.count_first || 0) !== (a.count_first || 0)) return (b.count_first || 0) - (a.count_first || 0);
+                    return (a.jersey || 999) - (b.jersey || 999); // stabilitet inom helt lika
+                });
+
+            applyCompetitionRanking(
+                db.playerFirstWinners,
+                (a, b) => (a.count_first || 0) === (b.count_first || 0)
+            );
+
+
+            // --- 3. Loopa igenom tips, rätta och bygg profiler ---
+
+            let totalTips = 0;
+
+            // 3B. Bidrag per spelare (summerade tipshändelser: helrätt/halvrätt)
+            // Nyckel: playerId -> { full: number, half: number }
+            const contributionByPlayerId = {};
+
+            db.tips.forEach(tip => {
+                const questionId = tip.question;
+                const guessedPlayerId = tip.player;
+                const tipperId = tip.tipper;
+
+                const facit = resultsMap[questionId];
+                const tipper = tipperMap[tipperId];
+
+                if (!tipper) return;
+
+                tipper.participated = true;
+                tipper.tips[questionId] = guessedPlayerId;
+
+                if (guessedPlayerId) {
+
+                    totalTips++;
+
+                    // Popularitetsräkning & PlayerProfiles - Alla spelare räknas
+                    if (allPlayerIds.has(guessedPlayerId)) {
+                        playerTipsCountMap[guessedPlayerId] = (playerTipsCountMap[guessedPlayerId] || 0) + 1;
+
+                        if (!uniqueTippersPerPlayer[guessedPlayerId]) {
+                            uniqueTippersPerPlayer[guessedPlayerId] = new Set();
+                        }
+                        uniqueTippersPerPlayer[guessedPlayerId].add(tipperId);
+
+                        if (!playerProfilesMap[guessedPlayerId]) {
+                            playerProfilesMap[guessedPlayerId] = {};
+                        }
+                        if (!playerProfilesMap[guessedPlayerId][questionId]) {
+                            playerProfilesMap[guessedPlayerId][questionId] = {
+                                count: 0,
+                                uniqueTippers: new Set()
+                            };
+                        }
+                        playerProfilesMap[guessedPlayerId][questionId].count++;
+                        playerProfilesMap[guessedPlayerId][questionId].uniqueTippers.add(tipperId);
+                    }
+
+                    // Rätta tips (Helrätt/Halvrätt för tipparen) + bygg bidrag per spelare
+                    if (facit) {
+                        if (facit.first.includes(guessedPlayerId)) {
+                            tipper.full += 1;
+                            resolvedQuestionsByTips.add(questionId);
+
+                            if (!contributionByPlayerId[guessedPlayerId]) {
+                                contributionByPlayerId[guessedPlayerId] = { full: 0, half: 0 };
+                            }
+                            contributionByPlayerId[guessedPlayerId].full += 1;
+                        }
+                        else if (facit.second.includes(guessedPlayerId)) {
+                            tipper.half += 1;
+                            resolvedQuestionsByTips.add(questionId);
+
+                            if (!contributionByPlayerId[guessedPlayerId]) {
+                                contributionByPlayerId[guessedPlayerId] = { full: 0, half: 0 };
+                            }
+                            contributionByPlayerId[guessedPlayerId].half += 1;
+                        }
+                    }
+                }
+            });
+
+            // Exportera bidrag per spelare
+            db.playerContribution = contributionByPlayerId;
+            console.log("[4B][playerContribution] ok", {
+                playersWithContribution: Object.keys(db.playerContribution || {}).length,
+                sample: Object.entries(db.playerContribution || {}).slice(0, 5)
+            });
+
+            // --- 4. Skapa slutgiltiga listor och tillämpa ranking ---
+
+            db.totalTips = totalTips;
+            db.playerProfiles = playerProfilesMap;
+            db.uniqueTippersPerPlayer = uniqueTippersPerPlayer;
+
+            db.resolvedQuestionsCount = resolvedQuestionsByTips.size;
+
+            // 4A. TIPPAR-TOPPLISTA
+            const compareNamesSv = (aName, bName) =>
+                String(aName).localeCompare(String(bName), "sv", { numeric: true, sensitivity: "base" });
+
+            db.leaderboard = Object.values(tipperMap)
+                .sort((a, b) => {
+                    if (b.full !== a.full) return b.full - a.full;
+                    if (b.half !== a.half) return b.half - a.half;
+                    return compareNamesSv(a.tipper_name, b.tipper_name);
+                });
+
+            const tipperComparison = (a, b) => a.full === b.full && a.half === b.half;
+            applyCompetitionRanking(db.leaderboard, tipperComparison);
+
+            // 4B. SPELAR-RESULTATLISTA (facit-1:or) – oberoende av tips
+            // Rank-nyckel: count_first (tiebreakers: inga). Jersey = stabil visningsordning inom helt lika.
+            try {
+                console.log("[3A][playerWinners] start", {
+                    hasPlayerScoreMap: typeof playerScoreMap !== "undefined",
+                    playerScoreMapSize: playerScoreMap ? Object.keys(playerScoreMap).length : "n/a"
+                });
+
+                db.playerWinners = Object.values(playerScoreMap)
+                    .filter(p => (p.count_first || 0) > 0)
+                    .slice()
+                    .sort((a, b) => {
+                        if ((b.count_first || 0) !== (a.count_first || 0)) return (b.count_first || 0) - (a.count_first || 0);
+                        return (a.jersey || 999) - (b.jersey || 999); // stabilitet inom helt lika
+                    });
+
+                applyCompetitionRanking(
+                    db.playerWinners,
+                    (a, b) => (a.count_first || 0) === (b.count_first || 0)
+                ); // tiebreakers ingår i comparisonFn (här: inga). Jersey är bara stabilitet.
+
+                console.log("[3A][playerWinners] ok", { winnersLen: db.playerWinners.length });
+            } catch (e) {
+                console.error("[3A][playerWinners] ERROR", e);
+                // Viktigt: sätt till tom lista så resten av processData kan fortsätta
+                db.playerWinners = [];
+            }
+
+            // 4C. SPELAR-POPULARITETSLISTA
+            db.playerPopularity = Object.entries(playerTipsCountMap)
+                .map(([playerId, count]) => {
+                    const uniqueTippersSet = db.uniqueTippersPerPlayer[playerId] || { size: 0 };
+                    const uniqueTippersCount = uniqueTippersSet.size;
+                    const player = db.players.find(p => p.player_id === playerId);
+                    const jersey = player ? parseInt(player.player_jersey) : Infinity;
+
+                    return {
+                        playerId,
+                        count, // Total tips
+                        uniqueTippersCount, // Antal unika tippare
+                        jersey
+                    };
+                })
+                .sort((a, b) => {
+                    if (b.count !== a.count) return b.count - a.count;
+                    if (b.uniqueTippersCount !== a.uniqueTippersCount) return b.uniqueTippersCount - a.uniqueTippersCount;
+                    return a.jersey - b.jersey;
+                });
+
+            const popularityComparison = (a, b) => (
+                a.count === b.count && a.uniqueTippersCount === b.uniqueTippersCount
+            );
+            applyCompetitionRanking(db.playerPopularity, popularityComparison);
+
+
+            processedQuestions = db.questions.map(q => {
+                const result = (db.resultsAll && db.resultsAll[q.question_id]) ? db.resultsAll[q.question_id] : null;
+                return {
+                    ...q,
+                    resolved: !!result,
+                    result: result || { first: [], second: [] }
+                };
+            });
+
+            // 4B. SPELAR-TOPPLISTA
+            db.playerScoreboard = Object.values(playerScoreMap)
+                .filter(p => p.count_first > 0 || p.count_second > 0)
+                .sort((a, b) => {
+                    if (b.count_first !== a.count_first) return b.count_first - a.count_first;
+                    if (b.count_second !== a.count_second) return b.count_second - a.count_second;
+                    return a.jersey - b.jersey;
+                });
+
+            const playerComparison = (a, b) => a.count_first === b.count_first && a.count_second === b.count_second;
+
+            // OBS!
+            // db.playerScoreboard rankas GLOBALT här.
+            // Denna lista är avsedd för helhetsvyer (alla lag).
+            // Om listan filtreras (t.ex. per lag eller per fråga) i en vy
+            // MÅSTE ranken räknas om EFTER filtreringen,
+            // annars kan placeringen börja på t.ex. "3.".
+            // (Samma princip som för playerFirstWinners i lagvyer.)
+
+
+            applyCompetitionRanking(db.playerScoreboard, playerComparison);
+        }
+
+
+        function renderTippersView(params = {}) {
+            const activeTeamId =
+                params.teamId ??
+                window.TIPS?.state?.currentTeamId ??
+                null;
+
+            // Spara senast valda lag så vyn blir stabil även om man navigerar vidare
+            if (!window.TIPS.state) window.TIPS.state = {};
+            if (activeTeamId != null) window.TIPS.state.currentTeamId = activeTeamId;
+
+            console.log("[tippers] renderTippersView kallad", { params, activeTeamId });
+
+            const el = document.getElementById("view-tippers");
+            if (!el) {
+                console.warn("[tippers] Saknar #view-tippers");
+                return;
+            }
+
+            // Lagkontekst: vilka spelare tillhör laget?
+            const teamPlayerIdSet = new Set(
+                (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                    .filter(p => activeTeamId == null || String(p.player_team) === String(activeTeamId))
+                    .map(p => p.player_id)
+            );
+
+            let tippers = TIPS.maps.tipperMap ? Object.values(TIPS.maps.tipperMap).slice() : [];
+
+            // Lagspecifikt: en tipper är med om den har minst ett tips på en spelare i laget
+            if (activeTeamId != null) {
+                const tipperHasTeamTip = new Set();
+
+                (Array.isArray(TIPS.db.tips) ? TIPS.db.tips : []).forEach(t => {
+                    if (!t || !t.tipper || !t.player) return;
+                    if (!teamPlayerIdSet.has(t.player)) return;
+                    tipperHasTeamTip.add(t.tipper);
+                });
+
+                tippers = tippers.filter(t => tipperHasTeamTip.has(t.tipper_id));
+
+                console.log("[tippers] lagfilter", {
+                    activeTeamId,
+                    totalTippersAll: (TIPS.maps.tipperMap ? Object.keys(TIPS.maps.tipperMap).length : 0),
+                    totalTippersTeam: tippers.length
+                });
+            }
+
+            // Fortfarande bokstavsordning (svensk locale)
+            tippers.sort((a, b) => a.tipper_name.localeCompare(b.tipper_name, "sv"));
+
+            let html = `
+  <h1>Alla tippare</h1>
+<p class="team-summary">
+    <span class="muted">Se även</span>
+    <span class="link-color team-summary-toplists-link tippers-toplists-link">Topplista</span>
+</p>
+`;
+
+            if (tippers.length === 0) {
+                html += `<p>Inga tippare hittades.</p>`;
+                el.innerHTML = html;
+                return;
+            }
+
+            // Numrerad lista
+            html += `<ol class="simple-list simple-list--numbered">`;
+            tippers.forEach((t) => {
+                html += `
+            <li>
+                <span class="link-color tippers-link" data-tipper-id="${t.tipper_id}">
+                    ${t.tipper_name}
+                </span>
+            </li>
+        `;
+            });
+            html += `</ol>`;
+
+            el.innerHTML = html;
+
+            // Klick på "Topplista"
+            const toplistsLink = el.querySelector(".tippers-toplists-link");
+            if (toplistsLink) {
+                toplistsLink.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    console.log("[tippers] Klick på 'Topplista' → toplists");
+                    appRouter.showView("toplists", activeTeamId != null ? { teamId: activeTeamId } : {});
+                });
+            }
+
+            // Klick → tipper-vy (event delegation)
+            const list = el.querySelector(".simple-list");
+            if (list) {
+                list.addEventListener("click", (event) => {
+                    const link = event.target.closest(".tippers-link");
+                    if (!link) return;
+
+                    const tipperId = link.getAttribute("data-tipper-id");
+                    if (!tipperId) return;
+
+                    const tipper = TIPS.maps.tipperMap[tipperId];
+                    if (!tipper) return;
+
+                    console.log("[tippers] Klick på tippare → tipper:", tipper.tipper_name);
+                    appRouter.showView("tipper", {
+                        tipperName: tipper.tipper_name,
+                        teamId: activeTeamId
+                    });
+                });
+            }
+        }
+
+
+
+        function log(msg) {
+            console.log(msg);
+            // document.getElementById('debug-log').innerText += msg + "\n";
+        }
+
+
+        window.TIPS.utils.log = log;
+        window.TIPS.utils.processData = processData;
+        window.TIPS.utils.init = init;
+
+        // Kör igång!
+        init();
+
+    </script>
+
+    <script>
+        (function () {
+
+            const TIPS = window.TIPS;
+
+            console.log("[router] Initierar vyhantering...");
+
+            // ============================================================
+            // UI-STATE (globalt för router- och vylogik)
+            //
+            // Dessa variabler:
+            // – styr hur vyer renderas (toggles, checkboxar, lägen)
+            // – ska INTE innehålla data från Google Sheets
+            // – ska överleva vybyten (men nollställs vid sidladdning)
+            //
+            // Lägg ALLA nya UI-lägen här (t.ex. toggles, checkbox-state).
+            // ============================================================
+
+            let playersIncludeUntipped = false; // Steg 2
+            let toplistsShowAll = false; // "Visa alla" i topplistan
+
+            // (fler UI-state-variabler kommer här)
+
+            let playersViewMode = "popularity"; // "popularity" | "results" | "contrib"
+
+
+
+            // Lista över alla vyer vi vill kunna visa
+            const VIEWS = ["start", "team", "question", "question-player", "player", "player-tippers", "tipper", "players", "tippers", "toplists"];
+            // vi fyller på senare
+
+            // NYTT: vy-historik (för tillbakaknappen)
+            const viewHistory = [];
+            let currentView = null;
+            let currentParams = {};
+            let suppressHistoryPush = false;
+            const forwardHistory = [];
+
+
+            // ============================================================
+            // SLUT UI-STATE
+            // Nedan följer rena funktioner (render, router, helpers)
+            // ============================================================
+
+            function getViewElement(viewName) {
+                const el = document.getElementById(`view-${viewName}`);
+                if (!el) {
+                    console.warn("[router] Hittar inte element för vy:", viewName);
+                }
+                return el;
+            }
+
+            function renderStartView(params = {}) {
+                console.log("[start] renderStartView kallad");
+                const el = getViewElement("start");
+                if (!el) return;
+
+                const tips = (TIPS.db && Array.isArray(TIPS.db.tips)) ? TIPS.db.tips : [];
+                const players = (TIPS.db && Array.isArray(TIPS.db.players)) ? TIPS.db.players : [];
+                const teams = (TIPS.db && Array.isArray(TIPS.db.teams)) ? TIPS.db.teams : [];
+
+                // 1) Hitta alla lag-IDn som faktiskt har tips
+                const teamIdsWithTips = new Set();
+                tips.forEach(tip => {
+                    if (!tip || !tip.player) return;
+                    const p = players.find(pp => pp.player_id === tip.player);
+                    if (p && p.player_team) teamIdsWithTips.add(p.player_team);
+                });
+
+                // 2) Gruppera dessa lag efter liga
+                const leaguesMap = {}; // { "Hockeyallsvenskan": [teamObj, teamObj], ... }
+
+                teamIdsWithTips.forEach(tId => {
+                    const teamObj = teams.find(t => String(t.team_id) === String(tId));
+                    if (teamObj) {
+                        const leagueName = teamObj.team_league || "Övriga ligor";
+                        if (!leaguesMap[leagueName]) leaguesMap[leagueName] = [];
+                        leaguesMap[leagueName].push(teamObj);
+                    }
+                });
+
+                // 3) Bygg HTML
+                let html = `
+        <section class="intro-section">
+            <h1>Vem blir först?</h1>
+            <p>
+                Vem blir först för säsongen att göra mål? Vem blir först utvisad? 
+                Nu är både SHL och Hockeyallsvenskan igång och vi kommer så småningen veta 
+                vilka som gissat bäst enligt reglerna. Vissa av frågorna kanske inte avgörs 
+                ens när grundserien är avgjord, så om ingen springer ifrån kommer möjligheten 
+                att skrälla kvarstå in i det sista.
+            </p>
+        </section>
+        
+        <h2 class="section-heading">Välj liga och lag</h2>
+    `;
+
+                const leagueNames = Object.keys(leaguesMap).sort();
+
+                if (leagueNames.length === 0) {
+                    html += `<p class="muted">Inga lag med registrerade tips hittades ännu.</p>`;
+                } else {
+                    leagueNames.forEach(lName => {
+                        html += `
+                <details class="league-container">
+                    <summary class="league-summary">${lName}</summary>
+                    <div class="team-grid">
+            `;
+
+                        // Sortera lagen i ligan alfabetiskt
+                        const sortedTeams = leaguesMap[lName].sort((a, b) =>
+                            (a.team_name || "").localeCompare(b.team_name || "", "sv")
+                        );
+
+                        sortedTeams.forEach(team => {
+                            html += `
+                    <div class="team-button start-team-link" data-team-id="${team.team_id}">
+                        ${team.team_name}
+                    </div>
+                `;
+                        });
+
+                        html += `
+                    </div>
+                </details>
+            `;
+                    });
+                }
+                html += `
+    
+    <div class="rules-section">
+        <h2 class="section-heading">Poäng och rangordning</h2>
+        <p>I första hand räknar vi <span class="badge badge--full">fullträffar</span>. Det vill säga, du har lyckats gissa på den spelare som verkligen var först för säsongen.</p>
+        <p>I andra hand räknar vi <span class="badge badge--half">halvträffar</span>. Det vill säga, när spelaren du gissade på åtminstone var före de spelare andra gissade på.</p>
+        <p>Om det fortfarande inte går att skilja mellan tippare tittar vi på vem som fått sina rätt snabbast. Fullträffar i första hand.</p>
+        <p>Räkna inte med blixtsnabba uppdateringar. Officiell statistik från ligornas webbsidor gäller.</p>
+    </div>
+
+    <div class="questions-container">
+        <h2 class="section-heading">Frågorna</h2>
+        <ol class="fragor-list">
+            <li>Först att göra mål</li>
+            <li>Först att spela fram till ett mål (första assist)</li>
+            <li>Först att göra ett matchavgörande mål</li>
+            <li>Först att göra mål i powerplay</li>
+            <li>Först att göra mål i boxplay</li>
+            <li>Först att göra mål i tom kasse</li>
+            <li>Först att göra mål på övertid</li>
+            <li>Först att göra mål som blir bortdömt efter videogranskning</li>
+            <li>Först att sätta en straff</li>
+            <li>Först att få minst 3 poäng i samma match</li>
+            <li>Först att göra hattrick</li>
+            <li>Först att, som utespelare, spela minst 25 minuter i en och samma match</li>
+            <li>Först att nå 10 mål</li>
+            <li>Först att nå 20 poäng</li>
+            <li>Först att nå 50 skott på mål</li>
+            <li>Först att göra poäng 5 matcher i rad</li>
+            <li>Först att komma upp i 5 tvåminutersutvisningar</li>
+            <li>Först att dra på sig en tvåminutersutvisning</li>
+            <li>Först att få matchstraff</li>
+            <li>Först att bli utvisad för abuse of officials</li>
+            <li>Först att bli avstängd</li>
+            <li>Först att få ett skott på mål</li>
+            <li>Först att intervjuas av TV4 i en paus</li>
+        </ol>
+    </div>
+    <p style="text-align: center; margin-top: 2rem; font-weight: bold; opacity: 0.7;">Lycka till!</p>
+                    `;
+                el.innerHTML = html;
+
+                // 4) Klickhantering (Event delegation)
+                el.addEventListener("click", (event) => {
+                    const teamLink = event.target.closest(".start-team-link");
+                    if (teamLink) {
+                        const teamId = teamLink.getAttribute("data-team-id");
+                        if (teamId) {
+                            console.log("[start] Navigerar till lag:", teamId);
+                            appRouter.showView("team", { teamId: teamId });
+                        }
+                    }
+                });
+            }
+
+            // === NYTT: Render-funktion för lagvyn ===
+
+
+            function renderToplistsView(params = {}) {
+                console.log("[toplists] renderToplistsView kallad med params:", params);
+                const activeTeamId =
+                    params.teamId ??
+                    window.TIPS?.state?.currentTeamId ??
+                    null;
+
+                // Spara "senast valda lag" så toplists kan återanvända kontexten vid re-render
+                if (!window.TIPS.state) window.TIPS.state = {};
+                if (activeTeamId != null) window.TIPS.state.currentTeamId = activeTeamId;
+
+                const teamLabel = activeTeamId != null ? TIPS.utils.getTeamLabel(activeTeamId) : null;
+
+                console.log("[toplists] team context:", { activeTeamId, teamLabel });
+
+
+                const el = getViewElement("toplists");
+                if (!el) {
+                    console.warn("[toplists] Kan inte rendera vy – saknar element");
+                    return;
+                }
+
+                // Total / avgjorda frågor (avgjord = kan ge hel-/halvrätt)
+                const totalQuestions = (TIPS.db && Array.isArray(TIPS.db.questions)) ? TIPS.db.questions.length : 0;
+
+                // Avgjord = minst en tipper har tippat på någon i facit.first eller facit.second för frågan
+                function countResolvedQuestionsByTipsForTeam(teamId) {
+                    const teamResults = TIPS.db.resultsByTeam?.[teamId] || {};
+                    const tipsArr = Array.isArray(TIPS.db.tips) ? TIPS.db.tips : [];
+
+                    // Bygg en lokal set för att undvika "Cannot access ... before initialization"
+                    // (renderToplistsView deklarerar också en teamPlayerIdSet senare).
+                    const teamPlayerIdSet = new Set(
+                        (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                            .filter(p => teamId != null && String(p.player_team) === String(teamId))
+                            .map(p => p.player_id)
+                    );
+
+                    // Indexera tips per fråga för snabbare check
+                    const tipsByQuestion = new Map(); // qId -> array tips
+                    tipsArr.forEach(tip => {
+                        if (!tip || !tip.question || !tip.player) return;
+
+                        // I lagvy: filtrera bort tips som inte gäller spelare i laget
+                        if (teamId != null && !teamPlayerIdSet.has(tip.player)) return;
+
+                        const qKey = String(tip.question);
+                        if (!tipsByQuestion.has(qKey)) tipsByQuestion.set(qKey, []);
+                        tipsByQuestion.get(qKey).push(tip);
+                    });
+
+                    let resolved = 0;
+
+                    Object.entries(teamResults).forEach(([qId, facit]) => {
+                        if (!facit) return;
+
+                        const firstIds = Array.isArray(facit.first) ? facit.first : [];
+                        const secondIds = Array.isArray(facit.second) ? facit.second : [];
+
+                        // Om facit saknar first/second helt så kan den ändå inte bli "avgjord"
+                        if (!firstIds.length && !secondIds.length) return;
+
+                        const winners = new Set([...firstIds, ...secondIds]);
+
+                        const tipsForQ = tipsByQuestion.get(String(qId)) || [];
+                        const anyHit = tipsForQ.some(tip => winners.has(tip.player));
+
+                        if (anyHit) resolved++;
+                    });
+
+                    return resolved;
+                }
+
+                // Om du någonsin visar toplists utan valt lag kan du låta det bli 0 eller göra union-logik.
+                // Men i din vy verkar du nästan alltid ha activeTeamId.
+                const resolvedQuestions =
+                    (activeTeamId != null)
+                        ? countResolvedQuestionsByTipsForTeam(activeTeamId)
+                        : 0;
+
+                let html = "";
+                html += `<h1>Topplista för tippare${teamLabel ? ` (${teamLabel})` : ""}</h1>`;
+                html += `<p class="muted">${resolvedQuestions} av ${totalQuestions} frågor är avgjorda.</p>`;
+
+                // Visa alla (inkl 0/0)
+                const showAll = !!toplistsShowAll;
+                html += `
+  <label style="display:inline-flex; gap:.5rem; align-items:center; margin: 0 0 0.75rem 0;">
+    <input type="checkbox" id="toplists-show-all" ${showAll ? "checked" : ""}>
+    <span>Visa alla</span>
+  </label>
+`;
+
+
+                // Dragspel: "Så funkar topplistan"
+                html += `
+                <details class="toplists-explain">
+                    <summary>Så funkar topplistan</summary>
+                    <div class="toplists-explain-body">
+                        <ul>
+                            <li>Vi jämför först antal helrätt.</li>
+                            <li>Vid lika många helrätt jämför vi antal halvrätt.</li>
+                            <li>En helrätt slår alltid alla mängder halvrätt.</li>
+                            <li>Delad placering följer competition ranking (1, 2, 2, 4…).</li>
+                            <li>Vid delad placering sorteras namnen i svensk alfanumerisk ordning.</li>
+                        </ul>
+                    </div>
+                </details>
+            `;
+
+                // =========================
+                // LAG-SPECIFIK TOPPLISTA
+                // =========================
+
+                // 1) Vilka spelare tillhör laget?
+                const teamPlayerIdSet = new Set(
+                    (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                        .filter(p => activeTeamId == null || String(p.player_team) === String(activeTeamId))
+                        .map(p => p.player_id)
+                );
+
+                // 2) Förbered statistik per tipper (inkl 0/0 så "Visa alla" funkar)
+                const teamTipperStats = {}; // { tipperId: { tipper_id, tipper_name, full, half } }
+
+                // Bygg snabb lookup: playerId -> teamId (för global vy / fallback)
+                const playerTeamById = new Map(
+                    (Array.isArray(TIPS.db.players) ? TIPS.db.players : []).map(p => [p.player_id, p.player_team])
+                );
+
+                // Initiera tippare med 0/0 – men bara de som faktiskt har tippat på laget
+                const participatingTipperIdSet = new Set();
+
+                (Array.isArray(TIPS.db.tips) ? TIPS.db.tips : []).forEach(tip => {
+                    if (!tip || !tip.tipper || !tip.player || !tip.question) return;
+
+                    // I lagvy: räkna bara tips som gäller spelare i laget
+                    if (activeTeamId != null) {
+                        if (!teamPlayerIdSet.has(tip.player)) return;
+                        participatingTipperIdSet.add(tip.tipper);
+                        return;
+                    }
+
+                    // I ev "global" vy: om du vill ha alla tippare som tippat på något alls
+                    participatingTipperIdSet.add(tip.tipper);
+                });
+
+                console.log("[toplists] participatingTipperIdSet size:", participatingTipperIdSet.size);
+
+                // Bygg listan tippare (från db.tippers eller tipperMap) men filtrera på participatingTipperIdSet
+                const allTippersArr = Array.isArray(TIPS.db.tippers)
+                    ? TIPS.db.tippers
+                    : Object.values(TIPS.maps.tipperMap || {});
+
+                allTippersArr.forEach(t => {
+                    const id = t?.tipper_id;
+                    const name = t?.tipper_name;
+                    if (id == null || !name) return;
+
+                    if (!participatingTipperIdSet.has(id)) return;
+
+                    teamTipperStats[id] = {
+                        tipper_id: id,
+                        tipper_name: name,
+                        full: 0,
+                        half: 0
+                    };
+                });
+
+                // 3) Gå igenom tips + facit per fråga och räkna upp full/half
+                (Array.isArray(TIPS.db.tips) ? TIPS.db.tips : []).forEach(tip => {
+                    if (!tip || !tip.tipper || !tip.player || !tip.question) return;
+
+                    const tipperId = tip.tipper;
+                    const qId = tip.question;
+
+                    // Om vi är i en lagvy: filtrera bort tips som inte gäller spelare i laget
+                    if (activeTeamId != null && !teamPlayerIdSet.has(tip.player)) return;
+
+                    // Hämta facit för rätt lag:
+                    // - i lagvy: activeTeamId
+                    // - i "global" vy (om den någonsin används): härled lag från spelaren
+                    const teamIdForThisTip =
+                        (activeTeamId != null)
+                            ? activeTeamId
+                            : playerTeamById.get(tip.player);
+
+                    if (teamIdForThisTip == null) return;
+
+                    const teamResults = TIPS.db.resultsByTeam?.[teamIdForThisTip] || {};
+                    const facit = teamResults[qId];
+                    if (!facit) return;
+
+                    const firstIds = Array.isArray(facit.first) ? facit.first : [];
+                    const secondIds = Array.isArray(facit.second) ? facit.second : [];
+
+                    let hitType = null;
+                    if (firstIds.includes(tip.player)) hitType = "full";
+                    else if (secondIds.includes(tip.player)) hitType = "half";
+                    else return;
+
+                    if (!teamTipperStats[tipperId]) {
+                        // Om tippare saknas i listan av någon anledning, skapa den ändå
+                        const tipper = TIPS.maps.tipperMap?.[tipperId];
+                        if (!tipper) return;
+
+                        teamTipperStats[tipperId] = {
+                            tipper_id: tipperId,
+                            tipper_name: tipper.tipper_name,
+                            full: 0,
+                            half: 0
+                        };
+                    }
+
+                    teamTipperStats[tipperId][hitType] = (teamTipperStats[tipperId][hitType] || 0) + 1;
+                });
+
+                console.log("[toplists] lag-specifik tipperStats:", teamTipperStats);
+
+                const allTippers = Object.values(teamTipperStats);
+
+                const compareNamesSv = (aName, bName) =>
+                    String(aName).localeCompare(String(bName), "sv", { numeric: true, sensitivity: "base" });
+
+                let leaderboard = allTippers.slice();
+
+                // Default: visa bara de med “något” (helrätt/halvrätt)
+                if (!showAll) {
+                    leaderboard = leaderboard.filter(t => (t.full || 0) > 0 || (t.half || 0) > 0);
+                }
+
+                // Sortering: helrätt desc, halvrätt desc, namn sv
+                leaderboard.sort((a, b) => {
+                    if ((b.full || 0) !== (a.full || 0)) return (b.full || 0) - (a.full || 0);
+                    if ((b.half || 0) !== (a.half || 0)) return (b.half || 0) - (a.half || 0);
+                    return compareNamesSv(a.tipper_name, b.tipper_name);
+                });
+
+                // Om “Visa alla”: flytta 0/0 sist (men behåll ordning sinsemellan)
+                if (showAll) {
+                    const nonZero = leaderboard.filter(t => (t.full || 0) > 0 || (t.half || 0) > 0);
+                    const zeros = leaderboard.filter(t => (t.full || 0) === 0 && (t.half || 0) === 0);
+                    leaderboard = nonZero.concat(zeros);
+                }
+
+                // Sätt competition ranking på listan som visas
+                const tipperComparison = (a, b) => (a.full || 0) === (b.full || 0) && (a.half || 0) === (b.half || 0);
+                applyCompetitionRanking(leaderboard, tipperComparison);
+
+                if (!leaderboard.length) {
+                    html += `<div class="card"><p class="muted">Inga resultat ännu.</p></div>`;
+                } else {
+                    html += `
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Tippare</th>
+                        <th>Helrätt</th>
+                        <th>Halvrätt</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+                    let lastRank = null;
+                    leaderboard.forEach((t, i) => {
+                        const rank = (typeof t.rank === "number") ? t.rank : (i + 1);
+
+                        // 2B-visning: bara första raden i en delad klunga visar placeringen
+                        const displayRank = (rank === lastRank) ? "" : String(rank);
+                        lastRank = rank;
+
+                        html += `
+            <tr>
+                <td>${displayRank}</td>
+                <td>
+                    <span class="link-color toplists-tipper-link" data-tipper-id="${t.tipper_id}">
+                        ${t.tipper_name}
+                    </span>
+                </td>
+                <td><span class="cell-number-plain">${t.full}</span></td>
+                <td><span class="cell-number-plain">${t.half}</span></td>
+            </tr>
+        `;
+                    });
+
+                    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+                }
+
+                el.innerHTML = html;
+
+                const cb = el.querySelector("#toplists-show-all");
+                if (cb) {
+                    cb.addEventListener("change", () => {
+                        toplistsShowAll = cb.checked;
+                        console.log("[toplists] Visa alla:", toplistsShowAll);
+                        renderToplistsView(activeTeamId != null ? { teamId: activeTeamId } : {});
+                    });
+                }
+
+
+                // Klick på tippare-namn → tipper-vy
+                el.querySelectorAll(".toplists-tipper-link").forEach(link => {
+                    link.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        const tipperId = link.getAttribute("data-tipper-id");
+                        const tipper = (TIPS.maps.tipperMap && tipperId) ? TIPS.maps.tipperMap[tipperId] : null;
+                        if (!tipper) return;
+
+                        console.log("[toplists] Klick på tippare → tipper:", tipper.tipper_name);
+                        appRouter.showView("tipper", {
+                            tipperName: tipper.tipper_name,
+                            teamId: activeTeamId
+                        });
+                    });
+                });
+            }
+
+            function renderTeamView(params = {}) {
+                console.log("[team] amView kallad med params:", params);
+                // --- Team-kontekst (gör lagvyn generisk) -----------------------
+                const teamId =
+                    params.teamId ??
+                    window.TIPS?.state?.currentTeamId ??
+                    null;
+
+                // Spara "senast valda lag" så breadcrumbs och andra vyer kan återanvända det
+                if (!window.TIPS.state) window.TIPS.state = {};
+                if (teamId != null) window.TIPS.state.currentTeamId = teamId;
+
+                // Team-label via gemensam helper (en enda sann källa för lagnamn)
+                const teamLabel = (teamId != null)
+                    ? TIPS.utils.getTeamLabel(teamId)
+                    : "Lag";
+
+
+
+                const pq = (TIPS && TIPS.data && typeof TIPS.data.processedQuestions === "function")
+                    ? TIPS.data.processedQuestions()
+                    : null;
+
+                const el = getViewElement("team");
+                if (!el) {
+                    console.warn("[team] Kan inte rendera lagvy – saknar element");
+                    return;
+                }
+
+                // Säkerhetskoll: har datamotorerna hunnit bli klara?
+                console.log(
+                    "[team] debug – TIPS.db.questions längd:",
+                    (TIPS.db && Array.isArray(TIPS.db.questions)) ? TIPS.db.questions.length : "saknas",
+                    "| processedQuestions längd:",
+                    Array.isArray(pq) ? pq.length : "saknas"
+                );
+
+                if (
+                    !TIPS.db ||
+                    !Array.isArray(TIPS.db.questions) || TIPS.db.questions.length === 0 ||
+                    !Array.isArray(pq) || pq.length === 0
+                ) {
+                    console.warn("[team] Data verkar inte redo ännu (tom db eller processedQuestions). Visar placeholder.");
+                    el.innerHTML = `
+    <div class="page">
+      <h1>Frågelista &amp; resultat (${teamLabel || "Lag"})</h1>
+      <p>Data laddas fortfarande … prova att ladda om sidan om detta står kvar.</p>
+    </div>
+  `;
+                    return;
+                }
+
+                // 1. Summeringsdata – lagspecifikt (teamId-kontekst)
+                const totalQuestions = TIPS.db.questions.length;
+
+                // Spelare i laget
+                const teamPlayers = (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                    .filter(p => String(p.player_team) === String(teamId));
+
+                const teamPlayerIdSet = new Set(teamPlayers.map(p => p.player_id));
+
+                // Tips för laget = tips där tipset pekar på en spelare i laget
+                const teamTipperIdSet = new Set();
+                let totalTips = 0;
+
+                const tipPlayersByQuestion = {};       // { [questionId]: Set(playerId) }
+                const occurringPlayerIdSet = new Set(); // förekommande spelare i laget (bara de som faktiskt tippats)
+
+                (Array.isArray(TIPS.db.tips) ? TIPS.db.tips : []).forEach(t => {
+                    const tipperId = t.tipper;
+                    const qId = t.question;
+                    const playerId = t.player;
+
+                    if (!playerId || !qId) return;
+                    if (!teamPlayerIdSet.has(playerId)) return;
+
+                    totalTips++;
+                    occurringPlayerIdSet.add(playerId);
+
+                    if (tipperId) teamTipperIdSet.add(tipperId);
+
+                    if (!tipPlayersByQuestion[qId]) tipPlayersByQuestion[qId] = new Set();
+                    tipPlayersByQuestion[qId].add(playerId);
+                });
+
+                // Avgjorda frågor för laget = frågor där laget har facit (resultsByTeam)
+                const teamResultsSummary = (TIPS.db.resultsByTeam && TIPS.db.resultsByTeam[teamId])
+                    ? TIPS.db.resultsByTeam[teamId]
+                    : {};
+
+                // En fråga är avgjord om minst en tippare fått hel- eller halvrätt (grön/orange)
+                const resolvedQuestionIdSet = new Set();
+
+                Object.keys(tipPlayersByQuestion).forEach(qId => {
+                    const facit = teamResultsSummary[qId];
+                    if (!facit) return;
+
+                    const guessedSet = tipPlayersByQuestion[qId];
+                    const firstIds = (facit.first && Array.isArray(facit.first)) ? facit.first : [];
+                    const secondIds = (facit.second && Array.isArray(facit.second)) ? facit.second : [];
+
+                    const hasHit =
+                        firstIds.some(pid => guessedSet.has(pid)) ||
+                        secondIds.some(pid => guessedSet.has(pid));
+
+                    if (hasHit) resolvedQuestionIdSet.add(qId);
+                });
+
+                const resolvedQuestions = resolvedQuestionIdSet.size;
+
+                // Unika tippare för laget
+                const uniqueTippersCount = teamTipperIdSet.size;
+
+                console.log("[team] Summering (lagspecifik):", {
+                    teamId,
+                    totalQuestions,
+                    totalTips,
+                    resolvedQuestions,
+                    uniqueTippersCount,
+                    teamPlayers: teamPlayers.length
+                });
+
+
+                // 2. Frågelistan – använder TIPS.data.processedQuestions
+                // 2. Frågelistan – filtrera på lag om fältet finns
+                const pqHasTeam = Array.isArray(pq) && pq.some(q => q.team_id != null || q.teamId != null);
+
+                const questionsRaw = pq.slice();
+                const questionsFiltered = (teamId != null && pqHasTeam)
+                    ? questionsRaw.filter(q => String(q.team_id ?? q.teamId) === String(teamId))
+                    : questionsRaw;
+
+                const questions = questionsFiltered.sort((a, b) => (a.question_no || 0) - (b.question_no || 0));
+
+                console.log("[team] Aktivt lag:", { teamId, teamLabel, pqHasTeam, questions: questions.length });
+
+                console.log("[team] Antal frågor i frågelistan:", questions.length);
+
+                // ----------------------------------------------------------
+                // RESULTAT I LAGVYN (Först / bästa gissning) – helpers
+                // ----------------------------------------------------------
+
+                // Skapa klickbara spelarlänkar (kommatecken-separerade)
+                // Skapa klickbara spelarlänkar + klickbart "(X tippare)" per spelare (kommatecken-separerat)
+                function renderPlayerLinksFromIds(questionId, playerIds, linkMode) {
+                    if (!Array.isArray(playerIds) || playerIds.length === 0) return "";
+
+                    return playerIds
+                        .map(pid => {
+                            const name = TIPS.utils.getPlayerName(pid);
+                            const n = countTipsForQuestionAndPlayers(questionId, [pid]);
+
+                            // Badge-klass för själva namnet (för färgning)
+                            let badgeClass = "";
+                            if (linkMode === "first") badgeClass = " badge badge--full";
+                            if (linkMode === "second") badgeClass = " badge badge--half";
+                            if (linkMode === "first-no-points") badgeClass = " badge badge--grey";
+
+                            const playerHtml =
+                                `<span class="link-color result-player-link${badgeClass}" data-player-id="${pid}">${name}</span>`;
+
+                            const tippersHtml = (n > 0)
+                                ? ` <span class="link-color result-tippers-link" data-question-id="${questionId}" data-player-id="${pid}">(${n})</span>`
+                                : "";
+
+                            return playerHtml + tippersHtml;
+                        })
+                        .join("<br>");
+                }
+
+
+
+                // Räkna hur många tips (unika tippare) som valt någon i playerIds för questionId
+                // (Du har sagt att en tippare bara kan tippa 1 spelare per fråga, så detta blir korrekt utan extra dedupe.)
+                function countTipsForQuestionAndPlayers(questionId, playerIds) {
+                    if (!questionId) return 0;
+                    if (!Array.isArray(playerIds) || playerIds.length === 0) return 0;
+
+                    let n = 0;
+                    for (const tip of TIPS.db.tips || []) {
+                        if (tip.question !== questionId) continue;
+                        if (!tip.player) continue;
+                        if (playerIds.includes(tip.player)) n++;
+                    }
+                    return n;
+                }
+
+
+                // 3. Bygg HTML för lagvyn (första riktiga versionen)
+                let html = "";
+
+                // Rubrik: visa aktuellt lagnamn (inte hårdkodat)
+                html += `<h1>Frågelista &amp; resultat (${teamLabel || "Lag"})</h1>`;
+
+                // Liten hjälptext / summering
+                // Förekommande spelare = unika spelare i laget som faktiskt förekommer i tips för laget
+                const occurringPlayersCount = occurringPlayerIdSet.size;
+
+                html += `
+    <p class="team-summary">
+      <span>Totalt&nbsp;<strong>${totalQuestions}</strong>&nbsp;frågor</span>
+      <span class="muted">•</span>
+      <span><strong>${resolvedQuestions}</strong>&nbsp;avgjorda</span>
+      <span class="muted">•</span>
+      <span><strong>${totalTips}</strong>&nbsp;tips</span>
+      <span class="muted">•</span>
+<span class="summary-pair">
+  <span class="link-color team-summary-players-link">${occurringPlayersCount}</span>
+  <span class="summary-word">spelare</span>
+</span>
+      <span class="muted">•</span>
+<span class="summary-pair">
+  <span class="link-color team-summary-tippers-link">${uniqueTippersCount}</span>
+  <span class="summary-word">tippare</span>
+</span>
+      <span class="muted">|</span>
+      <span class="link-color team-summary-toplists-link">topplista</span>
+    </p>
+`;
+
+
+                // Legend för färger (visas alltid – även om inga resultat finns ännu)
+                html += `
+    <details class="result-legend" aria-label="Legend för färger">
+      <summary class="result-legend-summary">
+        <span class="result-legend-summary-show">Visa färgförklaring</span>
+        <span class="result-legend-summary-hide">Dölj färgförklaring</span>
+      </summary>
+
+      <div class="result-legend-body">
+        <div class="result-legend-title">Namnfärg</div>
+        <div class="result-legend-grid">
+          <div class="legend-item">
+            <span class="legend-swatch legend-swatch--full" aria-hidden="true"></span>
+            <span>Faktiskt först, vilket minst en tippare gissade (= "helrätt")</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch legend-swatch--half" aria-hidden="true"></span>
+            <span>Bästa gissning om ingen fick en fullträff (= "halvrätt")</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch legend-swatch--grey" aria-hidden="true"></span>
+            <span>Faktiskt först, men ingen tippade så</span>
+          </div>
+        </div>
+
+        <!--
+        <div class="result-legend-title" style="margin-top:10px;">Radfärg</div>
+        <div class="result-legend-grid">
+          <div class="legend-item">
+            <span class="legend-swatch legend-swatch--row-full" aria-hidden="true"></span>
+            <span>Avgjord fråga där minst en fick helrätt</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch legend-swatch--row-half" aria-hidden="true"></span>
+            <span>Avgjord fråga där ingen fick helrätt</span>
+          </div>
+        </div>
+        -->
+
+        <p class="result-legend-note">Färgad rad = avgjord fråga</p>
+      </div>
+    </details>
+`;
+
+
+                // Enkel tabell med frågelistan
+                html += `
+        <table class="team-question-list">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Fråga</th>
+              <th>Resultat</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+                // Facit för tabellen (lagspecifikt) – används för att rendera "Först / bästa gissning" + färgning
+                const teamResults = (TIPS.db && TIPS.db.resultsByTeam && teamId != null)
+                    ? (TIPS.db.resultsByTeam[teamId] || {})
+                    : {};
+
+                questions.forEach(q => {
+
+                    const teamFacit = teamResults[q.question_id] || null;
+
+                    const firstIds = (teamFacit && Array.isArray(teamFacit.first)) ? teamFacit.first : [];
+                    const secondIds = (teamFacit && Array.isArray(teamFacit.second)) ? teamFacit.second : [];
+
+                    // Din "avgjord"-definition:
+                    // Avgjord om:
+                    //  - någon har tippat på firstIds, ELLER
+                    //  - secondIds är ifylld (du fyller bara i den när någon fått halvrätt)
+
+                    // OBS: secondTipCount används inte i nuläget.
+                    // UI:t arbetar med tippare per spelare (inte per grupp) för korrekt klicklogik.
+                    // Behålls här för framtida behov (t.ex. aggregerade vyer eller topplistor).
+                    const firstTipCount = countTipsForQuestionAndPlayers(q.question_id, firstIds);
+                    const secondTipCount = countTipsForQuestionAndPlayers(q.question_id, secondIds);
+
+                    let rowClass = "";
+
+                    // Helrätt (grön): någon tippade på någon i firstIds
+                    if (firstTipCount > 0) {
+                        rowClass = "row-full";
+                    }
+                    // Halvrätt (orange): ingen helrätt, men secondIds ifylld (du använder det som “någon fick halvrätt”)
+                    else if (secondIds.length > 0) {
+                        rowClass = "row-half";
+                    }
+                    // Grå: först finns men inga poäng (ingen tippade på first och ingen second finns)
+                    else if (firstIds.length > 0) {
+                        rowClass = "row-grey";
+                    }
+
+
+                    let resultHtml = "";
+
+                    // “Knasiskt”-varning om Sheets bryter ditt kontrakt
+                    if (secondIds.length > 0 && firstIds.length === 0) {
+                        resultHtml = `<span title="FEL i Google Sheets: second_player ifylld men first_player saknas">⚠️ FEL i results</span>`;
+                    }
+                    // Visa Först även när ingen fått rätt (grå-läget) – dvs så fort firstIds finns
+                    else if (firstIds.length > 0) {
+                        const firstMode = (firstTipCount === 0) ? "first-no-points" : "first";
+                        const firstLinks = renderPlayerLinksFromIds(q.question_id, firstIds, firstMode);
+
+                        resultHtml = ` ${firstLinks}`;
+
+                        // Bästa gissning visas bara när ingen tippat på Först och secondIds är ifylld
+                        if (firstTipCount === 0 && secondIds.length > 0) {
+                            const secondLinks = renderPlayerLinksFromIds(q.question_id, secondIds, "second");
+                            resultHtml += `<br>${secondLinks}`;
+                        }
+                    }
+                    // Annars: varken firstIds eller secondIds → helt tomt (inte avgjord)
+                    else {
+                        resultHtml = "";
+                    }
+
+                    html += `
+<tr class="team-question-row ${rowClass}" data-question-id="${q.question_id}">
+  <td>${q.question_no}.</td>
+  <td><span class="link-color">${q.question_wording}</span></td>
+  <td>${resultHtml}</td>
+</tr>
+`;
+                });
+
+
+                html += `
+          </tbody>
+        </table>
+    `;
+                // för renderTeamView
+                el.innerHTML = html;
+                // Klick på summeringslänkar
+                const playersLink = el.querySelector(".team-summary-players-link");
+                if (playersLink) {
+                    playersLink.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        console.log("[team] Klick på 'förekommande spelare' → players");
+                        appRouter.showView("players");
+                    });
+                }
+                const tippersLink = el.querySelector(".team-summary-tippers-link");
+                if (tippersLink) {
+                    tippersLink.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        console.log("[team] Klick på 'tippare' → tippers");
+                        appRouter.showView("tippers");
+                    });
+                }
+
+                const toplistsLink = el.querySelector(".team-summary-toplists-link");
+                if (toplistsLink) {
+                    toplistsLink.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        console.log("[team] Klick på 'Topplista' → toplists");
+                        appRouter.showView("toplists");
+                    });
+                }
+
+                // NY VERSION: event delegation för att göra frågerader klickbara
+                const tbody = el.querySelector("tbody");
+                if (tbody) {
+                    tbody.addEventListener("click", (event) => {
+
+                        // 0) Klick på "(X tippare)" → question-player-vy
+                        const tippersLink = event.target.closest(".result-tippers-link");
+                        if (tippersLink) {
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            const questionId = tippersLink.getAttribute("data-question-id");
+                            const playerId = tippersLink.getAttribute("data-player-id");
+                            if (!questionId || !playerId) return;
+
+                            console.log(
+                                "[team] Klick på tippare-count i resultat → question-player:",
+                                { questionId, playerId }
+                            );
+
+                            appRouter.showView("question-player", {
+                                questionId,
+                                playerId
+                            });
+                            return;
+                        }
+
+                        // 1) Klick på spelare i resultatraden → spelarsidan
+                        const playerLink = event.target.closest(".result-player-link");
+                        if (playerLink) {
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            const playerId = playerLink.getAttribute("data-player-id");
+                            if (!playerId) return;
+
+                            console.log("[team] Klick på spelare i resultat → player:", playerId);
+                            appRouter.showView("player", { playerId });
+                            return;
+                        }
+
+                        // 2) Annars: klick på rad → frågevyn
+                        const target = event.target.closest("tr.team-question-row");
+                        if (!target) return;
+
+                        const questionId = target.getAttribute("data-question-id");
+                        console.log("[team] Klick på frågerad → navigerar till frågevyn:", questionId);
+
+                        if (!questionId) return;
+                        console.log("[team] teamId i klickhandler =", teamId);
+
+                        appRouter.showView("question", { questionId, teamId });
+                    });
+                }
+
+
+
+
+                console.log("[team] Lagvy renderad.");
+            }
+
+            function renderQuestionView(params = {}) {
+                console.log("[question] renderQuestionView kallad med params:", params);
+                const activeTeamId =
+                    params.teamId ??
+                    window.TIPS?.state?.currentTeamId ??
+                    null;
+
+                // Spara senast valda lag så vyn blir stabil även om man navigerar vidare
+                if (!window.TIPS.state) window.TIPS.state = {};
+                if (activeTeamId != null) window.TIPS.state.currentTeamId = activeTeamId;
+
+                const teamLabel = activeTeamId != null ? TIPS.utils.getTeamLabel(activeTeamId) : null;
+
+                console.log("[question] team context:", { activeTeamId, teamLabel });
+
+
+                const el = getViewElement("question");
+                if (!el) {
+                    console.warn("[question] Kan inte rendera frågevyn – saknar element");
+                    return;
+                }
+
+                const questionId = params.questionId;
+                if (!questionId) {
+                    el.innerHTML = "<h1>Fråga</h1><p>Ingen fråga vald.</p>";
+                    return;
+                }
+
+                // Hämta fråga från db + processedQuestions
+                const question = TIPS.db.questions.find(q => String(q.question_id) === String(questionId));
+                const pq = TIPS.data.processedQuestions(); // array
+                const processed = Array.isArray(pq)
+                    ? pq.find(q => String(q.question_id) === String(questionId))
+                    : null;
+
+                if (!question) {
+                    console.warn("[question] Hittar ingen fråga med id:", questionId);
+                    el.innerHTML = `<h1>Fråga</h1><p>Okänd fråga (id: ${questionId}).</p>`;
+                    return;
+                }
+
+                // Lagspecifikt facit
+                const teamResults =
+                    (activeTeamId != null && TIPS.db && TIPS.db.resultsByTeam && TIPS.db.resultsByTeam[activeTeamId])
+                        ? TIPS.db.resultsByTeam[activeTeamId]
+                        : null;
+
+                const facit = (teamResults && teamResults[question.question_id]) ? teamResults[question.question_id] : null;
+
+                const result = facit
+                    ? { first: Array.isArray(facit.first) ? facit.first : [], second: Array.isArray(facit.second) ? facit.second : [] }
+                    : { first: [], second: [] };
+
+                // “Avgjord” i denna vy: facit finns för laget
+                const isResolved = !!facit;
+
+                console.log("[question] Bygger spelarstatistik för fråga:", {
+                    questionId,
+                    wording: question.question_wording,
+                    isResolved,
+                    result
+                });
+
+
+
+                // === 1. Aggregera data: unika tippare per spelare i denna fråga ===
+                const playerStatsMap = {};
+
+                // Lagets spelare (för att filtrera tipsen i frågan)
+                const teamPlayerIdSet = new Set(
+                    (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                        .filter(p => activeTeamId == null || String(p.player_team) === String(activeTeamId))
+                        .map(p => p.player_id)
+                );
+
+                TIPS.db.tips.forEach(tip => {
+                    if (tip.question !== question.question_id || !tip.player) return;
+                    if (!teamPlayerIdSet.has(tip.player)) return;
+
+                    const playerId = tip.player;
+                    const tipperId = tip.tipper;
+
+                    if (!playerStatsMap[playerId]) {
+                        const player = TIPS.db.players.find(p => p.player_id === playerId);
+                        if (!player) return;
+
+                        playerStatsMap[playerId] = {
+                            id: playerId,
+                            jersey: parseInt(player.player_jersey),
+                            uniqueTippers: new Set()
+                        };
+                    }
+
+                    playerStatsMap[playerId].uniqueTippers.add(tipperId);
+                });
+
+                // === 2. Gör om till array och räkna unika tippare ===
+                let sortableArray = Object.values(playerStatsMap).map(p => ({
+                    ...p,
+                    uniqueTipperCount: p.uniqueTippers.size
+                }));
+
+                console.log("[question] Antal spelare som blivit tippade i frågan:", sortableArray.length);
+
+                // Om frågan är avgjord och facit (first) finns:
+                // se till att facit-spelaren/spelarna alltid finns med i listan,
+                // även om ingen tippat på dem (0 tippare).
+                const facitFirstIds = Array.isArray(result.first) ? result.first : [];
+
+                if (isResolved && facitFirstIds.length > 0) {
+                    facitFirstIds.forEach(pid => {
+                        // Finns redan (någon har tippat) → gör inget
+                        if (playerStatsMap[pid]) return;
+
+                        // Saknas → lägg till som 0 tippare
+                        const player = TIPS.db.players.find(p => String(p.player_id) === String(pid));
+                        const jersey = player ? (parseInt(player.player_jersey) || 999) : 999;
+
+                        playerStatsMap[pid] = {
+                            id: pid,
+                            jersey,
+                            uniqueTippers: new Set()
+                        };
+                    });
+
+                    // Skapa om array så att de nya (0 tippare) kommer med
+                    sortableArray = Object.values(playerStatsMap).map(p => ({
+                        ...p,
+                        uniqueTipperCount: p.uniqueTippers.size
+                    }));
+                } else if (sortableArray.length === 0) {
+                    // Oförändrat beteende när ingen tippat och frågan inte är avgjord
+                    el.innerHTML = `
+        <h1>${question.question_wording}</h1>
+        <p>Inga spelare har blivit tippade i denna fråga.</p>
+    `;
+                    return;
+                }
+
+                // === 3. Sortera: flest tippare först, sedan tröjnummer ===
+                sortableArray.sort((a, b) => {
+                    if (b.uniqueTipperCount !== a.uniqueTipperCount) {
+                        return b.uniqueTipperCount - a.uniqueTipperCount;
+                    }
+                    return a.jersey - b.jersey;
+                });
+
+                // === 4. Competition ranking på uniqueTipperCount ===
+                const qDetailComparison = (a, b) =>
+                    a.uniqueTipperCount === b.uniqueTipperCount;
+
+                TIPS.utils.applyCompetitionRanking(sortableArray, qDetailComparison);
+
+                // === 5. Bygg HTML ===
+                let html = "";
+
+                html += `<h1>${question.question_wording}</h1>`;
+                html += `<p>${isResolved ? "Frågan är avgjord." : "Frågan är ännu inte avgjord."}</p>`;
+
+                html += `
+        <table class="team-question-list">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Spelare</th>
+              <th>Tippare</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+                sortableArray.forEach((stats, index) => {
+                    const displayRank =
+                        index > 0 && stats.rank === sortableArray[index - 1].rank
+                            ? ""
+                            : `${stats.rank}.`;
+
+                    const isFacitFirst = Array.isArray(result.first) && result.first.includes(stats.id);
+                    const isFacitSecond = Array.isArray(result.second) && result.second.includes(stats.id);
+
+
+                    // "Grå" gäller bara: facit-first + 0 tippare
+                    const isUntippedFacitFirst = isFacitFirst && stats.uniqueTipperCount === 0;
+
+                    const badgeClass = isUntippedFacitFirst
+                        ? "badge badge--grey"
+                        : (isFacitFirst ? "badge badge--full" : (isFacitSecond ? "badge badge--half" : ""));
+
+                    html += `
+    <tr class="question-player-row"
+        data-question-id="${question.question_id}"
+        data-player-id="${stats.id}">
+      <td class="rank">${displayRank}</td>
+      <td>
+    <span class="question-player-name link-color ${badgeClass}">
+        ${TIPS.utils.getPlayerName(stats.id)}
+    </span>
+          </td>
+      <td>
+${stats.uniqueTipperCount === 0
+                            ? `<span class="question-zero-tippers">0 tippare</span>`
+                            : `<span class="question-player-tippers link-color">${stats.uniqueTipperCount} tippare</span>`
+                        }
+          </td>
+    </tr>
+`;
+                });
+
+                html += `
+          </tbody>
+        </table>
+    `;
+
+                el.innerHTML = html;
+
+                // NYTT: separera klick på spelarnamn/tippare
+                const tbody = el.querySelector("tbody");
+                if (tbody) {
+                    tbody.addEventListener("click", (event) => {
+                        const row = event.target.closest("tr.question-player-row");
+                        if (!row) return;
+
+                        const playerId = row.getAttribute("data-player-id");
+                        const qId = row.getAttribute("data-question-id");
+                        if (!playerId) return;
+
+                        const clickedName = event.target.closest(".question-player-name");
+                        const clickedTippers = event.target.closest(".question-player-tippers");
+
+                        if (clickedName) {
+                            console.log("[question] Klick på spelarnamn → spelarvy:", playerId);
+                            appRouter.showView("player", { playerId, teamId: activeTeamId });
+                            return;
+                        }
+
+                        if (clickedTippers) {
+                            console.log("[question] Klick på tippare-text → question-player-vy:", qId, playerId);
+                            appRouter.showView("question-player", { questionId: qId, playerId, teamId: activeTeamId });
+                            return;
+                        }
+                    });
+                }
+
+                console.log("[question] Frågevyn renderad för id:", questionId);
+            }
+
+            function renderQuestionPlayerView(params = {}) {
+                console.log("[question-player] renderQuestionPlayerView kallad med params:", params);
+                const activeTeamId =
+                    params.teamId ??
+                    window.TIPS?.state?.currentTeamId ??
+                    null;
+
+                // Spara senast valda lag så vyn blir stabil även om man navigerar vidare
+                if (!window.TIPS.state) window.TIPS.state = {};
+                if (activeTeamId != null) window.TIPS.state.currentTeamId = activeTeamId;
+
+                const teamLabel = activeTeamId != null ? TIPS.utils.getTeamLabel(activeTeamId) : null;
+
+                console.log("[question-player] team context:", { activeTeamId, teamLabel });
+
+
+                const el = getViewElement("question-player");
+                if (!el) {
+                    console.warn("[question-player] Kan inte rendera vy – saknar element");
+                    return;
+                }
+
+                const questionId = params.questionId;
+                const playerId = params.playerId;
+
+                if (!questionId || !playerId) {
+                    el.innerHTML = "<h1>Tippare</h1><p>Ingen fråga eller spelare vald.</p>";
+                    return;
+                }
+
+                const question = TIPS.db.questions.find(q => String(q.question_id) === String(questionId));
+                const player = TIPS.db.players.find(p => String(p.player_id) === String(playerId));
+
+                if (!question || !player) {
+                    console.warn("[question-player] Hittar inte fråga eller spelare:", { questionId, playerId });
+                    el.innerHTML = "<h1>Tippare</h1><p>Okänd fråga eller spelare.</p>";
+                    return;
+                }
+
+                // Plocka ut tippare som har tippat på denna spelare i denna fråga (lagspecifikt)
+                const tipperIdSet = new Set();
+
+                // Lagets spelare (för att filtrera bort tips från andra lag i samma fråga)
+                const teamPlayerIdSet = new Set(
+                    (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                        .filter(p => activeTeamId == null || String(p.player_team) === String(activeTeamId))
+                        .map(p => p.player_id)
+                );
+
+                (Array.isArray(TIPS.db.tips) ? TIPS.db.tips : []).forEach(tip => {
+                    if (!tip || !tip.tipper || !tip.question || !tip.player) return;
+                    if (String(tip.question) !== String(questionId)) return;
+                    if (!teamPlayerIdSet.has(tip.player)) return; // filtrera på lagets spelare i frågan
+                    if (String(tip.player) !== String(playerId)) return;
+
+                    tipperIdSet.add(tip.tipper);
+                });
+
+                const tippers = Array.from(tipperIdSet)
+                    .map(id => TIPS.maps.tipperMap[id])
+                    .filter(Boolean)
+                    .sort((a, b) => a.tipper_name.localeCompare(b.tipper_name, "sv"));
+
+                let html = "";
+                // Lagspecifikt facit
+                const teamResults =
+                    (activeTeamId != null && TIPS.db && TIPS.db.resultsByTeam && TIPS.db.resultsByTeam[activeTeamId])
+                        ? TIPS.db.resultsByTeam[activeTeamId]
+                        : null;
+
+                const facit = (teamResults && teamResults[question.question_id]) ? teamResults[question.question_id] : null;
+
+                const result = facit
+                    ? { first: Array.isArray(facit.first) ? facit.first : [], second: Array.isArray(facit.second) ? facit.second : [] }
+                    : { first: [], second: [] };
+
+                const isFacitFirst = Array.isArray(result.first) && result.first.includes(playerId);
+                const isFacitSecond = Array.isArray(result.second) && result.second.includes(playerId);
+
+                const badgeClass = isFacitFirst
+                    ? "badge badge--full"
+                    : (isFacitSecond ? "badge badge--half" : "");
+
+
+                // Spelarnamn en gång, återanvänd både i rubrik och klickbar text
+                const playerNameDisplay = TIPS.utils.getPlayerName(playerId);
+                const clickablePlayerHtml = `
+        <span class="question-player-header-name link-color ${badgeClass}"
+              data-player-id="${playerId}"
+             >
+            ${playerNameDisplay}
+        </span>
+    `.trim();
+
+                html += `<h1>${playerNameDisplay} – ${question.question_wording}</h1>`;
+
+                if (tippers.length === 0) {
+                    html += `<p>Ingen har tippat på ${clickablePlayerHtml} i denna fråga.</p>`;
+                } else {
+                    html += `<p>${tippers.length} har tippat på ${clickablePlayerHtml} i denna fråga.</p>`;
+
+                    html += `<ol class="simple-list simple-list--numbered">`;
+                    tippers.forEach((tipper) => {
+                        html += `
+        <li>
+            <span class="link-color tipper-name" data-tipper-id="${tipper.tipper_id}">
+                ${tipper.tipper_name}
+            </span>
+        </li>
+    `;
+                    });
+                    html += `</ol>`;
+                }
+
+                el.innerHTML = html;
+
+                // NYTT: klick på spelarnamnet i texten → spelarvy
+                const headerPlayerEl = el.querySelector(".question-player-header-name");
+                if (headerPlayerEl) {
+                    headerPlayerEl.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        const pid = headerPlayerEl.getAttribute("data-player-id") || playerId;
+                        console.log("[question-player] Klick på spelare i header → spelarvy:", pid);
+                        appRouter.showView("player", { playerId: pid, teamId: activeTeamId });
+                    });
+                }
+
+                // NYTT: klick på tipparnamn i listan → tipparvy
+                const tipperListEl = el.querySelector(".simple-list");
+                if (tipperListEl) {
+                    tipperListEl.addEventListener("click", (event) => {
+                        const tipperEl = event.target.closest(".tipper-name");
+                        if (!tipperEl) return;
+
+                        const tipperId = tipperEl.getAttribute("data-tipper-id");
+                        if (!tipperId) return;
+
+                        const tipper = TIPS.maps.tipperMap?.[tipperId];
+                        if (!tipper) return;
+
+                        console.log("[question-player] Klick på tippare → tipparvy:", tipper.tipper_name);
+                        appRouter.showView("tipper", { tipperName: tipper.tipper_name, teamId: activeTeamId });
+                    });
+                }
+
+                console.log("[question-player] Vy renderad:", {
+                    questionId,
+                    playerId,
+                    tipperCount: tippers.length
+                });
+            }
+
+            function renderPlayerTippersView(params = {}) {
+                console.log("[player-tippers] renderPlayerTippersView kallad med params:", params);
+                const activeTeamId =
+                    params.teamId ??
+                    window.TIPS?.state?.currentTeamId ??
+                    null;
+
+                // Spara senast valda lag så vyn blir stabil även om man navigerar vidare
+                if (!window.TIPS.state) window.TIPS.state = {};
+                if (activeTeamId != null) window.TIPS.state.currentTeamId = activeTeamId;
+
+                const teamLabel = activeTeamId != null ? TIPS.utils.getTeamLabel(activeTeamId) : null;
+
+                console.log("[player-tippers] team context:", { activeTeamId, teamLabel });
+
+
+                const el = getViewElement("player-tippers");
+                if (!el) {
+                    console.warn("[player-tippers] Kan inte rendera vy – saknar element");
+                    return;
+                }
+
+                const playerId = params.playerId;
+                if (!playerId) {
+                    el.innerHTML = "<h1>Tippare</h1><p>Ingen spelare vald.</p>";
+                    return;
+                }
+
+                const player = TIPS.db.players.find(p => String(p.player_id) === String(playerId));
+                if (!player) {
+                    el.innerHTML = "<h1>Tippare</h1><p>Okänd spelare.</p>";
+                    return;
+                }
+
+                const playerName = TIPS.utils.getPlayerName(playerId);
+
+                // Vi har redan en Set med unika tipperId:n per spelare i TIPS.db.uniqueTippersPerPlayer
+                // Lagspecifik lista av tippare: bygg från tips-tabellen (inte global uniqueTippersPerPlayer)
+                const tipperIdSet = new Set();
+
+                (Array.isArray(TIPS.db.tips) ? TIPS.db.tips : []).forEach(t => {
+                    if (!t || !t.tipper || !t.player) return;
+                    if (String(t.player) !== String(playerId)) return;
+
+                    // Om vi har lagkontekst: säkerställ att tipset gäller en spelare i aktivt lag
+                    // (spelaren själv ska ju redan tillhöra laget, men detta skyddar vid felklick/navigering)
+                    if (activeTeamId != null) {
+                        const p = TIPS.db.players?.find(pp => String(pp.player_id) === String(t.player));
+                        if (p && String(p.player_team) !== String(activeTeamId)) return;
+                    }
+
+                    tipperIdSet.add(t.tipper);
+                });
+
+                const tipperIds = Array.from(tipperIdSet);
+
+                const tippers = tipperIds
+                    .map(id => TIPS.maps.tipperMap[id])
+                    .filter(Boolean)
+                    .sort((a, b) => a.tipper_name.localeCompare(b.tipper_name, "sv"));
+
+                let html = "";
+                html += `<h1>Tippat på ${playerName}</h1>`;
+
+                if (tippers.length === 0) {
+                    html += `<p>Ingen har tippat på ${playerName}.</p>`;
+                    el.innerHTML = html;
+                    return;
+                }
+
+                html += `
+                <p>
+                 ${tippers.length} olika tippare har tippat på
+                    <span class="link-color player-tippers-player-link"
+                     data-player-id="${playerId}">
+                     ${playerName}
+                    </span>.
+                 </p>
+                `;
+
+                html += `<ol class="simple-list simple-list--numbered">`;
+                tippers.forEach((t) => {
+                    html += `
+        <li>
+            <span class="link-color tipper-name" data-tipper-id="${t.tipper_id}">
+                ${t.tipper_name}
+            </span>
+        </li>
+    `;
+                });
+                html += `</ol>`;
+
+                el.innerHTML = html;
+
+                // NYTT: klick på spelarnamnet i texten → spelarvy
+                const playerLink = el.querySelector(".player-tippers-player-link");
+                if (playerLink) {
+                    playerLink.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        const pid = playerLink.getAttribute("data-player-id") || playerId;
+                        console.log("[player-tippers] Klick på spelarnamn i text → spelarvy:", pid);
+                        appRouter.showView("player", { playerId: pid, teamId: activeTeamId });
+                    });
+                }
+
+
+                // Klick på tipparnamn → tipper-vy
+                const listEl = el.querySelector(".simple-list");
+                if (listEl) {
+                    listEl.addEventListener("click", (event) => {
+                        const tipperEl = event.target.closest(".tipper-name");
+                        if (!tipperEl) return;
+
+                        const tipperId = tipperEl.getAttribute("data-tipper-id");
+                        if (!tipperId) return;
+
+                        const tipper = TIPS.maps.tipperMap?.[tipperId];
+                        if (!tipper) return;
+
+                        console.log("[player-tippers] Klick på tippare → tipper:", tipper.tipper_name);
+                        appRouter.showView("tipper", { tipperName: tipper.tipper_name, teamId: activeTeamId });
+                    });
+                }
+
+                console.log("[player-tippers] Vy renderad:", { playerId, tipperCount: tippers.length });
+            }
+
+            function renderPlayerView(params = {}) {
+                console.log("[player] renderPlayerView kallad med params:", params);
+                const activeTeamId =
+                    params.teamId ??
+                    window.TIPS?.state?.currentTeamId ??
+                    null;
+
+                // Spara senast valda lag så vyn blir stabil även om man navigerar vidare
+                if (!window.TIPS.state) window.TIPS.state = {};
+                if (activeTeamId != null) window.TIPS.state.currentTeamId = activeTeamId;
+
+                const teamLabel = activeTeamId != null ? TIPS.utils.getTeamLabel(activeTeamId) : null;
+
+                console.log("[player] team context:", { activeTeamId, teamLabel });
+
+
+                const el = getViewElement("player");
+                if (!el) {
+                    console.warn("[player] Kan inte rendera spelarvy – saknar element");
+                    return;
+                }
+
+                const playerId = params.playerId;
+                if (!playerId) {
+                    el.innerHTML = "<h1>Spelare</h1><p>Ingen spelare vald.</p>";
+                    return;
+                }
+
+                const player = TIPS.db.players.find(p => String(p.player_id) === String(playerId));
+                if (!player) {
+                    console.warn("[player] Hittar inte spelare:", playerId);
+                    el.innerHTML = "<h1>Spelare</h1><p>Okänd spelare.</p>";
+                    return;
+                }
+
+                // Om vi är i lagkontext: säkerställ att spelaren tillhör laget (annars blir vyn förvirrande)
+                if (activeTeamId != null && String(player.player_team) !== String(activeTeamId)) {
+                    console.warn("[player] Spelare tillhör inte aktivt lag", {
+                        playerId,
+                        playerTeam: player.player_team,
+                        activeTeamId
+                    });
+                }
+
+                const playerName = TIPS.utils.getPlayerName(playerId);
+                // =========================
+                // LAG-SPECIFIK PLAYER-PROFIL (bygg från tips-tabellen)
+                // =========================
+
+                // 1) Vilka spelare tillhör aktivt lag?
+                const teamPlayerIdSet = new Set(
+                    (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                        .filter(p => activeTeamId == null || String(p.player_team) === String(activeTeamId))
+                        .map(p => p.player_id)
+                );
+
+                // 2) Bygg: totalTips, unika tippare, tips per fråga (för just denna spelare) – men bara inom laget
+                let teamTotalTipsForPlayer = 0;
+                const teamUniqueTippersForPlayer = new Set();
+                const teamTipsByQuestion = {}; // { [questionId]: Set(tipperId) }
+
+                (Array.isArray(TIPS.db.tips) ? TIPS.db.tips : []).forEach(t => {
+                    if (!t || !t.question || !t.player || !t.tipper) return;
+                    if (!teamPlayerIdSet.has(t.player)) return;         // tipset måste gälla en spelare i laget
+                    if (String(t.player) !== String(playerId)) return;  // och vara på just denna spelare
+
+                    teamTotalTipsForPlayer++;
+                    teamUniqueTippersForPlayer.add(t.tipper);
+
+                    const qId = String(t.question);
+                    if (!teamTipsByQuestion[qId]) teamTipsByQuestion[qId] = new Set();
+                    teamTipsByQuestion[qId].add(t.tipper);
+                });
+
+                const teamUniqueTippersCount = teamUniqueTippersForPlayer.size;
+                const teamQuestionCount = Object.keys(teamTipsByQuestion).length;
+
+                console.log("[player] lagprofil byggd:", {
+                    playerId,
+                    activeTeamId,
+                    teamTotalTipsForPlayer,
+                    teamUniqueTippersCount,
+                    teamQuestionCount
+                });
+
+
+                // Lagspecifika mått (från 5.3)
+                const totalTips = teamTotalTipsForPlayer;
+                const uniqueTippersCount = teamUniqueTippersCount;
+
+                // Frågor där spelaren förekommer (inom laget)
+                const tipsByQuestion = teamTipsByQuestion;
+                const questionCount = teamQuestionCount;
+
+
+                // Vi behöver facit för att kunna:
+                // - färga first/second
+                // - lägga till "first men 0 tippare" längst ner
+                const pq = TIPS.data.processedQuestions();
+                // Lagspecifikt facit för player-vyn
+                const teamResults =
+                    (activeTeamId != null && TIPS.db && TIPS.db.resultsByTeam && TIPS.db.resultsByTeam[activeTeamId])
+                        ? TIPS.db.resultsByTeam[activeTeamId]
+                        : null;
+
+                console.log("[player] teamResults:", {
+                    activeTeamId,
+                    hasTeamResults: !!teamResults,
+                    keys: teamResults ? Object.keys(teamResults).length : 0
+                });
+
+                const processedByQuestionId = {};
+                if (Array.isArray(pq)) {
+                    pq.forEach(q => { processedByQuestionId[String(q.question_id)] = q; });
+                }
+
+                // 1) Bygg listan från tips (som tidigare), men spara question_no också
+                let combinedTips = Object.entries(tipsByQuestion).map(([questionId, data]) => {
+                    const q = TIPS.maps.questionMap[questionId];
+                    return {
+                        questionId,
+                        questionNo: q ? Number(q.question_no) : 9999,
+                        wording: q ? q.question_wording : "Okänd fråga",
+                        tipperCount: (data && typeof data.size === "number")
+                            ? data.size
+                            : (data && data.uniqueTippers && typeof data.uniqueTippers.size === "number")
+                                ? data.uniqueTippers.size
+                                : 0,
+                        // markörer (fylls i nedan)
+                        isFacitFirst: false,
+                        isFacitSecond: false,
+                        isUntippedFacitFirst: false
+                    };
+                });
+
+                // Index över frågor som redan finns med pga tips
+                const hasQuestion = new Set(combinedTips.map(x => String(x.questionId)));
+
+                // 2) Lägg till: spelaren är first_player men ingen tippade på honom i den frågan
+                // -> ska alltid synas längst ner med 0 tippare och grå bakgrund
+                if (Array.isArray(pq)) {
+                    pq.forEach(q => {
+                        const qIdStr = String(q.question_id);
+                        const facit = teamResults ? teamResults[q.question_id] : null;
+                        const firstIds = facit && Array.isArray(facit.first) ? facit.first : [];
+
+                        const isFirstHere = firstIds.includes(playerId);
+
+                        if (isFirstHere && !hasQuestion.has(qIdStr)) {
+                            combinedTips.push({
+                                questionId: q.question_id,
+                                questionNo: Number(q.question_no) || 9999,
+                                wording: q.question_wording || "Okänd fråga",
+                                tipperCount: 0,
+                                isFacitFirst: true,
+                                isFacitSecond: false,
+                                isUntippedFacitFirst: true
+                            });
+                        }
+                    });
+                }
+
+                // 3) Sätt facit-flaggor för ALLA rader (även de som kom från tips)
+                combinedTips = combinedTips.map(item => {
+                    const facit = teamResults ? teamResults[item.questionId] : null;
+                    const firstIds = facit && Array.isArray(facit.first) ? facit.first : [];
+                    const secondIds = facit && Array.isArray(facit.second) ? facit.second : [];
+
+                    const isFacitFirst = firstIds.includes(playerId);
+                    const isFacitSecond = secondIds.includes(playerId);
+
+                    // "grå" gäller endast: facit-first + 0 tippare
+                    const isUntippedFacitFirst = isFacitFirst && item.tipperCount === 0;
+
+                    return {
+                        ...item,
+                        isFacitFirst,
+                        isFacitSecond,
+                        isUntippedFacitFirst
+                    };
+                });
+
+                // 4) Sortering + competition ranking
+                // - Normal-listan: flest tippare först, vid lika: frågans nummer
+                // - Untipped facit-first: alltid längst ner, sorterad på frågans nummer
+                const normal = combinedTips.filter(x => !x.isUntippedFacitFirst);
+                const untippedFirst = combinedTips.filter(x => x.isUntippedFacitFirst);
+
+                normal.sort((a, b) => {
+                    if (b.tipperCount !== a.tipperCount) return b.tipperCount - a.tipperCount;
+                    return a.questionNo - b.questionNo;
+                });
+
+                untippedFirst.sort((a, b) => a.questionNo - b.questionNo);
+
+                // Slå ihop: “first men 0 tippare” längst ner
+                combinedTips = normal.concat(untippedFirst);
+
+                // Competition ranking baserat ENDAST på tipperCount
+                TIPS.utils.applyCompetitionRanking(combinedTips, (a, b) => a.tipperCount === b.tipperCount);
+
+                let html = "";
+
+                html += `<h1>${playerName}</h1>`;
+                html += `<p>
+    Förekommer i ${totalTips} tips från
+    <span class="link-color player-unique-tippers-link" data-player-id="${playerId}">
+        ${uniqueTippersCount} olika tippare
+    </span>
+    i ${questionCount} olika frågor
+</p>`;
+
+                if (combinedTips.length === 0) {
+                    html += `<p>Inga tips hittades för den här spelaren.</p>`;
+                    el.innerHTML = html;
+                    return;
+                }
+
+                html += `
+        <table class="team-question-list">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Fråga</th>
+              <th>Tippare</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+                let lastRankShown = null;
+
+                combinedTips.forEach((item, index) => {
+                    const displayRank = (item.rank !== lastRankShown) ? `${item.rank}.` : "";
+                    lastRankShown = item.rank;
+
+                    // 1) Radfärg enligt dina regler:
+                    // - first + tips > 0 => grön
+                    // - second => orange
+                    // - first + 0 tips => grå (och ska ligga längst ner via sorteringen)
+                    let rowClass = "";
+                    if (item.isFacitFirst && item.tipperCount > 0) {
+                        rowClass = "row-full";
+                    } else if (item.isFacitSecond) {
+                        rowClass = "row-half";
+                    } else if (item.isFacitFirst && item.tipperCount === 0) {
+                        rowClass = "row-grey";
+                    }
+
+                    // 2) 0 tippare ska INTE vara klickbart
+                    const tippersCellHtml = (item.tipperCount === 0)
+                        ? `<span class="player-zero-tippers">0 tippare</span>`
+                        : `<span class="link-color player-question-link-tippers">${item.tipperCount} tippare</span>`;
+
+                    html += `
+      <tr class="player-question-row ${rowClass}"
+          data-question-id="${item.questionId}"
+          data-player-id="${playerId}">
+<td class="rank">${displayRank}</td>
+        <td>
+          <span class="link-color player-question-link-question">
+            ${item.wording}
+          </span>
+        </td>
+        <td>
+          ${tippersCellHtml}
+        </td>
+      </tr>
+    `;
+                });
+
+
+                html += `
+          </tbody>
+        </table>
+    `;
+
+                el.innerHTML = html;
+                // NYTT: klick på "X olika tippare" → lista alla tippare som tippat på spelaren (oavsett fråga)
+                const uniqueTippersLink = el.querySelector(".player-unique-tippers-link");
+                if (uniqueTippersLink) {
+                    uniqueTippersLink.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        const pid = uniqueTippersLink.getAttribute("data-player-id") || playerId;
+                        console.log("[player] Klick på unika tippare → player-tippers:", pid);
+                        appRouter.showView("player-tippers", { playerId: pid });
+                    });
+                }
+
+                // [player] Klick i frågerad – olika beteende för fråga vs "tippare"
+                const playerTbody = el.querySelector("tbody");
+                if (playerTbody) {
+                    playerTbody.addEventListener("click", (event) => {
+                        const row = event.target.closest("tr.player-question-row");
+                        if (!row) return;
+
+                        const questionId = row.getAttribute("data-question-id");
+                        const playerId = row.getAttribute("data-player-id");
+                        if (!questionId) return;
+
+                        // Klick på "X tippare" → question-player-vy
+                        if (event.target.closest(".player-question-link-tippers")) {
+                            if (!playerId) return;
+
+                            console.log("[player] Klick på 'tippare'-länk:", { questionId, playerId });
+                            appRouter.showView("question-player", { questionId, playerId, teamId: activeTeamId });
+                            return;
+                        }
+
+                        // Klick på frågetexten → vanlig frågev y
+                        if (event.target.closest(".player-question-link-question")) {
+                            console.log("[player] Klick på frågelänk:", { questionId });
+                            appRouter.showView("question", { questionId, teamId: activeTeamId });
+                        }
+                    });
+                }
+
+
+                console.log("[player] Spelarvy renderad:", {
+                    playerId,
+                    questionCount: combinedTips.length
+                });
+            }
+            function renderTipperView(params = {}) {
+                const pq = TIPS.data.processedQuestions(); // array
+
+                console.log("[tipper] renderTipperView kallad med params:", params);
+                const activeTeamId =
+                    params.teamId ??
+                    window.TIPS?.state?.currentTeamId ??
+                    null;
+
+                // Spara senast valda lag så vyn blir stabil även om man navigerar vidare
+                if (!window.TIPS.state) window.TIPS.state = {};
+                if (activeTeamId != null) window.TIPS.state.currentTeamId = activeTeamId;
+
+                const teamLabel = activeTeamId != null ? TIPS.utils.getTeamLabel(activeTeamId) : null;
+
+                console.log("[tipper] team context:", { activeTeamId, teamLabel });
+
+
+                const el = getViewElement("tipper");
+                if (!el) {
+                    console.warn("[tipper] Kan inte rendera tipparvy – saknar element");
+                    return;
+                }
+
+                const tipperName = params.tipperName;
+                if (!tipperName) {
+                    el.innerHTML = "<h1>Tippare</h1><p>Ingen tippare vald.</p>";
+                    return;
+                }
+
+                // Hitta tippare via namn (samma logik som i gamla tipparvyn)
+                const tipper = TIPS.maps.tipperMap
+                    ? Object.values(TIPS.maps.tipperMap).find(t => t.tipper_name === tipperName)
+                    : null;
+
+                if (!tipper) {
+                    console.warn("[tipper] Hittar ingen tippare med namn:", tipperName);
+                    el.innerHTML = `<h1>Tippare</h1><p>Kunde inte hitta tippare med namn "${tipperName}".</p>`;
+                    return;
+                }
+
+                // =========================
+                // LAGFILTER: begränsa tipparens tips till aktivt lag
+                // =========================
+
+                // 1) Vilka spelare tillhör aktivt lag?
+                const teamPlayerIdSet = new Set(
+                    (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                        .filter(p => activeTeamId == null || String(p.player_team) === String(activeTeamId))
+                        .map(p => p.player_id)
+                );
+
+                // 2) Tipparens tips per fråga (endast om tipset är på en spelare i laget)
+                const teamTipsByQuestionId = {}; // { [questionId]: playerId }
+                if (tipper.tips && typeof tipper.tips === "object") {
+                    Object.keys(tipper.tips).forEach(qId => {
+                        const pid = tipper.tips[qId];
+                        if (!pid) return;
+                        if (!teamPlayerIdSet.has(pid)) return;
+                        teamTipsByQuestionId[qId] = pid;
+                    });
+                }
+
+                console.log("[tipper] lagfilter byggt:", {
+                    tipperName,
+                    activeTeamId,
+                    teamTipsCount: Object.keys(teamTipsByQuestionId).length
+                });
+
+
+                // Sortera frågor i nummerordning
+                const sortedQuestions = Array.isArray(pq)
+                    ? pq.slice().sort((a, b) => a.question_no - b.question_no)
+                    : [];
+
+                let html = "";
+
+                html += `<h1>${tipperName}s tips</h1>`;
+
+                // Lagspecifik helrätt/halvrätt: räkna utifrån lagets facit + tipparens lag-tips
+                let full = 0;
+                let half = 0;
+
+                if (activeTeamId != null) {
+                    const teamResults = TIPS.db.resultsByTeam?.[activeTeamId] || {};
+
+                    Object.keys(teamTipsByQuestionId).forEach(qId => {
+                        const pid = teamTipsByQuestionId[qId];
+                        const facit = teamResults[qId];
+                        if (!facit) return;
+
+                        const firstIds = Array.isArray(facit.first) ? facit.first : [];
+                        const secondIds = Array.isArray(facit.second) ? facit.second : [];
+
+                        if (firstIds.includes(pid)) full++;
+                        else if (secondIds.includes(pid)) half++;
+                    });
+                } else {
+                    // Om ingen lagkontekst finns: fall back till globalt (för att inte visa "0/0" felaktigt)
+                    full = typeof tipper.full === "number" ? tipper.full : 0;
+                    half = typeof tipper.half === "number" ? tipper.half : 0;
+                }
+
+                html += `<p>${tipperName} har <span class="badge badge--full">${full}</span> helrätt och <span class="badge badge--half">${half}</span> halvrätt${teamLabel ? ` (${teamLabel})` : ""}.</p>`;
+
+                if (sortedQuestions.length === 0) {
+                    html += `<p>Inga frågor att visa.</p>`;
+                    el.innerHTML = html;
+                    return;
+                }
+
+                html += `
+        <table class="team-question-list">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Fråga</th>
+              <th>${tipperName}s tips</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+                sortedQuestions.forEach((q, index) => {
+                    const qId = q.question_id;
+                    const questionWording = q.question_wording;
+
+                    // Tippares tips för denna fråga (om det finns)
+                    const tipperTipId = teamTipsByQuestionId[qId] || null;
+                    const hasTip = Boolean(tipperTipId);
+                    const tipperTipName = hasTip ? TIPS.utils.getPlayerName(tipperTipId) : "";
+
+                    let badgeClass = "";
+                    const result = q.result || { first: [], second: [] };
+
+                    if (tipperTipId && result.first && result.first.includes(tipperTipId)) {
+                        badgeClass = "badge badge--full";
+                    } else if (tipperTipId && result.second && result.second.includes(tipperTipId)) {
+                        badgeClass = "badge badge--half";
+                    }
+
+                    html += `
+  <tr class="tipper-question-row"
+      data-question-id="${qId}"
+      data-player-id="${tipperTipId || ""}"
+  >
+    <td class="rank">${index + 1}</td>
+
+    <td class="question-cell">
+      <span class="link-color question-link" data-question-id="${qId}">
+        ${questionWording}
+      </span>
+    </td>
+
+    <td>
+      <span class="tipper-tip-name ${hasTip ? "link-color" : "no-tip"} ${badgeClass}">
+        ${tipperTipName}
+      </span>
+    </td>
+  </tr>
+`;
+                });
+
+                html += `
+          </tbody>
+        </table>
+    `;
+
+                el.innerHTML = html;
+
+                // Klickhantering i tipparvyn
+                const tbody = el.querySelector("tbody");
+                if (tbody) {
+                    tbody.addEventListener("click", (event) => {
+                        const row = event.target.closest("tr.tipper-question-row");
+                        if (!row) return;
+
+                        const questionId = row.getAttribute("data-question-id");
+                        const playerId = row.getAttribute("data-player-id") || "";
+
+                        console.log("[tipper] Klick fångad:", {
+                            target: event.target?.className,
+                            questionId,
+                            playerId: row.getAttribute("data-player-id")
+                        });
+
+
+                        // Klick på frågetext → frågevyn
+                        if (event.target.closest(".question-link")) {
+                            console.log("[tipper] Klick på frågelänk → frågevyn:", { tipperName, questionId });
+                            appRouter.showView("question", { questionId, teamId: activeTeamId });
+                            return;
+                        }
+
+                        // Klick på spelarnamnet → question-player (om spelare finns)
+                        if (event.target.closest(".tipper-tip-name") && playerId) {
+                            console.log("[tipper] Klick på spelarnamn → question-player-vy:", {
+                                tipperName,
+                                questionId,
+                                playerId
+                            });
+                            appRouter.showView("question-player", { questionId, playerId, teamId: activeTeamId });
+                        }
+                    });
+                }
+
+                console.log("[tipper] Tipparvy renderad:", {
+                    tipperName,
+                    questionCount: sortedQuestions.length
+                });
+            }
+
+
+            function renderPlayersView(params = {}) {
+                const activeTeamId =
+                    params.teamId ??
+                    window.TIPS?.state?.currentTeamId ??
+                    null;
+
+                // Spara senast valda lag så vyn blir stabil även om man navigerar vidare
+                if (!window.TIPS.state) window.TIPS.state = {};
+                if (activeTeamId != null) window.TIPS.state.currentTeamId = activeTeamId;
+
+                console.log("[players] renderPlayersView kallad (POPULARITET / FACIT)", { params, activeTeamId });
+
+                const el = getViewElement("players");
+                if (!el) {
+                    console.warn("[players] Saknar #view-players");
+                    return;
+                }
+
+                // Lagkontekst: vilka spelare hör till activeTeamId?
+                const teamPlayers = (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                    .filter(p => activeTeamId == null || String(p.player_team) === String(activeTeamId));
+
+                const teamPlayerIdSet = new Set(teamPlayers.map(p => p.player_id));
+                const activeTeamLabel = (activeTeamId != null) ? TIPS.utils.getTeamLabel(activeTeamId) : null;
+
+                console.log("[players] team context", {
+                    activeTeamId,
+                    teamPlayers: teamPlayers.length
+                });
+
+                // =========================
+                // 1) Bygg rader beroende på läge
+                // =========================
+
+                let rows = [];
+                let modeTitle = "";
+
+                if (playersViewMode === "results") {
+                    modeTitle = "Spelare som varit först (facit)";
+                    // Endast spelare som faktiskt varit 1:a i någon fråga
+                    rows = Array.isArray(TIPS.db.playerFirstWinners) ? TIPS.db.playerFirstWinners.slice() : [];
+
+                    // Lagspecifikt: visa bara spelare som tillhör valt lag
+                    if (activeTeamId != null) {
+                        rows = rows.filter(r => teamPlayerIdSet.has(r.playerId));
+                    }
+
+                    // VIKTIGT: räkna om sort + competition rank EFTER filtrering,
+                    // annars kan listan börja på t.ex. "3." när ranken kommer från en global lista.
+                    rows = rows
+                        .slice()
+                        .sort((a, b) => {
+                            if ((b.count_first || 0) !== (a.count_first || 0)) return (b.count_first || 0) - (a.count_first || 0);
+                            return (a.jersey || 999) - (b.jersey || 999); // stabilitet inom helt lika
+                        });
+
+                    applyCompetitionRanking(
+                        rows,
+                        (a, b) => (a.count_first || 0) === (b.count_first || 0)
+                    );
+
+                    console.log("[players][results] rows after team filter + rerank:", {
+                        activeTeamId,
+                        rowsPreview: rows.slice(0, 10).map(x => ({ playerId: x.playerId, count_first: x.count_first, rank: x.rank, jersey: x.jersey }))
+                    });
+
+                } else if (playersViewMode === "contrib") {
+                    modeTitle = "Bidragit mest";
+
+                    const contrib = (TIPS.db.playerContribution || {});
+                    const compareNamesSv = (aName, bName) =>
+                        String(aName).localeCompare(String(bName), "sv", { numeric: true, sensitivity: "base" });
+
+                    // Bygg lista över lagets spelare med summerade bidrag (helrätt/halvrätt)
+                    // Lag hämtas från "senast valda lag" (sätts i renderTeamView / start-klick)
+                    const teamId = activeTeamId;
+
+                    // Bygg grundlista med lagets spelare och deras bidrag (helrätt / halvrätt)
+                    const allTeamPlayers = (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                        .filter(p => teamId == null || String(p.player_team) === String(teamId))
+                        .map(p => {
+                            const playerId = p.player_id;
+                            const jersey = parseInt(p.player_jersey, 10) || 999;
+
+                            const c = contrib[playerId] || { full: 0, half: 0 };
+
+                            return {
+                                playerId,
+                                jersey,
+                                full: typeof c.full === "number" ? c.full : 0,
+                                half: typeof c.half === "number" ? c.half : 0
+                            };
+                        });
+
+
+                    // Visa bara spelare som faktiskt bidragit, och sortera dem korrekt
+                    rows = allTeamPlayers
+                        .filter(r => (r.full > 0 || r.half > 0))
+                        .sort((a, b) => {
+                            if (b.full !== a.full) return b.full - a.full;
+                            if (b.half !== a.half) return b.half - a.half;
+
+                            // Vid helt lika: sortera på namn (svensk ordning)
+                            return a.jersey - b.jersey;
+                        });
+
+
+                    // Competition ranking: delad placering när full+half är lika
+                    TIPS.utils.applyCompetitionRanking(rows, (a, b) =>
+                        a.full === b.full && a.half === b.half
+                    );
+
+                    console.log("[players][contrib] rows byggda + rankade", {
+                        rowsLen: rows.length,
+                        top10: rows.slice(0, 10).map(r => ({
+                            rank: r.rank,
+                            playerId: r.playerId,
+                            name: TIPS.utils.getPlayerName(r.playerId),
+                            full: r.full,
+                            half: r.half
+                        }))
+                    });
+
+                } else {
+                    modeTitle = "Spelare som förekommer i tipsen";
+
+                    // Map från popularity (förekommande) för snabb merge
+                    const popularityArr = Array.isArray(TIPS.db.playerPopularity) ? TIPS.db.playerPopularity : [];
+                    const popularityByPlayerId = {};
+                    popularityArr.forEach(p => { popularityByPlayerId[p.playerId] = p; });
+
+                    // Bygg grundlista med (lagets) spelare och popularitetsdata
+                    // OBS: activeTeamId ska komma från renderPlayersView(params) (inte från state här)
+                    const allTeamPlayers = (Array.isArray(TIPS.db.players) ? TIPS.db.players : [])
+                        .filter(p => activeTeamId == null || String(p.player_team) === String(activeTeamId))
+                        .map(p => {
+                            const playerId = p.player_id;
+                            const jersey = parseInt(p.player_jersey, 10) || 999;
+                            const found = popularityByPlayerId[playerId];
+
+                            return {
+                                playerId,
+                                jersey,
+                                count: found ? found.count : 0,
+                                uniqueTippersCount: found ? found.uniqueTippersCount : 0
+                            };
+                        });
+
+                    // Checkbox AV: visa bara spelare som faktiskt förekommer i tipsen (men lagspecifikt)
+                    // Checkbox PÅ: visa alla spelare i laget (inkl 0/0)
+                    if (!playersIncludeUntipped) {
+                        rows = allTeamPlayers
+                            .filter(r => r.count > 0 || r.uniqueTippersCount > 0)
+                            .sort((a, b) => {
+                                if (b.count !== a.count) return b.count - a.count;
+                                if (b.uniqueTippersCount !== a.uniqueTippersCount) return b.uniqueTippersCount - a.uniqueTippersCount;
+                                return a.jersey - b.jersey;
+                            });
+
+                        TIPS.utils.applyCompetitionRanking(
+                            rows,
+                            (a, b) => a.count === b.count && a.uniqueTippersCount === b.uniqueTippersCount
+                        );
+                    } else {
+                        rows = allTeamPlayers
+                            .sort((a, b) => {
+                                if (b.count !== a.count) return b.count - a.count;
+                                if (b.uniqueTippersCount !== a.uniqueTippersCount) return b.uniqueTippersCount - a.uniqueTippersCount;
+                                return a.jersey - b.jersey;
+                            });
+
+                        TIPS.utils.applyCompetitionRanking(
+                            rows,
+                            (a, b) => a.count === b.count && a.uniqueTippersCount === b.uniqueTippersCount
+                        );
+                    }
+                }
+
+                // =========================
+                // 2) Render UI (toggle + ev checkbox)
+                // =========================
+
+                let html = `
+                    <h1>Alla spelare</h1>
+
+                    <div style="display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; margin:.25rem 0 1rem 0;">
+                        <label style="display:inline-flex; gap:.4rem; align-items:center;">
+                            <input type="radio" name="players-view-mode" value="popularity">
+                            Förekommer i tips
+                        </label>
+                        <label style="display:inline-flex; gap:.4rem; align-items:center;">
+                            <input type="radio" name="players-view-mode" value="results">
+                            Först i facit
+                        </label>
+                        <label style="display:inline-flex; gap:.4rem; align-items:center;">
+                             <input type="radio" name="players-view-mode" value="contrib">
+                             Bidragit mest
+                        </label>
+                    </div>
+
+                    <!--p style="margin-top:-.25rem; color:#666;">${modeTitle}</p-->
+                `;
+
+                if (playersViewMode === "popularity") {
+                    html += `
+                        <label style="display:inline-flex; gap:.5rem; align-items:center; margin:.25rem 0 1rem 0;">
+                             <input type="checkbox" id="players-include-untipped">
+                              Visa även spelare utan tips
+                          </label>
+                   `;
+                }
+
+                if (!rows || rows.length === 0) {
+                    if (playersViewMode === "results") {
+                        html += `<p>Ingen spelare har ännu varit först i facit.</p>`;
+                    } else if (playersViewMode === "contrib") {
+                        html += `<p>Ingen helrätt eller halvrätt har ännu delats ut (ännu).</p>`;
+                    } else {
+                        html += `<p>Inga spelare att visa.</p>`;
+                    }
+
+                    el.innerHTML = html;
+
+                    // Sätt radio-state + lyssnare även om tomt
+                    const radios = el.querySelectorAll('input[name="players-view-mode"]');
+                    radios.forEach(r => {
+                        r.checked = (r.value === playersViewMode);
+                        r.addEventListener("change", () => {
+                            playersViewMode = r.value;
+                            console.log("[players] playersViewMode =", playersViewMode);
+                            renderPlayersView();
+                        });
+                    });
+
+                    // Checkbox endast i popularity
+                    const cb = el.querySelector("#players-include-untipped");
+                    if (cb) {
+                        cb.checked = playersIncludeUntipped;
+                        cb.addEventListener("change", () => {
+                            playersIncludeUntipped = cb.checked;
+                            renderPlayersView();
+                        });
+                    }
+
+                    return;
+                }
+
+                if (playersViewMode === "contrib") {
+                    // =========================
+                    // BIDRAG-LÄGE (helrätt/halvrätt-bidrag)
+                    // =========================
+                    // Dragspel: "Så funkar topplistan..."
+                    html += `
+    <details class="toplists-explain" style="margin:0 0 .75rem 0;">
+        <summary>Så funkar topplistan för vilken spelare som bidragit mest</summary>
+        <div class="toplists-explain-body">
+            <ul>
+                <li>Vi räknar hur många gånger spelaren har gett tipparna helrätt.</li>
+                <li>Vid lika många helrätt jämför vi hur många gånger spelaren har gett tipparna halvrätt.</li>
+                <li>Varje tipshändelse räknas (även om samma tippare gynnats flera gånger).</li>
+                <li>Delad placering följer competition ranking (1, 2, 2, 4…).</li>
+                <li>Vid delad placering sorteras spelarnamnen enligt tröjnummer.</li>
+            </ul>
+        </div>
+    </details>
+`;
+
+                    html += `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Spelare</th>
+                                    <th>Helrätt (bidrag)</th>
+                                    <th>Halvrätt (bidrag)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    let lastRankShown = null;
+
+                    rows.forEach(item => {
+                        const playerId = item.playerId;
+                        const full = typeof item.full === "number" ? item.full : 0;
+                        const half = typeof item.half === "number" ? item.half : 0;
+
+                        const rankText = (item.rank !== lastRankShown) ? `${item.rank}.` : "";
+                        lastRankShown = item.rank;
+
+                        html += `
+        <tr>
+            <td class="rank">${rankText}</td>
+            <td>
+                <span class="link-color players-link" data-player-id="${playerId}">
+                    ${TIPS.utils.getPlayerName(playerId)}
+                </span>
+            </td>
+            <td><span class="cell-number-plain">${full}</span></td>
+            <td><span class="cell-number-plain">${half}</span></td>
+        </tr>
+    `;
+                    });
+
+
+                    html += `
+                            </tbody>
+                        </table>
+                    `;
+
+
+                    console.log("[players][contrib] render klar", {
+                        rowsLen: rows.length,
+                        top5: rows.slice(0, 5).map(r => ({
+                            rank: r.rank,
+                            playerId: r.playerId,
+                            name: TIPS.utils.getPlayerName(r.playerId),
+                            full: r.full,
+                            half: r.half
+                        }))
+                    });
+
+                } else {
+                    // =========================
+                    // FACIT / POPULARITET (tabell-render)
+                    // =========================
+                    html += `
+  <table class="players-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Spelare</th>
+        ${playersViewMode === "results"
+                            ? `<th>Först (antal)</th>`
+                            : `<th>Tips (antal)</th><th>Tippare (unika)</th>`
+                        }
+      </tr>
+    </thead>
+    <tbody>
+`;
+
+                    let lastRankShown = null;
+
+                    if (playersViewMode === "results") {
+                        rows.forEach((item) => {
+                            const playerId = item.playerId;
+                            const countFirst = typeof item.count_first === "number" ? item.count_first : 0;
+
+                            const rankText = (item.rank !== lastRankShown) ? `${item.rank}.` : "";
+                            lastRankShown = item.rank;
+
+                            html += `
+  <tr>
+    <td class="rank">${rankText}</td>
+    <td>
+      <span class="link-color players-link" data-player-id="${playerId}">
+        ${TIPS.utils.getPlayerName(playerId)}
+      </span>
+    </td>
+    <td><span class="cell-number-plain">${countFirst}</span></td>
+  </tr>
+`;
+                        });
+                    } else {
+                        // POPULARITET-LÄGE
+                        rows.forEach((item) => {
+                            const playerId = item.playerId;
+                            const tipsCount = typeof item.count === "number" ? item.count : 0;
+                            const tippersCount = typeof item.uniqueTippersCount === "number" ? item.uniqueTippersCount : 0;
+
+                            const rank = (typeof item.rank === "number") ? item.rank : null;
+                            const rankText = (rank != null && rank !== lastRankShown) ? `${rank}.` : "";
+                            lastRankShown = rank;
+
+                            // VIKTIGT: samma klass som klick-lyssnaren letar efter
+                            const tippersHtml = (tippersCount > 0)
+                                ? `<span class="link-color players-tippers-link" data-player-id="${playerId}">${tippersCount} tippare</span>`
+                                : `<span class="player-zero-tippers">0 tippare</span>`;
+
+                            html += `
+  <tr>
+    <td class="rank">${rankText}</td>
+    <td>
+      <span class="link-color players-link" data-player-id="${playerId}">
+        ${TIPS.utils.getPlayerName(playerId)}
+      </span>
+    </td>
+    <td><span class="cell-number-plain">${tipsCount}</span></td>
+    <td>${tippersHtml}</td>
+  </tr>
+`;
+                        });
+                    }
+
+
+                    html += `
+    </tbody>
+  </table>
+`;
+                }
+
+                el.innerHTML = html;
+
+                // =========================
+                // 3) Koppla UI-lyssnare (radio + ev checkbox)
+                // =========================
+
+                const radios = el.querySelectorAll('input[name="players-view-mode"]');
+                radios.forEach(r => {
+                    r.checked = (r.value === playersViewMode);
+                    r.addEventListener("change", () => {
+                        playersViewMode = r.value;
+                        console.log("[players] playersViewMode =", playersViewMode);
+                        renderPlayersView();
+                    });
+                });
+
+                const cb = el.querySelector("#players-include-untipped");
+                if (cb) {
+                    cb.checked = playersIncludeUntipped;
+                    cb.addEventListener("change", () => {
+                        playersIncludeUntipped = cb.checked;
+                        console.log("[players] playersIncludeUntipped =", playersIncludeUntipped);
+                        renderPlayersView();
+                    });
+                }
+
+                // =========================
+                // 4) Klick: spelarnamn → player, (i popularity) tippare-count → player-tippers
+                // =========================
+
+                // Bind click-delegation EN gång (funkar både för <ul> och <table>)
+                if (!el.dataset.playersClickBound) {
+                    el.dataset.playersClickBound = "1";
+
+                    el.addEventListener("click", (event) => {
+                        // popularity: klick på tippare-count → player-tippers
+                        const tippersLink = event.target.closest(".players-tippers-link");
+                        if (tippersLink) {
+                            const pid = tippersLink.getAttribute("data-player-id");
+                            if (!pid) return;
+
+                            console.log("[players] Klick på tippare-count → player-tippers:", pid);
+                            appRouter.showView("player-tippers", { playerId: pid });
+                            return;
+                        }
+
+                        // alla lägen: klick på spelarnamn → player (gäller även tabellen i contrib-läget)
+                        const playerLink = event.target.closest(".players-link");
+                        if (playerLink) {
+                            const pid = playerLink.getAttribute("data-player-id");
+                            if (!pid) return;
+
+                            console.log("[players] Klick på spelarnamn → player:", pid);
+                            appRouter.showView("player", { playerId: pid });
+                        }
+                    });
+                }
+
+            }
+
+
+
+            function goBack() {
+                if (viewHistory.length === 0) {
+                    console.warn("[router] Ingen historik att gå tillbaka till");
+                    return;
+                }
+
+                // Lägg nuvarande vy i forward-stacken
+                if (currentView) {
+                    forwardHistory.push({ view: currentView, params: currentParams });
+                }
+
+                const prev = viewHistory.pop();
+                console.log("[router] goBack →", prev);
+
+                suppressHistoryPush = true;
+                showView(prev.view, prev.params || {});
+                suppressHistoryPush = false;
+            }
+
+            function goForward() {
+                if (forwardHistory.length === 0) {
+                    console.warn("[router] Ingen historik att gå framåt till");
+                    return;
+                }
+
+                // Lägg nuvarande vy i back-historiken
+                if (currentView) {
+                    viewHistory.push({ view: currentView, params: currentParams });
+                }
+
+                const next = forwardHistory.pop();
+                console.log("[router] goForward →", next);
+
+                suppressHistoryPush = true;
+                showView(next.view, next.params || {});
+                suppressHistoryPush = false;
+            }
+
+
+
+            function showView(viewName, params = {}) {
+                // === Steg 3A: Spärra navigation tills data är färdig ===
+                const TIPS = window.TIPS;
+                if (!TIPS?.state?.isReady) {
+                    console.warn("[router] Blockerad navigation – data laddas fortfarande:", viewName, params);
+                    return;
+                }
+
+                console.log("[router] showView:", viewName, params);
+
+                if (!VIEWS.includes(viewName)) {
+                    console.warn("[router] Okänd vy:", viewName);
+                    return;
+                }
+                // NYTT: spara föregående vy i historik (men inte vid första renderingen)
+                if (!suppressHistoryPush && currentView && currentView !== viewName) {
+                    viewHistory.push({ view: currentView, params: currentParams });
+                }
+                // NYTT: ny navigation nollställer framåt-historiken
+                if (!suppressHistoryPush) {
+                    forwardHistory.length = 0;
+                }
+
+
+                // NYTT: uppdatera "nuvarande"
+                currentView = viewName;
+                currentParams = params || {};
+
+                // Rendera rätt vy innan vi visar den
+                if (viewName === "start") {
+                    renderStartView(params);
+                } else if (viewName === "team") {
+                    renderTeamView(params);
+                } else if (viewName === "question") {
+                    renderQuestionView(params);
+                } else if (viewName === "question-player") {
+                    renderQuestionPlayerView(params);
+                } else if (viewName === "player") {
+                    renderPlayerView(params);
+                } else if (viewName === "player-tippers") {
+                    renderPlayerTippersView(params);
+                } else if (viewName === "tipper") {
+                    renderTipperView(params);
+                } else if (viewName === "players") {
+                    renderPlayersView(params);
+                } else if (viewName === "tippers") {
+                    renderTippersView(params);
+                } else if (viewName === "toplists") {
+                    renderToplistsView(params);
+                }
+
+
+
+                // Visa/dölj alla vyer
+                VIEWS.forEach((name) => {
+                    const el = getViewElement(name);
+                    if (!el) return;
+
+                    if (name === viewName) {
+                        el.classList.add("app-view--active");
+                        console.log(`[router] Visar vy: ${name}`);
+                    } else {
+                        el.classList.remove("app-view--active");
+                    }
+                });
+
+                updateBreadcrumbForView(viewName, params);
+                // NYTT: enable/disable back-knapp
+                const backBtn = document.getElementById("back-button");
+                if (backBtn) {
+                    backBtn.disabled = viewHistory.length === 0;
+                }
+                const forwardBtn = document.getElementById("forward-button");
+                if (forwardBtn) {
+                    forwardBtn.disabled = forwardHistory.length === 0;
+                }
+
+
+            }
+
+
+            function updateBreadcrumbForView(viewName, params) {
+                const activeTeamId = params?.teamId ?? window.TIPS?.state?.currentTeamId ?? null;
+
+                const bc = document.getElementById("breadcrumb");
+                if (!bc) return;
+
+                const teamId = activeTeamId;
+                const teamLabel = teamId != null ? TIPS.utils.getTeamLabel(teamId) : "Lag";
+
+                // Separatorn som används mellan stegen
+                const separator = '<span>›</span>';
+
+                let html = "";
+                switch (viewName) {
+                    case "question": {
+                        const pq = TIPS.data.processedQuestions();
+                        const q = Array.isArray(pq)
+                            ? pq.find(q => String(q.question_id) === String(params.questionId))
+                            : null;
+                        const title = q ? q.question_wording : "Okänd fråga";
+
+                        html = `
+                <span class="breadcrumb-link" data-view="start">Välj lag</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="team" data-team-id="${teamId}">${teamLabel}</span>
+                ${separator}
+                <span class="breadcrumb-current">${title}</span>
+            `;
+                        break;
+                    }
+                    case "tipper": {
+                        html = `
+                <span class="breadcrumb-link" data-view="start">Välj lag</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="team" data-team-id="${teamId}">${teamLabel}</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="tippers">Alla tippare</span>
+                ${separator}
+                <span class="breadcrumb-current">${params.tipperName || "Tippare"}</span>
+            `;
+                        break;
+                    }
+                    case "players":
+                        html = `
+                <span class="breadcrumb-link" data-view="start">Välj lag</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="team" data-team-id="${teamId}">${teamLabel}</span>
+                ${separator}
+                <span class="breadcrumb-current">Alla spelare</span>
+            `;
+                        break;
+                    case "tippers":
+                        html = `
+                <span class="breadcrumb-link" data-view="start">Välj lag</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="team" data-team-id="${teamId}">${teamLabel}</span>
+                ${separator}
+                <span class="breadcrumb-current">Alla tippare</span>
+            `;
+                        break;
+                    case "question-player": {
+                        const pq = TIPS.data.processedQuestions();
+                        const q = Array.isArray(pq) ? pq.find(x => String(x.question_id) === String(params.questionId)) : null;
+                        const qTitle = q ? q.question_wording : "Fråga";
+                        const pName = TIPS.utils.getPlayerName(params.playerId);
+
+                        html = `
+                <span class="breadcrumb-link" data-view="start">Välj lag</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="team" data-team-id="${teamId}">${teamLabel}</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="question" data-question-id="${params.questionId}">${qTitle}</span>
+                ${separator}
+                <span class="breadcrumb-current">${pName}</span>
+            `;
+                        break;
+                    }
+                    case "player": {
+                        const pName = TIPS.utils.getPlayerName(params.playerId);
+                        html = `
+                <span class="breadcrumb-link" data-view="start">Välj lag</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="team" data-team-id="${teamId}">${teamLabel}</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="players" data-team-id="${teamId}">Alla spelare</span>
+                ${separator}
+                <span class="breadcrumb-current">${pName}</span>
+            `;
+                        break;
+                    }
+                    case "player-tippers": {
+                        const pid = params?.playerId;
+                        const pName = pid ? TIPS.utils.getPlayerName(pid) : "Okänd spelare";
+
+                        html = `
+                <span class="breadcrumb-link" data-view="start">Välj lag</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="team" data-team-id="${teamId}">${teamLabel}</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="players" data-team-id="${teamId}">Alla spelare</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="player" data-player-id="${pid}" data-team-id="${teamId}">${pName}</span>
+                ${separator}
+                <span class="breadcrumb-current">Tippat på ${pName}</span>
+            `;
+                        break;
+                    }
+                    case "toplists":
+                        html = `
+                <span class="breadcrumb-link" data-view="start">Välj lag</span>
+                ${separator}
+                <span class="breadcrumb-link" data-view="team" data-team-id="${teamId}">${teamLabel}</span>
+                ${separator}
+                <span class="breadcrumb-current">Topplista</span>
+            `;
+                        break;
+                    case "team":
+                        html = `
+                <span class="breadcrumb-link" data-view="start">Välj lag</span>
+                ${separator}
+                <span class="breadcrumb-current">${teamLabel}</span>
+            `;
+                        break;
+                    case "start":
+                    default:
+                        html = `<span class="breadcrumb-current">Välj lag</span>`;
+                        break;
+                }
+
+                bc.innerHTML = html;
+            }
+
+            // NYTT: Klickbar breadcrumb – navigerar via showView
+            const breadcrumbEl = document.getElementById("breadcrumb");
+            if (breadcrumbEl) {
+                breadcrumbEl.addEventListener("click", (event) => {
+                    const link = event.target.closest(".breadcrumb-link");
+                    if (!link) return;
+
+                    const view = link.getAttribute("data-view");
+                    console.log("[router] Breadcrumb-klick:", view);
+                    // Försök ta lag från länken (data-team-id), annars fallback till "senast valda lag"
+                    const teamId = link.getAttribute("data-team-id") ?? window.TIPS?.state?.currentTeamId ?? null;
+
+
+                    switch (view) {
+                        case "start":
+                            appRouter.showView("start");
+                            return;
+
+                        case "team":
+                            // Gå tillbaka till lagvyn för “senast valda lag”
+                            appRouter.showView("team", { teamId });
+                            return;
+
+                        case "players":
+                            appRouter.showView("players", teamId != null ? { teamId } : {});
+                            return;
+
+                        case "tippers":
+                            appRouter.showView("tippers", teamId != null ? { teamId } : {});
+                            return;
+
+                        case "toplists":
+                            appRouter.showView("toplists");
+                            return;
+
+                        case "question": {
+                            const qId = link.getAttribute("data-question-id");
+                            if (qId) appRouter.showView("question", { questionId: qId });
+                            return;
+                        }
+
+                        case "player": {
+                            const pid = link.getAttribute("data-player-id");
+                            if (pid) appRouter.showView("player", { playerId: pid });
+                            return;
+                        }
+
+                        default:
+                            console.warn("[router] Okänt data-view i breadcrumb:", view);
+                            return;
+                    }
+
+
+                });
+            } else {
+                console.warn("[router] Hittar inte #breadcrumb vid init av klicklyssnare");
+            }
+
+
+            // Gör routern nåbar via konsolen
+            window.appRouter = { showView, goBack, goForward };
+
+
+            // Kör router efter att sidan laddat
+            document.addEventListener("DOMContentLoaded", () => {
+                console.log("[router] DOMContentLoaded – kopplar lyssnare (visar INTE vy ännu)");
+
+                // Viktigt: startvy visas först när init() är klar (Steg 4B).
+                // appRouter.showView("start");
+
+                const backBtn = document.getElementById("back-button");
+                if (backBtn) {
+                    backBtn.disabled = true; // startläge: ingen historik
+                    backBtn.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        goBack();
+                    });
+                }
+
+                const forwardBtn = document.getElementById("forward-button");
+                if (forwardBtn) {
+                    forwardBtn.disabled = true; // startläge: ingen historik
+                    forwardBtn.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        goForward();
+                    });
+                }
+
+                // Obs: start-knappen (#start-goto-modo) finns i startvyn och kommer först
+                // när den renderats, så vi kopplar den i renderStartView senare (Steg 5).
+            });
+
+        })();
+    </script>
+
+
+</body>
+
+</html>

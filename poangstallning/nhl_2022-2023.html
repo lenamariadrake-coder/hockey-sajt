@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poängställning NHL 2022&#8211;2022</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 1.5rem;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+         h1 {
+             margin-bottom: 2rem;
+             text-align: center;
+         }
+        .title-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-toggle {
+            background: none; border: none; padding: 0; margin: 0; font-size: 1.4rem;
+            font-weight: bold; color: #1a2533; cursor: pointer; display: flex; align-items: center;
+        }
+        .dropdown-arrow {
+            margin-left: 0.5rem; font-size: 1rem; transition: transform 0.2s ease-in-out;
+        }
+        .title-dropdown.active .dropdown-arrow { transform: rotate(180deg); }
+        .dropdown-menu {
+            display: none; position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
+            background-color: white; border: 1px solid #ddd; border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 1000; min-width: 250px; padding: 0.5rem 0;
+        }
+        .dropdown-menu.active { display: block; }
+        .dropdown-menu a {
+            display: block; padding: 0.45rem 1rem; color: #007bff; text-decoration: none; white-space: nowrap; font-size: 1.4rem;
+        }
+        .dropdown-menu a:hover { background-color: #f8f9fa; }
+
+        .dropdown-menu hr {
+            border: none; /* Ta bort standardramen */
+            border-top: 1px solid #d0d0d0; /* Lägg till en tunn, ljusgrå linje */
+            margin: 0.7rem 0; /* Lite luft ovanför och under linjen */
+        }
+
+        /* Stil för den valda länken */
+        .dropdown-menu a.chosen {
+            color: #000; /* Svart text */
+            font-weight: bold; /* Gör den fet (rekommenderat) */
+        }
+
+        /* Ta bort hover-effekt för den valda länken */
+        .dropdown-menu a.chosen:hover {
+            background-color: transparent; /* Ingen bakgrundsfärg */
+        }
+
+        .filter-section {
+            border: 1px solid #ddd; border-radius: 8px; margin-bottom: 2rem; margin-top: 1rem;
+        }
+        .filter-section summary {
+            cursor: pointer; padding: 1rem; font-weight: bold; list-style-position: inside;
+        }
+        .filter-section summary:hover { background-color: #f7f7f7; }
+        .filter-content {
+            display: flex; gap: 1.5rem; align-items: flex-start; padding: 0 1rem 1rem 1rem; border-top: 1px solid #ddd;
+        }
+        
+        #team-selection {
+            flex-grow: 1; display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 1rem;
+        }
+        
+        .action-buttons {
+            display: flex; flex-direction: column; gap: 0.5rem; flex-shrink: 0; padding-top: 1rem;
+            align-items: flex-end;
+        }
+        .action-buttons button {
+             padding: 0.5rem 1rem; border: 1px solid #6c757d; background-color: #fff; color: #6c757d;
+             border-radius: 5px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; white-space: nowrap;
+        }
+        .action-buttons button:hover { background-color: #6c757d; color: #fff; }
+
+.division-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end; /* gör så att hela blocket ligger till höger */
+  width: 100%;
+}
+
+.division-controls {
+  display: flex;
+  flex-direction: column; /* <-- staplar Atlantic / Metro / Central / Pacific vertikalt */
+  align-items: flex-end;  /* högerställer varje label */
+  gap: 6px;
+}
+
+.bulk-buttons {
+  display: flex;
+flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+
+.div-chip {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.28rem 0.6rem; border: 1px solid #adb5bd; border-radius: 999px;
+  background: #fff; color: #495057; font-size: 0.85rem; user-select: none; cursor: pointer;
+}
+.div-chip input { margin: 0; }
+.div-chip:hover { background: #f1f3f5; }
+.div-chip input:checked + * /* (om du lägger texten i separat span) */ {}
+
+        .team-item-wrapper {
+            display: flex; align-items: center; background-color: #e9ecef; border-radius: 20px; transition: background-color 0.2s;
+        }
+        .team-item-wrapper:hover { background-color: #dbe4f0; }
+        .team-label {
+            display: flex; align-items: center; padding: 0.5rem 0 0.5rem 1rem; cursor: pointer; font-size: 0.9rem;
+        }
+        .team-label input { margin-right: 0.5rem; }
+        
+        .color-picker-icon {
+            display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0.5rem 0.75rem;
+            margin-left: 0.5rem; border-left: 1px solid rgba(0,0,0,0.1); font-size: 1.1rem; width: 1em; height: 1em;
+        }
+        .color-indicator {
+            width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .controls-wrapper {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 2rem;
+        }
+        .main-control-groups { display: flex; flex-wrap: wrap; gap: 1rem; }
+        
+        .control-group {
+            display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; border: 1px solid #e9ecef;
+            background-color: #f8f9fa; padding: 0.75rem 1rem; border-radius: 8px;
+        }
+        #reset-all-colors-btn {
+             padding: 0.5rem 1rem; border: 1px solid #dc3545; background-color: #fff; color: #dc3545;
+             border-radius: 5px; cursor: pointer; transition: all 0.2s; font-weight: bold;
+        }
+        #reset-all-colors-btn:hover { background-color: #dc3545; color: #fff; }
+
+        /* --- Dynamisk höjd för diagrammet --- */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            min-height: 200px; /* Minimum höjd */
+            /* Ingen fast height här längre */
+        }
+
+        .slider-wrapper {
+            margin-top: 2.5rem; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 1rem 1.5rem;
+        }
+        .slider-display {
+            display: flex;
+            /* justify-content: space-between; ÄNDRAD FRÅN space-between */
+            justify-content: space-around; /* <= ÄNDRING: Bättre centrering vid radbyte */
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap; /* <= NY RAD: Tillåter elementen att byta rad */
+        }
+        .slider-info { /* <= NY REGEL FÖR DEN NYA DIV:en */
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-grow: 1; /* Tar upp ledigt utrymme */
+            justify-content: center; /* Centrerar när knappar radbryts */
+            margin-bottom: 0.5rem; /* Lite luft när knappar är under */
+        }
+        #slider-label {
+            text-transform: uppercase; letter-spacing: 1px; font-weight: bold; color: #495057;
+        }
+        #current-step-display {
+            font-weight: bold; font-size: 1.25rem; color: #007bff; text-align: center; flex-grow: 1; min-height: 1.5rem;
+        }
+        .player-controls { display: flex; gap: 0.5rem; }
+        .player-controls button {
+            display: flex; align-items: center; justify-content: center; background-color: #007bff; color: #fff;
+            border: none; padding: 0.6rem 1rem; border-radius: 5px; font-weight: bold; cursor: pointer;
+            transition: background-color 0.2s; white-space: nowrap;
+        }
+        .player-controls button svg { width: 1em; height: 1em; fill: currentColor; }
+        .player-controls button:hover { background-color: #0056b3; }
+        .hidden { display: none; }
+        
+        #timeline-slider {
+            -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer;
+        }
+        #timeline-slider::-webkit-slider-runnable-track { background: #ced4da; height: 10px; border-radius: 5px; }
+        #timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; margin-top: -7px; background: #007bff; height: 24px; width: 24px;
+            border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.25);
+        }
+        #timeline-slider::-moz-range-track { background: #ced4da; height: 10px; border-radius: 5px; }
+        #timeline-slider::-moz-range-thumb {
+            background: #007bff; height: 24px; width: 24px; border-radius: 50%;
+            border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.25);
+        }
+
+        #color-palette {
+            position: absolute; display: none; flex-direction: row; gap: 0.5rem; background-color: #fff; padding: 0.5rem;
+            border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100;
+        }
+        .color-swatch {
+            width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.3);
+        }
+        #reset-color { font-size: 1.2rem; cursor: pointer; line-height: 24px; }
+
+/* --- Stil för källinformation --- */
+        .source-info {
+            text-align: center; 
+            font-size: 0.85rem; /* Lite mindre text */
+            color: #6c757d;    /* Dämpad grå färg */
+            margin-top: 2.5rem; /* Lite extra utrymme ovanför */
+            padding-top: 1rem; /* Lite luft innanför om det behövs */
+            border-top: 1px solid #eee; /* Mycket svag avgränsare */
+        }
+        .source-info a {
+            color: #495057; /* Lite mörkare grå för länkar */
+            text-decoration: underline; /* Tydliggör att det är länkar */
+        }
+        .source-info a:hover {
+            color: #007bff; /* Standard blå hover-färg */
+        }
+        /* --- Slut stil källinformation --- */
+
+
+        @media (max-width: 768px) {
+            .filter-content { flex-direction: column; align-items: stretch; }
+            .action-buttons { flex-direction: row; justify-content: flex-end; }
+            .slider-info { justify-content: center; text-align: center; } /* Centrera texten */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>
+             <div class="title-dropdown">
+                 <button id="dropdown-toggle-button" class="dropdown-toggle">
+                     Poängställning NHL 2022&#8211;2023
+                     <span class="dropdown-arrow">&#9660;</span>
+                 </button>
+                 <div id="dropdown-menu-content" class="dropdown-menu">
+                     <a href="../index.html" target="_self">&#127968; Till startsidan</a>
+                     <hr>
+                     <a href="avancerat.html" target="_self">Avancerat (Hockeyallsvenskan + SHL)</a>
+                     <hr>
+                     <a href="ha_2021-2022.html" target="_self">Hockeyallsvenskan 2021&#8211;2022</a>
+                     <a href="ha_2022-2023.html" target="_self">Hockeyallsvenskan 2022&#8211;2023</a>
+                     <a href="ha_2023-2024.html" target="_self">Hockeyallsvenskan 2023&#8211;2024</a>
+                     <a href="ha_2024-2025.html" target="_self">Hockeyallsvenskan 2024&#8211;2025</a>
+                     <a href="ha_2025-2026.html" target="_self">Hockeyallsvenskan 2025&#8211;2026</a>
+                     <hr>
+                     <a href="nhl_2021-2022.html" target="_self">NHL 2021&#8211;2022</a>
+                     <a class="chosen">NHL 2022&#8211;2023</a>
+                     <a href="nhl_2023-2024.html" target="_self">NHL 2023&#8211;2024</a>
+                     <a href="nhl_2024-2025.html" target="_self">NHL 2024&#8211;2025</a>
+                     <a href="nhl_2025-2026.html" target="_self">NHL 2025&#8211;2026</a>
+                     <hr>
+                     <a href="shl_2021-2022.html" target="_self">SHL 2021&#8211;2022</a>
+                     <a href="shl_2022-2023.html" target="_self">SHL 2022&#8211;2023</a>
+                     <a href="shl_2023-2024.html" target="_self">SHL 2023&#8211;2024</a>
+                     <a href="shl_2024-2025.html" target="_self">SHL 2024&#8211;2025</a>
+                     <a href="shl_2025-2026.html" target="_self">SHL 2025&#8211;2026</a>
+                 </div>
+             </div>
+        </h1>
+
+<details class="filter-section">
+  <summary id="filter-summary">Filtrera lag</summary>
+  <div class="filter-content">
+    
+    <div id="team-selection"></div>
+
+    <div class="action-buttons">
+
+      <div class="division-stack">
+        <div class="division-controls" aria-label="NHL divisions">
+          <label class="div-chip"><input type="checkbox" class="division-filter" value="Atlantic"> Atlantic</label>
+          <label class="div-chip"><input type="checkbox" class="division-filter" value="Metropolitan"> Metropolitan</label>
+          <label class="div-chip"><input type="checkbox" class="division-filter" value="Central"> Central</label>
+          <label class="div-chip"><input type="checkbox" class="division-filter" value="Pacific"> Pacific</label>
+        </div>
+      </div>
+
+      <div class="bulk-buttons">
+        <button id="select-all">Markera alla</button>
+        <button id="deselect-all">Avmarkera alla</button>
+        <button id="reset-all-colors-btn" class="hidden">Återställ alla färger &#10060;</button>
+      </div>
+
+    </div>
+
+  </div>
+</details>
+        
+        <div class="controls-wrapper">
+             <div class="main-control-groups">
+                <div class="control-group">
+                    <strong>Tidsaxel:</strong>
+                    <label><input type="radio" name="timeline-mode" value="matches" checked> Spelade matcher</label>
+                    <label><input type="radio" name="timeline-mode" value="date"> Datum</label>
+                </div>
+                <div class="control-group">
+                    <strong>Sortera:</strong>
+                    <label><input type="radio" name="sort-order" value="alpha" checked> Alfabetisk</label>
+                    <label><input type="radio" name="sort-order" value="points"> Placering</label>
+                </div>
+                <div class="control-group">
+                    <strong>Poängaxel:</strong>
+                    <label><input type="radio" name="axis-scale" value="currentLeader" checked> Poängledare</label>
+                    <label><input type="radio" name="axis-scale" value="seasonMax"> Max för säsongen</label>
+                    <label><input type="radio" name="axis-scale" value="dynamic"> Flexibel</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="points-chart"></canvas>
+        </div>
+
+        <div class="slider-wrapper">
+            <div class="slider-display">
+                <div class="slider-info"> <label for="timeline-slider" id="slider-label">Välj tidpunkt eller klicka på play</label>
+                <p id="current-step-display"></p>
+                </div>
+                <div class="player-controls">
+                    <button id="prev-step">&lt; Föregående</button>
+                    <button id="play-pause-btn" title="Spela upp/Pausa">
+                        <svg id="play-icon" viewBox="0 0 16 16"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
+                        <svg id="pause-icon" class="hidden" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5A1.5 1.5 0 0 1 5.5 3.5zm4 0A1.5 1.5 0 0 1 11 5v6a1.5 1.5 0 0 1-3 0V5A1.5 1.5 0 0 1 9.5 3.5z"/></svg>
+                    </button>
+                    <button id="next-step">Nästa &gt;</button>
+                </div>
+            </div>
+            <input type="range" id="timeline-slider" min="0" max="1" value="0">
+        </div>
+        <p class="source-info">
+            Statistik hämtad från: 
+            <a href="https://www.hockeyallsvenskan.se/" target="_blank">hockeyallsvenskan.se</a>, 
+            <a href="https://www.shl.se/" target="_blank">shl.se</a>, 
+            <a href="https://www.hockey-reference.com/" target="_blank">hockey-reference.com</a>.
+        </p>
+    </div>
+    <div id="color-palette"></div>
+
+<script>
+  // --- DATA OCH KONSTANTER ---
+  const SEASON_MAX_POINTS = 82 * 2;
+  const PLAYBACK_SPEED_MS = 600;
+  const DEFAULT_BAR_COLOR = 'rgba(0, 123, 255, 0.7)';
+  const PALETTE_COLORS = ['#ffc107', '#dc3545', '#28a745', '#6f42c1', '#fd7e14'];
+  const MIN_BAR_HEIGHT = 28; // Minsta höjd per stapel i pixlar
+  const CHART_PADDING = 50;  // Uppskattad höjd för axlar etc.
+
+  // Division ? lag (EXAKTA namn som i din NHL-data/etiketter)
+  const NHL_DIVISIONS = {
+    Atlantic: [
+      "Boston Bruins","Buffalo Sabres","Detroit Red Wings","Florida Panthers",
+      "Montreal Canadiens","Ottawa Senators","Tampa Bay Lightning","Toronto Maple Leafs"
+    ],
+    Metropolitan: [
+      "Carolina Hurricanes","Columbus Blue Jackets","New Jersey Devils","New York Islanders",
+      "New York Rangers","Philadelphia Flyers","Pittsburgh Penguins","Washington Capitals"
+    ],
+    Central: [
+      "Utah Hockey Club","Chicago Blackhawks","Colorado Avalanche","Dallas Stars",
+      "Minnesota Wild","Nashville Predators","St. Louis Blues","Winnipeg Jets"
+    ],
+    Pacific: [
+      "Anaheim Ducks","Calgary Flames","Edmonton Oilers","Los Angeles Kings",
+      "San Jose Sharks","Seattle Kraken","Vancouver Canucks","Vegas Golden Knights"
+    ]
+  };
+
+  // --- HJÄLPFUNKTIONER (urval, knappstatus, sammanfattning) ---
+  function getAllTeamCheckboxes(){
+    return Array.from(document.querySelectorAll('#team-selection input[type="checkbox"]'));
+  }
+
+  function updateFilterSummary(){
+    const boxes = getAllTeamCheckboxes();
+    const total = boxes.length;
+    const selected = boxes.filter(cb => cb.checked).length;
+    const summary = document.getElementById('filter-summary');
+    if (summary){
+      summary.textContent = `Filtrera lag (${selected}/${total} valda)`;
+    }
+  }
+
+  // (Behålls för kompatibilitet – nu används för att tömma divisionskryss)
+  function clearActiveDivisionButtons(){
+    document.querySelectorAll('.division-filter').forEach(cb => {
+      cb.checked = false;
+      cb.indeterminate = false;
+    });
+  }
+
+  // (Legacy, kan ligga kvar – gör inget visuellt nu när vi har kryss)
+  function activateDivisionButton(id){
+    clearActiveDivisionButtons();
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.add('active');
+  }
+
+  function pauseIfPlaying(){
+    if (typeof playbackInterval !== 'undefined' && playbackInterval){
+      clearInterval(playbackInterval);
+      playbackInterval = null;
+      if (playIcon && pauseIcon){
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+      }
+    }
+  }
+
+  // Exklusivt urval: markera ENDAST angivna lag (behålls om du skulle vilja använda det någonstans)
+  function setCheckedTeamsOnly(teamNames){
+    const boxes = getAllTeamCheckboxes();
+    boxes.forEach(cb => cb.checked = false); // Avmarkera alla
+    const wanted = new Set(teamNames);
+    boxes.forEach(cb => { if (wanted.has(cb.value)) cb.checked = true; });
+
+    updateFilterSummary();
+    if (typeof updateChart === 'function') updateChart();
+  }
+
+  // Additiv urval: markera/avmarkera alla lag i en division utan att röra andra
+  function setDivisionSelection(divisionName, on){
+    const names = new Set(NHL_DIVISIONS[divisionName]); // ex. "Atlantic" ? 8 lagnamn
+    getAllTeamCheckboxes().forEach(cb => {
+      if (names.has(cb.value)) cb.checked = !!on; // lägg till eller ta bort divisionens lag
+    });
+    updateFilterSummary();
+    if (typeof updateChart === 'function') updateChart();
+  }
+
+  // --- NYTT: Synka divisionskryss ? lagval ---
+  function isDivisionFullySelected(divisionName){
+    const wanted = new Set(NHL_DIVISIONS[divisionName]);
+    for (const cb of getAllTeamCheckboxes()){
+      if (wanted.has(cb.value) && !cb.checked) return false;
+    }
+    return true;
+  }
+
+  function isDivisionPartiallySelected(divisionName){
+    const wanted = new Set(NHL_DIVISIONS[divisionName]);
+    let any = false, all = true;
+    for (const cb of getAllTeamCheckboxes()){
+      if (wanted.has(cb.value)){
+        if (cb.checked) any = true; else all = false;
+      }
+    }
+    return any && !all;
+  }
+
+  function syncDivisionCheckboxes(){
+    document.querySelectorAll('.division-filter').forEach(df => {
+      const divName = df.value; // "Atlantic" | "Metropolitan" | ...
+      const full = isDivisionFullySelected(divName);
+      const part = isDivisionPartiallySelected(divName);
+      df.checked = full;
+      df.indeterminate = !full && part; // tri-state vid delvis val
+    });
+  }
+
+  // --- STATE ---
+  let FINAL_LEADER_POINTS = 0;
+  let playbackInterval = null;
+  let teamColors = {};
+  const rawData = `
+Datum	Hemmalag	Bortalag	Matchresultat	Hemmamål	Bortamål	Hemmapoäng	Bortapoäng
+2022-10-07	Nashville Predators	San Jose Sharks	4 - 1 	4	1	2	0
+2022-10-08	San Jose Sharks	Nashville Predators	2 - 3 	2	3	0	2
+2022-10-11	Los Angeles Kings	Vegas Golden Knights	3 - 4 	3	4	0	2
+2022-10-11	New York Rangers	Tampa Bay Lightning	3 - 1 	3	1	2	0
+2022-10-12	Anaheim Ducks	Seattle Kraken	5 - 4 OT	5	4	2	1
+2022-10-12	Carolina Hurricanes	Columbus Blue Jackets	4 - 1 	4	1	2	0
+2022-10-12	Colorado Avalanche	Chicago Blackhawks	5 - 2 	5	2	2	0
+2022-10-12	Edmonton Oilers	Vancouver Canucks	5 - 3 	5	3	2	0
+2022-10-12	Montreal Canadiens	Toronto Maple Leafs	4 - 3 	4	3	2	0
+2022-10-12	Washington Capitals	Boston Bruins	2 - 5 	2	5	0	2
+2022-10-13	Buffalo Sabres	Ottawa Senators	4 - 1 	4	1	2	0
+2022-10-13	Calgary Flames	Colorado Avalanche	5 - 3 	5	3	2	0
+2022-10-13	Los Angeles Kings	Seattle Kraken	1 - 4 	1	4	0	2
+2022-10-13	Minnesota Wild	New York Rangers	3 - 7 	3	7	0	2
+2022-10-13	Nashville Predators	Dallas Stars	1 - 4 	1	4	0	2
+2022-10-13	New York Islanders	Florida Panthers	1 - 3 	1	3	0	2
+2022-10-13	Philadelphia Flyers	New Jersey Devils	5 - 2 	5	2	2	0
+2022-10-13	Pittsburgh Penguins	Arizona Coyotes	6 - 2 	6	2	2	0
+2022-10-13	Toronto Maple Leafs	Washington Capitals	3 - 2 	3	2	2	0
+2022-10-13	Vegas Golden Knights	Chicago Blackhawks	1 - 0 	1	0	2	0
+2022-10-14	Columbus Blue Jackets	Tampa Bay Lightning	2 - 5 	2	5	0	2
+2022-10-14	Detroit Red Wings	Montreal Canadiens	3 - 0 	3	0	2	0
+2022-10-14	San Jose Sharks	Carolina Hurricanes	1 - 2 	1	2	0	2
+2022-10-14	Winnipeg Jets	New York Rangers	4 - 1 	4	1	2	0
+2022-10-15	Boston Bruins	Arizona Coyotes	6 - 3 	6	3	2	0
+2022-10-15	Buffalo Sabres	Florida Panthers	3 - 4 	3	4	0	2
+2022-10-15	Dallas Stars	Nashville Predators	5 - 1 	5	1	2	0
+2022-10-15	Edmonton Oilers	Calgary Flames	3 - 4 	3	4	0	2
+2022-10-15	Minnesota Wild	Los Angeles Kings	6 - 7 	6	7	0	2
+2022-10-15	New Jersey Devils	Detroit Red Wings	2 - 5 	2	5	0	2
+2022-10-15	New York Islanders	Anaheim Ducks	7 - 1 	7	1	2	0
+2022-10-15	Philadelphia Flyers	Vancouver Canucks	3 - 2 	3	2	2	0
+2022-10-15	Pittsburgh Penguins	Tampa Bay Lightning	6 - 2 	6	2	2	0
+2022-10-15	Seattle Kraken	Vegas Golden Knights	2 - 5 	2	5	0	2
+2022-10-15	San Jose Sharks	Chicago Blackhawks	2 - 5 	2	5	0	2
+2022-10-15	St. Louis Blues	Columbus Blue Jackets	5 - 2 	5	2	2	0
+2022-10-15	Toronto Maple Leafs	Ottawa Senators	3 - 2 	3	2	2	0
+2022-10-15	Washington Capitals	Montreal Canadiens	3 - 1 	3	1	2	0
+2022-10-17	Boston Bruins	Florida Panthers	5 - 3 	5	3	2	0
+2022-10-17	Dallas Stars	Winnipeg Jets	4 - 1 	4	1	2	0
+2022-10-17	Detroit Red Wings	Los Angeles Kings	4 - 5 OT	4	5	1	2
+2022-10-17	Minnesota Wild	Colorado Avalanche	3 - 6 	3	6	0	2
+2022-10-17	Montreal Canadiens	Pittsburgh Penguins	3 - 2 OT	3	2	2	1
+2022-10-17	New York Rangers	Anaheim Ducks	6 - 4 	6	4	2	0
+2022-10-17	Seattle Kraken	Carolina Hurricanes	1 - 5 	1	5	0	2
+2022-10-17	Toronto Maple Leafs	Arizona Coyotes	2 - 4 	2	4	0	2
+2022-10-17	Washington Capitals	Vancouver Canucks	6 - 4 	6	4	2	0
+2022-10-18	Columbus Blue Jackets	Vancouver Canucks	4 - 3 OT	4	3	2	1
+2022-10-18	Calgary Flames	Vegas Golden Knights	3 - 2 	3	2	2	0
+2022-10-18	Edmonton Oilers	Buffalo Sabres	2 - 4 	2	4	0	2
+2022-10-18	New Jersey Devils	Anaheim Ducks	4 - 2 	4	2	2	0
+2022-10-18	Nashville Predators	Los Angeles Kings	3 - 4 SO	3	4	1	2
+2022-10-18	New York Islanders	San Jose Sharks	5 - 2 	5	2	2	0
+2022-10-18	Ottawa Senators	Boston Bruins	7 - 5 	7	5	2	0
+2022-10-18	Tampa Bay Lightning	Philadelphia Flyers	2 - 3 	2	3	0	2
+2022-10-19	Colorado Avalanche	Winnipeg Jets	3 - 4 OT	3	4	1	2
+2022-10-19	Florida Panthers	Philadelphia Flyers	4 - 3 	4	3	2	0
+2022-10-19	Seattle Kraken	St. Louis Blues	3 - 4 OT	3	4	1	2
+2022-10-20	Boston Bruins	Anaheim Ducks	2 - 1 SO	2	1	2	1
+2022-10-20	Columbus Blue Jackets	Nashville Predators	5 - 3 	5	3	2	0
+2022-10-20	Calgary Flames	Buffalo Sabres	3 - 6 	3	6	0	2
+2022-10-20	Edmonton Oilers	Carolina Hurricanes	6 - 4 	6	4	2	0
+2022-10-20	Minnesota Wild	Vancouver Canucks	4 - 3 OT	4	3	2	1
+2022-10-20	Montreal Canadiens	Arizona Coyotes	6 - 2 	6	2	2	0
+2022-10-20	New York Islanders	New Jersey Devils	1 - 4 	1	4	0	2
+2022-10-20	New York Rangers	San Jose Sharks	2 - 3 OT	2	3	1	2
+2022-10-20	Ottawa Senators	Washington Capitals	5 - 2 	5	2	2	0
+2022-10-20	Pittsburgh Penguins	Los Angeles Kings	6 - 1 	6	1	2	0
+2022-10-20	Toronto Maple Leafs	Dallas Stars	3 - 2 OT	3	2	2	1
+2022-10-20	Vegas Golden Knights	Winnipeg Jets	5 - 2 	5	2	2	0
+2022-10-21	Chicago Blackhawks	Detroit Red Wings	4 - 3 OT	4	3	2	1
+2022-10-21	Colorado Avalanche	Seattle Kraken	2 - 3 	2	3	0	2
+2022-10-21	Florida Panthers	Tampa Bay Lightning	2 - 3 OT	2	3	1	2
+2022-10-22	Boston Bruins	Minnesota Wild	4 - 3 OT	4	3	2	1
+2022-10-22	Columbus Blue Jackets	Pittsburgh Penguins	3 - 6 	3	6	0	2
+2022-10-22	Calgary Flames	Carolina Hurricanes	3 - 2 OT	3	2	2	1
+2022-10-22	Edmonton Oilers	St. Louis Blues	0 - 2 	0	2	0	2
+2022-10-22	Montreal Canadiens	Dallas Stars	2 - 5 	2	5	0	2
+2022-10-22	New Jersey Devils	San Jose Sharks	2 - 1 	2	1	2	0
+2022-10-22	Nashville Predators	Philadelphia Flyers	1 - 3 	1	3	0	2
+2022-10-22	Ottawa Senators	Arizona Coyotes	6 - 2 	6	2	2	0
+2022-10-22	Tampa Bay Lightning	New York Islanders	5 - 3 	5	3	2	0
+2022-10-22	Vancouver Canucks	Buffalo Sabres	1 - 5 	1	5	0	2
+2022-10-22	Vegas Golden Knights	Colorado Avalanche	2 - 3 	2	3	0	2
+2022-10-22	Winnipeg Jets	Toronto Maple Leafs	1 - 4 	1	4	0	2
+2022-10-22	Washington Capitals	Los Angeles Kings	4 - 3 	4	3	2	0
+2022-10-23	Chicago Blackhawks	Seattle Kraken	5 - 4 	5	4	2	0
+2022-10-23	Detroit Red Wings	Anaheim Ducks	5 - 1 	5	1	2	0
+2022-10-23	Florida Panthers	New York Islanders	3 - 2 	3	2	2	0
+2022-10-23	New York Rangers	Columbus Blue Jackets	1 - 5 	1	5	0	2
+2022-10-23	Philadelphia Flyers	San Jose Sharks	0 - 3 	0	3	0	2
+2022-10-24	Edmonton Oilers	Pittsburgh Penguins	6 - 3 	6	3	2	0
+2022-10-24	New Jersey Devils	Washington Capitals	3 - 6 	3	6	0	2
+2022-10-24	Ottawa Senators	Dallas Stars	4 - 2 	4	2	2	0
+2022-10-24	Vancouver Canucks	Carolina Hurricanes	2 - 3 	2	3	0	2
+2022-10-24	Vegas Golden Knights	Toronto Maple Leafs	3 - 1 	3	1	2	0
+2022-10-24	Winnipeg Jets	St. Louis Blues	4 - 0 	4	0	2	0
+2022-10-25	Boston Bruins	Dallas Stars	3 - 1 	3	1	2	0
+2022-10-25	Columbus Blue Jackets	Arizona Coyotes	3 - 6 	3	6	0	2
+2022-10-25	Calgary Flames	Pittsburgh Penguins	4 - 1 	4	1	2	0
+2022-10-25	Chicago Blackhawks	Florida Panthers	4 - 2 	4	2	2	0
+2022-10-25	Detroit Red Wings	New Jersey Devils	2 - 6 	2	6	0	2
+2022-10-25	Los Angeles Kings	Tampa Bay Lightning	4 - 2 	4	2	2	0
+2022-10-25	Montreal Canadiens	Minnesota Wild	1 - 3 	1	3	0	2
+2022-10-25	New York Rangers	Colorado Avalanche	2 - 3 SO	2	3	1	2
+2022-10-25	Seattle Kraken	Buffalo Sabres	5 - 1 	5	1	2	0
+2022-10-25	San Jose Sharks	Vegas Golden Knights	2 - 4 	2	4	0	2
+2022-10-26	Anaheim Ducks	Tampa Bay Lightning	2 - 4 	2	4	0	2
+2022-10-26	New York Islanders	New York Rangers	3 - 0 	3	0	2	0
+2022-10-26	St. Louis Blues	Edmonton Oilers	1 - 3 	1	3	0	2
+2022-10-27	Boston Bruins	Detroit Red Wings	5 - 1 	5	1	2	0
+2022-10-27	Buffalo Sabres	Montreal Canadiens	2 - 3 	2	3	0	2
+2022-10-27	Chicago Blackhawks	Edmonton Oilers	5 - 6 	5	6	0	2
+2022-10-27	Dallas Stars	Washington Capitals	2 - 0 	2	0	2	0
+2022-10-27	Los Angeles Kings	Winnipeg Jets	4 - 6 	4	6	0	2
+2022-10-27	Nashville Predators	St. Louis Blues	6 - 2 	6	2	2	0
+2022-10-27	Ottawa Senators	Minnesota Wild	2 - 4 	2	4	0	2
+2022-10-27	Philadelphia Flyers	Florida Panthers	4 - 3 	4	3	2	0
+2022-10-27	Seattle Kraken	Vancouver Canucks	4 - 5 	4	5	0	2
+2022-10-27	San Jose Sharks	Toronto Maple Leafs	4 - 3 OT	4	3	2	1
+2022-10-28	Arizona Coyotes	Winnipeg Jets	2 - 3 OT	2	3	1	2
+2022-10-28	Carolina Hurricanes	New York Islanders	2 - 6 	2	6	0	2
+2022-10-28	Columbus Blue Jackets	Boston Bruins	0 - 4 	0	4	0	2
+2022-10-28	New Jersey Devils	Colorado Avalanche	1 - 0 	1	0	2	0
+2022-10-28	Vancouver Canucks	Pittsburgh Penguins	5 - 1 	5	1	2	0
+2022-10-28	Vegas Golden Knights	Anaheim Ducks	4 - 0 	4	0	2	0
+2022-10-29	Buffalo Sabres	Chicago Blackhawks	4 - 3 OT	4	3	2	1
+2022-10-29	Calgary Flames	Edmonton Oilers	2 - 3 	2	3	0	2
+2022-10-29	Dallas Stars	New York Rangers	3 - 6 	3	6	0	2
+2022-10-29	Detroit Red Wings	Minnesota Wild	2 - 1 	2	1	2	0
+2022-10-29	Florida Panthers	Ottawa Senators	5 - 3 	5	3	2	0
+2022-10-29	Los Angeles Kings	Toronto Maple Leafs	4 - 2 	4	2	2	0
+2022-10-29	Nashville Predators	Washington Capitals	0 - 3 	0	3	0	2
+2022-10-29	New York Islanders	Colorado Avalanche	5 - 4 	5	4	2	0
+2022-10-29	Philadelphia Flyers	Carolina Hurricanes	3 - 4 OT	3	4	1	2
+2022-10-29	Seattle Kraken	Pittsburgh Penguins	3 - 1 	3	1	2	0
+2022-10-29	San Jose Sharks	Tampa Bay Lightning	3 - 4 	3	4	0	2
+2022-10-29	St. Louis Blues	Montreal Canadiens	4 - 7 	4	7	0	2
+2022-10-30	Anaheim Ducks	Toronto Maple Leafs	4 - 3 OT	4	3	2	1
+2022-10-30	Arizona Coyotes	New York Rangers	2 - 3 	2	3	0	2
+2022-10-30	Chicago Blackhawks	Minnesota Wild	3 - 4 SO	3	4	1	2
+2022-10-30	New Jersey Devils	Columbus Blue Jackets	7 - 1 	7	1	2	0
+2022-10-30	Vegas Golden Knights	Winnipeg Jets	2 - 1 OT	2	1	2	1
+2022-10-31	Buffalo Sabres	Detroit Red Wings	8 - 3 	8	3	2	0
+2022-10-31	Carolina Hurricanes	Washington Capitals	3 - 2 SO	3	2	2	1
+2022-10-31	St. Louis Blues	Los Angeles Kings	1 - 5 	1	5	0	2
+2022-11-01	Arizona Coyotes	Florida Panthers	3 - 1 	3	1	2	0
+2022-11-01	Calgary Flames	Seattle Kraken	4 - 5 	4	5	0	2
+2022-11-01	Chicago Blackhawks	New York Islanders	1 - 3 	1	3	0	2
+2022-11-01	Dallas Stars	Los Angeles Kings	5 - 2 	5	2	2	0
+2022-11-01	Edmonton Oilers	Nashville Predators	7 - 4 	7	4	2	0
+2022-11-01	Minnesota Wild	Montreal Canadiens	4 - 1 	4	1	2	0
+2022-11-01	New York Rangers	Philadelphia Flyers	1 - 0 OT	1	0	2	1
+2022-11-01	Pittsburgh Penguins	Boston Bruins	5 - 6 OT	5	6	1	2
+2022-11-01	San Jose Sharks	Anaheim Ducks	5 - 6 SO	5	6	1	2
+2022-11-01	Tampa Bay Lightning	Ottawa Senators	4 - 3 	4	3	2	0
+2022-11-01	Vancouver Canucks	New Jersey Devils	2 - 5 	2	5	0	2
+2022-11-01	Washington Capitals	Vegas Golden Knights	2 - 3 OT	2	3	1	2
+2022-11-02	Buffalo Sabres	Pittsburgh Penguins	6 - 3 	6	3	2	0
+2022-11-02	Toronto Maple Leafs	Philadelphia Flyers	5 - 2 	5	2	2	0
+2022-11-03	Arizona Coyotes	Dallas Stars	2 - 7 	2	7	0	2
+2022-11-03	Calgary Flames	Nashville Predators	1 - 4 	1	4	0	2
+2022-11-03	Chicago Blackhawks	Los Angeles Kings	2 - 1 OT	2	1	2	1
+2022-11-03	Detroit Red Wings	Washington Capitals	3 - 1 	3	1	2	0
+2022-11-03	Edmonton Oilers	New Jersey Devils	3 - 4 	3	4	0	2
+2022-11-03	Minnesota Wild	Seattle Kraken	0 - 4 	0	4	0	2
+2022-11-03	New York Rangers	Boston Bruins	2 - 5 	2	5	0	2
+2022-11-03	Ottawa Senators	Vegas Golden Knights	4 - 5 	4	5	0	2
+2022-11-03	San Jose Sharks	Florida Panthers	3 - 4 SO	3	4	1	2
+2022-11-03	St. Louis Blues	New York Islanders	2 - 5 	2	5	0	2
+2022-11-03	Tampa Bay Lightning	Carolina Hurricanes	3 - 4 SO	3	4	1	2
+2022-11-03	Vancouver Canucks	Anaheim Ducks	8 - 5 	8	5	2	0
+2022-11-03	Winnipeg Jets	Montreal Canadiens	3 - 2 OT	3	2	2	1
+2022-11-04	Carolina Hurricanes	Buffalo Sabres	5 - 3 	5	3	2	0
+2022-11-04	Colorado Avalanche	Columbus Blue Jackets	6 - 3 	6	3	2	0
+2022-11-05	Columbus Blue Jackets	Colorado Avalanche	1 - 5 	1	5	0	2
+2022-11-05	Calgary Flames	New Jersey Devils	3 - 4 OT	3	4	1	2
+2022-11-05	Detroit Red Wings	New York Islanders	3 - 0 	3	0	2	0
+2022-11-05	Edmonton Oilers	Dallas Stars	2 - 6 	2	6	0	2
+2022-11-05	Los Angeles Kings	Florida Panthers	5 - 4 	5	4	2	0
+2022-11-05	Montreal Canadiens	Vegas Golden Knights	4 - 6 	4	6	0	2
+2022-11-05	Ottawa Senators	Philadelphia Flyers	1 - 2 	1	2	0	2
+2022-11-05	Pittsburgh Penguins	Seattle Kraken	2 - 3 	2	3	0	2
+2022-11-05	San Jose Sharks	Anaheim Ducks	4 - 5 SO	4	5	1	2
+2022-11-05	Tampa Bay Lightning	Buffalo Sabres	5 - 3 	5	3	2	0
+2022-11-05	Toronto Maple Leafs	Boston Bruins	2 - 1 	2	1	2	0
+2022-11-05	Vancouver Canucks	Nashville Predators	3 - 4 SO	3	4	1	2
+2022-11-05	Winnipeg Jets	Chicago Blackhawks	4 - 0 	4	0	2	0
+2022-11-05	Washington Capitals	Arizona Coyotes	2 - 3 	2	3	0	2
+2022-11-06	Anaheim Ducks	Florida Panthers	3 - 5 	3	5	0	2
+2022-11-06	Carolina Hurricanes	Toronto Maple Leafs	1 - 3 	1	3	0	2
+2022-11-06	New York Rangers	Detroit Red Wings	2 - 3 OT	2	3	1	2
+2022-11-07	Boston Bruins	St. Louis Blues	3 - 1 	3	1	2	0
+2022-11-07	New York Islanders	Calgary Flames	4 - 3 OT	4	3	2	1
+2022-11-07	Washington Capitals	Edmonton Oilers	5 - 4 	5	4	2	0
+2022-11-08	Buffalo Sabres	Arizona Coyotes	1 - 4 	1	4	0	2
+2022-11-08	Detroit Red Wings	Montreal Canadiens	2 - 3 SO	2	3	1	2
+2022-11-08	Los Angeles Kings	Minnesota Wild	1 - 0 	1	0	2	0
+2022-11-08	New Jersey Devils	Calgary Flames	3 - 2 	3	2	2	0
+2022-11-08	New York Rangers	New York Islanders	3 - 4 	3	4	0	2
+2022-11-08	Ottawa Senators	Vancouver Canucks	4 - 6 	4	6	0	2
+2022-11-08	Philadelphia Flyers	St. Louis Blues	5 - 1 	5	1	2	0
+2022-11-08	Seattle Kraken	Nashville Predators	5 - 1 	5	1	2	0
+2022-11-08	Tampa Bay Lightning	Edmonton Oilers	2 - 3 	2	3	0	2
+2022-11-08	Toronto Maple Leafs	Vegas Golden Knights	3 - 4 OT	3	4	1	2
+2022-11-08	Winnipeg Jets	Dallas Stars	5 - 1 	5	1	2	0
+2022-11-09	Anaheim Ducks	Minnesota Wild	1 - 4 	1	4	0	2
+2022-11-09	Florida Panthers	Carolina Hurricanes	3 - 0 	3	0	2	0
+2022-11-09	Montreal Canadiens	Vancouver Canucks	5 - 2 	5	2	2	0
+2022-11-09	Washington Capitals	Pittsburgh Penguins	1 - 4 	1	4	0	2
+2022-11-10	Boston Bruins	Calgary Flames	3 - 1 	3	1	2	0
+2022-11-10	Buffalo Sabres	Vegas Golden Knights	4 - 7 	4	7	0	2
+2022-11-10	Carolina Hurricanes	Edmonton Oilers	7 - 2 	7	2	2	0
+2022-11-10	Columbus Blue Jackets	Philadelphia Flyers	5 - 2 	5	2	2	0
+2022-11-10	Colorado Avalanche	Nashville Predators	5 - 3 	5	3	2	0
+2022-11-10	Detroit Red Wings	New York Rangers	2 - 8 	2	8	0	2
+2022-11-10	Los Angeles Kings	Chicago Blackhawks	2 - 1 OT	2	1	2	1
+2022-11-10	New Jersey Devils	Ottawa Senators	4 - 3 OT	4	3	2	1
+2022-11-10	New York Islanders	Arizona Coyotes	0 - 2 	0	2	0	2
+2022-11-10	St. Louis Blues	San Jose Sharks	5 - 3 	5	3	2	0
+2022-11-11	Dallas Stars	San Jose Sharks	4 - 5 	4	5	0	2
+2022-11-11	Seattle Kraken	Minnesota Wild	0 - 1 	0	1	0	2
+2022-11-11	Toronto Maple Leafs	Pittsburgh Penguins	2 - 4 	2	4	0	2
+2022-11-11	Washington Capitals	Tampa Bay Lightning	5 - 1 	5	1	2	0
+2022-11-12	Anaheim Ducks	Chicago Blackhawks	2 - 3 	2	3	0	2
+2022-11-12	Buffalo Sabres	Boston Bruins	1 - 3 	1	3	0	2
+2022-11-12	Calgary Flames	Winnipeg Jets	3 - 2 	3	2	2	0
+2022-11-12	Colorado Avalanche	Carolina Hurricanes	4 - 1 	4	1	2	0
+2022-11-12	Florida Panthers	Edmonton Oilers	2 - 4 	2	4	0	2
+2022-11-12	Los Angeles Kings	Detroit Red Wings	4 - 3 	4	3	2	0
+2022-11-12	Montreal Canadiens	Pittsburgh Penguins	5 - 4 OT	5	4	2	1
+2022-11-12	New Jersey Devils	Arizona Coyotes	4 - 2 	4	2	2	0
+2022-11-12	Nashville Predators	New York Rangers	2 - 1 	2	1	2	0
+2022-11-12	New York Islanders	Columbus Blue Jackets	4 - 3 OT	4	3	2	1
+2022-11-12	Philadelphia Flyers	Ottawa Senators	1 - 4 	1	4	0	2
+2022-11-12	Toronto Maple Leafs	Vancouver Canucks	3 - 2 	3	2	2	0
+2022-11-12	Vegas Golden Knights	St. Louis Blues	2 - 3 	2	3	0	2
+2022-11-13	Boston Bruins	Vancouver Canucks	5 - 2 	5	2	2	0
+2022-11-13	Minnesota Wild	San Jose Sharks	2 - 3 SO	2	3	1	2
+2022-11-13	New York Rangers	Arizona Coyotes	4 - 1 	4	1	2	0
+2022-11-13	Philadelphia Flyers	Dallas Stars	1 - 5 	1	5	0	2
+2022-11-13	Seattle Kraken	Winnipeg Jets	2 - 3 OT	2	3	1	2
+2022-11-13	Tampa Bay Lightning	Washington Capitals	6 - 3 	6	3	2	0
+2022-11-14	Calgary Flames	Los Angeles Kings	6 - 5 	6	5	2	0
+2022-11-14	Chicago Blackhawks	Carolina Hurricanes	0 - 3 	0	3	0	2
+2022-11-14	Colorado Avalanche	St. Louis Blues	2 - 3 	2	3	0	2
+2022-11-14	Ottawa Senators	New York Islanders	2 - 4 	2	4	0	2
+2022-11-15	Anaheim Ducks	Detroit Red Wings	3 - 2 OT	3	2	2	1
+2022-11-15	Buffalo Sabres	Vancouver Canucks	4 - 5 	4	5	0	2
+2022-11-15	Columbus Blue Jackets	Philadelphia Flyers	5 - 4 OT	5	4	2	1
+2022-11-15	Florida Panthers	Washington Capitals	5 - 2 	5	2	2	0
+2022-11-15	Montreal Canadiens	New Jersey Devils	1 - 5 	1	5	0	2
+2022-11-15	Nashville Predators	Minnesota Wild	2 - 1 	2	1	2	0
+2022-11-15	Pittsburgh Penguins	Toronto Maple Leafs	2 - 5 	2	5	0	2
+2022-11-15	Tampa Bay Lightning	Dallas Stars	5 - 4 OT	5	4	2	1
+2022-11-15	Vegas Golden Knights	San Jose Sharks	2 - 5 	2	5	0	2
+2022-11-16	Chicago Blackhawks	St. Louis Blues	2 - 5 	2	5	0	2
+2022-11-16	Edmonton Oilers	Los Angeles Kings	1 - 3 	1	3	0	2
+2022-11-16	Ottawa Senators	Buffalo Sabres	4 - 1 	4	1	2	0
+2022-11-17	Boston Bruins	Philadelphia Flyers	4 - 1 	4	1	2	0
+2022-11-17	Carolina Hurricanes	Colorado Avalanche	2 - 3 OT	2	3	1	2
+2022-11-17	Columbus Blue Jackets	Montreal Canadiens	6 - 4 	6	4	2	0
+2022-11-17	Florida Panthers	Dallas Stars	4 - 6 	4	6	0	2
+2022-11-17	Minnesota Wild	Pittsburgh Penguins	4 - 6 	4	6	0	2
+2022-11-17	Nashville Predators	New York Islanders	5 - 4 	5	4	2	0
+2022-11-17	Seattle Kraken	New York Rangers	3 - 2 OT	3	2	2	1
+2022-11-17	San Jose Sharks	Detroit Red Wings	4 - 7 	4	7	0	2
+2022-11-17	St. Louis Blues	Washington Capitals	5 - 4 SO	5	4	2	1
+2022-11-17	Tampa Bay Lightning	Calgary Flames	4 - 1 	4	1	2	0
+2022-11-17	Toronto Maple Leafs	New Jersey Devils	2 - 3 OT	2	3	1	2
+2022-11-17	Vegas Golden Knights	Arizona Coyotes	4 - 1 	4	1	2	0
+2022-11-17	Winnipeg Jets	Anaheim Ducks	3 - 2 	3	2	2	0
+2022-11-18	Vancouver Canucks	Los Angeles Kings	4 - 1 	4	1	2	0
+2022-11-19	Boston Bruins	Chicago Blackhawks	6 - 1 	6	1	2	0
+2022-11-19	Columbus Blue Jackets	Detroit Red Wings	1 - 6 	1	6	0	2
+2022-11-19	Dallas Stars	New York Islanders	5 - 2 	5	2	2	0
+2022-11-19	Edmonton Oilers	Vegas Golden Knights	4 - 3 OT	4	3	2	1
+2022-11-19	Florida Panthers	Calgary Flames	4 - 5 SO	4	5	1	2
+2022-11-19	Minnesota Wild	Carolina Hurricanes	2 - 1 OT	2	1	2	1
+2022-11-19	Montreal Canadiens	Philadelphia Flyers	5 - 4 SO	5	4	2	1
+2022-11-19	Nashville Predators	Tampa Bay Lightning	2 - 3 OT	2	3	1	2
+2022-11-19	Ottawa Senators	New Jersey Devils	1 - 5 	1	5	0	2
+2022-11-19	Seattle Kraken	Los Angeles Kings	3 - 2 OT	3	2	2	1
+2022-11-19	San Jose Sharks	New York Rangers	1 - 2 	1	2	0	2
+2022-11-19	St. Louis Blues	Anaheim Ducks	6 - 2 	6	2	2	0
+2022-11-19	Toronto Maple Leafs	Buffalo Sabres	5 - 2 	5	2	2	0
+2022-11-19	Winnipeg Jets	Pittsburgh Penguins	0 - 3 	0	3	0	2
+2022-11-19	Washington Capitals	Colorado Avalanche	0 - 4 	0	4	0	2
+2022-11-20	Columbus Blue Jackets	Florida Panthers	5 - 3 	5	3	2	0
+2022-11-20	Chicago Blackhawks	Pittsburgh Penguins	3 - 5 	3	5	0	2
+2022-11-21	Dallas Stars	Colorado Avalanche	2 - 3 SO	2	3	1	2
+2022-11-21	New Jersey Devils	Edmonton Oilers	5 - 2 	5	2	2	0
+2022-11-21	Nashville Predators	Arizona Coyotes	4 - 3 SO	4	3	2	1
+2022-11-21	Philadelphia Flyers	Calgary Flames	2 - 5 	2	5	0	2
+2022-11-21	San Jose Sharks	Ottawa Senators	5 - 1 	5	1	2	0
+2022-11-21	St. Louis Blues	Anaheim Ducks	3 - 1 	3	1	2	0
+2022-11-21	Tampa Bay Lightning	Boston Bruins	3 - 5 	3	5	0	2
+2022-11-21	Toronto Maple Leafs	New York Islanders	2 - 3 OT	2	3	1	2
+2022-11-21	Vancouver Canucks	Vegas Golden Knights	4 - 5 	4	5	0	2
+2022-11-21	Winnipeg Jets	Carolina Hurricanes	4 - 3 OT	4	3	2	1
+2022-11-22	Los Angeles Kings	New York Rangers	3 - 5 	3	5	0	2
+2022-11-22	Montreal Canadiens	Buffalo Sabres	2 - 7 	2	7	0	2
+2022-11-23	Anaheim Ducks	New York Rangers	3 - 2 	3	2	2	0
+2022-11-23	Buffalo Sabres	St. Louis Blues	6 - 2 	6	2	2	0
+2022-11-23	Carolina Hurricanes	Arizona Coyotes	0 - 4 	0	4	0	2
+2022-11-23	Columbus Blue Jackets	Montreal Canadiens	1 - 3 	1	3	0	2
+2022-11-23	Colorado Avalanche	Vancouver Canucks	3 - 4 	3	4	0	2
+2022-11-23	Dallas Stars	Chicago Blackhawks	6 - 4 	6	4	2	0
+2022-11-23	Detroit Red Wings	Nashville Predators	3 - 0 	3	0	2	0
+2022-11-23	Florida Panthers	Boston Bruins	5 - 2 	5	2	2	0
+2022-11-23	Minnesota Wild	Winnipeg Jets	6 - 1 	6	1	2	0
+2022-11-23	New Jersey Devils	Toronto Maple Leafs	1 - 2 	1	2	0	2
+2022-11-23	New York Islanders	Edmonton Oilers	3 - 0 	3	0	2	0
+2022-11-23	Pittsburgh Penguins	Calgary Flames	2 - 1 SO	2	1	2	1
+2022-11-23	Seattle Kraken	San Jose Sharks	8 - 5 	8	5	2	0
+2022-11-23	Vegas Golden Knights	Ottawa Senators	4 - 1 	4	1	2	0
+2022-11-23	Washington Capitals	Philadelphia Flyers	3 - 2 OT	3	2	2	1
+2022-11-25	Anaheim Ducks	Ottawa Senators	1 - 5 	1	5	0	2
+2022-11-25	Boston Bruins	Carolina Hurricanes	3 - 2 OT	3	2	2	1
+2022-11-25	Buffalo Sabres	New Jersey Devils	1 - 3 	1	3	0	2
+2022-11-25	Columbus Blue Jackets	New York Islanders	2 - 3 	2	3	0	2
+2022-11-25	Chicago Blackhawks	Montreal Canadiens	2 - 3 SO	2	3	1	2
+2022-11-25	Dallas Stars	Winnipeg Jets	4 - 5 OT	4	5	1	2
+2022-11-25	Detroit Red Wings	Arizona Coyotes	4 - 3 SO	4	3	2	1
+2022-11-25	Minnesota Wild	Toronto Maple Leafs	3 - 4 	3	4	0	2
+2022-11-25	Philadelphia Flyers	Pittsburgh Penguins	1 - 4 	1	4	0	2
+2022-11-25	San Jose Sharks	Los Angeles Kings	2 - 5 	2	5	0	2
+2022-11-25	Tampa Bay Lightning	St. Louis Blues	5 - 2 	5	2	2	0
+2022-11-25	Vegas Golden Knights	Seattle Kraken	2 - 4 	2	4	0	2
+2022-11-25	Washington Capitals	Calgary Flames	3 - 0 	3	0	2	0
+2022-11-26	Carolina Hurricanes	Calgary Flames	3 - 2 	3	2	2	0
+2022-11-26	Colorado Avalanche	Dallas Stars	4 - 1 	4	1	2	0
+2022-11-26	Florida Panthers	St. Louis Blues	4 - 5 OT	4	5	1	2
+2022-11-26	New Jersey Devils	Washington Capitals	5 - 1 	5	1	2	0
+2022-11-26	New York Islanders	Philadelphia Flyers	5 - 2 	5	2	2	0
+2022-11-26	New York Rangers	Edmonton Oilers	3 - 4 	3	4	0	2
+2022-11-26	Pittsburgh Penguins	Toronto Maple Leafs	1 - 4 	1	4	0	2
+2022-11-26	Vegas Golden Knights	Vancouver Canucks	1 - 5 	1	5	0	2
+2022-11-27	Anaheim Ducks	Seattle Kraken	4 - 5 	4	5	0	2
+2022-11-27	Chicago Blackhawks	Winnipeg Jets	2 - 7 	2	7	0	2
+2022-11-27	Los Angeles Kings	Ottawa Senators	2 - 3 OT	2	3	1	2
+2022-11-27	Minnesota Wild	Arizona Coyotes	4 - 3 	4	3	2	0
+2022-11-27	San Jose Sharks	Vancouver Canucks	3 - 4 OT	3	4	1	2
+2022-11-28	Buffalo Sabres	Tampa Bay Lightning	5 - 6 OT	5	6	1	2
+2022-11-28	Columbus Blue Jackets	Vegas Golden Knights	2 - 3 SO	2	3	1	2
+2022-11-28	Detroit Red Wings	Toronto Maple Leafs	2 - 4 	2	4	0	2
+2022-11-28	Edmonton Oilers	Florida Panthers	4 - 3 OT	4	3	2	1
+2022-11-28	New York Rangers	New Jersey Devils	3 - 5 	3	5	0	2
+2022-11-28	St. Louis Blues	Dallas Stars	1 - 4 	1	4	0	2
+2022-11-29	Boston Bruins	Tampa Bay Lightning	3 - 1 	3	1	2	0
+2022-11-29	Calgary Flames	Florida Panthers	6 - 2 	6	2	2	0
+2022-11-29	Los Angeles Kings	Seattle Kraken	8 - 9 OT	8	9	1	2
+2022-11-29	Montreal Canadiens	San Jose Sharks	0 - 4 	0	4	0	2
+2022-11-29	Nashville Predators	Anaheim Ducks	2 - 1 OT	2	1	2	1
+2022-11-29	Philadelphia Flyers	New York Islanders	3 - 1 	3	1	2	0
+2022-11-29	Pittsburgh Penguins	Carolina Hurricanes	2 - 3 OT	2	3	1	2
+2022-11-29	Vancouver Canucks	Washington Capitals	1 - 5 	1	5	0	2
+2022-11-29	Winnipeg Jets	Colorado Avalanche	5 - 0 	5	0	2	0
+2022-11-30	Chicago Blackhawks	Edmonton Oilers	4 - 5 	4	5	0	2
+2022-11-30	Detroit Red Wings	Buffalo Sabres	4 - 5 SO	4	5	1	2
+2022-11-30	Ottawa Senators	New York Rangers	1 - 3 	1	3	0	2
+2022-11-30	Toronto Maple Leafs	San Jose Sharks	3 - 1 	3	1	2	0
+2022-12-01	Buffalo Sabres	Colorado Avalanche	4 - 6 	4	6	0	2
+2022-12-01	Calgary Flames	Montreal Canadiens	1 - 2 	1	2	0	2
+2022-12-01	Dallas Stars	Anaheim Ducks	5 - 0 	5	0	2	0
+2022-12-01	Los Angeles Kings	Arizona Coyotes	5 - 3 	5	3	2	0
+2022-12-01	Minnesota Wild	Edmonton Oilers	5 - 3 	5	3	2	0
+2022-12-01	New Jersey Devils	Nashville Predators	3 - 4 OT	3	4	1	2
+2022-12-01	Philadelphia Flyers	Tampa Bay Lightning	1 - 4 	1	4	0	2
+2022-12-01	Pittsburgh Penguins	Vegas Golden Knights	4 - 3 	4	3	2	0
+2022-12-01	Seattle Kraken	Washington Capitals	3 - 2 OT	3	2	2	1
+2022-12-01	St. Louis Blues	Carolina Hurricanes	4 - 6 	4	6	0	2
+2022-12-01	Vancouver Canucks	Florida Panthers	1 - 5 	1	5	0	2
+2022-12-02	New York Islanders	Nashville Predators	1 - 4 	1	4	0	2
+2022-12-02	New York Rangers	Ottawa Senators	2 - 3 OT	2	3	1	2
+2022-12-02	Winnipeg Jets	Columbus Blue Jackets	1 - 4 	1	4	0	2
+2022-12-03	Boston Bruins	Colorado Avalanche	5 - 1 	5	1	2	0
+2022-12-03	Calgary Flames	Washington Capitals	5 - 2 	5	2	2	0
+2022-12-03	Detroit Red Wings	Vegas Golden Knights	1 - 4 	1	4	0	2
+2022-12-03	Edmonton Oilers	Montreal Canadiens	5 - 3 	5	3	2	0
+2022-12-03	Los Angeles Kings	Carolina Hurricanes	2 - 4 	2	4	0	2
+2022-12-03	Minnesota Wild	Anaheim Ducks	5 - 4 SO	5	4	2	1
+2022-12-03	New York Rangers	Chicago Blackhawks	2 - 5 	2	5	0	2
+2022-12-03	Ottawa Senators	San Jose Sharks	5 - 2 	5	2	2	0
+2022-12-03	Philadelphia Flyers	New Jersey Devils	2 - 3 	2	3	0	2
+2022-12-03	Pittsburgh Penguins	St. Louis Blues	6 - 2 	6	2	2	0
+2022-12-03	Seattle Kraken	Florida Panthers	1 - 5 	1	5	0	2
+2022-12-03	Tampa Bay Lightning	Toronto Maple Leafs	4 - 3 OT	4	3	2	1
+2022-12-03	Vancouver Canucks	Arizona Coyotes	3 - 2 OT	3	2	2	1
+2022-12-04	Buffalo Sabres	San Jose Sharks	6 - 3 	6	3	2	0
+2022-12-04	Columbus Blue Jackets	Detroit Red Wings	2 - 4 	2	4	0	2
+2022-12-04	Dallas Stars	Minnesota Wild	5 - 6 SO	5	6	1	2
+2022-12-04	New York Islanders	Chicago Blackhawks	3 - 0 	3	0	2	0
+2022-12-04	Winnipeg Jets	Anaheim Ducks	5 - 2 	5	2	2	0
+2022-12-05	Boston Bruins	Vegas Golden Knights	3 - 4 SO	3	4	1	2
+2022-12-05	Calgary Flames	Arizona Coyotes	3 - 2 	3	2	2	0
+2022-12-05	Edmonton Oilers	Washington Capitals	2 - 3 	2	3	0	2
+2022-12-05	New York Rangers	St. Louis Blues	6 - 4 	6	4	2	0
+2022-12-05	Philadelphia Flyers	Colorado Avalanche	5 - 3 	5	3	2	0
+2022-12-05	Vancouver Canucks	Montreal Canadiens	7 - 6 OT	7	6	2	1
+2022-12-06	Anaheim Ducks	Carolina Hurricanes	4 - 3 OT	4	3	2	1
+2022-12-06	Dallas Stars	Toronto Maple Leafs	0 - 4 	0	4	0	2
+2022-12-06	New Jersey Devils	Chicago Blackhawks	3 - 0 	3	0	2	0
+2022-12-06	New York Islanders	St. Louis Blues	4 - 7 	4	7	0	2
+2022-12-06	Ottawa Senators	Los Angeles Kings	2 - 5 	2	5	0	2
+2022-12-06	Pittsburgh Penguins	Columbus Blue Jackets	4 - 1 	4	1	2	0
+2022-12-06	Seattle Kraken	Montreal Canadiens	2 - 4 	2	4	0	2
+2022-12-06	Tampa Bay Lightning	Detroit Red Wings	2 - 4 	2	4	0	2
+2022-12-06	Winnipeg Jets	Florida Panthers	5 - 2 	5	2	2	0
+2022-12-07	Columbus Blue Jackets	Buffalo Sabres	4 - 9 	4	9	0	2
+2022-12-07	Calgary Flames	Minnesota Wild	5 - 3 	5	3	2	0
+2022-12-07	Colorado Avalanche	Boston Bruins	0 - 4 	0	4	0	2
+2022-12-07	Edmonton Oilers	Arizona Coyotes	8 - 2 	8	2	2	0
+2022-12-07	Philadelphia Flyers	Washington Capitals	1 - 4 	1	4	0	2
+2022-12-07	San Jose Sharks	Vancouver Canucks	5 - 6 OT	5	6	1	2
+2022-12-07	Vegas Golden Knights	New York Rangers	1 - 5 	1	5	0	2
+2022-12-08	Dallas Stars	Ottawa Senators	4 - 3 OT	4	3	2	1
+2022-12-08	Florida Panthers	Detroit Red Wings	5 - 1 	5	1	2	0
+2022-12-08	St. Louis Blues	Winnipeg Jets	2 - 5 	2	5	0	2
+2022-12-08	Tampa Bay Lightning	Nashville Predators	5 - 2 	5	2	2	0
+2022-12-08	Toronto Maple Leafs	Los Angeles Kings	5 - 0 	5	0	2	0
+2022-12-09	Anaheim Ducks	San Jose Sharks	1 - 6 	1	6	0	2
+2022-12-09	Arizona Coyotes	Boston Bruins	4 - 3 	4	3	2	0
+2022-12-09	Buffalo Sabres	Pittsburgh Penguins	3 - 4 OT	3	4	1	2
+2022-12-09	Columbus Blue Jackets	Calgary Flames	3 - 1 	3	1	2	0
+2022-12-09	Chicago Blackhawks	Winnipeg Jets	1 - 3 	1	3	0	2
+2022-12-09	Colorado Avalanche	New York Rangers	1 - 2 SO	1	2	1	2
+2022-12-09	Edmonton Oilers	Minnesota Wild	5 - 2 	5	2	2	0
+2022-12-09	New Jersey Devils	New York Islanders	4 - 6 	4	6	0	2
+2022-12-09	Vegas Golden Knights	Philadelphia Flyers	2 - 1 OT	2	1	2	1
+2022-12-09	Washington Capitals	Seattle Kraken	4 - 1 	4	1	2	0
+2022-12-10	Dallas Stars	Detroit Red Wings	3 - 2 OT	3	2	2	1
+2022-12-10	Montreal Canadiens	Los Angeles Kings	2 - 4 	2	4	0	2
+2022-12-10	Nashville Predators	Ottawa Senators	2 - 3 	2	3	0	2
+2022-12-10	New York Islanders	Carolina Hurricanes	0 - 3 	0	3	0	2
+2022-12-10	Pittsburgh Penguins	Buffalo Sabres	3 - 1 	3	1	2	0
+2022-12-10	Tampa Bay Lightning	Florida Panthers	4 - 1 	4	1	2	0
+2022-12-10	Toronto Maple Leafs	Calgary Flames	5 - 4 OT	5	4	2	1
+2022-12-10	Vancouver Canucks	Minnesota Wild	0 - 3 	0	3	0	2
+2022-12-11	Arizona Coyotes	Philadelphia Flyers	5 - 4 OT	5	4	2	1
+2022-12-11	Columbus Blue Jackets	Los Angeles Kings	6 - 5 OT	6	5	2	1
+2022-12-11	Florida Panthers	Seattle Kraken	2 - 5 	2	5	0	2
+2022-12-11	St. Louis Blues	Colorado Avalanche	2 - 3 OT	2	3	1	2
+2022-12-11	Vegas Golden Knights	Boston Bruins	1 - 3 	1	3	0	2
+2022-12-11	Winnipeg Jets	Washington Capitals	2 - 5 	2	5	0	2
+2022-12-12	Minnesota Wild	Edmonton Oilers	2 - 1 	2	1	2	0
+2022-12-12	Montreal Canadiens	Calgary Flames	2 - 1 SO	2	1	2	1
+2022-12-12	New York Rangers	New Jersey Devils	4 - 3 OT	4	3	2	1
+2022-12-12	Ottawa Senators	Anaheim Ducks	3 - 0 	3	0	2	0
+2022-12-12	Pittsburgh Penguins	Dallas Stars	2 - 1 	2	1	2	0
+2022-12-12	St. Louis Blues	Nashville Predators	1 - 0 OT	1	0	2	1
+2022-12-13	Boston Bruins	New York Islanders	4 - 3 SO	4	3	2	1
+2022-12-13	Buffalo Sabres	Los Angeles Kings	6 - 0 	6	0	2	0
+2022-12-13	Chicago Blackhawks	Washington Capitals	3 - 7 	3	7	0	2
+2022-12-13	Colorado Avalanche	Philadelphia Flyers	3 - 2 	3	2	2	0
+2022-12-13	Detroit Red Wings	Carolina Hurricanes	0 - 1 	0	1	0	2
+2022-12-13	Florida Panthers	Columbus Blue Jackets	4 - 0 	4	0	2	0
+2022-12-13	New Jersey Devils	Dallas Stars	1 - 4 	1	4	0	2
+2022-12-13	Nashville Predators	Edmonton Oilers	3 - 6 	3	6	0	2
+2022-12-13	San Jose Sharks	Arizona Coyotes	3 - 2 	3	2	2	0
+2022-12-13	Tampa Bay Lightning	Seattle Kraken	6 - 2 	6	2	2	0
+2022-12-13	Toronto Maple Leafs	Anaheim Ducks	7 - 0 	7	0	2	0
+2022-12-13	Winnipeg Jets	Vegas Golden Knights	5 - 6 	5	6	0	2
+2022-12-14	Calgary Flames	Vancouver Canucks	3 - 4 SO	3	4	1	2
+2022-12-14	Minnesota Wild	Detroit Red Wings	4 - 1 	4	1	2	0
+2022-12-14	Ottawa Senators	Montreal Canadiens	3 - 2 	3	2	2	0
+2022-12-15	Boston Bruins	Los Angeles Kings	2 - 3 SO	2	3	1	2
+2022-12-15	Carolina Hurricanes	Seattle Kraken	3 - 2 	3	2	2	0
+2022-12-15	Chicago Blackhawks	Vegas Golden Knights	1 - 4 	1	4	0	2
+2022-12-15	Colorado Avalanche	Buffalo Sabres	2 - 4 	2	4	0	2
+2022-12-15	Edmonton Oilers	St. Louis Blues	3 - 4 SO	3	4	1	2
+2022-12-15	Florida Panthers	Pittsburgh Penguins	2 - 4 	2	4	0	2
+2022-12-15	Montreal Canadiens	Anaheim Ducks	2 - 5 	2	5	0	2
+2022-12-15	New Jersey Devils	Philadelphia Flyers	1 - 2 	1	2	0	2
+2022-12-15	New York Rangers	Toronto Maple Leafs	3 - 1 	3	1	2	0
+2022-12-15	Tampa Bay Lightning	Columbus Blue Jackets	4 - 1 	4	1	2	0
+2022-12-15	Winnipeg Jets	Nashville Predators	2 - 1 OT	2	1	2	1
+2022-12-15	Washington Capitals	Dallas Stars	1 - 2 	1	2	0	2
+2022-12-16	Arizona Coyotes	New York Islanders	5 - 4 	5	4	2	0
+2022-12-16	Calgary Flames	St. Louis Blues	2 - 5 	2	5	0	2
+2022-12-16	Minnesota Wild	Chicago Blackhawks	4 - 1 	4	1	2	0
+2022-12-17	Arizona Coyotes	Buffalo Sabres	2 - 5 	2	5	0	2
+2022-12-17	Boston Bruins	Columbus Blue Jackets	4 - 2 	4	2	2	0
+2022-12-17	Carolina Hurricanes	Dallas Stars	5 - 4 OT	5	4	2	1
+2022-12-17	Colorado Avalanche	Nashville Predators	3 - 1 	3	1	2	0
+2022-12-17	Detroit Red Wings	Ottawa Senators	3 - 6 	3	6	0	2
+2022-12-17	Edmonton Oilers	Anaheim Ducks	3 - 4 	3	4	0	2
+2022-12-17	Los Angeles Kings	San Jose Sharks	3 - 2 SO	3	2	2	1
+2022-12-17	Montreal Canadiens	Tampa Bay Lightning	1 - 5 	1	5	0	2
+2022-12-17	New Jersey Devils	Florida Panthers	2 - 4 	2	4	0	2
+2022-12-17	Philadelphia Flyers	New York Rangers	3 - 6 	3	6	0	2
+2022-12-17	Vancouver Canucks	Winnipeg Jets	1 - 5 	1	5	0	2
+2022-12-17	Vegas Golden Knights	New York Islanders	2 - 5 	2	5	0	2
+2022-12-17	Washington Capitals	Toronto Maple Leafs	5 - 2 	5	2	2	0
+2022-12-18	Carolina Hurricanes	Pittsburgh Penguins	3 - 2 	3	2	2	0
+2022-12-18	Chicago Blackhawks	New York Rangers	1 - 7 	1	7	0	2
+2022-12-18	Minnesota Wild	Ottawa Senators	4 - 2 	4	2	2	0
+2022-12-18	Seattle Kraken	Winnipeg Jets	3 - 2 	3	2	2	0
+2022-12-18	San Jose Sharks	Calgary Flames	2 - 5 	2	5	0	2
+2022-12-19	Arizona Coyotes	Montreal Canadiens	2 - 3 OT	2	3	1	2
+2022-12-19	Boston Bruins	Florida Panthers	7 - 3 	7	3	2	0
+2022-12-19	Columbus Blue Jackets	Dallas Stars	1 - 2 	1	2	0	2
+2022-12-19	Colorado Avalanche	New York Islanders	1 - 0 SO	1	0	2	1
+2022-12-19	Nashville Predators	Edmonton Oilers	4 - 3 OT	4	3	2	1
+2022-12-19	Vancouver Canucks	St. Louis Blues	1 - 5 	1	5	0	2
+2022-12-19	Vegas Golden Knights	Buffalo Sabres	2 - 3 	2	3	0	2
+2022-12-19	Washington Capitals	Detroit Red Wings	4 - 3 OT	4	3	2	1
+2022-12-20	Carolina Hurricanes	New Jersey Devils	4 - 1 	4	1	2	0
+2022-12-20	Los Angeles Kings	Anaheim Ducks	4 - 1 	4	1	2	0
+2022-12-20	Philadelphia Flyers	Columbus Blue Jackets	5 - 3 	5	3	2	0
+2022-12-20	Pittsburgh Penguins	New York Rangers	3 - 2 	3	2	2	0
+2022-12-20	Seattle Kraken	St. Louis Blues	5 - 2 	5	2	2	0
+2022-12-20	San Jose Sharks	Calgary Flames	3 - 7 	3	7	0	2
+2022-12-20	Toronto Maple Leafs	Tampa Bay Lightning	4 - 1 	4	1	2	0
+2022-12-20	Winnipeg Jets	Ottawa Senators	5 - 1 	5	1	2	0
+2022-12-21	Anaheim Ducks	Minnesota Wild	1 - 4 	1	4	0	2
+2022-12-21	Chicago Blackhawks	Nashville Predators	2 - 4 	2	4	0	2
+2022-12-21	Colorado Avalanche	Montreal Canadiens	2 - 1 OT	2	1	2	1
+2022-12-21	Dallas Stars	Edmonton Oilers	3 - 6 	3	6	0	2
+2022-12-21	Detroit Red Wings	Tampa Bay Lightning	7 - 4 	7	4	2	0
+2022-12-21	Florida Panthers	New Jersey Devils	2 - 4 	2	4	0	2
+2022-12-21	Vegas Golden Knights	Arizona Coyotes	5 - 2 	5	2	2	0
+2022-12-22	Boston Bruins	Winnipeg Jets	3 - 2 	3	2	2	0
+2022-12-22	Los Angeles Kings	Calgary Flames	4 - 3 OT	4	3	2	1
+2022-12-22	New York Rangers	New York Islanders	5 - 3 	5	3	2	0
+2022-12-22	Ottawa Senators	Washington Capitals	2 - 3 OT	2	3	1	2
+2022-12-22	Pittsburgh Penguins	Carolina Hurricanes	3 - 4 OT	3	4	1	2
+2022-12-22	San Jose Sharks	Minnesota Wild	5 - 2 	5	2	2	0
+2022-12-22	Toronto Maple Leafs	Philadelphia Flyers	4 - 3 	4	3	2	0
+2022-12-22	Vancouver Canucks	Seattle Kraken	6 - 5 SO	6	5	2	1
+2022-12-23	Anaheim Ducks	Calgary Flames	2 - 3 OT	2	3	1	2
+2022-12-23	Arizona Coyotes	Los Angeles Kings	2 - 1 SO	2	1	2	1
+2022-12-23	Carolina Hurricanes	Philadelphia Flyers	6 - 5 	6	5	2	0
+2022-12-23	Chicago Blackhawks	Columbus Blue Jackets	5 - 2 	5	2	2	0
+2022-12-23	Dallas Stars	Montreal Canadiens	4 - 2 	4	2	2	0
+2022-12-23	Edmonton Oilers	Vancouver Canucks	2 - 5 	2	5	0	2
+2022-12-23	New Jersey Devils	Boston Bruins	3 - 4 	3	4	0	2
+2022-12-23	Nashville Predators	Colorado Avalanche	2 - 3 OT	2	3	1	2
+2022-12-23	New York Islanders	Florida Panthers	5 - 1 	5	1	2	0
+2022-12-23	Vegas Golden Knights	St. Louis Blues	5 - 4 SO	5	4	2	1
+2022-12-23	Washington Capitals	Winnipeg Jets	4 - 1 	4	1	2	0
+2022-12-27	Arizona Coyotes	Colorado Avalanche	6 - 3 	6	3	2	0
+2022-12-27	Carolina Hurricanes	Chicago Blackhawks	3 - 0 	3	0	2	0
+2022-12-27	Calgary Flames	Edmonton Oilers	1 - 2 	1	2	0	2
+2022-12-27	Los Angeles Kings	Vegas Golden Knights	4 - 2 	4	2	2	0
+2022-12-27	Nashville Predators	Dallas Stars	2 - 3 	2	3	0	2
+2022-12-27	New York Islanders	Pittsburgh Penguins	5 - 1 	5	1	2	0
+2022-12-27	New York Rangers	Washington Capitals	0 - 4 	0	4	0	2
+2022-12-27	Ottawa Senators	Boston Bruins	3 - 2 SO	3	2	2	1
+2022-12-27	St. Louis Blues	Toronto Maple Leafs	4 - 5 OT	4	5	1	2
+2022-12-27	Vancouver Canucks	San Jose Sharks	6 - 2 	6	2	2	0
+2022-12-27	Winnipeg Jets	Minnesota Wild	1 - 4 	1	4	0	2
+2022-12-28	Anaheim Ducks	Vegas Golden Knights	3 - 2 SO	3	2	2	1
+2022-12-28	New Jersey Devils	Boston Bruins	1 - 3 	1	3	0	2
+2022-12-28	Pittsburgh Penguins	Detroit Red Wings	4 - 5 OT	4	5	1	2
+2022-12-28	Seattle Kraken	Calgary Flames	2 - 3 	2	3	0	2
+2022-12-28	Tampa Bay Lightning	Montreal Canadiens	4 - 1 	4	1	2	0
+2022-12-29	Arizona Coyotes	Toronto Maple Leafs	6 - 3 	6	3	2	0
+2022-12-29	Buffalo Sabres	Detroit Red Wings	6 - 3 	6	3	2	0
+2022-12-29	Colorado Avalanche	Los Angeles Kings	4 - 5 SO	4	5	1	2
+2022-12-29	Florida Panthers	Montreal Canadiens	7 - 2 	7	2	2	0
+2022-12-29	Minnesota Wild	Dallas Stars	1 - 4 	1	4	0	2
+2022-12-29	New York Islanders	Columbus Blue Jackets	2 - 1 	2	1	2	0
+2022-12-29	San Jose Sharks	Philadelphia Flyers	3 - 4 OT	3	4	1	2
+2022-12-29	St. Louis Blues	Chicago Blackhawks	3 - 1 	3	1	2	0
+2022-12-29	Tampa Bay Lightning	New York Rangers	2 - 1 SO	2	1	2	1
+2022-12-29	Winnipeg Jets	Vancouver Canucks	4 - 2 	4	2	2	0
+2022-12-29	Washington Capitals	Ottawa Senators	3 - 4 OT	3	4	1	2
+2022-12-30	Anaheim Ducks	Nashville Predators	1 - 6 	1	6	0	2
+2022-12-30	Carolina Hurricanes	Florida Panthers	4 - 0 	4	0	2	0
+2022-12-30	Pittsburgh Penguins	New Jersey Devils	2 - 4 	2	4	0	2
+2022-12-30	Seattle Kraken	Edmonton Oilers	2 - 7 	2	7	0	2
+2022-12-31	Boston Bruins	Buffalo Sabres	3 - 4 OT	3	4	1	2
+2022-12-31	Columbus Blue Jackets	Chicago Blackhawks	4 - 1 	4	1	2	0
+2022-12-31	Calgary Flames	Vancouver Canucks	3 - 2 	3	2	2	0
+2022-12-31	Colorado Avalanche	Toronto Maple Leafs	2 - 6 	2	6	0	2
+2022-12-31	Dallas Stars	San Jose Sharks	5 - 2 	5	2	2	0
+2022-12-31	Detroit Red Wings	Ottawa Senators	4 - 2 	4	2	2	0
+2022-12-31	Edmonton Oilers	Winnipeg Jets	1 - 2 	1	2	0	2
+2022-12-31	Los Angeles Kings	Philadelphia Flyers	2 - 4 	2	4	0	2
+2022-12-31	St. Louis Blues	Minnesota Wild	2 - 5 	2	5	0	2
+2022-12-31	Tampa Bay Lightning	Arizona Coyotes	5 - 3 	5	3	2	0
+2022-12-31	Vegas Golden Knights	Nashville Predators	5 - 4 OT	5	4	2	1
+2022-12-31	Washington Capitals	Montreal Canadiens	9 - 2 	9	2	2	0
+2023-01-01	Chicago Blackhawks	San Jose Sharks	2 - 5 	2	5	0	2
+2023-01-01	Florida Panthers	New York Rangers	3 - 5 	3	5	0	2
+2023-01-01	New Jersey Devils	Carolina Hurricanes	4 - 5 SO	4	5	1	2
+2023-01-01	Ottawa Senators	Buffalo Sabres	3 - 1 	3	1	2	0
+2023-01-01	Seattle Kraken	New York Islanders	4 - 1 	4	1	2	0
+2023-01-02	Anaheim Ducks	Philadelphia Flyers	1 - 4 	1	4	0	2
+2023-01-02	Boston Bruins	Pittsburgh Penguins	2 - 1 	2	1	2	0
+2023-01-02	Colorado Avalanche	Vegas Golden Knights	2 - 3 	2	3	0	2
+2023-01-03	Chicago Blackhawks	Tampa Bay Lightning	1 - 4 	1	4	0	2
+2023-01-03	Edmonton Oilers	Seattle Kraken	2 - 5 	2	5	0	2
+2023-01-03	Florida Panthers	Arizona Coyotes	5 - 3 	5	3	2	0
+2023-01-03	Los Angeles Kings	Dallas Stars	3 - 2 	3	2	2	0
+2023-01-03	Nashville Predators	Montreal Canadiens	6 - 3 	6	3	2	0
+2023-01-03	New York Rangers	Carolina Hurricanes	5 - 3 	5	3	2	0
+2023-01-03	Ottawa Senators	Columbus Blue Jackets	4 - 0 	4	0	2	0
+2023-01-03	Toronto Maple Leafs	St. Louis Blues	5 - 6 SO	5	6	1	2
+2023-01-03	Vancouver Canucks	New York Islanders	2 - 6 	2	6	0	2
+2023-01-03	Winnipeg Jets	Calgary Flames	3 - 2 	3	2	2	0
+2023-01-03	Washington Capitals	Buffalo Sabres	4 - 5 OT	4	5	1	2
+2023-01-04	Anaheim Ducks	Dallas Stars	2 - 0 	2	0	2	0
+2023-01-04	Detroit Red Wings	New Jersey Devils	1 - 5 	1	5	0	2
+2023-01-04	Minnesota Wild	Tampa Bay Lightning	5 - 1 	5	1	2	0
+2023-01-05	Carolina Hurricanes	Nashville Predators	3 - 5 	3	5	0	2
+2023-01-05	Columbus Blue Jackets	Washington Capitals	2 - 6 	2	6	0	2
+2023-01-05	Edmonton Oilers	New York Islanders	4 - 2 	4	2	2	0
+2023-01-05	Los Angeles Kings	Boston Bruins	2 - 5 	2	5	0	2
+2023-01-05	Montreal Canadiens	New York Rangers	1 - 4 	1	4	0	2
+2023-01-05	New Jersey Devils	St. Louis Blues	3 - 5 	3	5	0	2
+2023-01-05	Philadelphia Flyers	Arizona Coyotes	6 - 2 	6	2	2	0
+2023-01-05	Toronto Maple Leafs	Seattle Kraken	1 - 5 	1	5	0	2
+2023-01-05	Vancouver Canucks	Colorado Avalanche	4 - 2 	4	2	2	0
+2023-01-05	Vegas Golden Knights	Pittsburgh Penguins	5 - 2 	5	2	2	0
+2023-01-06	Anaheim Ducks	San Jose Sharks	5 - 4 OT	5	4	2	1
+2023-01-06	Calgary Flames	New York Islanders	4 - 1 	4	1	2	0
+2023-01-06	Chicago Blackhawks	Arizona Coyotes	2 - 0 	2	0	2	0
+2023-01-06	Detroit Red Wings	Florida Panthers	2 - 3 	2	3	0	2
+2023-01-06	Winnipeg Jets	Tampa Bay Lightning	4 - 2 	4	2	2	0
+2023-01-06	Washington Capitals	Nashville Predators	2 - 3 	2	3	0	2
+2023-01-07	Buffalo Sabres	Minnesota Wild	6 - 5 OT	6	5	2	1
+2023-01-07	Columbus Blue Jackets	Carolina Hurricanes	4 - 3 SO	4	3	2	1
+2023-01-07	Edmonton Oilers	Colorado Avalanche	2 - 3 OT	2	3	1	2
+2023-01-07	Montreal Canadiens	St. Louis Blues	5 - 4 	5	4	2	0
+2023-01-07	New Jersey Devils	New York Rangers	4 - 3 OT	4	3	2	1
+2023-01-07	Ottawa Senators	Seattle Kraken	4 - 8 	4	8	0	2
+2023-01-07	San Jose Sharks	Boston Bruins	2 - 4 	2	4	0	2
+2023-01-07	Toronto Maple Leafs	Detroit Red Wings	4 - 1 	4	1	2	0
+2023-01-07	Vegas Golden Knights	Los Angeles Kings	1 - 5 	1	5	0	2
+2023-01-08	Anaheim Ducks	Boston Bruins	1 - 7 	1	7	0	2
+2023-01-08	Arizona Coyotes	Pittsburgh Penguins	1 - 4 	1	4	0	2
+2023-01-08	Chicago Blackhawks	Calgary Flames	4 - 3 OT	4	3	2	1
+2023-01-08	Dallas Stars	Florida Panthers	5 - 1 	5	1	2	0
+2023-01-08	Minnesota Wild	St. Louis Blues	0 - 3 	0	3	0	2
+2023-01-08	Philadelphia Flyers	Toronto Maple Leafs	2 - 6 	2	6	0	2
+2023-01-08	Winnipeg Jets	Vancouver Canucks	7 - 4 	7	4	2	0
+2023-01-08	Washington Capitals	Columbus Blue Jackets	1 - 0 	1	0	2	0
+2023-01-09	Buffalo Sabres	Philadelphia Flyers	0 - 4 	0	4	0	2
+2023-01-09	Los Angeles Kings	Edmonton Oilers	6 - 3 	6	3	2	0
+2023-01-09	Montreal Canadiens	Seattle Kraken	0 - 4 	0	4	0	2
+2023-01-09	Ottawa Senators	Nashville Predators	0 - 3 	0	3	0	2
+2023-01-10	Arizona Coyotes	San Jose Sharks	2 - 4 	2	4	0	2
+2023-01-10	Buffalo Sabres	Seattle Kraken	3 - 4 	3	4	0	2
+2023-01-10	Carolina Hurricanes	New Jersey Devils	3 - 5 	3	5	0	2
+2023-01-10	Colorado Avalanche	Florida Panthers	4 - 5 	4	5	0	2
+2023-01-10	Detroit Red Wings	Winnipeg Jets	7 - 5 	7	5	2	0
+2023-01-10	New York Islanders	Dallas Stars	1 - 2 SO	1	2	1	2
+2023-01-10	New York Rangers	Minnesota Wild	4 - 3 SO	4	3	2	1
+2023-01-10	Pittsburgh Penguins	Vancouver Canucks	5 - 4 	5	4	2	0
+2023-01-10	St. Louis Blues	Calgary Flames	4 - 3 OT	4	3	2	1
+2023-01-10	Tampa Bay Lightning	Columbus Blue Jackets	6 - 3 	6	3	2	0
+2023-01-11	Anaheim Ducks	Edmonton Oilers	2 - 6 	2	6	0	2
+2023-01-11	Los Angeles Kings	San Jose Sharks	4 - 3 	4	3	2	0
+2023-01-11	Philadelphia Flyers	Washington Capitals	5 - 3 	5	3	2	0
+2023-01-11	Toronto Maple Leafs	Nashville Predators	2 - 1 	2	1	2	0
+2023-01-12	Arizona Coyotes	Ottawa Senators	3 - 5 	3	5	0	2
+2023-01-12	Boston Bruins	Seattle Kraken	0 - 3 	0	3	0	2
+2023-01-12	Buffalo Sabres	Winnipeg Jets	2 - 4 	2	4	0	2
+2023-01-12	Columbus Blue Jackets	Carolina Hurricanes	2 - 6 	2	6	0	2
+2023-01-12	Chicago Blackhawks	Colorado Avalanche	3 - 2 	3	2	2	0
+2023-01-12	Detroit Red Wings	Toronto Maple Leafs	4 - 1 	4	1	2	0
+2023-01-12	Montreal Canadiens	Nashville Predators	4 - 3 	4	3	2	0
+2023-01-12	New York Islanders	Minnesota Wild	1 - 3 	1	3	0	2
+2023-01-12	New York Rangers	Dallas Stars	2 - 1 OT	2	1	2	1
+2023-01-12	St. Louis Blues	Calgary Flames	1 - 4 	1	4	0	2
+2023-01-12	Tampa Bay Lightning	Vancouver Canucks	5 - 4 	5	4	2	0
+2023-01-12	Vegas Golden Knights	Florida Panthers	4 - 2 	4	2	2	0
+2023-01-13	Anaheim Ducks	New Jersey Devils	2 - 6 	2	6	0	2
+2023-01-13	Pittsburgh Penguins	Winnipeg Jets	1 - 4 	1	4	0	2
+2023-01-13	San Jose Sharks	Edmonton Oilers	1 - 7 	1	7	0	2
+2023-01-14	Boston Bruins	Toronto Maple Leafs	4 - 3 	4	3	2	0
+2023-01-14	Carolina Hurricanes	Pittsburgh Penguins	2 - 1 	2	1	2	0
+2023-01-14	Chicago Blackhawks	Seattle Kraken	5 - 8 	5	8	0	2
+2023-01-14	Colorado Avalanche	Ottawa Senators	7 - 0 	7	0	2	0
+2023-01-14	Dallas Stars	Calgary Flames	5 - 6 	5	6	0	2
+2023-01-14	Detroit Red Wings	Columbus Blue Jackets	3 - 4 	3	4	0	2
+2023-01-14	Florida Panthers	Vancouver Canucks	4 - 3 	4	3	2	0
+2023-01-14	Los Angeles Kings	New Jersey Devils	2 - 5 	2	5	0	2
+2023-01-14	Minnesota Wild	Arizona Coyotes	2 - 1 	2	1	2	0
+2023-01-14	Nashville Predators	Buffalo Sabres	3 - 5 	3	5	0	2
+2023-01-14	New York Islanders	Montreal Canadiens	2 - 1 	2	1	2	0
+2023-01-14	St. Louis Blues	Tampa Bay Lightning	2 - 4 	2	4	0	2
+2023-01-14	Vegas Golden Knights	Edmonton Oilers	3 - 4 	3	4	0	2
+2023-01-14	Washington Capitals	Philadelphia Flyers	1 - 3 	1	3	0	2
+2023-01-15	Carolina Hurricanes	Vancouver Canucks	3 - 4 SO	3	4	1	2
+2023-01-15	New York Rangers	Montreal Canadiens	1 - 2 	1	2	0	2
+2023-01-15	Winnipeg Jets	Arizona Coyotes	2 - 1 	2	1	2	0
+2023-01-16	Boston Bruins	Philadelphia Flyers	6 - 0 	6	0	2	0
+2023-01-16	Buffalo Sabres	Florida Panthers	1 - 4 	1	4	0	2
+2023-01-16	Columbus Blue Jackets	New York Rangers	1 - 3 	1	3	0	2
+2023-01-16	Colorado Avalanche	Detroit Red Wings	6 - 3 	6	3	2	0
+2023-01-16	Nashville Predators	Calgary Flames	2 - 1 	2	1	2	0
+2023-01-16	New York Islanders	Washington Capitals	3 - 4 OT	3	4	1	2
+2023-01-16	Pittsburgh Penguins	Anaheim Ducks	4 - 3 OT	4	3	2	1
+2023-01-16	Seattle Kraken	Tampa Bay Lightning	1 - 4 	1	4	0	2
+2023-01-16	San Jose Sharks	New Jersey Devils	3 - 4 SO	3	4	1	2
+2023-01-16	St. Louis Blues	Ottawa Senators	2 - 1 	2	1	2	0
+2023-01-16	Vegas Golden Knights	Dallas Stars	0 - 4 	0	4	0	2
+2023-01-17	Arizona Coyotes	Detroit Red Wings	4 - 3 SO	4	3	2	1
+2023-01-17	Chicago Blackhawks	Buffalo Sabres	4 - 3 OT	4	3	2	1
+2023-01-17	Edmonton Oilers	Seattle Kraken	5 - 2 	5	2	2	0
+2023-01-17	Montreal Canadiens	Winnipeg Jets	4 - 1 	4	1	2	0
+2023-01-17	Nashville Predators	Columbus Blue Jackets	2 - 1 	2	1	2	0
+2023-01-17	Philadelphia Flyers	Anaheim Ducks	5 - 2 	5	2	2	0
+2023-01-17	Toronto Maple Leafs	Florida Panthers	5 - 4 OT	5	4	2	1
+2023-01-17	Washington Capitals	Minnesota Wild	2 - 4 	2	4	0	2
+2023-01-18	Calgary Flames	Colorado Avalanche	1 - 4 	1	4	0	2
+2023-01-18	New York Islanders	Boston Bruins	1 - 4 	1	4	0	2
+2023-01-18	Ottawa Senators	Pittsburgh Penguins	5 - 4 OT	5	4	2	1
+2023-01-18	San Jose Sharks	Dallas Stars	5 - 3 	5	3	2	0
+2023-01-18	Vancouver Canucks	Tampa Bay Lightning	2 - 5 	2	5	0	2
+2023-01-19	Arizona Coyotes	Washington Capitals	0 - 4 	0	4	0	2
+2023-01-19	Buffalo Sabres	New York Islanders	3 - 2 OT	3	2	2	1
+2023-01-19	Carolina Hurricanes	Minnesota Wild	5 - 2 	5	2	2	0
+2023-01-19	Columbus Blue Jackets	Anaheim Ducks	3 - 5 	3	5	0	2
+2023-01-19	Edmonton Oilers	Tampa Bay Lightning	5 - 3 	5	3	2	0
+2023-01-19	Los Angeles Kings	Dallas Stars	0 - 4 	0	4	0	2
+2023-01-19	Montreal Canadiens	Florida Panthers	2 - 6 	2	6	0	2
+2023-01-19	New York Rangers	Boston Bruins	1 - 3 	1	3	0	2
+2023-01-19	Philadelphia Flyers	Chicago Blackhawks	1 - 4 	1	4	0	2
+2023-01-19	Seattle Kraken	New Jersey Devils	4 - 3 OT	4	3	2	1
+2023-01-19	St. Louis Blues	Nashville Predators	5 - 2 	5	2	2	0
+2023-01-19	Toronto Maple Leafs	Winnipeg Jets	4 - 1 	4	1	2	0
+2023-01-19	Vegas Golden Knights	Detroit Red Wings	2 - 3 	2	3	0	2
+2023-01-20	Pittsburgh Penguins	Ottawa Senators	4 - 1 	4	1	2	0
+2023-01-20	Vancouver Canucks	Colorado Avalanche	1 - 4 	1	4	0	2
+2023-01-21	Buffalo Sabres	Anaheim Ducks	6 - 3 	6	3	2	0
+2023-01-21	Columbus Blue Jackets	San Jose Sharks	5 - 3 	5	3	2	0
+2023-01-21	Calgary Flames	Tampa Bay Lightning	6 - 3 	6	3	2	0
+2023-01-21	Dallas Stars	Arizona Coyotes	4 - 0 	4	0	2	0
+2023-01-21	Detroit Red Wings	Philadelphia Flyers	1 - 2 	1	2	0	2
+2023-01-21	Florida Panthers	Minnesota Wild	5 - 3 	5	3	2	0
+2023-01-21	Montreal Canadiens	Toronto Maple Leafs	3 - 2 OT	3	2	2	1
+2023-01-21	Nashville Predators	Los Angeles Kings	5 - 3 	5	3	2	0
+2023-01-21	New York Islanders	Carolina Hurricanes	2 - 5 	2	5	0	2
+2023-01-21	Ottawa Senators	Winnipeg Jets	1 - 5 	1	5	0	2
+2023-01-21	Seattle Kraken	Colorado Avalanche	1 - 2 SO	1	2	1	2
+2023-01-21	St. Louis Blues	Chicago Blackhawks	3 - 5 	3	5	0	2
+2023-01-21	Vancouver Canucks	Edmonton Oilers	2 - 4 	2	4	0	2
+2023-01-21	Vegas Golden Knights	Washington Capitals	6 - 2 	6	2	2	0
+2023-01-22	Arizona Coyotes	Vegas Golden Knights	4 - 1 	4	1	2	0
+2023-01-22	Boston Bruins	San Jose Sharks	4 - 0 	4	0	2	0
+2023-01-22	Chicago Blackhawks	Los Angeles Kings	1 - 2 	1	2	0	2
+2023-01-22	New Jersey Devils	Pittsburgh Penguins	2 - 1 OT	2	1	2	1
+2023-01-22	Philadelphia Flyers	Winnipeg Jets	3 - 5 	3	5	0	2
+2023-01-23	Calgary Flames	Columbus Blue Jackets	4 - 3 OT	4	3	2	1
+2023-01-23	Dallas Stars	Buffalo Sabres	2 - 3 OT	2	3	1	2
+2023-01-23	New York Rangers	Florida Panthers	6 - 2 	6	2	2	0
+2023-01-23	Toronto Maple Leafs	New York Islanders	5 - 2 	5	2	2	0
+2023-01-24	Arizona Coyotes	Anaheim Ducks	2 - 5 	2	5	0	2
+2023-01-24	Colorado Avalanche	Washington Capitals	3 - 2 	3	2	2	0
+2023-01-24	Detroit Red Wings	San Jose Sharks	3 - 2 OT	3	2	2	1
+2023-01-24	Montreal Canadiens	Boston Bruins	2 - 4 	2	4	0	2
+2023-01-24	New Jersey Devils	Vegas Golden Knights	3 - 2 OT	3	2	2	1
+2023-01-24	Nashville Predators	Winnipeg Jets	2 - 1 	2	1	2	0
+2023-01-24	Philadelphia Flyers	Los Angeles Kings	3 - 4 OT	3	4	1	2
+2023-01-24	Pittsburgh Penguins	Florida Panthers	7 - 6 OT	7	6	2	1
+2023-01-24	St. Louis Blues	Buffalo Sabres	3 - 5 	3	5	0	2
+2023-01-24	Tampa Bay Lightning	Minnesota Wild	4 - 2 	4	2	2	0
+2023-01-24	Vancouver Canucks	Chicago Blackhawks	5 - 2 	5	2	2	0
+2023-01-25	Dallas Stars	Carolina Hurricanes	2 - 3 OT	2	3	1	2
+2023-01-25	Edmonton Oilers	Columbus Blue Jackets	2 - 3 OT	2	3	1	2
+2023-01-25	Ottawa Senators	New York Islanders	2 - 1 	2	1	2	0
+2023-01-25	Seattle Kraken	Vancouver Canucks	6 - 1 	6	1	2	0
+2023-01-25	Toronto Maple Leafs	New York Rangers	3 - 2 OT	3	2	2	1
+2023-01-26	Arizona Coyotes	St. Louis Blues	5 - 0 	5	0	2	0
+2023-01-26	Calgary Flames	Chicago Blackhawks	1 - 5 	1	5	0	2
+2023-01-26	Colorado Avalanche	Anaheim Ducks	3 - 5 	3	5	0	2
+2023-01-26	Minnesota Wild	Philadelphia Flyers	3 - 2 OT	3	2	2	1
+2023-01-26	Montreal Canadiens	Detroit Red Wings	3 - 4 OT	3	4	1	2
+2023-01-26	Nashville Predators	New Jersey Devils	6 - 4 	6	4	2	0
+2023-01-26	Tampa Bay Lightning	Boston Bruins	3 - 2 	3	2	2	0
+2023-01-26	Winnipeg Jets	Buffalo Sabres	2 - 3 	2	3	0	2
+2023-01-26	Washington Capitals	Pittsburgh Penguins	3 - 2 SO	3	2	2	1
+2023-01-27	Carolina Hurricanes	San Jose Sharks	5 - 4 OT	5	4	2	1
+2023-01-27	Dallas Stars	New Jersey Devils	2 - 3 OT	2	3	1	2
+2023-01-27	Florida Panthers	Los Angeles Kings	3 - 4 	3	4	0	2
+2023-01-27	New York Islanders	Detroit Red Wings	2 - 0 	2	0	2	0
+2023-01-27	New York Rangers	Vegas Golden Knights	4 - 1 	4	1	2	0
+2023-01-27	Seattle Kraken	Calgary Flames	2 - 5 	2	5	0	2
+2023-01-27	Toronto Maple Leafs	Ottawa Senators	2 - 6 	2	6	0	2
+2023-01-27	Vancouver Canucks	Columbus Blue Jackets	5 - 2 	5	2	2	0
+2023-01-28	Anaheim Ducks	Arizona Coyotes	2 - 1 OT	2	1	2	1
+2023-01-28	Colorado Avalanche	St. Louis Blues	4 - 2 	4	2	2	0
+2023-01-28	Edmonton Oilers	Chicago Blackhawks	7 - 3 	7	3	2	0
+2023-01-28	Florida Panthers	Boston Bruins	4 - 3 OT	4	3	2	1
+2023-01-28	Minnesota Wild	Buffalo Sabres	3 - 2 SO	3	2	2	1
+2023-01-28	New York Islanders	Vegas Golden Knights	2 - 1 OT	2	1	2	1
+2023-01-28	Ottawa Senators	Montreal Canadiens	5 - 0 	5	0	2	0
+2023-01-28	Pittsburgh Penguins	San Jose Sharks	4 - 6 	4	6	0	2
+2023-01-28	Seattle Kraken	Columbus Blue Jackets	3 - 1 	3	1	2	0
+2023-01-28	Tampa Bay Lightning	Los Angeles Kings	5 - 2 	5	2	2	0
+2023-01-28	Winnipeg Jets	Philadelphia Flyers	0 - 4 	0	4	0	2
+2023-01-29	Carolina Hurricanes	Boston Bruins	4 - 1 	4	1	2	0
+2023-01-29	Toronto Maple Leafs	Washington Capitals	5 - 1 	5	1	2	0
+2023-01-30	Winnipeg Jets	St. Louis Blues	4 - 2 	4	2	2	0
+2023-01-31	Carolina Hurricanes	Los Angeles Kings	5 - 4 OT	5	4	2	1
+2023-01-31	Columbus Blue Jackets	Washington Capitals	3 - 4 OT	3	4	1	2
+2023-01-31	Montreal Canadiens	Ottawa Senators	4 - 5 	4	5	0	2
+2023-02-01	Buffalo Sabres	Carolina Hurricanes	1 - 5 	1	5	0	2
+2023-02-01	Toronto Maple Leafs	Boston Bruins	2 - 5 	2	5	0	2
+2023-02-06	Arizona Coyotes	Minnesota Wild	3 - 2 	3	2	2	0
+2023-02-06	Dallas Stars	Anaheim Ducks	3 - 2 SO	3	2	2	1
+2023-02-06	Florida Panthers	Tampa Bay Lightning	7 - 1 	7	1	2	0
+2023-02-06	New Jersey Devils	Vancouver Canucks	5 - 4 OT	5	4	2	1
+2023-02-06	New York Rangers	Calgary Flames	5 - 4 OT	5	4	2	1
+2023-02-06	Philadelphia Flyers	New York Islanders	1 - 2 	1	2	0	2
+2023-02-07	Chicago Blackhawks	Anaheim Ducks	2 - 3 OT	2	3	1	2
+2023-02-07	Detroit Red Wings	Edmonton Oilers	2 - 5 	2	5	0	2
+2023-02-07	Nashville Predators	Vegas Golden Knights	1 - 5 	1	5	0	2
+2023-02-07	New York Islanders	Seattle Kraken	4 - 0 	4	0	2	0
+2023-02-07	Pittsburgh Penguins	Colorado Avalanche	2 - 1 OT	2	1	2	1
+2023-02-07	Tampa Bay Lightning	San Jose Sharks	3 - 4 OT	3	4	1	2
+2023-02-08	Dallas Stars	Minnesota Wild	4 - 1 	4	1	2	0
+2023-02-08	New York Rangers	Vancouver Canucks	4 - 3 	4	3	2	0
+2023-02-09	Detroit Red Wings	Calgary Flames	2 - 1 	2	1	2	0
+2023-02-09	Florida Panthers	San Jose Sharks	4 - 1 	4	1	2	0
+2023-02-09	Minnesota Wild	Vegas Golden Knights	1 - 5 	1	5	0	2
+2023-02-09	New Jersey Devils	Seattle Kraken	3 - 1 	3	1	2	0
+2023-02-09	New York Islanders	Vancouver Canucks	5 - 6 	5	6	0	2
+2023-02-09	Philadelphia Flyers	Edmonton Oilers	2 - 1 SO	2	1	2	1
+2023-02-09	Tampa Bay Lightning	Colorado Avalanche	5 - 0 	5	0	2	0
+2023-02-10	Anaheim Ducks	Pittsburgh Penguins	3 - 6 	3	6	0	2
+2023-02-10	Columbus Blue Jackets	Toronto Maple Leafs	0 - 3 	0	3	0	2
+2023-02-10	Chicago Blackhawks	Arizona Coyotes	4 - 3 OT	4	3	2	1
+2023-02-10	New York Rangers	Seattle Kraken	6 - 3 	6	3	2	0
+2023-02-11	Boston Bruins	Washington Capitals	1 - 2 	1	2	0	2
+2023-02-11	Buffalo Sabres	Calgary Flames	2 - 7 	2	7	0	2
+2023-02-11	Carolina Hurricanes	New York Rangers	2 - 6 	2	6	0	2
+2023-02-11	Dallas Stars	Tampa Bay Lightning	1 - 3 	1	3	0	2
+2023-02-11	Detroit Red Wings	Vancouver Canucks	5 - 2 	5	2	2	0
+2023-02-11	Florida Panthers	Colorado Avalanche	3 - 5 	3	5	0	2
+2023-02-11	Los Angeles Kings	Pittsburgh Penguins	6 - 0 	6	0	2	0
+2023-02-11	Minnesota Wild	New Jersey Devils	3 - 2 SO	3	2	2	1
+2023-02-11	Montreal Canadiens	New York Islanders	4 - 3 OT	4	3	2	1
+2023-02-11	Ottawa Senators	Edmonton Oilers	3 - 6 	3	6	0	2
+2023-02-11	Philadelphia Flyers	Nashville Predators	1 - 2 OT	1	2	1	2
+2023-02-11	St. Louis Blues	Arizona Coyotes	6 - 5 OT	6	5	2	1
+2023-02-11	Toronto Maple Leafs	Columbus Blue Jackets	3 - 4 	3	4	0	2
+2023-02-11	Winnipeg Jets	Chicago Blackhawks	4 - 1 	4	1	2	0
+2023-02-12	Montreal Canadiens	Edmonton Oilers	6 - 2 	6	2	2	0
+2023-02-12	Philadelphia Flyers	Seattle Kraken	3 - 4 	3	4	0	2
+2023-02-12	Vegas Golden Knights	Anaheim Ducks	7 - 2 	7	2	2	0
+2023-02-12	Washington Capitals	San Jose Sharks	1 - 4 	1	4	0	2
+2023-02-13	Los Angeles Kings	Buffalo Sabres	5 - 2 	5	2	2	0
+2023-02-13	Minnesota Wild	Florida Panthers	1 - 2 SO	1	2	1	2
+2023-02-13	Nashville Predators	Arizona Coyotes	2 - 4 	2	4	0	2
+2023-02-13	Ottawa Senators	Calgary Flames	4 - 3 OT	4	3	2	1
+2023-02-13	Vancouver Canucks	Detroit Red Wings	1 - 6 	1	6	0	2
+2023-02-14	Columbus Blue Jackets	New Jersey Devils	2 - 3 	2	3	0	2
+2023-02-14	Colorado Avalanche	Tampa Bay Lightning	3 - 4 SO	3	4	1	2
+2023-02-14	Dallas Stars	Boston Bruins	2 - 3 OT	2	3	1	2
+2023-02-14	Montreal Canadiens	Chicago Blackhawks	4 - 0 	4	0	2	0
+2023-02-14	New York Islanders	Ottawa Senators	2 - 3 SO	2	3	1	2
+2023-02-14	San Jose Sharks	Pittsburgh Penguins	1 - 3 	1	3	0	2
+2023-02-14	St. Louis Blues	Florida Panthers	6 - 2 	6	2	2	0
+2023-02-14	Winnipeg Jets	Seattle Kraken	3 - 2 SO	3	2	2	1
+2023-02-14	Washington Capitals	Carolina Hurricanes	2 - 3 	2	3	0	2
+2023-02-15	Anaheim Ducks	Buffalo Sabres	3 - 7 	3	7	0	2
+2023-02-15	Arizona Coyotes	Tampa Bay Lightning	1 - 0 SO	1	0	2	1
+2023-02-15	Edmonton Oilers	Detroit Red Wings	4 - 5 SO	4	5	1	2
+2023-02-15	Minnesota Wild	Colorado Avalanche	2 - 3 	2	3	0	2
+2023-02-15	Toronto Maple Leafs	Chicago Blackhawks	5 - 2 	5	2	2	0
+2023-02-15	Vancouver Canucks	New York Rangers	4 - 6 	4	6	0	2
+2023-02-16	Carolina Hurricanes	Montreal Canadiens	6 - 2 	6	2	2	0
+2023-02-16	Columbus Blue Jackets	Winnipeg Jets	3 - 1 	3	1	2	0
+2023-02-16	Calgary Flames	Detroit Red Wings	2 - 5 	2	5	0	2
+2023-02-16	Nashville Predators	Boston Bruins	0 - 5 	0	5	0	2
+2023-02-16	Seattle Kraken	Philadelphia Flyers	6 - 2 	6	2	2	0
+2023-02-16	St. Louis Blues	New Jersey Devils	4 - 2 	4	2	2	0
+2023-02-16	Vegas Golden Knights	San Jose Sharks	2 - 1 	2	1	2	0
+2023-02-16	Washington Capitals	Florida Panthers	3 - 6 	3	6	0	2
+2023-02-17	Anaheim Ducks	Los Angeles Kings	3 - 6 	3	6	0	2
+2023-02-17	Edmonton Oilers	New York Rangers	4 - 5 SO	4	5	1	2
+2023-02-17	Minnesota Wild	Dallas Stars	2 - 1 SO	2	1	2	1
+2023-02-17	New York Islanders	Pittsburgh Penguins	5 - 4 	5	4	2	0
+2023-02-17	Ottawa Senators	Chicago Blackhawks	3 - 4 OT	3	4	1	2
+2023-02-18	Boston Bruins	New York Islanders	6 - 2 	6	2	2	0
+2023-02-18	Carolina Hurricanes	Washington Capitals	4 - 1 	4	1	2	0
+2023-02-18	Calgary Flames	New York Rangers	3 - 2 OT	3	2	2	1
+2023-02-18	Dallas Stars	Columbus Blue Jackets	1 - 4 	1	4	0	2
+2023-02-18	Los Angeles Kings	Arizona Coyotes	6 - 5 SO	6	5	2	1
+2023-02-18	Nashville Predators	Florida Panthers	7 - 3 	7	3	2	0
+2023-02-18	Pittsburgh Penguins	New Jersey Devils	2 - 5 	2	5	0	2
+2023-02-18	Seattle Kraken	Detroit Red Wings	4 - 2 	4	2	2	0
+2023-02-18	San Jose Sharks	Buffalo Sabres	2 - 4 	2	4	0	2
+2023-02-18	St. Louis Blues	Colorado Avalanche	1 - 4 	1	4	0	2
+2023-02-18	Toronto Maple Leafs	Montreal Canadiens	5 - 1 	5	1	2	0
+2023-02-18	Vancouver Canucks	Philadelphia Flyers	6 - 2 	6	2	2	0
+2023-02-18	Vegas Golden Knights	Tampa Bay Lightning	5 - 4 	5	4	2	0
+2023-02-19	Arizona Coyotes	Columbus Blue Jackets	3 - 2 OT	3	2	2	1
+2023-02-19	Chicago Blackhawks	Toronto Maple Leafs	5 - 3 	5	3	2	0
+2023-02-19	Colorado Avalanche	Edmonton Oilers	6 - 5 OT	6	5	2	1
+2023-02-19	Minnesota Wild	Nashville Predators	4 - 3 	4	3	2	0
+2023-02-19	New Jersey Devils	Winnipeg Jets	4 - 2 	4	2	2	0
+2023-02-19	Ottawa Senators	St. Louis Blues	7 - 2 	7	2	2	0
+2023-02-20	Boston Bruins	Ottawa Senators	3 - 1 	3	1	2	0
+2023-02-20	Calgary Flames	Philadelphia Flyers	3 - 4 	3	4	0	2
+2023-02-20	Florida Panthers	Anaheim Ducks	4 - 3 OT	4	3	2	1
+2023-02-20	New York Rangers	Winnipeg Jets	1 - 4 	1	4	0	2
+2023-02-20	Pittsburgh Penguins	New York Islanders	2 - 4 	2	4	0	2
+2023-02-20	San Jose Sharks	Seattle Kraken	4 - 0 	4	0	2	0
+2023-02-21	Buffalo Sabres	Toronto Maple Leafs	3 - 6 	3	6	0	2
+2023-02-21	Carolina Hurricanes	St. Louis Blues	4 - 1 	4	1	2	0
+2023-02-21	Chicago Blackhawks	Vegas Golden Knights	3 - 2 SO	3	2	2	1
+2023-02-21	Edmonton Oilers	Philadelphia Flyers	4 - 2 	4	2	2	0
+2023-02-21	Minnesota Wild	Los Angeles Kings	2 - 1 	2	1	2	0
+2023-02-21	New Jersey Devils	Montreal Canadiens	2 - 5 	2	5	0	2
+2023-02-21	Nashville Predators	Vancouver Canucks	5 - 4 SO	5	4	2	1
+2023-02-21	Tampa Bay Lightning	Anaheim Ducks	6 - 1 	6	1	2	0
+2023-02-21	Washington Capitals	Detroit Red Wings	1 - 3 	1	3	0	2
+2023-02-22	Arizona Coyotes	Calgary Flames	3 - 6 	3	6	0	2
+2023-02-22	Dallas Stars	Chicago Blackhawks	3 - 4 	3	4	0	2
+2023-02-22	New York Islanders	Winnipeg Jets	2 - 1 	2	1	2	0
+2023-02-23	Columbus Blue Jackets	Minnesota Wild	0 - 2 	0	2	0	2
+2023-02-23	Detroit Red Wings	New York Rangers	4 - 1 	4	1	2	0
+2023-02-23	New Jersey Devils	Los Angeles Kings	4 - 3 OT	4	3	2	1
+2023-02-23	Pittsburgh Penguins	Edmonton Oilers	2 - 7 	2	7	0	2
+2023-02-23	Seattle Kraken	Boston Bruins	5 - 6 	5	6	0	2
+2023-02-23	San Jose Sharks	Nashville Predators	2 - 6 	2	6	0	2
+2023-02-23	St. Louis Blues	Vancouver Canucks	2 - 3 OT	2	3	1	2
+2023-02-23	Tampa Bay Lightning	Buffalo Sabres	5 - 6 OT	5	6	1	2
+2023-02-23	Vegas Golden Knights	Calgary Flames	4 - 3 OT	4	3	2	1
+2023-02-23	Washington Capitals	Anaheim Ducks	2 - 4 	2	4	0	2
+2023-02-24	Carolina Hurricanes	Ottawa Senators	4 - 0 	4	0	2	0
+2023-02-24	Florida Panthers	Buffalo Sabres	1 - 3 	1	3	0	2
+2023-02-24	New York Islanders	Los Angeles Kings	2 - 3 	2	3	0	2
+2023-02-24	Philadelphia Flyers	Montreal Canadiens	2 - 5 	2	5	0	2
+2023-02-24	Toronto Maple Leafs	Minnesota Wild	2 - 1 OT	2	1	2	1
+2023-02-24	Winnipeg Jets	Colorado Avalanche	1 - 5 	1	5	0	2
+2023-02-25	Carolina Hurricanes	Anaheim Ducks	2 - 3 	2	3	0	2
+2023-02-25	Columbus Blue Jackets	Edmonton Oilers	6 - 5 	6	5	2	0
+2023-02-25	Colorado Avalanche	Calgary Flames	4 - 1 	4	1	2	0
+2023-02-25	Detroit Red Wings	Tampa Bay Lightning	0 - 3 	0	3	0	2
+2023-02-25	Montreal Canadiens	Ottawa Senators	2 - 5 	2	5	0	2
+2023-02-25	New Jersey Devils	Philadelphia Flyers	7 - 0 	7	0	2	0
+2023-02-25	San Jose Sharks	Chicago Blackhawks	3 - 4 SO	3	4	1	2
+2023-02-25	St. Louis Blues	Pittsburgh Penguins	2 - 3 OT	2	3	1	2
+2023-02-25	Vancouver Canucks	Boston Bruins	1 - 3 	1	3	0	2
+2023-02-25	Vegas Golden Knights	Dallas Stars	2 - 3 SO	2	3	1	2
+2023-02-25	Washington Capitals	New York Rangers	6 - 3 	6	3	2	0
+2023-02-26	Arizona Coyotes	Nashville Predators	2 - 6 	2	6	0	2
+2023-02-26	Buffalo Sabres	Washington Capitals	7 - 4 	7	4	2	0
+2023-02-26	Minnesota Wild	Columbus Blue Jackets	3 - 2 OT	3	2	2	1
+2023-02-26	New York Rangers	Los Angeles Kings	5 - 2 	5	2	2	0
+2023-02-26	Pittsburgh Penguins	Tampa Bay Lightning	7 - 3 	7	3	2	0
+2023-02-26	Seattle Kraken	Toronto Maple Leafs	1 - 5 	1	5	0	2
+2023-02-26	Winnipeg Jets	New York Islanders	0 - 4 	0	4	0	2
+2023-02-27	Anaheim Ducks	Chicago Blackhawks	4 - 2 	4	2	2	0
+2023-02-27	Colorado Avalanche	Vegas Golden Knights	3 - 0 	3	0	2	0
+2023-02-27	Dallas Stars	Vancouver Canucks	4 - 5 OT	4	5	1	2
+2023-02-27	Edmonton Oilers	Boston Bruins	2 - 3 	2	3	0	2
+2023-02-27	Ottawa Senators	Detroit Red Wings	6 - 2 	6	2	2	0
+2023-02-28	Arizona Coyotes	Chicago Blackhawks	4 - 1 	4	1	2	0
+2023-02-28	Buffalo Sabres	Columbus Blue Jackets	3 - 5 	3	5	0	2
+2023-02-28	Calgary Flames	Boston Bruins	3 - 4 OT	3	4	1	2
+2023-02-28	Minnesota Wild	New York Islanders	2 - 1 SO	2	1	2	1
+2023-02-28	Nashville Predators	Pittsburgh Penguins	1 - 3 	1	3	0	2
+2023-02-28	Ottawa Senators	Detroit Red Wings	6 - 1 	6	1	2	0
+2023-02-28	San Jose Sharks	Montreal Canadiens	1 - 3 	1	3	0	2
+2023-02-28	St. Louis Blues	Seattle Kraken	3 - 5 	3	5	0	2
+2023-02-28	Tampa Bay Lightning	Florida Panthers	1 - 4 	1	4	0	2
+2023-02-28	Winnipeg Jets	Los Angeles Kings	5 - 6 SO	5	6	1	2
+2023-03-01	Anaheim Ducks	Washington Capitals	2 - 3 OT	2	3	1	2
+2023-03-01	Colorado Avalanche	New Jersey Devils	5 - 7 	5	7	0	2
+2023-03-01	Dallas Stars	Arizona Coyotes	4 - 2 	4	2	2	0
+2023-03-01	Edmonton Oilers	Toronto Maple Leafs	5 - 2 	5	2	2	0
+2023-03-01	Philadelphia Flyers	New York Rangers	2 - 3 OT	2	3	1	2
+2023-03-01	Vegas Golden Knights	Carolina Hurricanes	3 - 2 	3	2	2	0
+2023-03-02	Boston Bruins	Buffalo Sabres	7 - 1 	7	1	2	0
+2023-03-02	Calgary Flames	Toronto Maple Leafs	1 - 2 	1	2	0	2
+2023-03-02	Chicago Blackhawks	Dallas Stars	2 - 5 	2	5	0	2
+2023-03-02	Detroit Red Wings	Seattle Kraken	4 - 5 OT	4	5	1	2
+2023-03-02	Florida Panthers	Nashville Predators	1 - 2 	1	2	0	2
+2023-03-02	Los Angeles Kings	Montreal Canadiens	3 - 2 	3	2	2	0
+2023-03-02	New York Rangers	Ottawa Senators	3 - 5 	3	5	0	2
+2023-03-02	San Jose Sharks	St. Louis Blues	3 - 6 	3	6	0	2
+2023-03-02	Tampa Bay Lightning	Pittsburgh Penguins	4 - 5 OT	4	5	1	2
+2023-03-02	Vancouver Canucks	Minnesota Wild	1 - 2 	1	2	0	2
+2023-03-03	Anaheim Ducks	Montreal Canadiens	3 - 2 	3	2	2	0
+2023-03-03	Arizona Coyotes	Carolina Hurricanes	1 - 6 	1	6	0	2
+2023-03-03	Columbus Blue Jackets	Seattle Kraken	2 - 4 	2	4	0	2
+2023-03-03	Edmonton Oilers	Winnipeg Jets	6 - 3 	6	3	2	0
+2023-03-03	Vegas Golden Knights	New Jersey Devils	4 - 3 SO	4	3	2	1
+2023-03-04	Boston Bruins	New York Rangers	4 - 2 	4	2	2	0
+2023-03-04	Buffalo Sabres	Tampa Bay Lightning	5 - 3 	5	3	2	0
+2023-03-04	Calgary Flames	Minnesota Wild	0 - 3 	0	3	0	2
+2023-03-04	Chicago Blackhawks	Nashville Predators	1 - 3 	1	3	0	2
+2023-03-04	Dallas Stars	Colorado Avalanche	7 - 3 	7	3	2	0
+2023-03-04	Florida Panthers	Pittsburgh Penguins	4 - 1 	4	1	2	0
+2023-03-04	Los Angeles Kings	St. Louis Blues	4 - 2 	4	2	2	0
+2023-03-04	New York Islanders	Detroit Red Wings	4 - 1 	4	1	2	0
+2023-03-04	Ottawa Senators	Columbus Blue Jackets	5 - 2 	5	2	2	0
+2023-03-04	San Jose Sharks	Washington Capitals	3 - 8 	3	8	0	2
+2023-03-04	Vancouver Canucks	Toronto Maple Leafs	4 - 1 	4	1	2	0
+2023-03-04	Winnipeg Jets	Edmonton Oilers	7 - 5 	7	5	2	0
+2023-03-05	Arizona Coyotes	New Jersey Devils	4 - 5 OT	4	5	1	2
+2023-03-05	Carolina Hurricanes	Tampa Bay Lightning	6 - 0 	6	0	2	0
+2023-03-05	Colorado Avalanche	Seattle Kraken	2 - 3 OT	2	3	1	2
+2023-03-05	Philadelphia Flyers	Detroit Red Wings	3 - 1 	3	1	2	0
+2023-03-05	Vegas Golden Knights	Montreal Canadiens	4 - 3 	4	3	2	0
+2023-03-06	Buffalo Sabres	Edmonton Oilers	2 - 3 	2	3	0	2
+2023-03-06	Chicago Blackhawks	Ottawa Senators	5 - 0 	5	0	2	0
+2023-03-06	Dallas Stars	Calgary Flames	4 - 5 	4	5	0	2
+2023-03-06	Los Angeles Kings	Washington Capitals	4 - 2 	4	2	2	0
+2023-03-06	Vancouver Canucks	Nashville Predators	4 - 3 SO	4	3	2	1
+2023-03-06	Winnipeg Jets	San Jose Sharks	2 - 3 OT	2	3	1	2
+2023-03-07	Arizona Coyotes	St. Louis Blues	6 - 2 	6	2	2	0
+2023-03-07	Colorado Avalanche	San Jose Sharks	6 - 0 	6	0	2	0
+2023-03-07	Florida Panthers	Vegas Golden Knights	2 - 1 	2	1	2	0
+2023-03-07	Minnesota Wild	Calgary Flames	0 - 1 SO	0	1	1	2
+2023-03-07	Montreal Canadiens	Carolina Hurricanes	3 - 4 SO	3	4	1	2
+2023-03-07	New Jersey Devils	Toronto Maple Leafs	3 - 4 	3	4	0	2
+2023-03-07	New York Islanders	Buffalo Sabres	3 - 2 	3	2	2	0
+2023-03-07	Pittsburgh Penguins	Columbus Blue Jackets	5 - 4 OT	5	4	2	1
+2023-03-07	Seattle Kraken	Anaheim Ducks	5 - 2 	5	2	2	0
+2023-03-07	Tampa Bay Lightning	Philadelphia Flyers	5 - 2 	5	2	2	0
+2023-03-08	Detroit Red Wings	Chicago Blackhawks	4 - 3 	4	3	2	0
+2023-03-08	Vancouver Canucks	Anaheim Ducks	3 - 2 OT	3	2	2	1
+2023-03-08	Winnipeg Jets	Minnesota Wild	2 - 4 	2	4	0	2
+2023-03-09	Arizona Coyotes	Nashville Predators	4 - 1 	4	1	2	0
+2023-03-09	Boston Bruins	Edmonton Oilers	2 - 3 	2	3	0	2
+2023-03-09	Buffalo Sabres	Dallas Stars	4 - 10 	4	10	0	2
+2023-03-09	Carolina Hurricanes	Philadelphia Flyers	1 - 0 	1	0	2	0
+2023-03-09	Colorado Avalanche	Los Angeles Kings	2 - 5 	2	5	0	2
+2023-03-09	Montreal Canadiens	New York Rangers	3 - 4 SO	3	4	1	2
+2023-03-09	Pittsburgh Penguins	New York Islanders	3 - 4 OT	3	4	1	2
+2023-03-09	Seattle Kraken	Ottawa Senators	4 - 5 	4	5	0	2
+2023-03-09	St. Louis Blues	San Jose Sharks	4 - 2 	4	2	2	0
+2023-03-09	Tampa Bay Lightning	Vegas Golden Knights	3 - 4 OT	3	4	1	2
+2023-03-09	Washington Capitals	New Jersey Devils	2 - 3 SO	2	3	1	2
+2023-03-10	Calgary Flames	Anaheim Ducks	1 - 3 	1	3	0	2
+2023-03-10	Florida Panthers	Chicago Blackhawks	4 - 3 OT	4	3	2	1
+2023-03-11	Boston Bruins	Detroit Red Wings	3 - 2 	3	2	2	0
+2023-03-11	Buffalo Sabres	New York Rangers	1 - 2 OT	1	2	1	2
+2023-03-11	Carolina Hurricanes	Vegas Golden Knights	0 - 4 	0	4	0	2
+2023-03-11	Columbus Blue Jackets	St. Louis Blues	2 - 5 	2	5	0	2
+2023-03-11	Colorado Avalanche	Arizona Coyotes	3 - 2 OT	3	2	2	1
+2023-03-11	Florida Panthers	Winnipeg Jets	4 - 5 OT	4	5	1	2
+2023-03-11	Los Angeles Kings	Nashville Predators	1 - 2 SO	1	2	1	2
+2023-03-11	Montreal Canadiens	New Jersey Devils	1 - 3 	1	3	0	2
+2023-03-11	New York Islanders	Washington Capitals	1 - 5 	1	5	0	2
+2023-03-11	Pittsburgh Penguins	Philadelphia Flyers	5 - 1 	5	1	2	0
+2023-03-11	Seattle Kraken	Dallas Stars	3 - 4 OT	3	4	1	2
+2023-03-11	San Jose Sharks	Minnesota Wild	2 - 5 	2	5	0	2
+2023-03-11	Tampa Bay Lightning	Chicago Blackhawks	3 - 1 	3	1	2	0
+2023-03-11	Toronto Maple Leafs	Edmonton Oilers	7 - 4 	7	4	2	0
+2023-03-11	Vancouver Canucks	Ottawa Senators	5 - 2 	5	2	2	0
+2023-03-12	Anaheim Ducks	Nashville Predators	4 - 5 OT	4	5	1	2
+2023-03-12	Arizona Coyotes	Minnesota Wild	5 - 4 OT	5	4	2	1
+2023-03-12	Calgary Flames	Ottawa Senators	5 - 1 	5	1	2	0
+2023-03-12	Detroit Red Wings	Boston Bruins	5 - 3 	5	3	2	0
+2023-03-12	New Jersey Devils	Carolina Hurricanes	3 - 0 	3	0	2	0
+2023-03-12	Pittsburgh Penguins	New York Rangers	3 - 2 OT	3	2	2	1
+2023-03-12	St. Louis Blues	Vegas Golden Knights	3 - 5 	3	5	0	2
+2023-03-12	Tampa Bay Lightning	Winnipeg Jets	2 - 3 	2	3	0	2
+2023-03-13	Montreal Canadiens	Colorado Avalanche	4 - 8 	4	8	0	2
+2023-03-13	Seattle Kraken	Dallas Stars	2 - 5 	2	5	0	2
+2023-03-13	Toronto Maple Leafs	Buffalo Sabres	3 - 4 	3	4	0	2
+2023-03-14	Arizona Coyotes	Calgary Flames	4 - 3 OT	4	3	2	1
+2023-03-14	Carolina Hurricanes	Winnipeg Jets	5 - 3 	5	3	2	0
+2023-03-14	Chicago Blackhawks	Boston Bruins	6 - 3 	6	3	2	0
+2023-03-14	Edmonton Oilers	Ottawa Senators	6 - 3 	6	3	2	0
+2023-03-14	Los Angeles Kings	New York Islanders	5 - 2 	5	2	2	0
+2023-03-14	New Jersey Devils	Tampa Bay Lightning	1 - 4 	1	4	0	2
+2023-03-14	Nashville Predators	Detroit Red Wings	2 - 1 	2	1	2	0
+2023-03-14	New York Rangers	Washington Capitals	5 - 3 	5	3	2	0
+2023-03-14	Philadelphia Flyers	Vegas Golden Knights	3 - 5 	3	5	0	2
+2023-03-14	Pittsburgh Penguins	Montreal Canadiens	4 - 6 	4	6	0	2
+2023-03-14	San Jose Sharks	Columbus Blue Jackets	5 - 6 OT	5	6	1	2
+2023-03-14	Vancouver Canucks	Dallas Stars	5 - 2 	5	2	2	0
+2023-03-15	Anaheim Ducks	New York Islanders	3 - 6 	3	6	0	2
+2023-03-15	St. Louis Blues	Minnesota Wild	5 - 8 	5	8	0	2
+2023-03-15	Toronto Maple Leafs	Colorado Avalanche	1 - 2 SO	1	2	1	2
+2023-03-15	Washington Capitals	Buffalo Sabres	5 - 4 SO	5	4	2	1
+2023-03-16	Arizona Coyotes	Vancouver Canucks	3 - 2 	3	2	2	0
+2023-03-16	Edmonton Oilers	Dallas Stars	4 - 1 	4	1	2	0
+2023-03-16	Florida Panthers	Montreal Canadiens	9 - 5 	9	5	2	0
+2023-03-16	Los Angeles Kings	Columbus Blue Jackets	4 - 1 	4	1	2	0
+2023-03-16	New Jersey Devils	Tampa Bay Lightning	3 - 4 SO	3	4	1	2
+2023-03-16	Nashville Predators	Chicago Blackhawks	1 - 2 	1	2	0	2
+2023-03-16	New York Rangers	Pittsburgh Penguins	4 - 2 	4	2	2	0
+2023-03-16	Ottawa Senators	Colorado Avalanche	4 - 5 	4	5	0	2
+2023-03-16	San Jose Sharks	Seattle Kraken	1 - 2 OT	1	2	1	2
+2023-03-16	Vegas Golden Knights	Calgary Flames	2 - 7 	2	7	0	2
+2023-03-16	Winnipeg Jets	Boston Bruins	0 - 3 	0	3	0	2
+2023-03-17	Anaheim Ducks	Columbus Blue Jackets	7 - 4 	7	4	2	0
+2023-03-17	Philadelphia Flyers	Buffalo Sabres	5 - 2 	5	2	2	0
+2023-03-17	Toronto Maple Leafs	Carolina Hurricanes	5 - 2 	5	2	2	0
+2023-03-17	Washington Capitals	St. Louis Blues	2 - 5 	2	5	0	2
+2023-03-18	Arizona Coyotes	Chicago Blackhawks	4 - 2 	4	2	2	0
+2023-03-18	Calgary Flames	Dallas Stars	5 - 6 OT	5	6	1	2
+2023-03-18	Detroit Red Wings	Colorado Avalanche	1 - 5 	1	5	0	2
+2023-03-18	Florida Panthers	New Jersey Devils	4 - 2 	4	2	2	0
+2023-03-18	Los Angeles Kings	Vancouver Canucks	2 - 3 SO	2	3	1	2
+2023-03-18	Minnesota Wild	Boston Bruins	2 - 5 	2	5	0	2
+2023-03-18	Nashville Predators	Winnipeg Jets	2 - 3 OT	2	3	1	2
+2023-03-18	New York Rangers	Pittsburgh Penguins	6 - 0 	6	0	2	0
+2023-03-18	Ottawa Senators	Toronto Maple Leafs	4 - 5 SO	4	5	1	2
+2023-03-18	Philadelphia Flyers	Carolina Hurricanes	4 - 5 OT	4	5	1	2
+2023-03-18	Seattle Kraken	Edmonton Oilers	4 - 6 	4	6	0	2
+2023-03-18	San Jose Sharks	New York Islanders	1 - 4 	1	4	0	2
+2023-03-18	Tampa Bay Lightning	Montreal Canadiens	5 - 3 	5	3	2	0
+2023-03-19	Anaheim Ducks	Vancouver Canucks	1 - 2 	1	2	0	2
+2023-03-19	Buffalo Sabres	Boston Bruins	0 - 7 	0	7	0	2
+2023-03-19	Minnesota Wild	Washington Capitals	5 - 3 	5	3	2	0
+2023-03-19	New York Rangers	Nashville Predators	7 - 0 	7	0	2	0
+2023-03-19	St. Louis Blues	Winnipeg Jets	3 - 0 	3	0	2	0
+2023-03-19	Tampa Bay Lightning	New Jersey Devils	2 - 5 	2	5	0	2
+2023-03-19	Vegas Golden Knights	Columbus Blue Jackets	7 - 2 	7	2	2	0
+2023-03-20	Colorado Avalanche	Chicago Blackhawks	5 - 0 	5	0	2	0
+2023-03-20	Detroit Red Wings	Florida Panthers	2 - 5 	2	5	0	2
+2023-03-20	Edmonton Oilers	San Jose Sharks	5 - 4 OT	5	4	2	1
+2023-03-20	Los Angeles Kings	Calgary Flames	8 - 2 	8	2	2	0
+2023-03-20	Pittsburgh Penguins	Ottawa Senators	1 - 2 	1	2	0	2
+2023-03-21	Anaheim Ducks	Calgary Flames	1 - 5 	1	5	0	2
+2023-03-21	Boston Bruins	Ottawa Senators	2 - 1 	2	1	2	0
+2023-03-21	Buffalo Sabres	Nashville Predators	3 - 7 	3	7	0	2
+2023-03-21	Dallas Stars	Seattle Kraken	4 - 5 OT	4	5	1	2
+2023-03-21	Montreal Canadiens	Tampa Bay Lightning	3 - 2 	3	2	2	0
+2023-03-21	New Jersey Devils	Minnesota Wild	1 - 2 OT	1	2	1	2
+2023-03-21	New York Islanders	Toronto Maple Leafs	7 - 2 	7	2	2	0
+2023-03-21	New York Rangers	Carolina Hurricanes	2 - 3 	2	3	0	2
+2023-03-21	Philadelphia Flyers	Florida Panthers	6 - 3 	6	3	2	0
+2023-03-21	St. Louis Blues	Detroit Red Wings	2 - 3 SO	2	3	1	2
+2023-03-21	Vancouver Canucks	Vegas Golden Knights	3 - 4 	3	4	0	2
+2023-03-21	Winnipeg Jets	Arizona Coyotes	2 - 1 	2	1	2	0
+2023-03-21	Washington Capitals	Columbus Blue Jackets	6 - 7 OT	6	7	1	2
+2023-03-22	Colorado Avalanche	Pittsburgh Penguins	2 - 5 	2	5	0	2
+2023-03-22	Edmonton Oilers	Arizona Coyotes	4 - 3 OT	4	3	2	1
+2023-03-23	Anaheim Ducks	Winnipeg Jets	2 - 3 	2	3	0	2
+2023-03-23	Boston Bruins	Montreal Canadiens	4 - 2 	4	2	2	0
+2023-03-23	Carolina Hurricanes	New York Rangers	1 - 2 	1	2	0	2
+2023-03-23	Calgary Flames	Vegas Golden Knights	2 - 3 	2	3	0	2
+2023-03-23	Dallas Stars	Pittsburgh Penguins	3 - 2 	3	2	2	0
+2023-03-23	Detroit Red Wings	St. Louis Blues	3 - 4 	3	4	0	2
+2023-03-23	Florida Panthers	Toronto Maple Leafs	2 - 6 	2	6	0	2
+2023-03-23	Nashville Predators	Seattle Kraken	2 - 1 SO	2	1	2	1
+2023-03-23	Ottawa Senators	Tampa Bay Lightning	7 - 2 	7	2	2	0
+2023-03-23	Philadelphia Flyers	Minnesota Wild	5 - 4 SO	5	4	2	1
+2023-03-23	Vancouver Canucks	San Jose Sharks	7 - 2 	7	2	2	0
+2023-03-23	Washington Capitals	Chicago Blackhawks	6 - 1 	6	1	2	0
+2023-03-24	Buffalo Sabres	New Jersey Devils	5 - 4 	5	4	2	0
+2023-03-24	Columbus Blue Jackets	New York Islanders	5 - 4 OT	5	4	2	1
+2023-03-24	Colorado Avalanche	Arizona Coyotes	3 - 1 	3	1	2	0
+2023-03-25	Anaheim Ducks	St. Louis Blues	3 - 6 	3	6	0	2
+2023-03-25	Boston Bruins	Tampa Bay Lightning	2 - 1 	2	1	2	0
+2023-03-25	Carolina Hurricanes	Toronto Maple Leafs	5 - 3 	5	3	2	0
+2023-03-25	Calgary Flames	San Jose Sharks	5 - 3 	5	3	2	0
+2023-03-25	Dallas Stars	Vancouver Canucks	1 - 3 	1	3	0	2
+2023-03-25	Edmonton Oilers	Vegas Golden Knights	3 - 4 OT	3	4	1	2
+2023-03-25	Florida Panthers	New York Rangers	3 - 4 	3	4	0	2
+2023-03-25	Los Angeles Kings	Winnipeg Jets	4 - 1 	4	1	2	0
+2023-03-25	Minnesota Wild	Chicago Blackhawks	3 - 1 	3	1	2	0
+2023-03-25	Montreal Canadiens	Columbus Blue Jackets	8 - 2 	8	2	2	0
+2023-03-25	New Jersey Devils	Ottawa Senators	5 - 3 	5	3	2	0
+2023-03-25	Nashville Predators	Seattle Kraken	2 - 7 	2	7	0	2
+2023-03-25	New York Islanders	Buffalo Sabres	0 - 2 	0	2	0	2
+2023-03-25	Philadelphia Flyers	Detroit Red Wings	3 - 0 	3	0	2	0
+2023-03-25	Pittsburgh Penguins	Washington Capitals	4 - 3 	4	3	2	0
+2023-03-26	Arizona Coyotes	Colorado Avalanche	3 - 4 SO	3	4	1	2
+2023-03-26	Carolina Hurricanes	Boston Bruins	3 - 4 SO	3	4	1	2
+2023-03-26	Chicago Blackhawks	Vancouver Canucks	2 - 4 	2	4	0	2
+2023-03-26	Los Angeles Kings	St. Louis Blues	7 - 6 	7	6	2	0
+2023-03-26	Nashville Predators	Toronto Maple Leafs	2 - 3 	2	3	0	2
+2023-03-27	Anaheim Ducks	Colorado Avalanche	1 - 5 	1	5	0	2
+2023-03-27	Arizona Coyotes	Edmonton Oilers	4 - 5 	4	5	0	2
+2023-03-27	Buffalo Sabres	Montreal Canadiens	3 - 4 SO	3	4	1	2
+2023-03-27	Minnesota Wild	Seattle Kraken	5 - 1 	5	1	2	0
+2023-03-27	New York Islanders	New Jersey Devils	5 - 1 	5	1	2	0
+2023-03-27	Ottawa Senators	Florida Panthers	5 - 2 	5	2	2	0
+2023-03-28	Boston Bruins	Nashville Predators	1 - 2 	1	2	0	2
+2023-03-28	Carolina Hurricanes	Tampa Bay Lightning	0 - 4 	0	4	0	2
+2023-03-28	Calgary Flames	Los Angeles Kings	2 - 1 	2	1	2	0
+2023-03-28	Chicago Blackhawks	Dallas Stars	1 - 4 	1	4	0	2
+2023-03-28	Detroit Red Wings	Pittsburgh Penguins	7 - 4 	7	4	2	0
+2023-03-28	New York Rangers	Columbus Blue Jackets	6 - 2 	6	2	2	0
+2023-03-28	Philadelphia Flyers	Montreal Canadiens	3 - 2 	3	2	2	0
+2023-03-28	San Jose Sharks	Winnipeg Jets	3 - 0 	3	0	2	0
+2023-03-28	St. Louis Blues	Vancouver Canucks	6 - 5 OT	6	5	2	1
+2023-03-28	Vegas Golden Knights	Edmonton Oilers	4 - 7 	4	7	0	2
+2023-03-29	Colorado Avalanche	Minnesota Wild	2 - 4 	2	4	0	2
+2023-03-29	Toronto Maple Leafs	Florida Panthers	2 - 3 OT	2	3	1	2
+2023-03-29	Washington Capitals	New York Islanders	1 - 2 SO	1	2	1	2
+2023-03-30	Boston Bruins	Columbus Blue Jackets	2 - 1 OT	2	1	2	1
+2023-03-30	Chicago Blackhawks	St. Louis Blues	3 - 5 	3	5	0	2
+2023-03-30	Detroit Red Wings	Carolina Hurricanes	3 - 2 	3	2	2	0
+2023-03-30	Edmonton Oilers	Los Angeles Kings	2 - 0 	2	0	2	0
+2023-03-30	Montreal Canadiens	Florida Panthers	2 - 5 	2	5	0	2
+2023-03-30	New Jersey Devils	New York Rangers	2 - 1 	2	1	2	0
+2023-03-30	Ottawa Senators	Philadelphia Flyers	5 - 4 OT	5	4	2	1
+2023-03-30	Pittsburgh Penguins	Nashville Predators	2 - 0 	2	0	2	0
+2023-03-30	Seattle Kraken	Anaheim Ducks	4 - 1 	4	1	2	0
+2023-03-30	San Jose Sharks	Vegas Golden Knights	4 - 3 OT	4	3	2	1
+2023-03-30	Tampa Bay Lightning	Washington Capitals	5 - 1 	5	1	2	0
+2023-03-31	Arizona Coyotes	Dallas Stars	2 - 5 	2	5	0	2
+2023-03-31	Buffalo Sabres	New York Rangers	3 - 2 OT	3	2	2	1
+2023-03-31	Vancouver Canucks	Calgary Flames	4 - 5 OT	4	5	1	2
+2023-03-31	Winnipeg Jets	Detroit Red Wings	6 - 2 	6	2	2	0
+2023-04-01	Arizona Coyotes	San Jose Sharks	2 - 7 	2	7	0	2
+2023-04-01	Columbus Blue Jackets	Florida Panthers	0 - 7 	0	7	0	2
+2023-04-01	Chicago Blackhawks	New Jersey Devils	3 - 6 	3	6	0	2
+2023-04-01	Colorado Avalanche	Dallas Stars	5 - 2 	5	2	2	0
+2023-04-01	Edmonton Oilers	Anaheim Ducks	6 - 0 	6	0	2	0
+2023-04-01	Montreal Canadiens	Carolina Hurricanes	0 - 3 	0	3	0	2
+2023-04-01	Nashville Predators	St. Louis Blues	6 - 1 	6	1	2	0
+2023-04-01	Ottawa Senators	Toronto Maple Leafs	0 - 3 	0	3	0	2
+2023-04-01	Philadelphia Flyers	Buffalo Sabres	3 - 6 	3	6	0	2
+2023-04-01	Pittsburgh Penguins	Boston Bruins	3 - 4 	3	4	0	2
+2023-04-01	Seattle Kraken	Los Angeles Kings	1 - 3 	1	3	0	2
+2023-04-01	Tampa Bay Lightning	New York Islanders	5 - 0 	5	0	2	0
+2023-04-01	Vegas Golden Knights	Minnesota Wild	4 - 1 	4	1	2	0
+2023-04-02	Carolina Hurricanes	New York Islanders	2 - 1 	2	1	2	0
+2023-04-02	Columbus Blue Jackets	Ottawa Senators	4 - 3 OT	4	3	2	1
+2023-04-02	Calgary Flames	Anaheim Ducks	5 - 4 	5	4	2	0
+2023-04-02	Pittsburgh Penguins	Philadelphia Flyers	4 - 2 	4	2	2	0
+2023-04-02	St. Louis Blues	Boston Bruins	3 - 4 SO	3	4	1	2
+2023-04-02	Toronto Maple Leafs	Detroit Red Wings	2 - 5 	2	5	0	2
+2023-04-02	Vancouver Canucks	Los Angeles Kings	1 - 4 	1	4	0	2
+2023-04-02	Winnipeg Jets	New Jersey Devils	6 - 1 	6	1	2	0
+2023-04-02	Washington Capitals	New York Rangers	2 - 5 	2	5	0	2
+2023-04-03	Dallas Stars	Nashville Predators	5 - 1 	5	1	2	0
+2023-04-03	Minnesota Wild	Vegas Golden Knights	3 - 4 SO	3	4	1	2
+2023-04-03	Seattle Kraken	Arizona Coyotes	8 - 1 	8	1	2	0
+2023-04-04	Carolina Hurricanes	Ottawa Senators	3 - 2 OT	3	2	2	1
+2023-04-04	Calgary Flames	Chicago Blackhawks	3 - 4 	3	4	0	2
+2023-04-04	Florida Panthers	Buffalo Sabres	2 - 1 	2	1	2	0
+2023-04-04	Los Angeles Kings	Edmonton Oilers	1 - 3 	1	3	0	2
+2023-04-04	Montreal Canadiens	Detroit Red Wings	0 - 5 	0	5	0	2
+2023-04-04	New Jersey Devils	Pittsburgh Penguins	5 - 1 	5	1	2	0
+2023-04-04	Nashville Predators	Vegas Golden Knights	3 - 2 OT	3	2	2	1
+2023-04-04	San Jose Sharks	Colorado Avalanche	3 - 4 OT	3	4	1	2
+2023-04-04	St. Louis Blues	Philadelphia Flyers	4 - 2 	4	2	2	0
+2023-04-04	Toronto Maple Leafs	Columbus Blue Jackets	4 - 2 	4	2	2	0
+2023-04-04	Vancouver Canucks	Seattle Kraken	2 - 5 	2	5	0	2
+2023-04-05	Anaheim Ducks	Edmonton Oilers	1 - 3 	1	3	0	2
+2023-04-05	New York Rangers	Tampa Bay Lightning	6 - 3 	6	3	2	0
+2023-04-05	Winnipeg Jets	Calgary Flames	1 - 3 	1	3	0	2
+2023-04-06	Boston Bruins	Toronto Maple Leafs	2 - 1 OT	2	1	2	1
+2023-04-06	Dallas Stars	Philadelphia Flyers	4 - 1 	4	1	2	0
+2023-04-06	Detroit Red Wings	Buffalo Sabres	6 - 7 SO	6	7	1	2
+2023-04-06	Florida Panthers	Ottawa Senators	7 - 2 	7	2	2	0
+2023-04-06	Montreal Canadiens	Washington Capitals	6 - 2 	6	2	2	0
+2023-04-06	New Jersey Devils	Columbus Blue Jackets	8 - 1 	8	1	2	0
+2023-04-06	Nashville Predators	Carolina Hurricanes	3 - 0 	3	0	2	0
+2023-04-06	New York Islanders	Tampa Bay Lightning	6 - 1 	6	1	2	0
+2023-04-06	Pittsburgh Penguins	Minnesota Wild	4 - 1 	4	1	2	0
+2023-04-06	Seattle Kraken	Arizona Coyotes	4 - 2 	4	2	2	0
+2023-04-06	San Jose Sharks	Colorado Avalanche	2 - 6 	2	6	0	2
+2023-04-06	St. Louis Blues	New York Rangers	3 - 2 OT	3	2	2	1
+2023-04-06	Vancouver Canucks	Chicago Blackhawks	3 - 0 	3	0	2	0
+2023-04-06	Vegas Golden Knights	Los Angeles Kings	5 - 2 	5	2	2	0
+2023-04-08	Arizona Coyotes	Anaheim Ducks	5 - 4 OT	5	4	2	1
+2023-04-08	Boston Bruins	New Jersey Devils	2 - 1 	2	1	2	0
+2023-04-08	Buffalo Sabres	Carolina Hurricanes	4 - 3 	4	3	2	0
+2023-04-08	Columbus Blue Jackets	New York Rangers	0 - 4 	0	4	0	2
+2023-04-08	Dallas Stars	Vegas Golden Knights	2 - 1 SO	2	1	2	1
+2023-04-08	Detroit Red Wings	Pittsburgh Penguins	1 - 5 	1	5	0	2
+2023-04-08	Los Angeles Kings	Colorado Avalanche	3 - 4 	3	4	0	2
+2023-04-08	Minnesota Wild	St. Louis Blues	5 - 3 	5	3	2	0
+2023-04-08	New York Islanders	Philadelphia Flyers	4 - 0 	4	0	2	0
+2023-04-08	Ottawa Senators	Tampa Bay Lightning	7 - 4 	7	4	2	0
+2023-04-08	Seattle Kraken	Chicago Blackhawks	7 - 3 	7	3	2	0
+2023-04-08	San Jose Sharks	Edmonton Oilers	1 - 6 	1	6	0	2
+2023-04-08	Toronto Maple Leafs	Montreal Canadiens	7 - 1 	7	1	2	0
+2023-04-08	Vancouver Canucks	Calgary Flames	3 - 2 SO	3	2	2	1
+2023-04-08	Winnipeg Jets	Nashville Predators	2 - 0 	2	0	2	0
+2023-04-08	Washington Capitals	Florida Panthers	2 - 4 	2	4	0	2
+2023-04-09	Anaheim Ducks	Colorado Avalanche	4 - 5 OT	4	5	1	2
+2023-04-09	Philadelphia Flyers	Boston Bruins	3 - 5 	3	5	0	2
+2023-04-10	Arizona Coyotes	Seattle Kraken	1 - 4 	1	4	0	2
+2023-04-10	Calgary Flames	Nashville Predators	2 - 3 SO	2	3	1	2
+2023-04-10	Chicago Blackhawks	Minnesota Wild	2 - 4 	2	4	0	2
+2023-04-10	Detroit Red Wings	Dallas Stars	1 - 6 	1	6	0	2
+2023-04-10	Florida Panthers	Toronto Maple Leafs	1 - 2 OT	1	2	1	2
+2023-04-10	Los Angeles Kings	Vancouver Canucks	3 - 0 	3	0	2	0
+2023-04-10	New York Rangers	Buffalo Sabres	2 - 3 SO	2	3	1	2
+2023-04-10	Ottawa Senators	Carolina Hurricanes	3 - 2 	3	2	2	0
+2023-04-10	Winnipeg Jets	San Jose Sharks	6 - 2 	6	2	2	0
+2023-04-10	Washington Capitals	New York Islanders	5 - 2 	5	2	2	0
+2023-04-11	Anaheim Ducks	Vancouver Canucks	2 - 3 	2	3	0	2
+2023-04-11	Boston Bruins	Washington Capitals	5 - 2 	5	2	2	0
+2023-04-11	Carolina Hurricanes	Detroit Red Wings	4 - 1 	4	1	2	0
+2023-04-11	Colorado Avalanche	Edmonton Oilers	1 - 2 OT	1	2	1	2
+2023-04-11	Minnesota Wild	Winnipeg Jets	1 - 3 	1	3	0	2
+2023-04-11	New Jersey Devils	Buffalo Sabres	6 - 2 	6	2	2	0
+2023-04-11	Philadelphia Flyers	Columbus Blue Jackets	4 - 3 OT	4	3	2	1
+2023-04-11	Pittsburgh Penguins	Chicago Blackhawks	2 - 5 	2	5	0	2
+2023-04-11	Tampa Bay Lightning	Toronto Maple Leafs	3 - 4 	3	4	0	2
+2023-04-11	Vegas Golden Knights	Seattle Kraken	4 - 1 	4	1	2	0
+2023-04-12	Calgary Flames	San Jose Sharks	3 - 1 	3	1	2	0
+2023-04-12	New York Islanders	Montreal Canadiens	4 - 2 	4	2	2	0
+2023-04-12	St. Louis Blues	Dallas Stars	2 - 5 	2	5	0	2
+2023-04-13	Anaheim Ducks	Los Angeles Kings	3 - 5 	3	5	0	2
+2023-04-13	Arizona Coyotes	Vancouver Canucks	4 - 5 OT	4	5	1	2
+2023-04-13	Buffalo Sabres	Ottawa Senators	4 - 3 OT	4	3	2	1
+2023-04-13	Columbus Blue Jackets	Pittsburgh Penguins	3 - 2 OT	3	2	2	1
+2023-04-13	Chicago Blackhawks	Philadelphia Flyers	4 - 5 OT	4	5	1	2
+2023-04-13	Colorado Avalanche	Winnipeg Jets	4 - 2 	4	2	2	0
+2023-04-13	Dallas Stars	St. Louis Blues	1 - 0 	1	0	2	0
+2023-04-13	Edmonton Oilers	San Jose Sharks	5 - 2 	5	2	2	0
+2023-04-13	Florida Panthers	Carolina Hurricanes	4 - 6 	4	6	0	2
+2023-04-13	Montreal Canadiens	Boston Bruins	4 - 5 	4	5	0	2
+2023-04-13	Nashville Predators	Minnesota Wild	4 - 3 OT	4	3	2	1
+2023-04-13	New York Rangers	Toronto Maple Leafs	2 - 3 	2	3	0	2
+2023-04-13	Seattle Kraken	Vegas Golden Knights	1 - 3 	1	3	0	2
+2023-04-13	Tampa Bay Lightning	Detroit Red Wings	5 - 0 	5	0	2	0
+2023-04-13	Washington Capitals	New Jersey Devils	4 - 5 OT	4	5	1	2
+2023-04-14	Columbus Blue Jackets	Buffalo Sabres	2 - 5 	2	5	0	2
+2023-04-14	Nashville Predators	Colorado Avalanche	3 - 4 	3	4	0	2
+        `;
+
+  // --- GLOBALA VARIABLER ---
+  let allTeams, allDates, pointsByDate, pointsByMatches, minGamesPlayed;
+
+  // --- DATABEARBETNING ---
+  function processData() {
+    const lines = rawData.trim().split('\n').slice(1);
+    const matches = lines.map(line => {
+      const parts = line.split('\t');
+      return {
+        date: parts[0].trim(),
+        homeTeam: parts[1],
+        awayTeam: parts[2],
+        homeGoals: parseInt(parts[4]),
+        awayGoals: parseInt(parts[5]),
+        homePoints: parseInt(parts[6]),
+        awayPoints: parseInt(parts[7])
+      };
+    }).sort((a, b) => a.date.localeCompare(b.date));
+
+    allTeams = [...new Set(matches.flatMap(m => [m.homeTeam, m.awayTeam]))].sort((a,b) => a.localeCompare(b, 'sv'));
+    allDates = ["Start", ...[...new Set(matches.map(m => m.date))]];
+
+    pointsByDate = {};
+    allTeams.forEach(team => {
+      pointsByDate[team] = { "Start": { points: 0, goalDiff: 0 } };
+      let cumulativePoints = 0; let cumulativeGoalDiff = 0;
+      allDates.slice(1).forEach(date => {
+        matches.forEach(match => {
+          if (match.date === date) {
+            if (match.homeTeam === team) {
+              cumulativePoints += match.homePoints; cumulativeGoalDiff += (match.homeGoals - match.awayGoals);
+            }
+            if (match.awayTeam === team) {
+              cumulativePoints += match.awayPoints; cumulativeGoalDiff += (match.awayGoals - match.homeGoals);
+            }
+          }
+        });
+        pointsByDate[team][date] = { points: cumulativePoints, goalDiff: cumulativeGoalDiff };
+      });
+    });
+
+    const teamHistory = {};
+    allTeams.forEach(team => teamHistory[team] = [{ games: 0, points: 0, goalDiff: 0 }]);
+
+    matches.forEach(match => {
+      const homeLast = teamHistory[match.homeTeam].slice(-1)[0];
+      teamHistory[match.homeTeam].push({
+        games: homeLast.games + 1,
+        points: homeLast.points + match.homePoints,
+        goalDiff: homeLast.goalDiff + (match.homeGoals - match.awayGoals)
+      });
+      const awayLast = teamHistory[match.awayTeam].slice(-1)[0];
+      teamHistory[match.awayTeam].push({
+        games: awayLast.games + 1,
+        points: awayLast.points + match.awayPoints,
+        goalDiff: awayLast.goalDiff + (match.awayGoals - match.homeGoals)
+      });
+    });
+
+    minGamesPlayed = Math.min(...Object.values(teamHistory).map(h => h.length - 1));
+
+    pointsByMatches = Array(minGamesPlayed + 1).fill(null).map(() => ({}));
+    for (let i = 0; i <= minGamesPlayed; i++) {
+      allTeams.forEach(team => {
+        const entry = teamHistory[team].find(e => e.games === i) || teamHistory[team].filter(e => e.games < i).slice(-1)[0];
+        pointsByMatches[i][team] = { points: entry.points, goalDiff: entry.goalDiff };
+      });
+    }
+
+    const lastDate = allDates[allDates.length - 1];
+    FINAL_LEADER_POINTS = Math.max(...allTeams.map(team => pointsByDate[team][lastDate].points));
+  }
+
+  // --- INITIERING AV UI ---
+  const slider = document.getElementById('timeline-slider');
+  const playPauseBtn = document.getElementById('play-pause-btn');
+  const playIcon = document.getElementById('play-icon');
+  const pauseIcon = document.getElementById('pause-icon');
+  const colorPalette = document.getElementById('color-palette');
+  const resetAllColorsBtn = document.getElementById('reset-all-colors-btn');
+  const dropdownToggleButton = document.getElementById('dropdown-toggle-button');
+  const dropdownMenuContent = document.getElementById('dropdown-menu-content');
+  const dropdownContainer = document.querySelector('.title-dropdown');
+  const chartContainer = document.querySelector('.chart-container');
+  const chartCanvas = document.getElementById('points-chart');
+
+  const chartCtx = chartCanvas.getContext('2d');
+  const pointsChart = new Chart(chartCtx, {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Poäng', data: [] }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false, // Viktigt för dynamisk höjd
+      indexAxis: 'y',
+      scales: {
+        x: { beginAtZero: true, title: { display: true, text: 'Totala poäng' }, ticks: { precision: 0 } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  function initializeUI() {
+    const teamSelectionContainer = document.getElementById('team-selection');
+    teamSelectionContainer.innerHTML = '';
+    allTeams.forEach(team => {
+      const wrapper = document.createElement('div'); wrapper.className = 'team-item-wrapper';
+      const label = document.createElement('label'); label.className = 'team-label';
+      label.innerHTML = `<input type="checkbox" class="team-checkbox" value="${team}" checked> <span>${team}</span>`;
+      const colorIcon = document.createElement('span'); colorIcon.className = 'color-picker-icon';
+      colorIcon.innerHTML = '&#x1F3A8;'; colorIcon.dataset.team = team; colorIcon.title = 'Ändra färg';
+      wrapper.appendChild(label); wrapper.appendChild(colorIcon); teamSelectionContainer.appendChild(wrapper);
+    });
+
+    // Färgpalett
+    PALETTE_COLORS.forEach(color => {
+      const swatch = document.createElement('span'); swatch.className = 'color-swatch';
+      swatch.style.backgroundColor = color; swatch.dataset.color = color; colorPalette.appendChild(swatch);
+    });
+    colorPalette.innerHTML += '<span id="reset-color" title="Återställ färg">&#10060;</span>';
+
+    setupEventListeners();
+    updateSliderRange();
+    updateFilterSummary();
+    updateChart();
+
+    // NYTT: synka divisionskryss vid init (alla lag är kryssade från start)
+    syncDivisionCheckboxes();
+  }
+
+  function stopPlayback() {
+    if (playbackInterval) {
+      clearInterval(playbackInterval); playbackInterval = null;
+      if (playIcon && pauseIcon){
+        playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden');
+      }
+    }
+  }
+
+  function togglePlayback() {
+    if (playbackInterval) { stopPlayback(); }
+    else {
+      if (playIcon && pauseIcon){
+        playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
+      }
+      playbackInterval = setInterval(() => {
+        let currentValue = parseInt(slider.value);
+        if (currentValue < slider.max) { slider.value = currentValue + 1; updateChart(); }
+        else { stopPlayback(); }
+      }, PLAYBACK_SPEED_MS);
+    }
+  }
+
+  function updateSliderRange() {
+    stopPlayback();
+    const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+    slider.max = (mode === 'matches') ? minGamesPlayed : allDates.length - 1;
+    slider.value = 0;
+  }
+
+  function updateChart() {
+    const selectedTeams = Array.from(document.querySelectorAll('.team-checkbox:checked'));
+    const selectedTeamNames = selectedTeams.map(cb => cb.value);
+    const numSelectedTeams = selectedTeamNames.length;
+    const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+    const step = parseInt(slider.value);
+
+    // Summary + färgknappens synlighet
+    updateFilterSummary();
+    resetAllColorsBtn.classList.toggle('hidden', Object.keys(teamColors).length === 0);
+
+    // Hämta aktuell data beroende på läge
+    let currentData = {}; let displayLabel = "";
+    if (mode === 'matches') {
+      displayLabel = step === 0 ? "&nbsp;" : `Efter ${step} spelade matcher`;
+      currentData = pointsByMatches[step];
+    } else {
+      const date = allDates[step];
+      displayLabel = date === "Start" ? "&nbsp;" : date;
+      currentData = {}; allTeams.forEach(team => currentData[team] = pointsByDate[team][date]);
+    }
+    document.getElementById('current-step-display').innerHTML = displayLabel;
+
+    // Förbered chart-data
+    let chartData = selectedTeamNames.map(team => ({
+      team: team,
+      points: currentData[team]?.points ?? 0,
+      goalDiff: currentData[team]?.goalDiff ?? 0
+    }));
+
+    // X-axelns max
+    const axisOption = document.querySelector('input[name="axis-scale"]:checked').value;
+    switch (axisOption) {
+      case 'seasonMax':     pointsChart.options.scales.x.max = SEASON_MAX_POINTS; break;
+      case 'currentLeader': pointsChart.options.scales.x.max = FINAL_LEADER_POINTS; break;
+      default:
+        const maxPointValue = chartData.length > 0 ? Math.max(...chartData.map(d => d.points)) : 0;
+        pointsChart.options.scales.x.max = (maxPointValue < 3 && maxPointValue >= 0) ? 3 : undefined;
+        break;
+    }
+
+    // Sortering
+    const sortOrder = document.querySelector('input[name="sort-order"]:checked').value;
+    if (sortOrder === 'points') {
+      chartData.sort((a, b) => {
+        if (b.points !== a.points)    return b.points - a.points;
+        if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+        return a.team.localeCompare(b.team, 'sv');
+      });
+    } else {
+      chartData.sort((a, b) => a.team.localeCompare(b.team, 'sv'));
+    }
+
+    // Dynamisk höjd
+    const calculatedHeight = numSelectedTeams * MIN_BAR_HEIGHT + CHART_PADDING;
+    chartContainer.style.height = `${calculatedHeight}px`;
+
+    // Render chart
+    pointsChart.data.labels = chartData.map(d => d.team);
+    pointsChart.data.datasets[0].data = chartData.map(d => d.points);
+    pointsChart.data.datasets[0].backgroundColor = chartData.map(d => teamColors[d.team] || DEFAULT_BAR_COLOR);
+    pointsChart.update();
+
+    // Uppdatera ikonerna ute till höger om lagens namn
+    document.querySelectorAll('.color-picker-icon').forEach(icon => {
+      const teamName = icon.dataset.team;
+      if (teamColors[teamName]) {
+        icon.innerHTML = `<div class="color-indicator" style="background-color: ${teamColors[teamName]}"></div>`;
+      } else {
+        icon.innerHTML = '&#x1F3A8;';
+      }
+    });
+  }
+
+  function setupEventListeners() {
+    // Slider & play
+    slider.addEventListener('input', () => { stopPlayback(); updateChart(); });
+    playPauseBtn.addEventListener('click', togglePlayback);
+
+    // Färgväljare öppna
+    const teamSelectionContainer = document.querySelector('#team-selection');
+    teamSelectionContainer.addEventListener('click', (e) => {
+      const icon = e.target.closest('.color-picker-icon');
+      if (icon) {
+        stopPlayback();
+        const rect = icon.getBoundingClientRect();
+        colorPalette.style.display = 'flex';
+        colorPalette.style.left = `${rect.left + window.scrollX}px`;
+        colorPalette.style.top  = `${rect.bottom + window.scrollY + 5}px`;
+        colorPalette.dataset.team = icon.dataset.team;
+      }
+    });
+
+    // Färgväljare välja/reset
+    colorPalette.addEventListener('click', (e) => {
+      const teamName = colorPalette.dataset.team;
+      if (e.target.classList.contains('color-swatch')) {
+        teamColors[teamName] = e.target.dataset.color;
+      } else if (e.target.id === 'reset-color') {
+        delete teamColors[teamName];
+      }
+      colorPalette.style.display = 'none';
+      updateChart();
+    });
+
+    // **Återställ alla färger** (töm objektet IN-PLACE)
+    resetAllColorsBtn.addEventListener('click', () => {
+      Object.keys(teamColors).forEach(k => delete teamColors[k]); // behåll referensen
+      colorPalette.style.display = 'none';
+      updateChart();
+      updateFilterSummary();
+    });
+
+    // Stäng palett / dropdown på klick utanför
+    document.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!colorPalette.contains(target) && !target.closest('.color-picker-icon')) {
+        colorPalette.style.display = 'none';
+      }
+      if (!dropdownContainer.contains(target)) {
+        dropdownMenuContent.classList.remove('active');
+        dropdownContainer.classList.remove('active');
+      }
+    });
+
+    // Dropdowntoggle
+    dropdownToggleButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenuContent.classList.toggle('active');
+      dropdownContainer.classList.toggle('active');
+    });
+
+    // Sort/axel/tidsaxel
+    document.querySelectorAll('input[name="sort-order"], input[name="axis-scale"]').forEach(radio =>
+      radio.addEventListener('change', () => { stopPlayback(); updateChart(); })
+    );
+    document.querySelectorAll('input[name="timeline-mode"]').forEach(radio =>
+      radio.addEventListener('change', () => { updateSliderRange(); updateChart(); })
+    );
+
+    // Markera alla
+    document.getElementById('select-all').addEventListener('click', () => {
+      const boxes = getAllTeamCheckboxes();
+      boxes.forEach(cb => cb.checked = true);
+      // divisionskryssen ska nu alla bli ikryssade
+      updateFilterSummary();
+      if (typeof updateChart === 'function') updateChart();
+      syncDivisionCheckboxes(); // <<< NYTT
+    });
+
+    // Avmarkera alla
+    document.getElementById('deselect-all').addEventListener('click', () => {
+      const boxes = getAllTeamCheckboxes();
+      boxes.forEach(cb => cb.checked = false);
+      updateFilterSummary();
+      if (typeof updateChart === 'function') updateChart();
+      syncDivisionCheckboxes(); // <<< NYTT
+    });
+
+    // Divisionskryss (additiv logik) + spegling
+    document.querySelectorAll('.division-filter').forEach(cb => {
+      cb.addEventListener('change', () => {
+        pauseIfPlaying();
+        setDivisionSelection(cb.value, cb.checked); // lägg till/ta bort divisionens lag
+        syncDivisionCheckboxes(); // spegla läget (inkl. andra divisioners tri-state)
+      });
+    });
+
+    // Manuell ibockning av enskilda lag ? spegla direkt till divisionskryss
+    document.getElementById('team-selection').addEventListener('change', (e) => {
+      if (e.target && e.target.type === 'checkbox'){
+        updateFilterSummary();
+        if (typeof updateChart === 'function') updateChart();
+        syncDivisionCheckboxes(); // <<< NYTT
+      }
+    });
+
+    // Prev/Next
+    document.getElementById('prev-step').addEventListener('click', () => {
+      stopPlayback(); let val = parseInt(slider.value); if (val > 0) { slider.value = val - 1; updateChart(); }
+    });
+    document.getElementById('next-step').addEventListener('click', () => {
+      stopPlayback(); let val = parseInt(slider.value); if (val < slider.max) { slider.value = val + 1; updateChart(); }
+    });
+  }
+
+  processData();
+  initializeUI();
+</script>
+</body>
+</html>

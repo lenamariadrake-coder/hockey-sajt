@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poängställning SDHL 2023&#8211;2024</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 1.5rem;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+         h1 {
+             margin-bottom: 2rem;
+             text-align: center;
+         }
+        .title-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-toggle {
+            background: none; border: none; padding: 0; margin: 0; font-size: 1.4rem;
+            font-weight: bold; color: #1a2533; cursor: pointer; display: flex; align-items: center;
+        }
+        .dropdown-arrow {
+            margin-left: 0.5rem; font-size: 1rem; transition: transform 0.2s ease-in-out;
+        }
+        .title-dropdown.active .dropdown-arrow { transform: rotate(180deg); }
+        .dropdown-menu {
+            display: none; position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
+            background-color: white; border: 1px solid #ddd; border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 1000; min-width: 250px; padding: 0.5rem 0;
+        }
+        .dropdown-menu.active { display: block; }
+        .dropdown-menu a {
+            display: block; padding: 0.45rem 1rem; color: #007bff; text-decoration: none; white-space: nowrap; font-size: 1.4rem;
+        }
+        .dropdown-menu a:hover { background-color: #f8f9fa; }
+
+        .dropdown-menu hr {
+            border: none; /* Ta bort standardramen */
+            border-top: 1px solid #d0d0d0; /* Lägg till en tunn, ljusgrå linje */
+            margin: 0.7rem 0; /* Lite luft ovanför och under linjen */
+        }
+
+        /* Stil för den valda länken */
+        .dropdown-menu a.chosen {
+            color: #000; /* Svart text */
+            font-weight: bold; /* Gör den fet (rekommenderat) */
+        }
+
+        /* Ta bort hover-effekt för den valda länken */
+        .dropdown-menu a.chosen:hover {
+            background-color: transparent; /* Ingen bakgrundsfärg */
+        }
+
+        .filter-section {
+            border: 1px solid #ddd; border-radius: 8px; margin-bottom: 2rem; margin-top: 1rem;
+        }
+        .filter-section summary {
+            cursor: pointer; padding: 1rem; font-weight: bold; list-style-position: inside;
+        }
+        .filter-section summary:hover { background-color: #f7f7f7; }
+        .filter-content {
+            display: flex; gap: 1.5rem; align-items: flex-start; padding: 0 1rem 1rem 1rem; border-top: 1px solid #ddd;
+        }
+        
+        #team-selection {
+            flex-grow: 1; display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 1rem;
+        }
+        
+        .action-buttons {
+            display: flex; flex-direction: column; gap: 0.5rem; flex-shrink: 0; padding-top: 1rem;
+            min-width: 175px; align-items: flex-end;
+        }
+        .action-buttons button {
+             padding: 0.5rem 1rem; border: 1px solid #6c757d; background-color: #fff; color: #6c757d;
+             border-radius: 5px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; white-space: nowrap;
+        }
+        .action-buttons button:hover { background-color: #6c757d; color: #fff; }
+
+        .team-item-wrapper {
+            display: flex; align-items: center; background-color: #e9ecef; border-radius: 20px; transition: background-color 0.2s;
+        }
+        .team-item-wrapper:hover { background-color: #dbe4f0; }
+        .team-label {
+            display: flex; align-items: center; padding: 0.5rem 0 0.5rem 1rem; cursor: pointer; font-size: 0.9rem;
+        }
+        .team-label input { margin-right: 0.5rem; }
+        
+        .color-picker-icon {
+            display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0.5rem 0.75rem;
+            margin-left: 0.5rem; border-left: 1px solid rgba(0,0,0,0.1); font-size: 1.1rem; width: 1em; height: 1em;
+        }
+        .color-indicator {
+            width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .controls-wrapper {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 2rem;
+        }
+        .main-control-groups { display: flex; flex-wrap: wrap; gap: 1rem; }
+        
+        .control-group {
+            display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; border: 1px solid #e9ecef;
+            background-color: #f8f9fa; padding: 0.75rem 1rem; border-radius: 8px;
+        }
+        #reset-all-colors-btn {
+             padding: 0.5rem 1rem; border: 1px solid #dc3545; background-color: #fff; color: #dc3545;
+             border-radius: 5px; cursor: pointer; transition: all 0.2s; font-weight: bold;
+        }
+        #reset-all-colors-btn:hover { background-color: #dc3545; color: #fff; }
+
+        /* --- Dynamisk höjd för diagrammet --- */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            min-height: 200px; /* Minimum höjd */
+            /* Ingen fast height här längre */
+        }
+
+        .slider-wrapper {
+            margin-top: 2.5rem; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 1rem 1.5rem;
+        }
+        .slider-display {
+            display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; margin-bottom: 0.75rem;
+        }
+        #slider-label {
+            text-transform: uppercase; letter-spacing: 1px; font-weight: bold; color: #495057; white-space: nowrap;
+        }
+        #current-step-display {
+            font-weight: bold; font-size: 1.25rem; color: #007bff; text-align: center; flex-grow: 1; min-height: 1.5rem;
+        }
+        .player-controls { display: flex; gap: 0.5rem; }
+        .player-controls button {
+            display: flex; align-items: center; justify-content: center; background-color: #007bff; color: #fff;
+            border: none; padding: 0.6rem 1rem; border-radius: 5px; font-weight: bold; cursor: pointer;
+            transition: background-color 0.2s; white-space: nowrap;
+        }
+        .player-controls button svg { width: 1em; height: 1em; fill: currentColor; }
+        .player-controls button:hover { background-color: #0056b3; }
+        .hidden { display: none; }
+        
+        #timeline-slider {
+            -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer;
+        }
+        #timeline-slider::-webkit-slider-runnable-track { background: #ced4da; height: 10px; border-radius: 5px; }
+        #timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; margin-top: -7px; background: #007bff; height: 24px; width: 24px;
+            border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.25);
+        }
+        #timeline-slider::-moz-range-track { background: #ced4da; height: 10px; border-radius: 5px; }
+        #timeline-slider::-moz-range-thumb {
+            background: #007bff; height: 24px; width: 24px; border-radius: 50%;
+            border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.25);
+        }
+
+        #color-palette {
+            position: absolute; display: none; flex-direction: row; gap: 0.5rem; background-color: #fff; padding: 0.5rem;
+            border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100;
+        }
+        .color-swatch {
+            width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.3);
+        }
+        #reset-color { font-size: 1.2rem; cursor: pointer; line-height: 24px; }
+
+/* --- Stil för källinformation --- */
+        .source-info {
+            text-align: center; 
+            font-size: 0.85rem; /* Lite mindre text */
+            color: #6c757d;    /* Dämpad grå färg */
+            margin-top: 2.5rem; /* Lite extra utrymme ovanför */
+            padding-top: 1rem; /* Lite luft innanför om det behövs */
+            border-top: 1px solid #eee; /* Mycket svag avgränsare */
+        }
+        .source-info a {
+            color: #495057; /* Lite mörkare grå för länkar */
+            text-decoration: underline; /* Tydliggör att det är länkar */
+        }
+        .source-info a:hover {
+            color: #007bff; /* Standard blå hover-färg */
+        }
+        /* --- Slut stil källinformation --- */
+
+
+        @media (max-width: 768px) {
+            .filter-content { flex-direction: column; align-items: stretch; }
+            .action-buttons { flex-direction: row; justify-content: flex-end; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>
+             <div class="title-dropdown">
+                 <button id="dropdown-toggle-button" class="dropdown-toggle">
+                     Poängställning SDHL 2023&#8211;2024
+                     <span class="dropdown-arrow">&#9660;</span>
+                 </button>
+                 <div id="dropdown-menu-content" class="dropdown-menu">
+                     <a href="../index.html" target="_self">&#127968; Till startsidan</a>
+                     <hr>
+                     <a href="avancerat.html" target="_self">Avancerat (Hockeyallsvenskan + SHL)</a>
+                     <hr>
+                     <a href="ha_2021-2022.html" target="_self">Hockeyallsvenskan 2021&#8211;2022</a>
+                     <a href="ha_2022-2023.html" target="_self">Hockeyallsvenskan 2022&#8211;2023</a>
+                     <a href="ha_2023-2024.html" target="_self">Hockeyallsvenskan 2023&#8211;2024</a>
+                     <a href="ha_2024-2025.html" target="_self">Hockeyallsvenskan 2024&#8211;2025</a>
+                     <a href="ha_2025-2026.html" target="_self">Hockeyallsvenskan 2025&#8211;2026</a>
+                     <hr>
+                     <a href="nhl_2021-2022.html" target="_self">NHL 2021&#8211;2022</a>
+                     <a href="nhl_2022-2023.html" target="_self">NHL 2022&#8211;2023</a>
+                     <a href="nhl_2023-2024.html" target="_self">NHL 2023&#8211;2024</a>
+                     <a href="nhl_2024-2025.html" target="_self">NHL 2024&#8211;2025</a>
+                     <a href="nhl_2025-2026.html" target="_self">NHL 2025&#8211;2026</a>
+                     <hr>
+                     <a class="chosen">SDHL 2022&#8211;2023</a>
+                     <a href="sdhl_2025-2026.html" target="_self">SDHL 2025&#8211;2026</a>
+                     <hr>
+                     <a href="shl_2021-2022.html" target="_self">SHL 2021&#8211;2022</a>
+                     <a href="shl_2022-2023.html" target="_self">SHL 2022&#8211;2023</a>
+                     <a href="shl_2023-2024.html" target="_self">SHL 2023&#8211;2024</a>
+                     <a href="shl_2024-2025.html" target="_self">SHL 2024&#8211;2025</a>
+                     <a href="shl_2025-2026.html" target="_self">SHL 2025&#8211;2026</a>
+                 </div>
+             </div>
+        </h1>
+
+        <details class="filter-section">
+            <summary id="filter-summary">Filtrera lag</summary>
+            <div class="filter-content">
+                <div id="team-selection"></div>
+                <div class="action-buttons">
+                    <button id="select-all">Markera alla</button>
+                    <button id="deselect-all">Avmarkera alla</button>
+                    <button id="reset-all-colors-btn" class="hidden">Återställ alla färger &#10060;</button>
+                </div>
+            </div>
+        </details>
+        
+        <div class="controls-wrapper">
+             <div class="main-control-groups">
+                <div class="control-group">
+                    <strong>Tidsaxel:</strong>
+                    <label><input type="radio" name="timeline-mode" value="matches" checked> Spelade matcher</label>
+                    <label><input type="radio" name="timeline-mode" value="date"> Datum</label>
+                </div>
+                <div class="control-group">
+                    <strong>Sortera:</strong>
+                    <label><input type="radio" name="sort-order" value="alpha" checked> Alfabetisk</label>
+                    <label><input type="radio" name="sort-order" value="points"> Placering</label>
+                </div>
+                <div class="control-group">
+                    <strong>Poängaxel:</strong>
+                    <label><input type="radio" name="axis-scale" value="currentLeader" checked> Poängledare</label>
+                    <label><input type="radio" name="axis-scale" value="seasonMax"> Max för säsongen</label>
+                    <label><input type="radio" name="axis-scale" value="dynamic"> Flexibel</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="points-chart"></canvas>
+        </div>
+
+        <div class="slider-wrapper">
+            <div class="slider-display">
+                <label for="timeline-slider" id="slider-label">Välj tidpunkt eller klicka på play</label>
+                <p id="current-step-display"></p>
+                <div class="player-controls">
+                    <button id="prev-step">&lt; Föregående</button>
+                    <button id="play-pause-btn" title="Spela upp/Pausa">
+                        <svg id="play-icon" viewBox="0 0 16 16"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
+                        <svg id="pause-icon" class="hidden" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5A1.5 1.5 0 0 1 5.5 3.5zm4 0A1.5 1.5 0 0 1 11 5v6a1.5 1.5 0 0 1-3 0V5A1.5 1.5 0 0 1 9.5 3.5z"/></svg>
+                    </button>
+                    <button id="next-step">Nästa &gt;</button>
+                </div>
+            </div>
+            <input type="range" id="timeline-slider" min="0" max="1" value="0">
+        </div>
+        <p class="source-info">
+            Statistik hämtad från: 
+            <a href="https://www.hockeyallsvenskan.se/" target="_blank">hockeyallsvenskan.se</a>, 
+            <a href="https://www.shl.se/" target="_blank">shl.se</a>, 
+            <a href="https://www.hockey-reference.com/" target="_blank">hockey-reference.com</a>.
+        </p>
+    </div>
+    <div id="color-palette"></div>
+
+    <script>
+        // --- DATA OCH KONSTANTER ---
+        const SEASON_MAX_POINTS = 36 * 3;
+        const PLAYBACK_SPEED_MS = 600;
+        const DEFAULT_BAR_COLOR = 'rgba(0, 123, 255, 0.7)';
+        const PALETTE_COLORS = ['#ffc107', '#dc3545', '#28a745', '#6f42c1', '#fd7e14'];
+        const MIN_BAR_HEIGHT = 28; // Minsta höjd per stapel i pixlar
+        const CHART_PADDING = 50; // Uppskattad höjd för axlar etc.
+        let FINAL_LEADER_POINTS = 0;
+        let playbackInterval = null;
+        let teamColors = {};
+        const rawData = `
+Datum	Hemmalag	Bortalag	Matchresultat	Hemmamål	Bortamål	Hemmapoäng	Bortapoäng
+2022-09-16	Djurgården Hockey	AIK Hockey	2 - 0	2	0	3	0
+2022-09-16	HV71	Luleå Hockey/MSSK	1 - 3	1	3	0	3
+2022-09-16	Leksands IF	Brynäs IF	2 - 3 SO	2	3	1	2
+2022-09-16	Linköping HC	SDE Hockey	3 - 2	3	2	3	0
+2022-09-17	HV71	MoDo Hockey	4 - 3 SO	4	3	2	1
+2022-09-17	Linköping HC	AIK Hockey	2 - 1	2	1	3	0
+2022-09-21	Djurgården Hockey	SDE Hockey	1 - 2	1	2	0	3
+2022-09-24	Luleå Hockey/MSSK	Leksands IF	4 - 0	4	0	3	0
+2022-09-24	MoDo Hockey	Brynäs IF	0 - 4	0	4	0	3
+2022-09-24	SDE Hockey	HV71	4 - 5 SO	4	5	1	2
+2022-09-25	Luleå Hockey/MSSK	Brynäs IF	3 - 1	3	1	3	0
+2022-09-25	AIK Hockey	HV71	3 - 1	3	1	3	0
+2022-09-25	Djurgården Hockey	Linköping HC	4 - 2	4	2	3	0
+2022-09-25	MoDo Hockey	Leksands IF	2 - 1 SO	2	1	2	1
+2022-09-28	Brynäs IF	SDE Hockey	7 - 0	7	0	3	0
+2022-10-01	AIK Hockey	Luleå Hockey/MSSK	0 - 5	0	5	0	3
+2022-10-01	Linköping HC	Brynäs IF	2 - 6	2	6	0	3
+2022-10-01	SDE Hockey	MoDo Hockey	0 - 3	0	3	0	3
+2022-10-02	HV71	Djurgården Hockey	2 - 4	2	4	0	3
+2022-10-02	AIK Hockey	MoDo Hockey	1 - 7	1	7	0	3
+2022-10-02	SDE Hockey	Luleå Hockey/MSSK	0 - 8	0	8	0	3
+2022-10-07	Linköping HC	Brynäs IF	1 - 2	1	2	0	3
+2022-10-08	Djurgården Hockey	Brynäs IF	3 - 5	3	5	0	3
+2022-10-08	Linköping HC	Leksands IF	0 - 2	0	2	0	3
+2022-10-08	SDE Hockey	MoDo Hockey	3 - 1	3	1	3	0
+2022-10-08	AIK Hockey	Luleå Hockey/MSSK	2 - 7	2	7	0	3
+2022-10-09	Djurgården Hockey	Leksands IF	4 - 1	4	1	3	0
+2022-10-09	AIK Hockey	MoDo Hockey	2 - 3	2	3	0	3
+2022-10-09	SDE Hockey	Luleå Hockey/MSSK	1 - 5	1	5	0	3
+2022-10-11	Djurgården Hockey	Brynäs IF	1 - 4	1	4	0	3
+2022-10-14	Brynäs IF	HV71	3 - 2	3	2	3	0
+2022-10-15	Luleå Hockey/MSSK	Djurgården Hockey	5 - 3	5	3	3	0
+2022-10-15	MoDo Hockey	Linköping HC	4 - 0	4	0	3	0
+2022-10-15	Leksands IF	HV71	4 - 3 SO	4	3	2	1
+2022-10-15	SDE Hockey	AIK Hockey	6 - 0	6	0	3	0
+2022-10-16	MoDo Hockey	Djurgården Hockey	2 - 4	2	4	0	3
+2022-10-16	Luleå Hockey/MSSK	Linköping HC	3 - 1	3	1	3	0
+2022-10-21	Brynäs IF	Leksands IF	5 - 2	5	2	3	0
+2022-10-22	Luleå Hockey/MSSK	HV71	5 - 0	5	0	3	0
+2022-10-22	AIK Hockey	Linköping HC	4 - 5 SO	4	5	1	2
+2022-10-22	Djurgården Hockey	SDE Hockey	3 - 2 SO	3	2	2	1
+2022-10-23	Luleå Hockey/MSSK	HV71	8 - 2	8	2	3	0
+2022-10-23	AIK Hockey	Djurgården Hockey	2 - 3	2	3	0	3
+2022-10-23	Linköping HC	Leksands IF	5 - 4 SO	5	4	2	1
+2022-10-26	SDE Hockey	Linköping HC	2 - 1 SO	2	1	2	1
+2022-10-29	Leksands IF	Luleå Hockey/MSSK	1 - 2	1	2	0	3
+2022-10-29	Brynäs IF	MoDo Hockey	3 - 4	3	4	0	3
+2022-10-29	HV71	SDE Hockey	0 - 4	0	4	0	3
+2022-10-30	Brynäs IF	Luleå Hockey/MSSK	3 - 2	3	2	3	0
+2022-10-30	HV71	AIK Hockey	2 - 3	2	3	0	3
+2022-10-30	Leksands IF	MoDo Hockey	0 - 4	0	4	0	3
+2022-11-02	Linköping HC	Djurgården Hockey	2 - 3	2	3	0	3
+2022-11-05	Linköping HC	HV71	4 - 3 SO	4	3	2	1
+2022-11-05	AIK Hockey	Brynäs IF	0 - 6	0	6	0	3
+2022-11-05	SDE Hockey	Leksands IF	3 - 0	3	0	3	0
+2022-11-06	Djurgården Hockey	Leksands IF	3 - 2	3	2	3	0
+2022-11-06	SDE Hockey	Brynäs IF	3 - 5	3	5	0	3
+2022-11-16	MoDo Hockey	Luleå Hockey/MSSK	1 - 4	1	4	0	3
+2022-11-18	Brynäs IF	Djurgården Hockey	2 - 0	2	0	3	0
+2022-11-19	Luleå Hockey/MSSK	AIK Hockey	5 - 0	5	0	3	0
+2022-11-19	Leksands IF	Djurgården Hockey	1 - 2	1	2	0	3
+2022-11-19	Brynäs IF	Linköping HC	4 - 0	4	0	3	0
+2022-11-19	MoDo Hockey	SDE Hockey	2 - 1	2	1	3	0
+2022-11-20	Luleå Hockey/MSSK	SDE Hockey	6 - 1	6	1	3	0
+2022-11-20	Leksands IF	Linköping HC	3 - 4 SO	3	4	1	2
+2022-11-20	MoDo Hockey	AIK Hockey	4 - 3 SO	4	3	2	1
+2022-11-22	Djurgården Hockey	HV71	2 - 0	2	0	3	0
+2022-11-25	HV71	Leksands IF	2 - 0	2	0	3	0
+2022-11-26	Linköping HC	MoDo Hockey	1 - 2	1	2	0	3
+2022-11-26	Djurgården Hockey	Luleå Hockey/MSSK	2 - 3	2	3	0	3
+2022-11-26	HV71	Leksands IF	2 - 4	2	4	0	3
+2022-11-26	AIK Hockey	SDE Hockey	2 - 0	2	0	3	0
+2022-11-27	Linköping HC	Luleå Hockey/MSSK	1 - 3	1	3	0	3
+2022-11-27	Djurgården Hockey	MoDo Hockey	2 - 3 SO	2	3	1	2
+2022-11-28	HV71	MoDo Hockey	0 - 6	0	6	0	3
+2022-11-30	Brynäs IF	AIK Hockey	4 - 1	4	1	3	0
+2022-12-02	Brynäs IF	SDE Hockey	6 - 1	6	1	3	0
+2022-12-03	Leksands IF	SDE Hockey	3 - 2	3	2	3	0
+2022-12-03	HV71	Luleå Hockey/MSSK	2 - 4	2	4	0	3
+2022-12-04	Leksands IF	AIK Hockey	4 - 1	4	1	3	0
+2022-12-05	SDE Hockey	Djurgården Hockey	2 - 1 SO	2	1	2	1
+2022-12-05	Linköping HC	AIK Hockey	3 - 0	3	0	3	0
+2022-12-07	Djurgården Hockey	Linköping HC	2 - 1	2	1	3	0
+2022-12-10	Luleå Hockey/MSSK	Leksands IF	5 - 2	5	2	3	0
+2022-12-10	AIK Hockey	HV71	1 - 4	1	4	0	3
+2022-12-10	MoDo Hockey	Brynäs IF	5 - 6 SO	5	6	1	2
+2022-12-11	Luleå Hockey/MSSK	Brynäs IF	6 - 2	6	2	3	0
+2022-12-11	MoDo Hockey	Leksands IF	6 - 1	6	1	3	0
+2022-12-27	HV71	Linköping HC	2 - 4	2	4	0	3
+2022-12-27	Brynäs IF	AIK Hockey	7 - 1	7	1	3	0
+2022-12-28	Leksands IF	AIK Hockey	4 - 3 SO	4	3	2	1
+2022-12-28	HV71	Djurgården Hockey	2 - 3	2	3	0	3
+2022-12-29	Leksands IF	SDE Hockey	0 - 3	0	3	0	3
+2022-12-29	Luleå Hockey/MSSK	MoDo Hockey	4 - 1	4	1	3	0
+2023-01-05	Linköping HC	MoDo Hockey	5 - 4 SO	5	4	2	1
+2023-01-05	Djurgården Hockey	Luleå Hockey/MSSK	3 - 4 SO	3	4	1	2
+2023-01-05	AIK Hockey	SDE Hockey	0 - 4	0	4	0	3
+2023-01-06	Djurgården Hockey	MoDo Hockey	3 - 4	3	4	0	3
+2023-01-06	Linköping HC	Luleå Hockey/MSSK	0 - 4	0	4	0	3
+2023-01-14	AIK Hockey	Leksands IF	0 - 2	0	2	0	3
+2023-01-15	Djurgården Hockey	AIK Hockey	3 - 0	3	0	3	0
+2023-01-15	Linköping HC	SDE Hockey	3 - 2 SO	3	2	2	1
+2023-01-17	Brynäs IF	HV71	7 - 2	7	2	3	0
+2023-01-20	MoDo Hockey	HV71	2 - 0	2	0	3	0
+2023-01-20	Leksands IF	Brynäs IF	1 - 4	1	4	0	3
+2023-01-21	AIK Hockey	Djurgården Hockey	0 - 6	0	6	0	3
+2023-01-21	Brynäs IF	Leksands IF	4 - 3 SO	4	3	2	1
+2023-01-21	MoDo Hockey	HV71	3 - 2	3	2	3	0
+2023-01-21	SDE Hockey	Linköping HC	2 - 3 SO	2	3	1	2
+2023-01-22	AIK Hockey	Linköping HC	6 - 5	6	5	3	0
+2023-01-22	SDE Hockey	Djurgården Hockey	1 - 4	1	4	0	3
+2023-01-25	SDE Hockey	HV71	8 - 2	8	2	3	0
+2023-01-25	Brynäs IF	MoDo Hockey	2 - 1	2	1	3	0
+2023-01-26	Leksands IF	MoDo Hockey	2 - 1	2	1	3	0
+2023-01-28	HV71	AIK Hockey	4 - 0	4	0	3	0
+2023-01-29	Leksands IF	Luleå Hockey/MSSK	0 - 5	0	5	0	3
+2023-01-29	HV71	SDE Hockey	0 - 5	0	5	0	3
+2023-01-30	Linköping HC	Djurgården Hockey	2 - 1	2	1	3	0
+2023-01-30	Brynäs IF	Luleå Hockey/MSSK	2 - 0	2	0	3	0
+2023-02-01	Luleå Hockey/MSSK	MoDo Hockey	5 - 0	5	0	3	0
+2023-02-03	MoDo Hockey	Luleå Hockey/MSSK	1 - 4	1	4	0	3
+2023-02-04	Linköping HC	HV71	0 - 3	0	3	0	3
+2023-02-04	AIK Hockey	Brynäs IF	4 - 6	4	6	0	3
+2023-02-04	SDE Hockey	Leksands IF	0 - 3	0	3	0	3
+2023-02-05	Djurgården Hockey	HV71	4 - 1	4	1	3	0
+2023-02-05	AIK Hockey	Leksands IF	0 - 2	0	2	0	3
+2023-02-05	SDE Hockey	Brynäs IF	6 - 4	6	4	3	0
+2023-02-15	HV71	Linköping HC	3 - 2 SO	3	2	2	1
+2023-02-15	SDE Hockey	AIK Hockey	1 - 2 SO	1	2	1	2
+2023-02-17	HV71	Brynäs IF	5 - 4 SO	5	4	2	1
+2023-02-18	MoDo Hockey	Linköping HC	5 - 2	5	2	3	0
+2023-02-18	Luleå Hockey/MSSK	Djurgården Hockey	4 - 3 SO	4	3	2	1
+2023-02-18	HV71	Brynäs IF	2 - 5	2	5	0	3
+2023-02-19	Luleå Hockey/MSSK	Linköping HC	5 - 1	5	1	3	0
+2023-02-19	MoDo Hockey	Djurgården Hockey	1 - 2	1	2	0	3
+2023-02-21	Leksands IF	HV71	3 - 4 SO	3	4	1	2
+2023-02-25	Luleå Hockey/MSSK	SDE Hockey	3 - 2 SO	3	2	2	1
+2023-02-25	Leksands IF	Linköping HC	0 - 2	0	2	0	3
+2023-02-25	MoDo Hockey	AIK Hockey	4 - 2	4	2	3	0
+2023-02-25	Brynäs IF	Djurgården Hockey	4 - 1	4	1	3	0
+2023-02-26	Brynäs IF	Linköping HC	6 - 2	6	2	3	0
+2023-02-26	Leksands IF	Djurgården Hockey	3 - 1	3	1	3	0
+2023-02-26	Luleå Hockey/MSSK	AIK Hockey	6 - 0	6	0	3	0
+2023-02-26	MoDo Hockey	SDE Hockey	2 - 1 SO	2	1	2	1
+        `;
+
+        // --- GLOBALA VARIABLER ---
+        let allTeams, allDates, pointsByDate, pointsByMatches, minGamesPlayed;
+
+        // --- DATABEARBETNING ---
+        function processData() {
+            const lines = rawData.trim().split('\n').slice(1);
+            const matches = lines.map(line => {
+                const parts = line.split('\t');
+                return { 
+                    date: parts[0].trim(), homeTeam: parts[1], awayTeam: parts[2], homeGoals: parseInt(parts[4]),
+                    awayGoals: parseInt(parts[5]), homePoints: parseInt(parts[6]), awayPoints: parseInt(parts[7]) 
+                };
+            }).sort((a, b) => a.date.localeCompare(b.date));
+
+            allTeams = [...new Set(matches.flatMap(m => [m.homeTeam, m.awayTeam]))].sort((a,b) => a.localeCompare(b, 'sv'));
+            allDates = ["Start", ...[...new Set(matches.map(m => m.date))]];
+
+            pointsByDate = {};
+            allTeams.forEach(team => {
+                pointsByDate[team] = { "Start": { points: 0, goalDiff: 0 } };
+                let cumulativePoints = 0; let cumulativeGoalDiff = 0;
+                allDates.slice(1).forEach(date => {
+                    matches.forEach(match => {
+                        if (match.date === date) {
+                            if (match.homeTeam === team) {
+                                cumulativePoints += match.homePoints; cumulativeGoalDiff += (match.homeGoals - match.awayGoals);
+                            }
+                            if (match.awayTeam === team) {
+                                cumulativePoints += match.awayPoints; cumulativeGoalDiff += (match.awayGoals - match.homeGoals);
+                            }
+                        }
+                    });
+                    pointsByDate[team][date] = { points: cumulativePoints, goalDiff: cumulativeGoalDiff };
+                });
+            });
+
+            const teamHistory = {};
+            allTeams.forEach(team => teamHistory[team] = [{ games: 0, points: 0, goalDiff: 0 }]);
+            
+            matches.forEach(match => {
+                const homeLast = teamHistory[match.homeTeam].slice(-1)[0];
+                teamHistory[match.homeTeam].push({ games: homeLast.games + 1, points: homeLast.points + match.homePoints, goalDiff: homeLast.goalDiff + (match.homeGoals - match.awayGoals) });
+                const awayLast = teamHistory[match.awayTeam].slice(-1)[0];
+                teamHistory[match.awayTeam].push({ games: awayLast.games + 1, points: awayLast.points + match.awayPoints, goalDiff: awayLast.goalDiff + (match.awayGoals - match.homeGoals) });
+            });
+            
+            minGamesPlayed = Math.min(...Object.values(teamHistory).map(h => h.length - 1));
+            
+            pointsByMatches = Array(minGamesPlayed + 1).fill(null).map(() => ({}));
+            for (let i = 0; i <= minGamesPlayed; i++) {
+                allTeams.forEach(team => {
+                    const entry = teamHistory[team].find(e => e.games === i) || teamHistory[team].filter(e => e.games < i).slice(-1)[0];
+                    pointsByMatches[i][team] = { points: entry.points, goalDiff: entry.goalDiff };
+                });
+            }
+
+            const lastDate = allDates[allDates.length - 1];
+            FINAL_LEADER_POINTS = Math.max(...allTeams.map(team => pointsByDate[team][lastDate].points));
+        }
+
+        // --- INITIERING AV UI ---
+        const slider = document.getElementById('timeline-slider');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const colorPalette = document.getElementById('color-palette');
+        const resetAllColorsBtn = document.getElementById('reset-all-colors-btn');
+        const dropdownToggleButton = document.getElementById('dropdown-toggle-button');
+        const dropdownMenuContent = document.getElementById('dropdown-menu-content');
+        const dropdownContainer = document.querySelector('.title-dropdown');
+        const chartContainer = document.querySelector('.chart-container');
+        const chartCanvas = document.getElementById('points-chart');
+        
+        const chartCtx = chartCanvas.getContext('2d');
+        const pointsChart = new Chart(chartCtx, {
+            type: 'bar',
+            data: { labels: [], datasets: [{ label: 'Poäng', data: [] }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Viktigt för dynamisk höjd
+                indexAxis: 'y',
+                scales: { 
+                    x: { beginAtZero: true, title: { display: true, text: 'Totala poäng' }, ticks: { precision: 0 } } 
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        function initializeUI() {
+            const teamSelectionContainer = document.getElementById('team-selection');
+            teamSelectionContainer.innerHTML = '';
+            allTeams.forEach(team => {
+                const wrapper = document.createElement('div'); wrapper.className = 'team-item-wrapper';
+                const label = document.createElement('label'); label.className = 'team-label';
+                label.innerHTML = `<input type="checkbox" class="team-checkbox" value="${team}" checked> <span>${team}</span>`;
+                const colorIcon = document.createElement('span'); colorIcon.className = 'color-picker-icon';
+                colorIcon.innerHTML = '&#x1F3A8;'; colorIcon.dataset.team = team; colorIcon.title = 'Ändra färg';
+                wrapper.appendChild(label); wrapper.appendChild(colorIcon); teamSelectionContainer.appendChild(wrapper);
+            });
+
+            PALETTE_COLORS.forEach(color => {
+                const swatch = document.createElement('span'); swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = color; swatch.dataset.color = color; colorPalette.appendChild(swatch);
+            });
+            colorPalette.innerHTML += '<span id="reset-color" title="Återställ färg">&#10060;</span>';
+
+            setupEventListeners();
+            updateSliderRange();
+            updateChart();
+        }
+        
+        function stopPlayback() {
+            if (playbackInterval) {
+                clearInterval(playbackInterval); playbackInterval = null;
+                playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden');
+            }
+        }
+
+        function togglePlayback() {
+            if (playbackInterval) { stopPlayback(); } 
+            else {
+                playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
+                playbackInterval = setInterval(() => {
+                    let currentValue = parseInt(slider.value);
+                    if (currentValue < slider.max) { slider.value = currentValue + 1; updateChart(); } 
+                    else { stopPlayback(); }
+                }, PLAYBACK_SPEED_MS);
+            }
+        }
+
+        function updateSliderRange() {
+            stopPlayback();
+            const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+            slider.max = (mode === 'matches') ? minGamesPlayed : allDates.length - 1;
+            slider.value = 0;
+        }
+
+        function updateChart() {
+            const selectedTeams = Array.from(document.querySelectorAll('.team-checkbox:checked'));
+            const selectedTeamNames = selectedTeams.map(cb => cb.value);
+            const numSelectedTeams = selectedTeamNames.length; // Antal lag som ska visas
+            const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+            const step = parseInt(slider.value);
+
+            document.getElementById('filter-summary').textContent = `Filtrera lag (${selectedTeams.length}/${allTeams.length} valda)`;
+            resetAllColorsBtn.classList.toggle('hidden', Object.keys(teamColors).length === 0);
+
+            let currentData = {}; let displayLabel = "";
+            if (mode === 'matches') {
+                displayLabel = step === 0 ? "&nbsp;" : `Efter ${step} spelade matcher`;
+                currentData = pointsByMatches[step];
+            } else {
+                const date = allDates[step];
+                displayLabel = date === "Start" ? "&nbsp;" : date;
+                currentData = {}; allTeams.forEach(team => currentData[team] = pointsByDate[team][date]);
+            }
+            document.getElementById('current-step-display').innerHTML = displayLabel;
+
+            let chartData = selectedTeamNames.map(team => ({ team: team, points: currentData[team].points, goalDiff: currentData[team].goalDiff }));
+            
+            const axisOption = document.querySelector('input[name="axis-scale"]:checked').value;
+            switch (axisOption) {
+                case 'seasonMax': pointsChart.options.scales.x.max = SEASON_MAX_POINTS; break;
+                case 'currentLeader': pointsChart.options.scales.x.max = FINAL_LEADER_POINTS; break;
+                default: 
+                    const maxPointValue = chartData.length > 0 ? Math.max(...chartData.map(d => d.points)) : 0;
+                    pointsChart.options.scales.x.max = (maxPointValue < 3 && maxPointValue >= 0) ? 3 : undefined; break;
+            }
+            
+            const sortOrder = document.querySelector('input[name="sort-order"]:checked').value;
+            if (sortOrder === 'points') {
+                chartData.sort((a, b) => {
+                    if (b.points !== a.points) return b.points - a.points;
+                    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+                    return a.team.localeCompare(b.team, 'sv');
+                });
+            } else { chartData.sort((a, b) => a.team.localeCompare(b.team, 'sv')); }
+            
+            // Beräkna och sätt dynamisk höjd
+            const calculatedHeight = numSelectedTeams * MIN_BAR_HEIGHT + CHART_PADDING;
+            chartContainer.style.height = `${calculatedHeight}px`;
+
+            pointsChart.data.labels = chartData.map(d => d.team);
+            pointsChart.data.datasets[0].data = chartData.map(d => d.points);
+            pointsChart.data.datasets[0].backgroundColor = chartData.map(d => teamColors[d.team] || DEFAULT_BAR_COLOR);
+            pointsChart.update();
+            
+            document.querySelectorAll('.color-picker-icon').forEach(icon => {
+                const teamName = icon.dataset.team;
+                if (teamColors[teamName]) { icon.innerHTML = `<div class="color-indicator" style="background-color: ${teamColors[teamName]}"></div>`; } 
+                else { icon.innerHTML = '&#x1F3A8;'; }
+            });
+        }
+
+        function setupEventListeners() {
+            slider.addEventListener('input', () => { stopPlayback(); updateChart(); });
+            playPauseBtn.addEventListener('click', togglePlayback);
+
+            const teamSelectionContainer = document.querySelector('#team-selection');
+            teamSelectionContainer.addEventListener('click', (e) => {
+                const icon = e.target.closest('.color-picker-icon');
+                if (icon) {
+                    stopPlayback(); const teamName = icon.dataset.team; const rect = icon.getBoundingClientRect();
+                    colorPalette.style.display = 'flex';
+                    colorPalette.style.left = `${rect.left + window.scrollX}px`;
+                    colorPalette.style.top = `${rect.bottom + window.scrollY + 5}px`;
+                    colorPalette.dataset.team = teamName;
+                }
+            });
+
+            colorPalette.addEventListener('click', (e) => {
+                const teamName = colorPalette.dataset.team;
+                if (e.target.classList.contains('color-swatch')) { teamColors[teamName] = e.target.dataset.color; } 
+                else if (e.target.id === 'reset-color') { delete teamColors[teamName]; }
+                colorPalette.style.display = 'none'; updateChart();
+            });
+            
+            resetAllColorsBtn.addEventListener('click', () => { teamColors = {}; updateChart(); });
+
+            document.addEventListener('click', (e) => {
+                const target = e.target;
+                if (!colorPalette.contains(target) && !target.closest('.color-picker-icon')) { colorPalette.style.display = 'none'; }
+                if (!dropdownContainer.contains(target)) { dropdownMenuContent.classList.remove('active'); dropdownContainer.classList.remove('active');}
+            });
+
+            dropdownToggleButton.addEventListener('click', (e) => {
+                 e.stopPropagation();
+                 dropdownMenuContent.classList.toggle('active');
+                 dropdownContainer.classList.toggle('active');
+            });
+
+            document.querySelectorAll('input[name="sort-order"], input[name="axis-scale"]').forEach(radio => radio.addEventListener('change', () => { stopPlayback(); updateChart(); }));
+            document.querySelectorAll('input[name="timeline-mode"]').forEach(radio => radio.addEventListener('change', () => { updateSliderRange(); updateChart(); }));
+
+            document.getElementById('select-all').addEventListener('click', () => { stopPlayback(); document.querySelectorAll('.team-checkbox').forEach(cb => cb.checked = true); updateChart(); });
+            document.getElementById('deselect-all').addEventListener('click', () => { stopPlayback(); document.querySelectorAll('.team-checkbox').forEach(cb => cb.checked = false); updateChart(); });
+
+            document.getElementById('prev-step').addEventListener('click', () => {
+                stopPlayback(); let val = parseInt(slider.value); if (val > 0) { slider.value = val - 1; updateChart(); }
+            });
+            document.getElementById('next-step').addEventListener('click', () => {
+                stopPlayback(); let val = parseInt(slider.value); if (val < slider.max) { slider.value = val + 1; updateChart(); }
+            });
+        }
+
+        processData();
+        initializeUI();
+    </script>
+</body>
+</html>

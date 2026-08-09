@@ -1,0 +1,2591 @@
+<!DOCTYPE html>
+<html lang="sv">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SHL-tips – snitt på tipsen</title>
+
+    <style>
+        :root {
+            --border: #e6e8ee;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --bg: #ffffff;
+
+            --colTop: #e9f9ee;
+            --colBottom: #fdecee;
+            --headerBg: #f7f8fb;
+
+            --link: #0b63ce;
+            --danger: #b91c1c;
+            /* --ok: #065f46; */
+            --ok: #007c30;
+
+            /* grå yta runt “kortet” */
+            --outer-bg: #f4f4f9;
+            /* själva “kortet” */
+            --page-card: #ffffff;
+
+            --btn-gray-bg: #f7f8fb;
+            --btn-gray-hover: #eef2f7;
+            --accent: var(--ok);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            background: var(--outer-bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            line-height: 1.45;
+            padding: 0;
+            /* inga grå “kanter” uppe/nere */
+        }
+
+        /* lite snällare padding på mobil */
+        @media (max-width: 700px) {
+            body {
+                padding: 12px;
+            }
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--page-card);
+            padding: 1rem 1rem 2rem;
+            min-height: 100vh;
+            /* ingen grå yta längst ner på korta sidor */
+        }
+
+        h1 {
+            font-size: 22px;
+            margin: 0 0 8px 0;
+            font-weight: 800;
+        }
+
+        .sub {
+            margin: 0 0 18px 0;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        a {
+            color: var(--link);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .topbar {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin: 14px 0 12px 0;
+        }
+
+        /* =========================================================
+   Laddningsfel-banner (synlig för användaren)
+   ========================================================= */
+        .load-error {
+            margin: 10px 0 14px 0;
+            padding: 10px 12px;
+            border: 1px solid var(--danger);
+            background: #fff5f5;
+            color: var(--danger);
+            border-radius: 10px;
+            font-weight: 800;
+        }
+
+        .filters {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        label {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            user-select: none;
+            font-weight: 600;
+        }
+
+        .mini-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            padding: 8px 10px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: .95rem;
+        }
+
+        .mini-btn:hover {
+            background: #f9fafb;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .btn:hover {
+            background: #f9fafb;
+        }
+
+        .btn:disabled,
+        .mini-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+        /* =========================================================
+     NAV: 🏠 + 📸 + (Snitt/Tabell) BREDVID KAMERAN
+     ========================================================= */
+
+        .nav {
+            display: flex;
+            align-items: center;
+            margin: 0 0 14px 0;
+            flex-wrap: wrap;
+
+            /* NYCKELN: tabs ligger efter kameran, inte längst åt höger */
+            justify-content: flex-start;
+            gap: 14px;
+        }
+
+        .nav-left,
+        .nav-right {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        /* Tabs får wrap:a snyggt om det blir trångt */
+        .nav-right {
+            flex-wrap: wrap;
+            gap: .6rem;
+        }
+
+
+        /* Grund-ghost-link (om du använder på andra ställen) */
+        .ghost-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .35rem .8rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            text-decoration: none;
+            color: var(--text);
+            background: #fff;
+            font-weight: 700;
+        }
+
+        .ghost-link:hover {
+            background: #f9fafb;
+            text-decoration: none;
+        }
+
+        /* Kompakt ikon-variant */
+        .icon-link {
+            width: 42px;
+            height: 42px;
+            justify-content: center;
+            padding: 0;
+        }
+
+        /* Kamera-knappen storlek */
+        .btn.btn-icon {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            justify-content: center;
+            border-radius: 10px;
+        }
+
+        /* HEADER-IKONER I NAV – utan konturer (bara hover-platta) */
+        .nav .ghost-link.icon-link,
+        .nav #exportBtn {
+            width: 42px;
+            height: 42px;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            padding: 0;
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            text-decoration: none;
+
+            border-radius: 12px;
+            /* mjuk hover-yta */
+            line-height: 1;
+            font-size: 1.15rem;
+        }
+
+        .nav #exportBtn {
+            cursor: pointer;
+        }
+
+        .nav .ghost-link.icon-link:hover,
+        .nav #exportBtn:hover {
+            background: rgba(15, 23, 42, 0.06) !important;
+        }
+
+        .nav .ghost-link.icon-link:active,
+        .nav #exportBtn:active {
+            background: rgba(15, 23, 42, 0.10) !important;
+        }
+
+        .nav .ghost-link.icon-link:focus-visible,
+        .nav #exportBtn:focus-visible {
+            outline: 2px solid rgba(15, 23, 42, 0.35);
+            outline-offset: 3px;
+        }
+
+        /* FEJK-TABS (Snitt/Tabell) */
+        .nav .tab-btn {
+            padding: .5rem .9rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--btn-gray-bg);
+            cursor: pointer;
+            font-weight: 700;
+
+            font: inherit;
+            line-height: 1;
+            box-sizing: border-box;
+            white-space: nowrap;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .nav .tab-btn:hover:not([aria-selected="true"]) {
+            background: var(--btn-gray-hover);
+        }
+
+        .nav .tab-btn[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            cursor: default;
+        }
+
+        /* =========================================================
+     TABELL
+     ========================================================= */
+
+        .table-wrap {
+            display: block;
+            width: fit-content;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: max-content;
+            margin: 0 auto;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        th,
+        td {
+            padding: .6rem .8rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        th {
+            background: var(--headerBg);
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: .85rem;
+            letter-spacing: .02em;
+            text-align: right;
+        }
+
+        th.col-team,
+        td.col-team {
+            text-align: left;
+            font-weight: 800;
+        }
+
+        tr:last-child td {
+            border-bottom: 0;
+        }
+
+        th.col-top,
+        td.col-top {
+            background: var(--colTop);
+        }
+
+        th.col-bottom,
+        td.col-bottom {
+            background: var(--colBottom);
+        }
+
+        .exporting a {
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        /* =========================================================
+   14) EGET TIPS (CUSTOM)
+   ========================================================= */
+
+        /* Själva panelen – full bredd, logikstyrd */
+        .custom-panel {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0 14px 0;
+            background: #fff;
+            display: none;
+            /* styrs av JS */
+            width: 100%;
+        }
+
+        .custom-panel.open {
+            display: block;
+        }
+
+        /* ✅ Detta är hela magin: centrerad inner-box */
+        .custom-content-centered {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            /* vänsterjusterat innehåll */
+            margin: 0 auto;
+            /* centrerar boxen */
+            width: 100%;
+            max-width: 600px;
+            /* samma som tippartopplistan */
+        }
+
+        /* Textrutan */
+        #custom-input {
+            width: 100%;
+            height: 280px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.35;
+            resize: vertical;
+            display: block;
+            margin-bottom: 15px;
+        }
+
+        /* Knapprad */
+        .custom-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        /* Meddelanden */
+        .custom-panel .msg {
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .custom-panel .msg.ok {
+            color: #065f46;
+        }
+
+        .custom-panel .msg.err {
+            color: #b91c1c;
+        }
+
+                /* Hjälptext (infällbar) */
+        .custom-help {
+            width: 100%;
+            color: var(--muted);
+            font-size: .95rem;
+            line-height: 1.35;
+            text-align: left;
+        }
+
+        .custom-help summary {
+            cursor: pointer;
+            user-select: none;
+            font-weight: 700;
+        }
+
+        .custom-help[open] summary {
+            margin-bottom: 6px;
+        }
+
+        .custom-help__body p {
+            margin: 6px 0;
+        }
+
+        .custom-help__body ul {
+            margin: 6px 0 10px 18px;
+        }
+
+        .custom-help__ex {
+            margin: 6px 0 10px 0;
+            padding: 8px 10px;
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            background: #fafafa;
+            overflow: auto;
+        }
+
+        /* Växla summary-text */
+        .custom-help .when-open {
+            display: none;
+        }
+
+        .custom-help[open] .when-open {
+            display: inline;
+        }
+
+        .custom-help[open] .when-closed {
+            display: none;
+        }
+
+
+        /* =========================================================
+   Mobil-only: informations-ikoner (tooltips)
+   ========================================================= */
+
+        /* Default: göm tooltips (desktop) */
+        .m-tip {
+            display: none;
+        }
+
+        /* =========================================================
+   MOBIL-TOOLTIPS (details.m-tip) + ikonknappar
+   ========================================================= */
+
+        .m-tip {
+            position: relative;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .m-tip__summary {
+            list-style: none;
+            cursor: pointer;
+            user-select: none;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 34px;
+            height: 34px;
+
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #fff;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .m-tip__summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .m-tip__summary:hover {
+            background: #f9fafb;
+        }
+
+        /* Tooltip-boxen */
+        .m-tip__box {
+            position: absolute;
+            z-index: 50;
+
+            left: 0;
+            top: calc(100% + 8px);
+
+            min-width: 220px;
+            max-width: min(320px, calc(100vw - 24px));
+
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, .12);
+
+            padding: 10px 12px;
+            color: var(--text);
+            font-weight: 600;
+            font-size: .95rem;
+            line-height: 1.35;
+        }
+
+        /* Liten "pil" */
+        .m-tip__box::before {
+            content: "";
+            position: absolute;
+            top: -6px;
+            left: 14px;
+
+            width: 10px;
+            height: 10px;
+
+            background: #fff;
+            border-left: 1px solid var(--border);
+            border-top: 1px solid var(--border);
+            transform: rotate(45deg);
+        }
+
+        /* Ikonknappar: plus/penna (samma look som mini-btn men kompakt) */
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 42px;
+            height: 42px;
+
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+
+            font-size: 1.05rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .icon-btn:hover {
+            background: #f9fafb;
+        }
+
+        .icon-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+
+        /* Mobil: visa info-ikoner tydligare */
+        @media (max-width: 700px) {
+            .m-tip__summary {
+                width: 36px;
+                height: 36px;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .m-tip {
+                display: inline-flex;
+            }
+        }
+
+        /* =========================================================
+   Ikoner utan konturer: ℹ️ och ✏️
+   ========================================================= */
+
+        /* Info-ikon (ℹ️) */
+        .m-tip__summary {
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+
+            width: auto;
+            height: auto;
+            padding: 0 2px;
+
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        /* Hover-yta, subtil */
+        .m-tip__summary:hover {
+            background: rgba(15, 23, 42, 0.06);
+            border-radius: 6px;
+        }
+
+        /* Plus & penna */
+        .icon-btn {
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+
+            width: auto;
+            height: auto;
+            padding: 0 4px;
+
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        /* Samma hover-känsla */
+        .icon-btn:hover {
+            background: rgba(15, 23, 42, 0.06);
+            border-radius: 6px;
+        }
+    </style>
+
+
+    <!-- Enda externa beroendet: behövs för “Spara som bild” -->
+    <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="nav" aria-label="Snabblänkar">
+            <div class="nav-left">
+                <a class="ghost-link icon-link" href="../index.html" aria-label="Till startsidan"
+                    title="Till startsidan">🏠</a>
+
+                <button id="exportBtn" class="btn btn-icon" type="button" aria-label="Spara aktiv vy som bild"
+                    title="Spara aktiv vy som bild">
+                    📸
+                </button>
+            </div>
+
+            <div class="nav-right tabs" aria-label="Vyval">
+                <a class="tab-btn tab-btn-link" href="shl-tips.html" aria-selected="true">Snitt</a>
+                <a class="tab-btn tab-btn-link" href="shl_tippartopplista.html">Topplista</a>
+                <a class="tab-btn tab-btn-link" href="tabell_och_varmekarta_shl.html#table">Tabell</a>
+                <a class="tab-btn tab-btn-link" href="tabell_och_varmekarta_shl.html#heat">Värmekarta</a>
+            </div>
+        </div>
+
+        <h1 id="page-title">Snittplacering baserat på 0 tabelltips</h1>
+        <div id="load-error" class="load-error" role="alert" aria-live="polite" hidden></div>
+
+        <p class="sub">
+            <a href="tabell_och_varmekarta_shl.html">Klicka här</a>
+            för att se spridningen som en värmekarta och kolla hur tabellplaceringarna utvecklar sig under säsongen i
+            förhållande till hur folk tippat.
+        </p>
+
+        <div class="topbar">
+            <div class="filters" aria-label="Vilka tips som ska räknas med">
+                <!-- Amatörer -->
+                <label
+                    title="Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen)">
+                    <input type="checkbox" id="cb-hobby" checked>
+                    Amatörer
+                </label>
+
+                <details class="m-tip" data-tip="hobby">
+                    <summary class="m-tip__summary" aria-label="Info: Amatörer" title="Info">ℹ️</summary>
+                    <div class="m-tip__box" role="tooltip">
+                        Amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen).
+                    </div>
+                </details>
+
+                <!-- Experter -->
+                <label
+                    title="Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister offentliggjort sina tips)">
+                    <input type="checkbox" id="cb-expert" checked>
+                    Experter
+                </label>
+
+                <details class="m-tip" data-tip="expert">
+                    <summary class="m-tip__summary" aria-label="Info: Experter" title="Info">ℹ️</summary>
+                    <div class="m-tip__box" role="tooltip">
+                        Experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister
+                        offentliggjort sina tips).
+                    </div>
+                </details>
+
+                <!-- Eget tips -->
+                <label title="Visa/dölj eget tips">
+                    <input type="checkbox" id="cb-custom">
+                    Eget tips
+                </label>
+
+                <details class="m-tip" data-tip="custom">
+                    <summary class="m-tip__summary" aria-label="Info: Eget tips" title="Info">ℹ️</summary>
+                    <div class="m-tip__box" role="tooltip">
+                        Visa/dölj eget tips
+                    </div>
+                </details>
+
+                <!-- Ikoner: + och ✏️ -->
+                <button class="icon-btn" id="btn-add-custom" type="button" aria-label="Lägg till eget tips"
+                    title="Lägg till eget tips">＋</button>
+                <button class="icon-btn" id="btn-edit-custom" type="button" aria-label="Redigera eget tips"
+                    title="Redigera eget tips">✎</button>
+            </div>
+        </div>
+
+        <div class="custom-panel" id="custom-panel" aria-label="Inmatning av eget tips">
+            <div class="custom-content-centered">
+
+                <div class="custom-row">
+                    <button class="mini-btn" id="btn-save-custom" type="button">Spara</button>
+                    <button class="mini-btn" id="btn-clear-custom" type="button">Rensa</button>
+                    <button class="mini-btn" id="btn-cancel-custom" type="button">Avbryt</button>
+                </div>
+
+                <textarea id="custom-input" spellcheck="false" placeholder="Klistra in rader här..."></textarea>
+
+                <div id="custom-msg" class="msg"></div>
+                <details class="hint custom-help">
+                    <summary>
+                        <span class="when-closed">Format-hjälp (klicka för att visa)</span>
+                        <span class="when-open">Format-hjälp (klicka för att dölja)</span>
+                    </summary>
+
+                    <div class="custom-help__body">
+                        <p><strong>Klistra in ett eller flera tips som block.</strong></p>
+                        <ul>
+                            <li>Varje block är antingen <strong>14 rader</strong> (lag i ordning 1–14) eller <strong>15
+                                    rader</strong> (första raden är en valfri rubrik/namnrad).</li>
+                            <li>Lämna <strong>en tom rad</strong> mellan block.</li>
+                            <li>Du får blanda 14- och 15-radersblock i samma inklistring.</li>
+                            <li>Lagnamnen måste totalt bli <strong>alla 14 lagen exakt en gång</strong> per block.</li>
+                        </ul>
+                        <p><strong>Exempel (15 rader):</strong></p>
+                        <pre class="custom-help__ex">Tipparens namn
+Lag 1
+Lag 2
+...
+Lag 14</pre>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div class="table-wrap" id="summary-export-area">
+            <table aria-label="Snittplacering baserat på tabelltips">
+                <thead>
+                    <tr>
+                        <th class="col-team">Lag</th>
+                        <th>Snitt</th>
+                        <th class="col-top">Topp-3</th>
+                        <th class="col-top">Topp-5</th>
+                        <th class="col-bottom">Botten-3</th>
+                        <th class="col-bottom">Botten-5</th>
+                    </tr>
+                </thead>
+                <tbody id="summary-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+
+        (async function () {
+
+            // 1) Hämta datan (Sheets -> ev cache) och hantera fel synligt
+            const matrices = await getShlMatrices();
+
+            const loadErrorEl = document.getElementById("load-error");
+            function showLoadError(msg) {
+                if (!loadErrorEl) return;
+                loadErrorEl.textContent = msg;
+                loadErrorEl.hidden = false;
+            }
+
+            function hideLoadError() {
+                if (!loadErrorEl) return;
+                loadErrorEl.textContent = "";
+                loadErrorEl.hidden = true;
+            }
+
+
+            // Guard: om laddning/caching/fetch fallerar -> visa fel och avbryt resten
+            if (!matrices || !matrices.TIPS_MATRIX_HOBBY || !matrices.TIPS_MATRIX_EXPERT) {
+                showLoadError("Tabellerna kunde inte laddas som de skulle. Prova att ladda om sidan. Om det fortsätter: kontrollera din uppkoppling och försök igen.");
+                // Avsluta tidigt så resten av scriptet inte kraschar på null
+                return;
+            }
+
+            hideLoadError();
+
+
+            // 2) OK: definiera variablerna så resten av scriptet kan se dem
+            const TIPS_MATRIX_HOBBY = matrices.TIPS_MATRIX_HOBBY;
+            const TIPS_MATRIX_EXPERT = matrices.TIPS_MATRIX_EXPERT;
+
+            /*********************************************************
+             * shl-tips.html – JS (sammanfattning + eget tips)
+             *
+             * Den här sidan visar en Snittplacering baserat på tabelltips:
+             *  - Snittplacering per lag
+             *  - Topp-3 / Topp-5 / Botten-3 / Botten-5
+             *
+             * Du kan inkludera tips från:
+             *  - Amatörer (TIPS_MATRIX_HOBBY)
+             *  - Experter     (TIPS_MATRIX_EXPERT)
+             *  - Eget tips    (TIPS_MATRIX_CUSTOM, klistras in via textpanelen)
+             *
+             * --------
+             * EGET TIPS – hur det funkar för en utomstående
+             * --------
+             * 1) Klicka "Klistra in eget tips…" / "Redigera eget tips…"
+             * 2) Klistra in text i formatet:
+             *      MoDo: 23, 8, 3, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0
+             *      Björklöven: 6, 10, 14, 4, ...
+             *
+             *    Regler/robusthet:
+             *    - Ordningen på raderna spelar ingen roll.
+             *    - Extra radbrytningar ignoreras.
+             *    - Kolon efter lagnamn är valfritt (”MoDo 23, …” funkar).
+             *    - Lag matchas case-insensitive (”modo” = ”MoDo”).
+             *    - Du måste ha EXACT 13 kommatecken per rad (14 kolumner).
+             *      (Tomma fält räknas som 0.)
+             *    - Alla lag måste vara med exakt en gång.
+             *    - Validering: radsummor och kolumnsummor måste stämma:
+             *        • Alla rader ska summera till samma antal tips (tipsN)
+             *        • Varje kolumn ska summera till tipsN
+             *
+             * 3) Klicka "Spara"
+             *    - Om något är fel: du får en tydlig varning och kan inte spara.
+             *    - Om allt är OK: tipset sparas i minnet, kryssrutan "Eget tips"
+             *      blir aktiv + ikryssad, och panelen stängs.
+             *
+             * 4) RADERA eget tips:
+             *    - Töm hela textrutan (radera allt) och klicka "Spara".
+             *      Då töms minnet och "Eget tips" avaktiveras.
+             *********************************************************/
+
+
+            // /*********************************************************
+            //  * 1) TIPS-MATRISER
+            //  *
+            //  * Varje lag har en array med 14 tal.
+            //  * Index 0 = antal tips på plats 1
+            //  * Index 1 = antal tips på plats 2
+            //  * ...
+            //  * Index 13 = antal tips på plats 14
+            //  *
+            //  * Ex: [23, 8, 3, ...]
+            //  * betyder att 23 tips satte laget som 1:a, 8 tips som 2:a, osv.
+            //  *********************************************************/
+
+            // const TIPS_MATRIX_HOBBY = {
+            //     'Frölunda': [10, 6, 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            //     'Brynäs': [3, 6, 9, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            //     'Färjestad': [5, 5, 4, 5, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            //     'Luleå': [3, 3, 3, 7, 3, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+            //     'Skellefteå': [0, 1, 2, 3, 8, 6, 0, 1, 0, 0, 0, 0, 0, 0],
+            //     'Rögle': [0, 0, 0, 2, 7, 5, 2, 3, 1, 0, 1, 0, 0, 0],
+            //     'Växjö': [0, 0, 0, 0, 0, 4, 5, 7, 1, 2, 0, 1, 1, 0],
+            //     'Linköping': [0, 0, 1, 0, 0, 2, 4, 4, 2, 4, 0, 2, 2, 0],
+            //     'Örebro': [0, 0, 0, 1, 0, 0, 1, 3, 3, 2, 7, 1, 3, 0],
+            //     'HV71': [0, 0, 0, 0, 0, 1, 3, 1, 3, 2, 2, 4, 2, 3],
+            //     'Malmö': [0, 0, 0, 0, 0, 0, 3, 0, 4, 3, 2, 5, 3, 1],
+            //     'Timrå': [0, 0, 0, 0, 0, 1, 0, 0, 6, 4, 3, 4, 1, 2],
+            //     'Djurgården': [0, 0, 0, 0, 0, 0, 1, 2, 1, 4, 4, 3, 5, 1],
+            //     'Leksand': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 4, 14]
+            // };
+
+            // // Experter (kopierad från hobby som start – byt siffror när du vill)
+            // const TIPS_MATRIX_EXPERT = {
+            //     'Brynäs': [5, 3, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            //     'Djurgården': [0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 0, 1, 1, 1],
+            //     'Frölunda': [4, 2, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            //     'Färjestad': [1, 5, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            //     'HV71': [0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 2, 4, 0, 0],
+            //     'Leksand': [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 7],
+            //     'Linköping': [0, 0, 0, 0, 0, 0, 0, 1, 0, 2, 4, 0, 2, 1],
+            //     'Luleå': [0, 0, 1, 6, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+            //     'Malmö': [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 3, 3, 0],
+            //     'Rögle': [0, 0, 0, 0, 1, 1, 7, 0, 0, 0, 1, 0, 0, 0],
+            //     'Skellefteå': [0, 0, 2, 1, 5, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+            //     'Timrå': [0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 1, 0, 3, 0],
+            //     'Växjö': [0, 0, 0, 3, 0, 5, 1, 0, 0, 1, 0, 0, 0, 0],
+            //     'Örebro': [0, 0, 0, 0, 0, 1, 0, 4, 3, 0, 0, 1, 0, 1]
+            // };
+
+
+            /*********************************************************
+             * 2) DOM-referenser + state
+             *********************************************************/
+
+            // Samlar alla element vi behöver, så vi slipper querySelector överallt.
+            const els = {
+                // Filterkryss
+                cbHobby: document.getElementById("cb-hobby"),
+                cbExpert: document.getElementById("cb-expert"),
+                cbCustom: document.getElementById("cb-custom"),
+
+                // Rubrik och tabell
+                title: document.getElementById("page-title"),
+                tbody: document.getElementById("summary-tbody"),
+
+                // Export
+                exportBtn: document.getElementById("exportBtn"),
+                exportArea: document.getElementById("summary-export-area"),
+
+                // Eget tips – panel + input + knappar + meddelande
+                addCustomBtn: document.getElementById("btn-add-custom"),
+                editCustomBtn: document.getElementById("btn-edit-custom"),
+
+                customPanel: document.getElementById("custom-panel"),
+                customInput: document.getElementById("custom-input"),
+                customMsg: document.getElementById("custom-msg"),
+                saveCustomBtn: document.getElementById("btn-save-custom"),
+                saveCustomBtn: document.getElementById("btn-save-custom"),
+                clearCustomBtn: document.getElementById("btn-clear-custom"),
+                cancelCustomBtn: document.getElementById("btn-cancel-custom")
+            };
+
+            // Här hamnar det sparade "Eget tips" (null = inget sparat).
+            // Om det finns sparat, har det exakt samma form som hobby/expert:
+            // { 'MoDo': [..14..], 'Björklöven': [..14..], ... }
+            let TIPS_MATRIX_CUSTOM = null;
+            let TIPS_CUSTOM_TEXT = "";
+
+
+            // localStorage-nyckel för "Eget tips" – SKA vara identisk i alla syskonappar
+            const LS_CUSTOM_TIPS_KEY = "shlTopplista.customTippers.v1";
+
+
+            // ✅ Samma som i tabell_och_varmekarta_shl (måste vara IDENTISK)
+            const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2025_2026.v1";
+            // ✅ UI-sync mellan flikar: om redigeringspanelen är öppen eller stängd
+            // Den här nyckeln ska bara sniffa open/closed och inget annat.
+            const LS_CUSTOM_PANEL_OPEN_KEY = "shlTips.ui.customPanelOpen.shl_2025_2026.v1";
+
+            // Stabilt tab-id (bara för logg/debug)
+            const CUSTOM_PANEL_TAB_ID = (function () {
+                try { if (window.crypto?.randomUUID) return window.crypto.randomUUID(); } catch { }
+                return "tab_" + Math.random().toString(16).slice(2) + "_" + Date.now();
+            })();
+
+            // När vi applicerar state från storage vill vi INTE skriva tillbaka (undvik ping-pong)
+            let _suppressPanelOpenWrite = false;
+
+
+            function saveTipsSourcesToLocalStorage() {
+                try {
+                    const payload = {
+                        hobby: !!els.cbHobby.checked,
+                        expert: !!els.cbExpert.checked,
+                        custom: !!els.cbCustom.checked
+                    };
+                    localStorage.setItem(LS_TIPS_SOURCES_KEY, JSON.stringify(payload));
+                } catch (e) {
+                    console.warn("[tipsSources][LS] kunde inte spara:", e);
+                }
+            }
+
+            function loadTipsSourcesFromLocalStorage() {
+                try {
+                    const raw = localStorage.getItem(LS_TIPS_SOURCES_KEY);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    if (!parsed || typeof parsed !== "object") return null;
+                    return {
+                        hobby: !!parsed.hobby,
+                        expert: !!parsed.expert,
+                        custom: !!parsed.custom
+                    };
+                } catch (e) {
+                    console.warn("[tipsSources][LS] kunde inte läsa:", e);
+                    return null;
+                }
+            }
+
+
+            // Spara { tips, matrix, tipsN, savedAt } i localStorage
+            // function saveCustomToLocalStorage(matrix, tipsN, tipsText) {
+            //     const payload = {
+            //         version: 1,
+            //         savedAt: new Date().toISOString(),
+            //         tipsN: Number(tipsN) || 0,
+
+            // ✅ Kompatibelt med syskonapparna (de letar efter "tips")
+            //         tips: String(tipsText || "").trim(),
+
+            //         matrix
+            //     };
+            //     localStorage.setItem(LS_CUSTOM_TIPS_KEY, JSON.stringify(payload));
+            // }
+
+
+            function clearCustomFromLocalStorage() {
+                console.log("[custom][LS] clearCustomFromLocalStorage()", {
+                    key: LS_CUSTOM_TIPS_KEY
+                });
+
+                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+            }
+
+
+            function loadCustomFromLocalStorage(opts = {}) {
+                const { fillTextarea = true } = opts;
+
+                const raw = localStorage.getItem(LS_CUSTOM_TIPS_KEY);
+                if (!raw) {
+                    console.log("[custom][LS] ingen custom hittades", { key: LS_CUSTOM_TIPS_KEY });
+                    return null;
+                }
+
+                const loaded = safeParseCustomPayload(raw, LS_CUSTOM_TIPS_KEY);
+                if (!loaded) {
+                    console.log("[custom][LS] custom fanns men var ogiltig", { key: LS_CUSTOM_TIPS_KEY });
+                    return null;
+                }
+
+                if (fillTextarea && els?.customInput) {
+                    const tipstext = loaded.tipsText || "";
+                    if (tipstext) els.customInput.value = tipstext;
+                }
+
+                console.log("[custom][LS] load OK", {
+                    key: LS_CUSTOM_TIPS_KEY,
+                    hasMatrix: !!loaded.matrix,
+                    tipsLen: loaded.tipsText ? loaded.tipsText.length : 0
+                });
+
+                return loaded;
+            }
+
+
+            function hasSavedCustomInLocalStorage() {
+                try {
+                    return !!localStorage.getItem(LS_CUSTOM_TIPS_KEY);
+                } catch {
+                    return false;
+                }
+            }
+
+
+            // Hjälpare: parse + normalisera format
+            function safeParseCustomPayload(raw, keyName) {
+                let payload;
+                try {
+                    payload = JSON.parse(raw);
+                } catch (e) {
+                    console.warn("[custom][LS] bad json", { keyName, e });
+                    return null;
+                }
+
+                // 1) Måste vara objekt
+                if (!payload || typeof payload !== "object") return null;
+
+                // 2) version måste vara 1 (kan utökas senare om du vill)
+                if (payload.version !== 1) {
+                    console.warn("[custom][LS] fel version", { keyName, version: payload.version });
+                    return null;
+                }
+
+                // 3) tips måste vara sträng (får vara tom, men måste finnas)
+                if (typeof payload.tips !== "string") {
+                    console.warn("[custom][LS] saknar tips-string", { keyName });
+                    return null;
+                }
+
+                // 4) matrix måste finnas och vara objekt
+                const matrix = payload.matrix;
+                if (!matrix || typeof matrix !== "object") {
+                    console.warn("[custom][LS] saknar matrix", { keyName });
+                    return null;
+                }
+
+                // 5) Matrix måste innehålla exakt alla lag + exakt 14 kolumner per lag (heltal >=0)
+                const teams = getAllTeams();
+                if (Object.keys(matrix).length !== teams.length) {
+                    console.warn("[custom][LS] fel antal lag i matrix", { keyName, keys: Object.keys(matrix).length, expected: teams.length });
+                    return null;
+                }
+
+                for (const team of teams) {
+                    const arr = matrix[team];
+                    if (!Array.isArray(arr) || arr.length !== 14) {
+                        console.warn("[custom][LS] fel format på lagrad", { keyName, team, has: Array.isArray(arr), len: Array.isArray(arr) ? arr.length : null });
+                        return null;
+                    }
+                    for (let i = 0; i < 14; i++) {
+                        const v = arr[i];
+                        if (!Number.isInteger(v) || v < 0) {
+                            console.warn("[custom][LS] ogiltigt tal i matrix", { keyName, team, i, v });
+                            return null;
+                        }
+                    }
+                }
+
+                // 6) savedAt (valfritt men om det finns ska det vara string)
+                if (payload.savedAt != null && typeof payload.savedAt !== "string") {
+                    console.warn("[custom][LS] savedAt finns men är inte string", { keyName });
+                    return null;
+                }
+
+                return { matrix, tipsText: payload.tips };
+            }
+
+
+
+
+
+
+            /*********************************************************
+             * 3) Grundhjälpare: laglista, kanoniska namn, valda matriser
+             *********************************************************/
+
+            // Lista alla lag som finns i grundmatriserna.
+            // (Vi utgår här från hobby+expert som "sanningen" för vilka lag som ska finnas.)
+            function getAllTeams() {
+                const teams = new Set();
+                [TIPS_MATRIX_HOBBY, TIPS_MATRIX_EXPERT].forEach(m =>
+                    Object.keys(m).forEach(t => teams.add(t))
+                );
+                return Array.from(teams);
+            }
+
+            // TEAM_CANON används när vi läser "Eget tips":
+            // - användaren kan skriva "modo", men vi vill lagra nyckeln som "MoDo"
+            // - vi mappar därför lower-case -> canonical team string
+            const TEAM_CANON = (() => {
+                const map = new Map(); // lower -> canonical
+                for (const t of getAllTeams()) {
+                    map.set(t.toLocaleLowerCase("sv-SE"), t);
+                }
+                return map;
+            })();
+
+            // SHL "alias/contains"-mappning: returnerar ett kanoniskt lagnamn (oftast långt),
+            // eller returnerar originalsträngen om ingen mappning träffar.
+            function resolveCanonicalTeamNameFromLine(line) {
+                const s = String(line || "").trim();
+                const hay = s.toLowerCase();
+                const has = (needle) => hay.includes(String(needle).toLowerCase());
+
+                // SHL
+                if (has("BIF") || has("Brynäs")) return "Brynäs";
+                if (has("DIF") || has("Djurgår")) return "Djurgården";
+                if (has("FHC") || has("Frölunda")) return "Frölunda";
+                if (has("FBK") || has("Färjestad")) return "Färjestad";
+                if (has("HV")) return "HV71";
+                if (has("LIF") || has("Leksand")) return "Leksand";
+                if (has("LHC") || has("Linköping")) return "Linköping";
+                if (has("LHF") || has("Luleå")) return "Luleå";
+                if (has("MIF") || has("Malmö")) return "Malmö";
+                if (has("RBK") || has("Rögle")) return "Rögle";
+                if (has("SKE")) return "Skellefteå";
+                if (has("TIK") || has("Timrå")) return "Timrå";
+                if (has("VLH") || has("Växjö")) return "Växjö";
+                if (has("ÖRE") || has("Örebro")) return "Örebro";
+
+                // Ingen contains-träff -> låt strikt matchning avgöra
+                return s;
+            }
+
+
+            // Beroende på vilka kryss som är ikryssade, väljer vi vilka matriser som ska räknas med.
+            function getSelectedMatrices() {
+                const matrices = [];
+                if (els.cbHobby.checked) matrices.push(TIPS_MATRIX_HOBBY);
+                if (els.cbExpert.checked) matrices.push(TIPS_MATRIX_EXPERT);
+                if (els.cbCustom.checked && TIPS_MATRIX_CUSTOM) matrices.push(TIPS_MATRIX_CUSTOM);
+                return matrices;
+            }
+
+
+            /*********************************************************
+             * 4) Beräkningar: summera counts, snitt, topp/botten
+             *********************************************************/
+
+            // Summerar två arrays position-för-position.
+            // Ex: [1,2] + [10,20] => [11,22]
+            function sumArrays(a, b) {
+                const out = new Array(Math.max(a.length, b.length)).fill(0);
+                for (let i = 0; i < out.length; i++) {
+                    out[i] = (a[i] || 0) + (b[i] || 0);
+                }
+                return out;
+            }
+
+            // Hämtar en sammanlagd "counts-array" för ett lag, baserat på valda matriser.
+            // Returnerar alltid 14 kolumner.
+            function getCountsForTeam(team) {
+                const selected = getSelectedMatrices();
+                let counts = new Array(14).fill(0);
+                selected.forEach(m => {
+                    if (m && m[team]) counts = sumArrays(counts, m[team]);
+                });
+                return counts;
+            }
+
+            // Totalt antal tips för ett lag = summan av counts-arrayen.
+            // (I korrekt data ska detta bli samma för alla lag i en given grupp/urval.)
+            function totalTipsFromCounts(counts) {
+                return counts.reduce((s, n) => s + (Number(n) || 0), 0);
+            }
+
+            // Snittplacering:
+            // sum(placering * antalTipsPåPlacering) / totalTips
+            // Placeringar är 1..14, men index i array är 0..13 => (i+1)
+            function avgPlacementFromCounts(counts) {
+                const total = totalTipsFromCounts(counts);
+                if (!total) return null; // om man t.ex. avmarkerar alla grupper
+                let sum = 0;
+                for (let i = 0; i < counts.length; i++) {
+                    sum += (i + 1) * (Number(counts[i]) || 0);
+                }
+                return sum / total;
+            }
+
+            // Summerar ett intervall i counts-arrayen.
+            // Ex: topp-3 = sumRange(counts, 0, 2)
+            function sumRange(counts, fromInclusive, toInclusive) {
+                let s = 0;
+                for (let i = fromInclusive; i <= toInclusive; i++) {
+                    s += (Number(counts[i]) || 0);
+                }
+                return s;
+            }
+
+            // Bygger raderna till tabellen (en rad per lag) och räknar alla kolumner.
+            function computeSummaryRows() {
+                const teams = getAllTeams();
+                const rows = [];
+
+                for (const team of teams) {
+                    const counts = getCountsForTeam(team);
+
+                    // total = antal tips (kan vara 0 om alla filter är av)
+                    const total = totalTipsFromCounts(counts);
+
+                    // avg = snittplacering (null om total=0)
+                    const avg = avgPlacementFromCounts(counts);
+
+                    // n = antal lag/kolumner (14)
+                    const n = counts.length;
+
+                    // Topp-3 = tips på plac 1..3  (index 0..2)
+                    // Topp-5 = tips på plac 1..5  (index 0..4)
+                    // Botten-3 = tips på plac 12..14 (index 11..13)
+                    // Botten-5 = tips på plac 10..14 (index 9..13)
+                    const top3 = sumRange(counts, 0, 2);
+                    const top5 = sumRange(counts, 0, 4);
+                    const bottom3 = sumRange(counts, n - 3, n - 1);
+                    const bottom5 = sumRange(counts, n - 5, n - 1);
+
+                    rows.push({ team, total, avg, top3, top5, bottom3, bottom5 });
+                }
+
+                // Sortering: snitt stigande (null sist), därefter lag (stabil ordning).
+                rows.sort((a, b) => {
+                    const aAvg = (a.avg === null ? Infinity : a.avg);
+                    const bAvg = (b.avg === null ? Infinity : b.avg);
+                    if (aAvg !== bAvg) return aAvg - bAvg;
+                    return a.team.localeCompare(b.team, "sv");
+                });
+
+                return rows;
+            }
+
+
+            /*********************************************************
+             * 5) Render: rubrik, tabell, knapptext
+             *********************************************************/
+
+            function formatAvg(avg) {
+                if (avg === null) return "–";
+                // Svensk decimal och alltid 2 decimaler
+                return avg.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function updateTitle(numTips) {
+                // Ex: "Snittplacering baserat på 37 tabelltips"
+                els.title.textContent = `Snittplacering baserat på ${numTips} tabelltips`;
+            }
+
+            // Försök gissa "antal tips" för rubriken baserat på totalsumman i raderna.
+            // I korrekt data ska varje lag ha samma total (därför tar vi första med total>0).
+            // Om totals varierar loggar vi en varning, eftersom datat då är inkonsekvent.
+            function inferNumTips(rows) {
+                const candidate = rows.find(r => r.total > 0);
+                if (!candidate) return 0;
+
+                const totals = rows.map(r => r.total).filter(n => n > 0);
+                const min = Math.min(...totals);
+                const max = Math.max(...totals);
+                if (min !== max) {
+                    console.warn("[shl-tips] Olika antal tips per lag i urvalet:", { min, max });
+                }
+                return candidate.total;
+            }
+
+            // Enkel XSS-säkerhet: vi sätter teamnamn i HTML, så vi escaper det.
+            function escapeHtml(str) {
+                return String(str)
+                    .replaceAll("&", "&amp;")
+                    .replaceAll("<", "&lt;")
+                    .replaceAll(">", "&gt;")
+                    .replaceAll('"', "&quot;")
+                    .replaceAll("'", "&#39;");
+            }
+
+            // Knapptexten för panelen ska visa vad man kan göra:
+            // - om det finns sparat eget tips => "Redigera…"
+            // - annars => "Klistra in…"
+            function syncCustomButtons() {
+                const hasSavedCustom = hasSavedCustomInLocalStorage();
+
+                // ✏️ om det finns sparat tips (oavsett checkbox), annars ＋
+                if (els.addCustomBtn) els.addCustomBtn.style.display = hasSavedCustom ? "none" : "inline-flex";
+                if (els.editCustomBtn) els.editCustomBtn.style.display = hasSavedCustom ? "inline-flex" : "none";
+            }
+
+
+
+            // Renderar hela vyn som påverkas av data/urval:
+            // - rubriken (antal tips)
+            // - tabellraderna
+            // - knapptexten för eget tips
+            function render() {
+                const rows = computeSummaryRows();
+                const numTips = inferNumTips(rows);
+                updateTitle(numTips);
+
+                els.tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td class="col-team">${escapeHtml(r.team)}</td>
+        <td>${formatAvg(r.avg)}</td>
+        <td class="col-top">${r.top3}</td>
+        <td class="col-top">${r.top5}</td>
+        <td class="col-bottom">${r.bottom3}</td>
+        <td class="col-bottom">${r.bottom5}</td>
+      </tr>
+    `).join("");
+
+                syncCustomButtons();
+            }
+
+
+            /*********************************************************
+             * 6) Export: "Spara aktiv vy som bild"
+             *
+             * Exporterar bara tabellcontainern (#summary-export-area)
+             * som en PNG med html2canvas.
+             *********************************************************/
+
+            async function exportTableAsImage() {
+                const rows = computeSummaryRows();
+                const numTips = inferNumTips(rows);
+
+                if (!window.html2canvas) {
+                    alert("html2canvas kunde inte laddas. (Offline?)");
+                    return;
+                }
+
+                // En liten “exporting”-klass kan användas i CSS om man vill justera utseende under export.
+                document.body.classList.add("exporting");
+
+                const canvas = await html2canvas(els.exportArea, {
+                    backgroundColor: "#ffffff",
+                    scale: 2,
+                    useCORS: true
+                });
+
+                canvas.toBlob(blob => {
+                    if (!blob) return;
+
+                    const a = document.createElement("a");
+                    const safeTips = String(numTips || 0).padStart(2, "0");
+                    a.download = `shl-tips-sammanfattning-${safeTips}-tips.png`;
+                    a.href = URL.createObjectURL(blob);
+
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(a.href);
+                }, "image/png");
+
+                document.body.classList.remove("exporting");
+            }
+
+
+            /*********************************************************
+             * 7) "Eget tips" – parser + validering
+             *********************************************************/
+
+            // Visar statusmeddelanden i panelen.
+            // type = "ok" eller "err" (styr CSS-klass).
+            function setCustomMsg(type, text) {
+                els.customMsg.className = "msg " + (type === "ok" ? "ok" : "err");
+                els.customMsg.textContent = text || "";
+            }
+
+            // Tar text och försöker göra om den till en matrix:
+            // { 'MoDo': [..14..], ... }
+            //
+            // Returnerar:
+            // - {ok:false, error:"..."} vid fel
+            // - {ok:true, matrix, tipsN} vid ok
+            function parseCustomTipsText(rawText) {
+                // 1) Normalisera indata:
+                // - split på radbrytning
+                // - trimma varje rad
+                // - kasta tomma rader
+                const lines = String(rawText || "")
+                    .split(/\r?\n/)
+                    .map(l => l.trim())
+                    .filter(l => l.length > 0);
+
+                if (lines.length === 0) {
+                    return { ok: false, error: "Inget att validera: klistra in minst en rad." };
+                }
+
+                // Förväntade lag baseras på grundmatriserna.
+                const expectedTeams = getAllTeams();
+
+                // seen håller koll på att vi får med varje lag exakt en gång.
+                // (Vi använder lower-case för robusthet mot versaler/gemener.)
+                const seen = new Set();
+
+                const matrix = {};
+                const nCols = 14;
+
+                // Du ville kräva 13 kommatecken => 14 kolumner.
+                const expectedCommas = 13;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+
+                    // 2) Snabb validering: exakt 13 kommatecken per rad
+                    const commaCount = (line.match(/,/g) || []).length;
+                    if (commaCount !== expectedCommas) {
+                        return {
+                            ok: false,
+                            error: `Rad ${i + 1}: fel antal kommatecken (${commaCount}). Det måste vara exakt ${expectedCommas} kommatecken (14 kolumner).`
+                        };
+                    }
+
+                    // 3) Dela i 14 delar på kommatecken
+                    const parts = line.split(",");
+                    if (parts.length !== nCols) {
+                        // Borde i praktiken inte hända om kommateckenräkningen stämmer,
+                        // men vi har kvar checken för säkerhets skull.
+                        return {
+                            ok: false,
+                            error: `Rad ${i + 1}: gick inte att dela upp i 14 kolumner (fick ${parts.length}).`
+                        };
+                    }
+
+                    // 4) Första delen innehåller lagnamn + ev ":" + ev första siffran
+                    // Ex:
+                    //   "MoDo: 23"
+                    //   "MoDo 23"
+                    //   "MoDo:"
+                    //   "MoDo"
+                    const first = parts[0].trim();
+
+                    // Regex:
+                    //  group1 = lagnamn (minsta möjliga match, men ej tomt)
+                    //  optional ":" med ev whitespace
+                    //  group2 = optional heltal (första siffran kan ligga här)
+                    const m = first.match(/^(.+?)(?:\s*:)?\s*([+-]?\d+)?\s*$/);
+                    if (!m) {
+                        return { ok: false, error: `Rad ${i + 1}: kunde inte tolka början "${first}".` };
+                    }
+
+                    const teamRaw = (m[1] || "").trim();
+                    if (!teamRaw) {
+                        return { ok: false, error: `Rad ${i + 1}: saknar lagnamn.` };
+                    }
+
+                    // 5) Case-insensitive lagmatch, men vi lagrar med canonical nyckel.
+                    const canonicalLine = resolveCanonicalTeamNameFromLine(teamRaw);
+
+                    const teamKey = canonicalLine.toLocaleLowerCase("sv-SE");
+                    const canon = TEAM_CANON.get(teamKey);
+                    if (!canon) {
+                        return {
+                            ok: false,
+                            error: `Rad ${i + 1}: okänt lag "${teamRaw}".`
+                        };
+                    }
+
+                    // 6) Dublettkontroll (laget får bara förekomma en gång)
+                    if (seen.has(teamKey)) {
+                        return { ok: false, error: `Rad ${i + 1}: laget "${canon}" finns med fler än en gång.` };
+                    }
+                    seen.add(teamKey);
+
+                    // 7) Bygg 14-tal-array för laget
+                    const nums = new Array(nCols).fill(0);
+
+                    // Kolumn 1 (plats 1) kan stå i group2 (m[2]).
+                    nums[0] = m[2] ? parseInt(m[2], 10) : 0;
+                    if (!Number.isFinite(nums[0]) || nums[0] < 0) {
+                        return { ok: false, error: `Rad ${i + 1}: ogiltigt tal i första kolumnen (måste vara ett icke-negativt heltal).` };
+                    }
+
+                    // Resterande 13 kolumner kommer från parts[1]..parts[13]
+                    // Tomt fält => 0 (du ville att man "inte måste skriva nollorna")
+                    for (let c = 1; c < nCols; c++) {
+                        const cell = parts[c].trim();
+
+                        if (cell === "") {
+                            nums[c] = 0;
+                            continue;
+                        }
+
+                        // Vi tillåter bara heltal, inga decimaler.
+                        if (!/^[+-]?\d+$/.test(cell)) {
+                            return { ok: false, error: `Rad ${i + 1}: kolumn ${c + 1} är inte ett heltal: "${cell}".` };
+                        }
+
+                        const v = parseInt(cell, 10);
+                        if (!Number.isFinite(v) || v < 0) {
+                            return { ok: false, error: `Rad ${i + 1}: kolumn ${c + 1} måste vara ett icke-negativt heltal.` };
+                        }
+
+                        nums[c] = v;
+                    }
+
+                    // 8) Lägg in laget i matrixen med canonical lagnyckel
+                    matrix[canon] = nums;
+                }
+
+                // 9) Måste ha exakt alla lag (inga saknade)
+                if (seen.size !== expectedTeams.length) {
+                    const missing = expectedTeams.filter(t => !seen.has(t.toLocaleLowerCase("sv-SE")));
+                    return {
+                        ok: false,
+                        error: `Saknar ${missing.length} lag: ${missing.join(", ")}. Du måste ha med alla lag exakt en gång.`
+                    };
+                }
+
+                // 10) Validera radsummor:
+                // Varje lagrad ska summera till samma antal tips (tipsN),
+                // annars är inmatningen inkonsekvent.
+                const rowTotals = expectedTeams.map(t => totalTipsFromCounts(matrix[t]));
+                const rowMin = Math.min(...rowTotals);
+                const rowMax = Math.max(...rowTotals);
+
+                if (rowMin !== rowMax) {
+                    return {
+                        ok: false,
+                        error: `Radsummorna matchar inte. Minsta radsumma = ${rowMin}, största = ${rowMax}. Alla rader måste summera till samma antal tips.`
+                    };
+                }
+
+                const tipsN = rowMin;
+
+                // 11) Validera kolumnsummor:
+                // För varje kolumn (placering 1..14) ska summan över alla lag vara tipsN.
+                // Det betyder att varje tips "använder" varje placering exakt en gång.
+                for (let c = 0; c < nCols; c++) {
+                    let colSum = 0;
+                    for (const t of expectedTeams) {
+                        colSum += (Number(matrix[t][c]) || 0);
+                    }
+
+                    if (colSum !== tipsN) {
+                        return {
+                            ok: false,
+                            error: `Kolumnsumman stämmer inte för kolumn ${c + 1}. Summan är ${colSum} men måste vara ${tipsN}.`
+                        };
+                    }
+                }
+
+                // Om vi kom hit: allt ser korrekt ut.
+                return { ok: true, matrix, tipsN };
+            }
+
+
+
+            // ✅ Parser 1: "enkla listor" -> matrix
+            // Förväntat format (som topplistan/värmekartan):
+            // - Block separeras av blankrad
+            // - Varje block får vara ELLER:
+            //    • 15 rader: rad 1 = rubrik/namnrad (ignoreras), rad 2–15 = 14 lagrader
+            //    • 14 rader: alla rader = 14 lagrader
+            // - Annat antal rader => FEL (hård validering)
+            function parseCustomListToMatrix(rawText) {
+                const raw = String(rawText || "").replace(/\r\n/g, "\n");
+                const trimmed = raw.trim();
+
+                // Tom input = giltigt (används som "rensning")
+                if (trimmed.length === 0) {
+                    return { ok: true, tipsN: 0, matrix: null, empty: true };
+                }
+
+                // Block separeras av en eller flera tomrader
+                const blocks = raw
+                    .split(/\n\s*\n+/)
+                    .map(b => b.trim())
+                    .filter(Boolean);
+
+                if (!blocks.length) {
+                    return { ok: true, tipsN: 0, matrix: null, empty: true };
+                }
+
+                const teams = getAllTeams();   // canonical team strings
+                const nCols = 14;
+
+                // Initiera tom matris: lag -> 14 kolumner (placering 1..14)
+                const matrix = {};
+                for (const t of teams) matrix[t] = new Array(nCols).fill(0);
+
+                for (let bi = 0; bi < blocks.length; bi++) {
+                    const blockNo = bi + 1;
+
+                    const lines = blocks[bi]
+                        .split("\n")
+                        .map(l => String(l || "").trim())
+                        .filter(Boolean);
+
+                    // Tillåt 14 eller 15 rader (15 => första raden är namn/rubrik och ignoreras)
+                    if (lines.length !== 14 && lines.length !== 15) {
+                        return {
+                            ok: false,
+                            error: `Block ${blockNo}: fel antal rader (${lines.length}). Måste vara 14 lagrader, eller 15 där första raden är en namnrad.`
+                        };
+                    }
+
+                    const teamLines = (lines.length === 15) ? lines.slice(1) : lines;
+
+                    // Bygg ordnad lista av canonical team-namn
+                    const orderedTeams = [];
+                    for (let li = 0; li < teamLines.length; li++) {
+                        const inputLine = teamLines[li];
+
+                        // 1) contains/alias -> kanoniskt (eller original)
+                        const canonicalGuess = resolveCanonicalTeamNameFromLine(inputLine);
+                        const key = String(canonicalGuess || "").toLocaleLowerCase("sv-SE");
+
+                        // 2) strikt match mot kända lag (inga fallbacks)
+                        const canon = TEAM_CANON.get(key);
+                        if (!canon) {
+                            const displayRow = (lines.length === 15) ? (li + 2) : (li + 1);
+                            return {
+                                ok: false,
+                                error: `Block ${blockNo}, rad ${displayRow}: okänt lag "${inputLine}".`
+                            };
+                        }
+
+                        orderedTeams.push(canon);
+                    }
+
+                    // Strikt: inga dubbletter i blocket
+                    const seen = new Set();
+                    for (let i = 0; i < orderedTeams.length; i++) {
+                        const t = orderedTeams[i];
+                        const k = t.toLocaleLowerCase("sv-SE");
+                        if (seen.has(k)) {
+                            const displayRow = (lines.length === 15) ? (i + 2) : (i + 1);
+                            return {
+                                ok: false,
+                                error: `Block ${blockNo}, rad ${displayRow}: lag förekommer flera gånger: "${t}". Varje lag måste förekomma exakt en gång.`
+                            };
+                        }
+                        seen.add(k);
+                    }
+
+                    // Strikt: exakt alla lag ska finnas med i blocket
+                    if (seen.size !== teams.length) {
+                        // Visa vilka som saknas (hjälpsamt vid felsökning)
+                        const missing = teams.filter(t => !seen.has(t.toLocaleLowerCase("sv-SE")));
+                        return {
+                            ok: false,
+                            error: `Block ${blockNo}: saknar ${missing.length} lag (${missing.join(", ")}).`
+                        };
+                    }
+
+                    // Konvertera blockets ordning -> matris (summerar över alla block)
+                    for (let pos = 0; pos < 14; pos++) {
+                        const team = orderedTeams[pos];
+                        matrix[team][pos] += 1;
+                    }
+                }
+
+                return { ok: true, matrix, tipsN: blocks.length };
+            }
+
+
+
+            // ✅ Hjälpare: matcha lagnamn robust (case-insensitive, trim)
+            function resolveTeamLabel(raw, allTeams) {
+                const canonicalLine = resolveCanonicalTeamNameFromLine(raw);
+                const q = String(canonicalLine || "").trim().toLocaleLowerCase("sv-SE");
+                if (!q) return null;
+
+                // Exakt match (case-insensitive)
+                for (const t of allTeams) {
+                    if (t.toLocaleLowerCase("sv-SE") === q) return t;
+                }
+
+                // "contains"-match fallback
+                for (const t of allTeams) {
+                    const tt = t.toLocaleLowerCase("sv-SE");
+                    if (tt.includes(q) || q.includes(tt)) return t;
+                }
+
+                return null;
+            }
+
+            // ✅ Parser 2: matrix-text (din befintliga parser)
+            // (Vi behåller parseCustomTipsText(rawText) som den är)
+
+            // ✅ Router: välj parser beroende på format
+            function parseCustomAny(rawText) {
+                const raw = String(rawText || "").trim();
+                if (!raw) return { ok: false, error: "Inget att validera: klistra in text." };
+
+                // Heuristik:
+                // - Matrisformatet innehåller typiskt många kommatecken.
+                // - Listformatet saknar kommatecken (lag per rad).
+                const looksLikeMatrix = raw.includes(",");
+
+                if (looksLikeMatrix) {
+                    return parseCustomTipsText(raw);   // {ok, matrix, tipsN} eller {ok:false, error}
+                }
+                return parseCustomListToMatrix(raw);  // {ok, matrix, tipsN} eller {ok:false, error}
+            }
+
+            // ✅ Kör valideringen och visar ev felmeddelande.
+            // Returnerar parse-resultat (ok) eller null (fel).
+            function validateCustomAny(rawText) {
+                const res = parseCustomAny(rawText);
+                if (!res || !res.ok) {
+                    setCustomMsg("err", res?.error || "Okänt fel vid validering.");
+                    return null;
+                }
+                return res;
+            }
+
+
+
+            /*********************************************************
+             * 8) Spara/Radera "Eget tips"
+             *********************************************************/
+
+            // Klick på "Spara" i panelen:
+            // - Tom text => radera sparat tips (töm minnet)
+            // - Annars => validera och spara
+
+            // Rensa-knapp: ska bara rensa UI (inte localStorage, inte checkboxar).
+            // För att faktiskt radera sparat tips ska man tömma och klicka "Spara".
+            function clearCustomUIOnly() {
+                console.log("[custom][ui] clear (UI-only) — textarea + msg, no save");
+
+                if (els.customInput) els.customInput.value = "";
+                setCustomMsg("err", ""); // töm statusrad
+
+                // Låt panelen vara öppen, fokusera tillbaka
+                try { els.customInput?.focus(); } catch (e) { }
+            }
+
+            function saveCustom() {
+                const raw = String(els.customInput.value || "").trim();
+
+                // TOMT = radera sparat eget tips
+                if (raw.length === 0) {
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = "";                 // ✅ viktigt: töm även “minnet” som fyller textarea
+                    clearCustomFromLocalStorage();
+
+                    // ✅ Inget sparat tips ska innebära att “Eget tips” är avstängt (och gärna inaktivt)
+                    els.cbCustom.checked = false;
+                    // els.cbCustom.disabled = true;          // ✅ gör så att krysset beter sig som “ingen data finns”
+
+                    saveTipsSourcesToLocalStorage();
+
+                    toggleCustomPanel(false);
+                    setCustomMsg("err", "");
+                    render();
+                    return;
+                }
+
+
+                // ✅ Ny: validera "enkla listor" -> matrix
+                const res = validateCustomAny(raw);
+                if (!res || !res.matrix) {
+                    setCustomMsg("err", (res && res.error) ? res.error : "Jag kunde inte tolka tipset. Kontrollera formatet och försök igen.");
+                    return;
+                }
+
+
+                const payload = {
+                    version: 1,
+                    savedAt: new Date().toISOString(),
+                    tips: raw,          // ✅ det användaren klistrade in (för redigering)
+                    matrix: res.matrix  // ✅ maskinformat för beräkning
+                };
+
+                const json = JSON.stringify(payload);
+                localStorage.setItem(LS_CUSTOM_TIPS_KEY, json);
+
+                // ✅ Viktigt: uppdatera även "in-memory" direkt,
+                // annars räknas custom inte med i tabellen förrän man råkar ladda om/reladda.
+                TIPS_MATRIX_CUSTOM = res.matrix;
+                TIPS_CUSTOM_TEXT = raw;
+
+                // els.cbCustom.disabled = false;
+                els.cbCustom.checked = true;
+
+                saveTipsSourcesToLocalStorage();
+
+                toggleCustomPanel(false);
+                setCustomMsg("err", "");
+                render();
+            }
+
+
+
+
+            /*********************************************************
+             * 9) Panel-UI: serialisera matrix -> text, öppna/stäng panel
+             *********************************************************/
+
+            // Gör om en matrix till textformat (så vi kan förifylla rutan).
+            // Detta gör att man alltid ser "vad som ligger i minnet" när man öppnar panelen.
+            function stringifyMatrixToText(matrix) {
+                if (!matrix) return "";
+                const teams = getAllTeams(); // canonical ordning
+                return teams.map(team => {
+                    const arr = matrix[team] || new Array(14).fill(0);
+                    return `${team}: ${arr.join(", ")}`;
+                }).join("\n");
+            }
+
+            // Öppnar/stänger panelen.
+            // När vi öppnar panelen förifyller vi den med sparat eget tips (om det finns).
+            // Öppnar/stänger panelen.
+            // När vi öppnar panelen förifyller vi den med sparat eget tips (om det finns).
+            function toggleCustomPanel(forceOpen, reason = "local") {
+                const open = (typeof forceOpen === "boolean")
+                    ? forceOpen
+                    : !els.customPanel.classList.contains("open");
+
+                els.customPanel.classList.toggle("open", open);
+
+                // ✅ Synka öppet/stängt till localStorage (så andra flikar kan följa)
+                if (!_suppressPanelOpenWrite) {
+                    const payload = {
+                        open: !!open,
+                        ts: new Date().toISOString(),
+                        by: CUSTOM_PANEL_TAB_ID,
+                        reason
+                    };
+                    try {
+                        localStorage.setItem(LS_CUSTOM_PANEL_OPEN_KEY, JSON.stringify(payload));
+                        console.log("[customPanel][LS] wrote", payload);
+                    } catch (e) {
+                        console.warn("[customPanel][LS] failed to write", e);
+                    }
+                } else {
+                    console.log("[customPanel] applied without LS write", { open, reason });
+                }
+
+                if (open) {
+                    // ✅ Förifyll med exakt den text som användaren sparat (lista eller matris)
+                    els.customInput.value = TIPS_CUSTOM_TEXT || "";
+
+                    // Töm statusmeddelande när man öppnar
+                    setCustomMsg("err", "");
+
+                    try { els.customInput.focus(); } catch (e) { }
+                } else {
+                    // Om du vill: städa status när man stänger
+                    // setCustomMsg("err", "");
+                }
+            }
+
+
+
+            function onTipsSourcesStorageEvent(e) {
+                if (!e || e.key !== LS_TIPS_SOURCES_KEY) return;
+
+                const savedSources = loadTipsSourcesFromLocalStorage();
+                if (!savedSources) return;
+
+                const before = {
+                    hobby: !!els.cbHobby?.checked,
+                    expert: !!els.cbExpert?.checked,
+                    custom: !!els.cbCustom?.checked,
+                    hasMatrix: !!TIPS_MATRIX_CUSTOM
+                };
+
+                // ✅ Spegla alltid kryssrutorna från LS (INTE "gating" på hasCustomNow)
+                els.cbHobby.checked = !!savedSources.hobby;
+                els.cbExpert.checked = !!savedSources.expert;
+
+                // Custom: låt krysset följa LS, även om vi inte hunnit ladda matrix ännu
+                els.cbCustom.checked = !!savedSources.custom;
+
+                // ✅ UI ska alltid spegla om det FINNS sparat custom eller inte.
+                // (Checked styrs av sources, men disabled styrs av "har vi data?")
+                const hasSavedCustomNow = hasSavedCustomInLocalStorage();
+                // els.cbCustom.disabled = !hasSavedCustomNow;
+
+                // ✅ Om sources säger custom=FALSE: stäng av lokalt + nolla även text-minnet
+                if (!savedSources.custom) {
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = "";
+                }
+
+
+                // ✅ Om LS säger custom=TRUE: försök ladda matrix direkt (tajming-fix)
+                if (savedSources.custom && !TIPS_MATRIX_CUSTOM) {
+                    try {
+                        const loadedNow = loadCustomFromLocalStorage({ fillTextarea: false });
+                        if (loadedNow && loadedNow.matrix) {
+                            TIPS_MATRIX_CUSTOM = loadedNow.matrix;
+                            TIPS_CUSTOM_TEXT = loadedNow.tipsText || "";
+                            console.log("[tipsSources][storage] custom=ON -> matrix+text laddad från LS_CUSTOM_TIPS_KEY");
+                        } else {
+                            console.warn("[tipsSources][storage] custom=ON men ingen matrix hittades ännu (krysset behålls).");
+                        }
+                    } catch (err) {
+                        console.warn("[tipsSources][storage] custom=ON men loadCustomFromLocalStorage kraschade:", err);
+                    }
+                }
+
+
+                // ✅ Om LS säger custom=FALSE: stäng av matrix lokalt (men rör inte annan flik)
+                if (!savedSources.custom) {
+                    TIPS_MATRIX_CUSTOM = null;
+                }
+
+                const after = {
+                    hobby: !!els.cbHobby?.checked,
+                    expert: !!els.cbExpert?.checked,
+                    custom: !!els.cbCustom?.checked,
+                    hasMatrix: !!TIPS_MATRIX_CUSTOM
+                };
+
+                console.log("[tipsSources][storage]", {
+                    key: e.key,
+                    oldValue: e.oldValue,
+                    newValue: e.newValue,
+                    savedSources,
+                    before,
+                    after
+                });
+
+                render();
+            }
+
+
+            /*********************************************************
+             * 10) Event listeners (wire) + init
+             *********************************************************/
+
+            /**
+             * Init vid sidstart:
+             * - Läs valda tipskällor (hobby/expert/custom) från LS_TIPS_SOURCES_KEY
+             * - Läs ev. sparat custom (matrix + text) från LS_CUSTOM_TIPS_KEY (+ ev fallback)
+             *
+             * Viktigt:
+             * - Checkboxar styr vad som räknas med.
+             * - Custom-matrisen (TIPS_MATRIX_CUSTOM) kan finnas även om checkboxen är AV,
+             *   men den ska bara räknas med i getSelectedMatrices() när cbCustom är ikryssad.
+             */
+            function initFromLocalStorage() {
+                // 1) Läs kryssrutorna (tipsSources) först
+                const savedSources = loadTipsSourcesFromLocalStorage();
+
+                if (savedSources) {
+                    els.cbHobby.checked = !!savedSources.hobby;
+                    els.cbExpert.checked = !!savedSources.expert;
+                    els.cbCustom.checked = !!savedSources.custom;
+                }
+
+                // 2) Läs ev. sparat custom (matrix + text), men skriv inte över textarea vid init
+                const loaded = loadCustomFromLocalStorage({ fillTextarea: false });
+
+                const hasCustomKeyInLS = hasSavedCustomInLocalStorage(); // “finns det ens något sparat?”
+                const hasParsedMatrix = !!(loaded && loaded.matrix);    // “går det att använda just nu?”
+
+                if (hasParsedMatrix) {
+                    TIPS_MATRIX_CUSTOM = loaded.matrix;
+                    TIPS_CUSTOM_TEXT = loaded.tipsText || "";
+                } else {
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = "";
+
+                    // ✅ Viktigt: normalisera bara om vi med säkerhet vet att det INTE finns något sparat alls.
+                    // Om key finns men vi inte kan läsa matrix just nu (tajming) -> rör inte kryssläge/LS här.
+                    if (!hasCustomKeyInLS && savedSources && savedSources.custom) {
+                        els.cbCustom.checked = false;
+
+                        // här är det okej att normalisera, eftersom det verkligen är tomt
+                        saveTipsSourcesToLocalStorage();
+                    }
+                }
+
+                // ✅ Init: applicera panel open/close från LS (utan att skriva tillbaka)
+                try {
+                    const rawPanel = localStorage.getItem(LS_CUSTOM_PANEL_OPEN_KEY);
+                    const incoming = rawPanel ? JSON.parse(rawPanel) : null;
+                    const wantsOpen = !!incoming?.open;
+
+                    console.log("[customPanel][init] apply from LS", {
+                        wantsOpen,
+                        by: incoming?.by,
+                        ts: incoming?.ts,
+                        reason: incoming?.reason
+                    });
+
+                    _suppressPanelOpenWrite = true;
+                    try {
+                        toggleCustomPanel(wantsOpen, "init:ls");
+                    } finally {
+                        _suppressPanelOpenWrite = false;
+                    }
+                } catch (e) {
+                    console.warn("[customPanel][init] could not apply from LS", e);
+                }
+
+            }
+
+
+            function wire() {
+                // När man kryssar i/ur grupper räknar vi om direkt.
+                els.cbHobby.addEventListener("change", () => {
+                    saveTipsSourcesToLocalStorage();
+                    render();
+                });
+
+                els.cbExpert.addEventListener("change", () => {
+                    saveTipsSourcesToLocalStorage();
+                    render();
+                });
+
+                els.cbCustom.addEventListener("change", () => {
+                    const wantsOn = !!els.cbCustom.checked;
+                    console.log("[custom][cb] change -> checked =", wantsOn);
+
+                    // ✅ OFF: stäng av lokalt + spara kryssläget så alla flikar följer
+                    if (!wantsOn) {
+                        TIPS_MATRIX_CUSTOM = null;
+                        TIPS_CUSTOM_TEXT = ""; // ✅ håll minnet strikt
+                        console.log("[custom][cb] OFF -> TIPS_MATRIX_CUSTOM = null (panel öppnas inte)");
+                        saveTipsSourcesToLocalStorage();
+                        render();
+                        return;
+                    }
+
+
+                    // ✅ ON: försök ladda från LS
+                    const loadedNow = loadCustomFromLocalStorage();
+                    console.log("[custom][cb] ON -> loadCustomFromLocalStorage() =>", loadedNow);
+
+                    if (!loadedNow || !loadedNow.matrix) {
+                        // Inget sparat: backa checkboxen, spara kryssläget, och öppna panelen
+                        els.cbCustom.checked = false;
+                        TIPS_MATRIX_CUSTOM = null;
+
+                        console.warn("[custom][cb] ON men inget sparat -> öppnar panel");
+                        saveTipsSourcesToLocalStorage();
+                        render();
+                        toggleCustomPanel(true);
+                        return;
+                    }
+
+                    // Finns sparat: aktivera + spara kryssläget så alla flikar följer
+                    TIPS_MATRIX_CUSTOM = loadedNow.matrix;
+                    TIPS_CUSTOM_TEXT = loadedNow.tipsText || "";
+                    console.log("[custom][cb] ON + hittade matrix -> render()");
+                    saveTipsSourcesToLocalStorage();
+                    render();
+                });
+
+
+                // Exportknapp
+                els.exportBtn.addEventListener("click", exportTableAsImage);
+
+                // Öppna/stäng eget tips-panel (＋ eller ✎)
+                function openCustomPanelFromLS() {
+                    console.log("[custom][OPEN] Klick – läser localStorage:", LS_CUSTOM_TIPS_KEY);
+
+                    const loadedNow = loadCustomFromLocalStorage();
+
+                    if (loadedNow && loadedNow.matrix) {
+                        console.log("[custom][OPEN] Hittade giltigt sparat tips i localStorage.", {
+                            hasMatrix: true,
+                            tipsTextLen: loadedNow.tipsText ? loadedNow.tipsText.length : 0
+                        });
+
+                        TIPS_MATRIX_CUSTOM = loadedNow.matrix;
+
+                        // ✅ VIKTIGT: sätt text-minnet så toggleCustomPanel inte skriver över med tomt
+                        TIPS_CUSTOM_TEXT = loadedNow.tipsText || "";
+
+                        // els.cbCustom.disabled = false;
+                        els.cbCustom.checked = true;
+                    } else {
+                        console.log("[custom][OPEN] Inget giltigt sparat tips i localStorage (eller rensat).");
+
+                        TIPS_MATRIX_CUSTOM = null;
+                        TIPS_CUSTOM_TEXT = ""; // ✅ håll även text-minnet i sync
+
+                        els.cbCustom.checked = false;
+                        // els.cbCustom.disabled = true;
+                    }
+
+                    render();
+                    toggleCustomPanel(true);
+                }
+
+
+                if (els.addCustomBtn) els.addCustomBtn.addEventListener("click", openCustomPanelFromLS);
+                if (els.editCustomBtn) els.editCustomBtn.addEventListener("click", openCustomPanelFromLS);
+
+                els.cancelCustomBtn.addEventListener("click", () => toggleCustomPanel(false));
+
+                // Spara eget tips (validerar och sparar, eller raderar om tomt)
+                els.saveCustomBtn.addEventListener("click", saveCustom);
+
+                // Rensa (UI-only)
+                els.clearCustomBtn?.addEventListener("click", clearCustomUIOnly);
+
+
+                // Om man ändrar texten: töm status (så man inte tror att den fortfarande är “OK”)
+                // (Validering körs först när man klickar Spara.)
+                els.customInput.addEventListener("input", () => {
+                    if (els.customMsg.textContent) {
+                        setCustomMsg("err", "");
+                    }
+                });
+
+                /* ===========================================================
+                   MOBIL-TOOLTIPS (details.m-tip):
+                   - Klick utanför stänger
+                   - Öppna en i taget
+                   =========================================================== */
+
+                function closeAllMobileTips(exceptEl) {
+                    document.querySelectorAll('details.m-tip[open]').forEach(d => {
+                        if (exceptEl && d === exceptEl) return;
+                        d.removeAttribute('open');
+                    });
+                }
+
+                document.querySelectorAll('details.m-tip').forEach(d => {
+                    d.addEventListener('toggle', () => {
+                        if (d.open) closeAllMobileTips(d);
+                    });
+                });
+
+                document.addEventListener('click', (e) => {
+                    const t = e.target;
+                    if (t && t.closest && t.closest('details.m-tip')) return;
+                    closeAllMobileTips();
+                });
+
+                window.addEventListener('scroll', () => closeAllMobileTips(), { passive: true });
+                window.addEventListener('resize', () => closeAllMobileTips());
+            }
+
+            // ✅ DEBUG: leta efter gamla cache-nycklar (ofarligt, bara loggar)
+            (function logLegacyCacheKeys() {
+                try {
+                    const legacy = ["SHL_TIPS_DATA", "SHL_TIPS_TIMESTAMP"];
+                    const found = legacy
+                        .map(k => ({ key: k, exists: localStorage.getItem(k) != null }))
+                        .filter(x => x.exists);
+
+                    if (found.length) {
+                        console.warn("[shlTips][legacy] gamla cache-nycklar finns fortfarande:", found);
+                    } else {
+                        console.log("[shlTips][legacy] inga gamla cache-nycklar hittades");
+                    }
+                } catch (e) {
+                    console.warn("[shlTips][legacy] kunde inte kontrollera localStorage:", e);
+                }
+            })();
+
+            // Init: koppla lyssnare, läs LS och rendera första gången
+            wire();
+            initFromLocalStorage();
+            render();
+
+            // Synka mellan flikar (kryssrutor + custom) när annan flik sparar/rensar
+            window.addEventListener("storage", (e) => {
+                if (!e) return;
+                // ✅ Panel open/close sync (endast UI)
+                if (e.key === LS_CUSTOM_PANEL_OPEN_KEY) {
+                    let incoming = null;
+                    try { incoming = e.newValue ? JSON.parse(e.newValue) : null; } catch { incoming = null; }
+
+                    const wantsOpen = !!incoming?.open;
+
+                    console.log("[customPanel][storage] incoming", {
+                        wantsOpen,
+                        by: incoming?.by,
+                        ts: incoming?.ts,
+                        reason: incoming?.reason
+                    });
+
+                    _suppressPanelOpenWrite = true;
+                    try {
+                        toggleCustomPanel(wantsOpen, "storage");
+                    } finally {
+                        _suppressPanelOpenWrite = false;
+                    }
+                    return; // viktigt: vi vill inte köra övrig storage-logik för panel-event
+                }
+
+
+                console.log("[storage][event]", {
+                    key: e.key,
+                    oldValueLen: (e.oldValue ? String(e.oldValue).length : 0),
+                    newValueLen: (e.newValue ? String(e.newValue).length : 0),
+                    time: new Date().toISOString()
+                });
+
+                // 1) Kryssrutorna
+                onTipsSourcesStorageEvent(e);
+
+                // 2) Själva custom-matrisen (om den ändras i annan flik)
+                if (e.key !== LS_CUSTOM_TIPS_KEY) {
+                    return;
+                }
+
+                const before = {
+                    customChecked: !!els.cbCustom?.checked,
+                    hasMatrix: !!TIPS_MATRIX_CUSTOM
+                };
+
+                const loaded = loadCustomFromLocalStorage({ fillTextarea: false });
+
+                // ✅ Synka både matrix OCH text-minnet.
+                // (Kryss synkas via LS_TIPS_SOURCES_KEY.)
+                if (loaded && loaded.matrix) {
+                    TIPS_MATRIX_CUSTOM = loaded.matrix;
+                    TIPS_CUSTOM_TEXT = loaded.tipsText || "";
+                } else {
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = "";
+                }
+
+                // ✅ UI-sync i denna flik (skriv INTE tillbaka till LS här)
+                const hasSavedCustomNow = !!(loaded && loaded.matrix);
+                // els.cbCustom.disabled = !hasSavedCustomNow;
+
+                if (!hasSavedCustomNow) {
+                    // Om custom rensats i annan flik: se till att krysset inte ligger kvar "på"
+                    els.cbCustom.checked = false;
+                }
+
+
+                const after = {
+                    customChecked: !!els.cbCustom?.checked,
+                    hasMatrix: !!TIPS_MATRIX_CUSTOM
+                };
+
+                console.log("[custom][storage]", { before, after, loadedOk: !!(loaded && loaded.matrix) });
+
+                // ✅ Viktigt: rendera efter sync från annan flik
+                render();
+            });
+
+        })(); // Slut på den asynkrona funktionen
+
+        /**
+ /**
+ * Hämtar SHL-matriser från Google Sheets (TSV) och cachar dem i webbläsaren.
+ */
+        /**
+         * Hämtar SHL-matriser från Google Sheets (TSV) och cachar dem i webbläsaren.
+         * Cacheformat: SHL_TIPS_DATA_2025_2026 (delad mellan appar)
+         */
+        async function getShlMatrices() {
+            const useCache = true;
+            const CACHE_KEY = "SHL_TIPS_DATA_2025_2026";
+            const cacheTTL = 3600 * 1000; // 1 timme
+
+            // TSV-källor (samma som sanningsappen)
+            const URLS = {
+                tips_hobby: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=0&single=true&output=tsv",
+                tips_expert: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1639193732&single=true&output=tsv",
+                teams: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1219108197&single=true&output=tsv",
+                tippers: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1842187452&single=true&output=tsv"
+            };
+
+            function safeJsonParse(s) { try { return JSON.parse(s); } catch { return null; } }
+
+            function parseTSV(text) {
+                return String(text || "")
+                    .split(/\r?\n/)
+                    .filter(line => line.trim().length > 0)
+                    .map(line => line.split("\t").map(cell => cell.trim()));
+            }
+
+            function idxOf(hdr, name) {
+                return hdr.findIndex(h => String(h).toLowerCase() === String(name).toLowerCase());
+            }
+
+            function hasAllSupersetFields(obj) {
+                if (!obj || typeof obj !== "object") return { ok: false, missing: ["notObject"] };
+
+                const missing = [];
+                const req = [
+                    "version",
+                    "savedAt",
+                    "season",
+                    "league",
+                    "TIPS_MATRIX_HOBBY",
+                    "TIPS_MATRIX_EXPERT",
+                    "TEAM_BY_ID",
+                    "TEAM_ID_BY_LONGNAME",
+                    "TIPPER_BY_ID",
+                    "TIPS_BY_TIPPER_HOBBY",
+                    "TIPS_BY_TIPPER_EXPERT"
+                ];
+
+                req.forEach(k => {
+                    if (!(k in obj)) missing.push(k);
+                });
+
+                // basic sanity
+                if (obj.season !== "2025_2026") missing.push("season!=2025_2026");
+                if (obj.league !== "shl") missing.push("league!=shl");
+
+                return { ok: missing.length === 0, missing };
+            }
+
+            function isCacheFresh(savedAtIso) {
+                if (typeof savedAtIso !== "string") return false;
+                const ms = Date.parse(savedAtIso);
+                if (!Number.isFinite(ms)) return false;
+                return (Date.now() - ms) < cacheTTL;
+            }
+
+            // -------------------------------------------------
+            // 1) Cache-läsning (kräv SUPerset för att vi ska “lita” på den)
+            // -------------------------------------------------
+            if (useCache) {
+                const raw = localStorage.getItem(CACHE_KEY);
+                if (!raw) {
+                    console.log("[shlTips][cache] MISS (saknas) ->", CACHE_KEY);
+                } else {
+                    const cached = safeJsonParse(raw);
+                    const check = hasAllSupersetFields(cached);
+                    const fresh = isCacheFresh(cached?.savedAt);
+
+                    if (check.ok && fresh) {
+                        console.log("[shlTips][cache] HIT (superset) ->", CACHE_KEY, {
+                            savedAt: cached.savedAt,
+                            ageMs: Date.now() - Date.parse(cached.savedAt),
+                            teams: Object.keys(cached.TEAM_BY_ID || {}).length,
+                            tippers: Object.keys(cached.TIPPER_BY_ID || {}).length
+                        });
+
+                        return {
+                            TIPS_MATRIX_HOBBY: cached.TIPS_MATRIX_HOBBY,
+                            TIPS_MATRIX_EXPERT: cached.TIPS_MATRIX_EXPERT
+                        };
+                    }
+
+                    console.warn("[shlTips][cache] MISS (saknar fält eller TTL) ->", {
+                        fresh,
+                        missing: check.missing
+                    });
+                }
+            }
+
+            // -------------------------------------------------
+            // 2) Nätverk (bygg HELA superset-payloaden)
+            // -------------------------------------------------
+            console.log("[shlTips][network] FETCH -> TSV (bygger superset-cache för alla appar)");
+
+            try {
+                const [teamsTSV, tippersTSV, hobbyTSV, expertTSV] = await Promise.all([
+                    fetch(URLS.teams).then(r => r.text()),
+                    fetch(URLS.tippers).then(r => r.text()),
+                    fetch(URLS.tips_hobby).then(r => r.text()),
+                    fetch(URLS.tips_expert).then(r => r.text())
+                ]);
+
+                // --- Teams ---
+                const teamsRows = parseTSV(teamsTSV);
+                const teamHdr = teamsRows[0] || [];
+                const iTeamId = idxOf(teamHdr, "team_id");
+                const iShort = idxOf(teamHdr, "team_name_short");
+                const iLong = idxOf(teamHdr, "team_name_long");
+                const iAbbr = idxOf(teamHdr, "team_name_abbr");
+
+                const TEAM_BY_ID = {};
+                const TEAM_ID_BY_LONGNAME = {};
+                const teamMapForMatrix = {}; // team_id -> team_name_short (för buildMatrix)
+
+                teamsRows.slice(1).forEach(r => {
+                    const team_id = (iTeamId !== -1 ? r[iTeamId] : "");
+                    if (!team_id) return;
+
+                    const obj = {
+                        team_id,
+                        team_name_short: (iShort !== -1 ? r[iShort] : ""),
+                        team_name_long: (iLong !== -1 ? r[iLong] : ""),
+                        team_name_abbr: (iAbbr !== -1 ? r[iAbbr] : "")
+                    };
+
+                    TEAM_BY_ID[team_id] = obj;
+                    if (obj.team_name_long) TEAM_ID_BY_LONGNAME[obj.team_name_long] = team_id;
+
+                    teamMapForMatrix[team_id] = obj.team_name_short || obj.team_name_long || team_id;
+                });
+
+                // --- Tippers ---
+                const tippersRows = parseTSV(tippersTSV);
+                const tipperHdr = tippersRows[0] || [];
+                const iTipperId = idxOf(tipperHdr, "tipper_id");
+                const iTipperShort = idxOf(tipperHdr, "tipper_name_short");
+                const iTipperLong = idxOf(tipperHdr, "tipper_name_long");
+
+                const TIPPER_BY_ID = {};
+                tippersRows.slice(1).forEach(r => {
+                    const tipper_id = (iTipperId !== -1 ? r[iTipperId] : "");
+                    if (!tipper_id) return;
+
+                    TIPPER_BY_ID[tipper_id] = {
+                        tipper_id,
+                        tipper_name_short: (iTipperShort !== -1 ? r[iTipperShort] : tipper_id),
+                        tipper_name_long: (iTipperLong !== -1 ? r[iTipperLong] : tipper_id)
+                    };
+                });
+
+                // --- Tips by tipper (amatör/experter) ---
+                function buildTipsByTipper(tsvText) {
+                    const rows = parseTSV(tsvText);
+                    const hdr = rows[0] || [];
+                    const iT = idxOf(hdr, "tipper_id");
+                    const iTeam = idxOf(hdr, "team_id");
+                    const iRank = idxOf(hdr, "pick_rank");
+
+                    const out = {}; // tipper_id -> [{team_id,pick_rank}, ...]
+
+                    rows.slice(1).forEach(r => {
+                        const tipper_id = (iT !== -1 ? r[iT] : "");
+                        const team_id = (iTeam !== -1 ? r[iTeam] : "");
+                        const pick_rank = Number(iRank !== -1 ? r[iRank] : NaN);
+
+                        if (!tipper_id || !team_id || !Number.isFinite(pick_rank)) return;
+
+                        if (!out[tipper_id]) out[tipper_id] = [];
+                        out[tipper_id].push({ team_id, pick_rank });
+                    });
+
+                    // sortera per tipper på pick_rank
+                    Object.keys(out).forEach(tid => out[tid].sort((a, b) => a.pick_rank - b.pick_rank));
+
+                    return out;
+                }
+
+                const TIPS_BY_TIPPER_HOBBY = buildTipsByTipper(hobbyTSV);
+                const TIPS_BY_TIPPER_EXPERT = buildTipsByTipper(expertTSV);
+
+                // --- Matrices (shl-tips behöver dessa direkt) ---
+                // Vi använder din befintliga buildMatrix-logik (som redan funkar i shl-tips),
+                // men ser till att teamMapForMatrix har team_id -> kortnamn.
+                const hobbyRowsForMatrix = parseTSV(hobbyTSV);
+                const expertRowsForMatrix = parseTSV(expertTSV);
+
+                const TIPS_MATRIX_HOBBY = buildMatrix(hobbyRowsForMatrix, teamMapForMatrix);
+                const TIPS_MATRIX_EXPERT = buildMatrix(expertRowsForMatrix, teamMapForMatrix);
+
+                // --- Skriv SUPerset-cache (så ALLA appar kan starta på den) ---
+                const cachePayload = {
+                    version: 1,
+                    savedAt: new Date().toISOString(),
+                    season: "2025_2026",
+                    league: "shl",
+
+                    TIPS_MATRIX_HOBBY,
+                    TIPS_MATRIX_EXPERT,
+
+                    TEAM_BY_ID,
+                    TEAM_ID_BY_LONGNAME,
+
+                    TIPPER_BY_ID,
+                    TIPS_BY_TIPPER_HOBBY,
+                    TIPS_BY_TIPPER_EXPERT
+                };
+
+                if (useCache) {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(cachePayload));
+                    console.log("[shlTips][cache] WROTE (superset) ->", CACHE_KEY, {
+                        savedAt: cachePayload.savedAt,
+                        teams: Object.keys(TEAM_BY_ID).length,
+                        tippers: Object.keys(TIPPER_BY_ID).length,
+                        hobbyTipperCount: Object.keys(TIPS_BY_TIPPER_HOBBY).length,
+                        expertTipperCount: Object.keys(TIPS_BY_TIPPER_EXPERT).length
+                    });
+                }
+
+                return { TIPS_MATRIX_HOBBY, TIPS_MATRIX_EXPERT };
+
+            } catch (err) {
+                console.error("[shlTips] Kunde inte bygga superset-cache:", err);
+                return null;
+            }
+        }
+
+
+
+
+
+        /**
+         * Hjälpfunktion för att räkna samman tips
+         */
+        function buildMatrix(data, teamMap) {
+            const matrix = {};
+            // Initiera med 14 nollor per lag
+            Object.values(teamMap).forEach(name => {
+                matrix[name] = new Array(14).fill(0);
+            });
+
+            data.slice(1).forEach(row => {
+                const teamId = row[1] ? row[1].trim() : null;
+                const rank = parseInt(row[2]);
+                const teamName = teamMap[teamId];
+
+                if (teamName && rank >= 1 && rank <= 14) {
+                    matrix[teamName][rank - 1]++;
+                }
+            });
+            return matrix;
+        }
+
+
+    </script>
+
+</body>
+
+</html>

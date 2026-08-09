@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poängställning Hockeyallsvenskan 2021&#8211;2022</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 1.5rem;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+         h1 {
+             margin-bottom: 2rem;
+             text-align: center;
+         }
+        .title-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-toggle {
+            background: none; border: none; padding: 0; margin: 0; font-size: 1.4rem;
+            font-weight: bold; color: #1a2533; cursor: pointer; display: flex; align-items: center;
+        }
+        .dropdown-arrow {
+            margin-left: 0.5rem; font-size: 1rem; transition: transform 0.2s ease-in-out;
+        }
+        .title-dropdown.active .dropdown-arrow { transform: rotate(180deg); }
+        .dropdown-menu {
+            display: none; position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
+            background-color: white; border: 1px solid #ddd; border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 1000; min-width: 250px; padding: 0.5rem 0;
+        }
+        .dropdown-menu.active { display: block; }
+        .dropdown-menu a {
+            display: block; padding: 0.45rem 1rem; color: #007bff; text-decoration: none; white-space: nowrap; font-size: 1.4rem;
+        }
+        .dropdown-menu a:hover { background-color: #f8f9fa; }
+
+        .dropdown-menu hr {
+            border: none; /* Ta bort standardramen */
+            border-top: 1px solid #d0d0d0; /* Lägg till en tunn, ljusgrå linje */
+            margin: 0.7rem 0; /* Lite luft ovanför och under linjen */
+        }
+
+        /* Stil för den valda länken */
+        .dropdown-menu a.chosen {
+            color: #000; /* Svart text */
+            font-weight: bold; /* Gör den fet (rekommenderat) */
+        }
+
+        /* Ta bort hover-effekt för den valda länken */
+        .dropdown-menu a.chosen:hover {
+            background-color: transparent; /* Ingen bakgrundsfärg */
+        }
+
+        .filter-section {
+            border: 1px solid #ddd; border-radius: 8px; margin-bottom: 2rem; margin-top: 1rem;
+        }
+        .filter-section summary {
+            cursor: pointer; padding: 1rem; font-weight: bold; list-style-position: inside;
+        }
+        .filter-section summary:hover { background-color: #f7f7f7; }
+        .filter-content {
+            display: flex; gap: 1.5rem; align-items: flex-start; padding: 0 1rem 1rem 1rem; border-top: 1px solid #ddd;
+        }
+        
+        #team-selection {
+            flex-grow: 1; display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 1rem;
+        }
+        
+        .action-buttons {
+            display: flex; flex-direction: column; gap: 0.5rem; flex-shrink: 0; padding-top: 1rem;
+            min-width: 175px; align-items: flex-end;
+        }
+        .action-buttons button {
+             padding: 0.5rem 1rem; border: 1px solid #6c757d; background-color: #fff; color: #6c757d;
+             border-radius: 5px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; white-space: nowrap;
+        }
+        .action-buttons button:hover { background-color: #6c757d; color: #fff; }
+
+        .team-item-wrapper {
+            display: flex; align-items: center; background-color: #e9ecef; border-radius: 20px; transition: background-color 0.2s;
+        }
+        .team-item-wrapper:hover { background-color: #dbe4f0; }
+        .team-label {
+            display: flex; align-items: center; padding: 0.5rem 0 0.5rem 1rem; cursor: pointer; font-size: 0.9rem;
+        }
+        .team-label input { margin-right: 0.5rem; }
+        
+        .color-picker-icon {
+            display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0.5rem 0.75rem;
+            margin-left: 0.5rem; border-left: 1px solid rgba(0,0,0,0.1); font-size: 1.1rem; width: 1em; height: 1em;
+        }
+        .color-indicator {
+            width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .controls-wrapper {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 2rem;
+        }
+        .main-control-groups { display: flex; flex-wrap: wrap; gap: 1rem; }
+        
+        .control-group {
+            display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; border: 1px solid #e9ecef;
+            background-color: #f8f9fa; padding: 0.75rem 1rem; border-radius: 8px;
+        }
+        #reset-all-colors-btn {
+             padding: 0.5rem 1rem; border: 1px solid #dc3545; background-color: #fff; color: #dc3545;
+             border-radius: 5px; cursor: pointer; transition: all 0.2s; font-weight: bold;
+        }
+        #reset-all-colors-btn:hover { background-color: #dc3545; color: #fff; }
+
+        /* --- Dynamisk höjd för diagrammet --- */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            min-height: 200px; /* Minimum höjd */
+            /* Ingen fast height här längre */
+        }
+
+        .slider-wrapper {
+            margin-top: 2.5rem; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 1rem 1.5rem;
+        }
+        .slider-display {
+            display: flex;
+            /* justify-content: space-between; ÄNDRAD FRÅN space-between */
+            justify-content: space-around; /* <= ÄNDRING: Bättre centrering vid radbyte */
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap; /* <= NY RAD: Tillåter elementen att byta rad */
+        }
+        .slider-info { /* <= NY REGEL FÖR DEN NYA DIV:en */
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-grow: 1; /* Tar upp ledigt utrymme */
+            justify-content: center; /* Centrerar när knappar radbryts */
+            margin-bottom: 0.5rem; /* Lite luft när knappar är under */
+        }
+        #slider-label {
+            text-transform: uppercase; letter-spacing: 1px; font-weight: bold; color: #495057;
+        }
+        #current-step-display {
+            font-weight: bold; font-size: 1.25rem; color: #007bff; text-align: center; flex-grow: 1; min-height: 1.5rem;
+        }
+        .player-controls { display: flex; gap: 0.5rem; }
+        .player-controls button {
+            display: flex; align-items: center; justify-content: center; background-color: #007bff; color: #fff;
+            border: none; padding: 0.6rem 1rem; border-radius: 5px; font-weight: bold; cursor: pointer;
+            transition: background-color 0.2s; white-space: nowrap;
+        }
+        .player-controls button svg { width: 1em; height: 1em; fill: currentColor; }
+        .player-controls button:hover { background-color: #0056b3; }
+        .hidden { display: none; }
+        
+        #timeline-slider {
+            -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer;
+        }
+        #timeline-slider::-webkit-slider-runnable-track { background: #ced4da; height: 10px; border-radius: 5px; }
+        #timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; margin-top: -7px; background: #007bff; height: 24px; width: 24px;
+            border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.25);
+        }
+        #timeline-slider::-moz-range-track { background: #ced4da; height: 10px; border-radius: 5px; }
+        #timeline-slider::-moz-range-thumb {
+            background: #007bff; height: 24px; width: 24px; border-radius: 50%;
+            border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.25);
+        }
+
+        #color-palette {
+            position: absolute; display: none; flex-direction: row; gap: 0.5rem; background-color: #fff; padding: 0.5rem;
+            border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100;
+        }
+        .color-swatch {
+            width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.3);
+        }
+        #reset-color { font-size: 1.2rem; cursor: pointer; line-height: 24px; }
+
+/* --- Stil för källinformation --- */
+        .source-info {
+            text-align: center; 
+            font-size: 0.85rem; /* Lite mindre text */
+            color: #6c757d;    /* Dämpad grå färg */
+            margin-top: 2.5rem; /* Lite extra utrymme ovanför */
+            padding-top: 1rem; /* Lite luft innanför om det behövs */
+            border-top: 1px solid #eee; /* Mycket svag avgränsare */
+        }
+        .source-info a {
+            color: #495057; /* Lite mörkare grå för länkar */
+            text-decoration: underline; /* Tydliggör att det är länkar */
+        }
+        .source-info a:hover {
+            color: #007bff; /* Standard blå hover-färg */
+        }
+        /* --- Slut stil källinformation --- */
+
+
+        @media (max-width: 768px) {
+            .filter-content { flex-direction: column; align-items: stretch; }
+            .action-buttons { flex-direction: row; justify-content: flex-end; }
+            .slider-info { justify-content: center; text-align: center; } /* Centrera texten */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>
+             <div class="title-dropdown">
+                 <button id="dropdown-toggle-button" class="dropdown-toggle">
+                     Poängställning Hockeyallsvenskan 2021&#8211;2022
+                     <span class="dropdown-arrow">&#9660;</span>
+                 </button>
+                 <div id="dropdown-menu-content" class="dropdown-menu">
+                     <a href="../index.html" target="_self">&#127968; Till startsidan</a>
+                     <hr>
+                     <a href="avancerat.html" target="_self">Avancerat (Hockeyallsvenskan + SHL)</a>
+                     <hr>
+                     <a class="chosen">Hockeyallsvenskan 2021&#8211;2022</a>
+                     <a href="ha_2022-2023.html" target="_self">Hockeyallsvenskan 2022&#8211;2023</a>
+                     <a href="ha_2023-2024.html" target="_self">Hockeyallsvenskan 2023&#8211;2024</a>
+                     <a href="ha_2024-2025.html" target="_self">Hockeyallsvenskan 2024&#8211;2025</a>
+                     <a href="ha_2025-2026.html" target="_self">Hockeyallsvenskan 2025&#8211;2026</a>
+                     <hr>
+                     <a href="nhl_2021-2022.html" target="_self">NHL 2021&#8211;2022</a>
+                     <a href="nhl_2022-2023.html" target="_self">NHL 2022&#8211;2023</a>
+                     <a href="nhl_2023-2024.html" target="_self">NHL 2023&#8211;2024</a>
+                     <a href="nhl_2024-2025.html" target="_self">NHL 2024&#8211;2025</a>
+                     <a href="nhl_2025-2026.html" target="_self">NHL 2025&#8211;2026</a>
+                     <hr>
+                     <a href="shl_2021-2022.html" target="_self">SHL 2021&#8211;2022</a>
+                     <a href="shl_2022-2023.html" target="_self">SHL 2022&#8211;2023</a>
+                     <a href="shl_2023-2024.html" target="_self">SHL 2023&#8211;2024</a>
+                     <a href="shl_2024-2025.html" target="_self">SHL 2024&#8211;2025</a>
+                     <a href="shl_2025-2026.html" target="_self">SHL 2025&#8211;2026</a>
+                 </div>
+             </div>
+        </h1>
+
+        <details class="filter-section">
+            <summary id="filter-summary">Filtrera lag</summary>
+            <div class="filter-content">
+                <div id="team-selection"></div>
+                <div class="action-buttons">
+                    <button id="select-all">Markera alla</button>
+                    <button id="deselect-all">Avmarkera alla</button>
+                    <button id="reset-all-colors-btn" class="hidden">Återställ alla färger &#10060;</button>
+                </div>
+            </div>
+        </details>
+        
+        <div class="controls-wrapper">
+             <div class="main-control-groups">
+                <div class="control-group">
+                    <strong>Tidsaxel:</strong>
+                    <label><input type="radio" name="timeline-mode" value="matches" checked> Spelade matcher</label>
+                    <label><input type="radio" name="timeline-mode" value="date"> Datum</label>
+                </div>
+                <div class="control-group">
+                    <strong>Sortera:</strong>
+                    <label><input type="radio" name="sort-order" value="alpha" checked> Alfabetisk</label>
+                    <label><input type="radio" name="sort-order" value="points"> Placering</label>
+                </div>
+                <div class="control-group">
+                    <strong>Poängaxel:</strong>
+                    <label><input type="radio" name="axis-scale" value="currentLeader" checked> Poängledare</label>
+                    <label><input type="radio" name="axis-scale" value="seasonMax"> Max för säsongen</label>
+                    <label><input type="radio" name="axis-scale" value="dynamic"> Flexibel</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="points-chart"></canvas>
+        </div>
+
+        <div class="slider-wrapper">
+            <div class="slider-display">
+                <div class="slider-info"> <label for="timeline-slider" id="slider-label">Välj tidpunkt eller klicka på play</label>
+                <p id="current-step-display"></p>
+                </div>
+                <div class="player-controls">
+                    <button id="prev-step">&lt; Föregående</button>
+                    <button id="play-pause-btn" title="Spela upp/Pausa">
+                        <svg id="play-icon" viewBox="0 0 16 16"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
+                        <svg id="pause-icon" class="hidden" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5A1.5 1.5 0 0 1 5.5 3.5zm4 0A1.5 1.5 0 0 1 11 5v6a1.5 1.5 0 0 1-3 0V5A1.5 1.5 0 0 1 9.5 3.5z"/></svg>
+                    </button>
+                    <button id="next-step">Nästa &gt;</button>
+                </div>
+            </div>
+            <input type="range" id="timeline-slider" min="0" max="1" value="0">
+        </div>
+        <p class="source-info">
+            Statistik hämtad från: 
+            <a href="https://www.hockeyallsvenskan.se/" target="_blank">hockeyallsvenskan.se</a>, 
+            <a href="https://www.shl.se/" target="_blank">shl.se</a>, 
+            <a href="https://www.hockey-reference.com/" target="_blank">hockey-reference.com</a>.
+        </p>
+    </div>
+    <div id="color-palette"></div>
+
+    <script>
+        // --- DATA OCH KONSTANTER ---
+        const SEASON_MAX_POINTS = 52 * 3;
+        const PLAYBACK_SPEED_MS = 600;
+        const DEFAULT_BAR_COLOR = 'rgba(0, 123, 255, 0.7)';
+        const PALETTE_COLORS = ['#ffc107', '#dc3545', '#28a745', '#6f42c1', '#fd7e14'];
+        const MIN_BAR_HEIGHT = 28; // Minsta höjd per stapel i pixlar
+        const CHART_PADDING = 50; // Uppskattad höjd för axlar etc.
+        let FINAL_LEADER_POINTS = 0;
+        let playbackInterval = null;
+        let teamColors = {};
+        const rawData = `
+Datum	Hemmalag	Bortalag	Matchresultat	Hemmamål	Bortamål	Hemmapoäng	Bortapoäng
+2021-09-24	HV71	AIK	3 - 2	3	2	3	0
+2021-09-24	Västerås IK	Tingsryd AIF	5 - 2	5	2	3	0
+2021-09-24	Almtuna IS	Troja-Ljungby	4 - 2	4	2	3	0
+2021-09-24	Vita Hästen	Mora IK	4 - 3 OT	4	3	2	1
+2021-09-24	Västerviks IK	MoDo Hockey	5 - 2	5	2	3	0
+2021-09-24	Kristianstads IK	BIK Karlskoga	1 - 2	1	2	0	3
+2021-09-24	Södertälje SK	Björklöven	2 - 10	2	10	0	3
+2021-09-29	Björklöven	Kristianstads IK	6 - 3	6	3	3	0
+2021-09-29	MoDo Hockey	Västerviks IK	4 - 0	4	0	3	0
+2021-09-29	Mora IK	AIK	1 - 5	1	5	0	3
+2021-09-29	Södertälje SK	Troja-Ljungby	4 - 1	4	1	3	0
+2021-09-29	Vita Hästen	Almtuna IS	4 - 5	4	5	0	3
+2021-09-29	HV71	Västerås IK	4 - 1	4	1	3	0
+2021-09-29	Tingsryd AIF	BIK Karlskoga	1 - 4	1	4	0	3
+2021-10-01	Björklöven	Västerviks IK	0 - 1	0	1	0	3
+2021-10-01	MoDo Hockey	Kristianstads IK	5 - 3	5	3	3	0
+2021-10-01	Västerås IK	Vita Hästen	8 - 4	8	4	3	0
+2021-10-01	Almtuna IS	Tingsryd AIF	7 - 2	7	2	3	0
+2021-10-01	AIK	HV71	0 - 2	0	2	0	3
+2021-10-01	Troja-Ljungby	BIK Karlskoga	1 - 4	1	4	0	3
+2021-10-02	Mora IK	Södertälje SK	4 - 3 SO	4	3	2	1
+2021-10-06	Västerås IK	BIK Karlskoga	1 - 4	1	4	0	3
+2021-10-06	Almtuna IS	AIK	1 - 5	1	5	0	3
+2021-10-06	Södertälje SK	Mora IK	3 - 2 SO	3	2	2	1
+2021-10-06	Vita Hästen	HV71	2 - 6	2	6	0	3
+2021-10-06	Västerviks IK	Troja-Ljungby	3 - 1	3	1	3	0
+2021-10-06	Tingsryd AIF	MoDo Hockey	5 - 0	5	0	3	0
+2021-10-06	Kristianstads IK	Björklöven	3 - 5	3	5	0	3
+2021-10-08	Mora IK	Almtuna IS	4 - 3 OT	4	3	2	1
+2021-10-08	AIK	Västerviks IK	5 - 2	5	2	3	0
+2021-10-08	HV71	BIK Karlskoga	7 - 2	7	2	3	0
+2021-10-08	Troja-Ljungby	Vita Hästen	2 - 3 OT	2	3	1	2
+2021-10-08	Tingsryd AIF	Björklöven	3 - 6	3	6	0	3
+2021-10-08	Kristianstads IK	MoDo Hockey	3 - 6	3	6	0	3
+2021-10-09	Södertälje SK	Västerås IK	5 - 2	5	2	3	0
+2021-10-13	Björklöven	Troja-Ljungby	1 - 4	1	4	0	3
+2021-10-13	MoDo Hockey	HV71	2 - 3	2	3	0	3
+2021-10-13	Västerås IK	Kristianstads IK	3 - 2	3	2	3	0
+2021-10-13	Almtuna IS	Södertälje SK	2 - 3 SO	2	3	1	2
+2021-10-13	Vita Hästen	BIK Karlskoga	0 - 1	0	1	0	3
+2021-10-13	Västerviks IK	AIK	6 - 3	6	3	3	0
+2021-10-15	Björklöven	HV71	6 - 2	6	2	3	0
+2021-10-15	Södertälje SK	Almtuna IS	4 - 3 OT	4	3	2	1
+2021-10-15	AIK	Västerås IK	2 - 5	2	5	0	3
+2021-10-15	Tingsryd AIF	Mora IK	4 - 2	4	2	3	0
+2021-10-15	Kristianstads IK	Vita Hästen	4 - 1	4	1	3	0
+2021-10-16	MoDo Hockey	Troja-Ljungby	4 - 3 OT	4	3	2	1
+2021-10-16	BIK Karlskoga	Västerviks IK	3 - 1	3	1	3	0
+2021-10-17	Tingsryd AIF	Mora IK	5 - 4	5	4	3	0
+2021-10-19	Västerviks IK	Mora IK	3 - 4 OT	3	4	1	2
+2021-10-20	BIK Karlskoga	Tingsryd AIF	3 - 4	3	4	0	3
+2021-10-20	Västerås IK	MoDo Hockey	1 - 4	1	4	0	3
+2021-10-20	Vita Hästen	Björklöven	1 - 2 SO	1	2	1	2
+2021-10-20	HV71	Södertälje SK	5 - 0	5	0	3	0
+2021-10-20	Troja-Ljungby	Almtuna IS	6 - 4	6	4	3	0
+2021-10-22	Björklöven	Södertälje SK	3 - 4	3	4	0	3
+2021-10-22	MoDo Hockey	Vita Hästen	4 - 0	4	0	3	0
+2021-10-22	Mora IK	AIK	2 - 3	2	3	0	3
+2021-10-22	BIK Karlskoga	Troja-Ljungby	2 - 3	2	3	0	3
+2021-10-22	Almtuna IS	HV71	4 - 5 SO	4	5	1	2
+2021-10-22	Tingsryd AIF	Västerviks IK	1 - 3	1	3	0	3
+2021-10-22	Kristianstads IK	Västerås IK	3 - 1	3	1	3	0
+2021-10-24	AIK	Kristianstads IK	3 - 5	3	5	0	3
+2021-10-26	Västerviks IK	MoDo Hockey	2 - 3 OT	2	3	1	2
+2021-10-27	Björklöven	Mora IK	8 - 2	8	2	3	0
+2021-10-27	Almtuna IS	BIK Karlskoga	1 - 2	1	2	0	3
+2021-10-27	Södertälje SK	Västerås IK	2 - 5	2	5	0	3
+2021-10-27	Vita Hästen	Tingsryd AIF	2 - 1	2	1	3	0
+2021-10-27	Troja-Ljungby	HV71	3 - 6	3	6	0	3
+2021-10-27	Kristianstads IK	AIK	3 - 1	3	1	3	0
+2021-10-29	AIK	Södertälje SK	4 - 0	4	0	3	0
+2021-10-29	Mora IK	BIK Karlskoga	5 - 2	5	2	3	0
+2021-10-29	Västerås IK	Almtuna IS	4 - 0	4	0	3	0
+2021-10-29	HV71	Kristianstads IK	5 - 4 SO	5	4	2	1
+2021-10-29	Västerviks IK	Vita Hästen	5 - 2	5	2	3	0
+2021-10-29	Tingsryd AIF	Troja-Ljungby	5 - 3	5	3	3	0
+2021-10-29	MoDo Hockey	Björklöven	5 - 2	5	2	3	0
+2021-10-30	Vita Hästen	AIK	2 - 3 OT	2	3	1	2
+2021-10-30	Troja-Ljungby	Västerviks IK	2 - 4	2	4	0	3
+2021-10-30	Kristianstads IK	Tingsryd AIF	7 - 1	7	1	3	0
+2021-10-30	Björklöven	MoDo Hockey	8 - 1	8	1	3	0
+2021-10-30	BIK Karlskoga	Västerås IK	3 - 4 OT	3	4	1	2
+2021-10-30	Södertälje SK	HV71	0 - 1	0	1	0	3
+2021-10-31	Almtuna IS	Mora IK	1 - 5	1	5	0	3
+2021-11-09	MoDo Hockey	Västerås IK	4 - 0	4	0	3	0
+2021-11-10	Björklöven	Södertälje SK	4 - 3 OT	4	3	2	1
+2021-11-10	AIK	Almtuna IS	5 - 2	5	2	3	0
+2021-11-10	Vita Hästen	Mora IK	2 - 1 SO	2	1	2	1
+2021-11-10	HV71	Troja-Ljungby	5 - 3	5	3	3	0
+2021-11-10	Kristianstads IK	BIK Karlskoga	4 - 1	4	1	3	0
+2021-11-12	Mora IK	Björklöven	2 - 3	2	3	0	3
+2021-11-12	BIK Karlskoga	AIK	6 - 3	6	3	3	0
+2021-11-12	Västerås IK	Södertälje SK	3 - 0	3	0	3	0
+2021-11-12	Almtuna IS	MoDo Hockey	1 - 3	1	3	0	3
+2021-11-12	Troja-Ljungby	Kristianstads IK	1 - 2	1	2	0	3
+2021-11-12	Västerviks IK	HV71	3 - 4 OT	3	4	1	2
+2021-11-12	Tingsryd AIF	Vita Hästen	0 - 3	0	3	0	3
+2021-11-13	AIK	Västerås IK	2 - 1	2	1	3	0
+2021-11-13	Kristianstads IK	Västerviks IK	4 - 0	4	0	3	0
+2021-11-13	Södertälje SK	BIK Karlskoga	1 - 3	1	3	0	3
+2021-11-13	HV71	Tingsryd AIF	3 - 1	3	1	3	0
+2021-11-14	Vita Hästen	Troja-Ljungby	5 - 2	5	2	3	0
+2021-11-14	MoDo Hockey	Mora IK	3 - 1	3	1	3	0
+2021-11-14	Björklöven	Almtuna IS	5 - 4	5	4	3	0
+2021-11-17	BIK Karlskoga	MoDo Hockey	3 - 0	3	0	3	0
+2021-11-17	Västerås IK	Västerviks IK	4 - 0	4	0	3	0
+2021-11-17	AIK	HV71	1 - 2	1	2	0	3
+2021-11-17	Vita Hästen	Björklöven	4 - 5 OT	4	5	1	2
+2021-11-17	Troja-Ljungby	Almtuna IS	3 - 5	3	5	0	3
+2021-11-17	Kristianstads IK	Södertälje SK	5 - 2	5	2	3	0
+2021-11-19	MoDo Hockey	Vita Hästen	4 - 3	4	3	3	0
+2021-11-19	Mora IK	BIK Karlskoga	0 - 4	0	4	0	3
+2021-11-19	Almtuna IS	Troja-Ljungby	3 - 2 OT	3	2	2	1
+2021-11-19	Södertälje SK	Kristianstads IK	7 - 4	7	4	3	0
+2021-11-19	HV71	AIK	3 - 0	3	0	3	0
+2021-11-19	Västerviks IK	Tingsryd AIF	0 - 1 OT	0	1	1	2
+2021-11-20	Tingsryd AIF	Västerviks IK	5 - 4 OT	5	4	2	1
+2021-11-20	Björklöven	Västerås IK	0 - 5	0	5	0	3
+2021-11-21	MoDo Hockey	BIK Karlskoga	2 - 1 OT	2	1	2	1
+2021-11-24	MoDo Hockey	Södertälje SK	5 - 4 SO	5	4	2	1
+2021-11-24	Mora IK	Västerås IK	3 - 2 SO	3	2	2	1
+2021-11-24	BIK Karlskoga	Kristianstads IK	2 - 4	2	4	0	3
+2021-11-24	AIK	Björklöven	2 - 5	2	5	0	3
+2021-11-24	HV71	Vita Hästen	6 - 4	6	4	3	0
+2021-11-24	Västerviks IK	Troja-Ljungby	4 - 2	4	2	3	0
+2021-11-24	Tingsryd AIF	Almtuna IS	5 - 4	5	4	3	0
+2021-11-26	Kristianstads IK	HV71	2 - 1	2	1	3	0
+2021-11-26	Björklöven	BIK Karlskoga	4 - 2	4	2	3	0
+2021-11-26	Almtuna IS	MoDo Hockey	3 - 4	3	4	0	3
+2021-11-26	Vita Hästen	Tingsryd AIF	4 - 2	4	2	3	0
+2021-11-26	Troja-Ljungby	Västerviks IK	3 - 1	3	1	3	0
+2021-11-26	Västerås IK	AIK	5 - 2	5	2	3	0
+2021-11-27	Södertälje SK	Mora IK	1 - 2	1	2	0	3
+2021-11-28	Mora IK	Björklöven	1 - 4	1	4	0	3
+2021-11-28	BIK Karlskoga	Almtuna IS	4 - 1	4	1	3	0
+2021-11-28	Västerviks IK	Vita Hästen	6 - 4	6	4	3	0
+2021-11-28	AIK	Troja-Ljungby	4 - 1	4	1	3	0
+2021-11-28	MoDo Hockey	Västerås IK	5 - 1	5	1	3	0
+2021-11-28	HV71	Kristianstads IK	2 - 3	2	3	0	3
+2021-11-28	Tingsryd AIF	Södertälje SK	1 - 5	1	5	0	3
+2021-11-30	BIK Karlskoga	Björklöven	2 - 3	2	3	0	3
+2021-11-30	Västerviks IK	Södertälje SK	10 - 0	10	0	3	0
+2021-12-01	MoDo Hockey	Tingsryd AIF	6 - 5 SO	6	5	2	1
+2021-12-01	Västerås IK	Vita Hästen	5 - 1	5	1	3	0
+2021-12-01	Almtuna IS	Kristianstads IK	1 - 2 OT	1	2	1	2
+2021-12-01	HV71	Mora IK	1 - 3	1	3	0	3
+2021-12-01	Troja-Ljungby	AIK	1 - 2 SO	1	2	1	2
+2021-12-03	Björklöven	Tingsryd AIF	3 - 2 OT	3	2	2	1
+2021-12-03	Mora IK	Troja-Ljungby	3 - 1	3	1	3	0
+2021-12-03	Västerås IK	HV71	7 - 2	7	2	3	0
+2021-12-03	Södertälje SK	Västerviks IK	3 - 2	3	2	3	0
+2021-12-03	AIK	BIK Karlskoga	2 - 3	2	3	0	3
+2021-12-03	Vita Hästen	MoDo Hockey	1 - 4	1	4	0	3
+2021-12-03	Kristianstads IK	Almtuna IS	2 - 1	2	1	3	0
+2021-12-07	Tingsryd AIF	Västerås IK	1 - 5	1	5	0	3
+2021-12-08	Troja-Ljungby	MoDo Hockey	1 - 2 OT	1	2	1	2
+2021-12-08	Almtuna IS	Södertälje SK	3 - 2	3	2	3	0
+2021-12-08	AIK	Mora IK	2 - 1	2	1	3	0
+2021-12-08	HV71	Björklöven	3 - 0	3	0	3	0
+2021-12-08	BIK Karlskoga	Västerviks IK	2 - 3 OT	2	3	1	2
+2021-12-08	Kristianstads IK	Vita Hästen	4 - 5	4	5	0	3
+2021-12-10	Mora IK	Tingsryd AIF	3 - 0	3	0	3	0
+2021-12-10	BIK Karlskoga	Kristianstads IK	4 - 2	4	2	3	0
+2021-12-10	Västerås IK	AIK	3 - 2	3	2	3	0
+2021-12-10	Södertälje SK	Almtuna IS	2 - 3	2	3	0	3
+2021-12-10	Vita Hästen	Västerviks IK	2 - 4	2	4	0	3
+2021-12-10	HV71	MoDo Hockey	4 - 3 OT	4	3	2	1
+2021-12-10	Troja-Ljungby	Björklöven	5 - 2	5	2	3	0
+2021-12-11	Mora IK	Tingsryd AIF	1 - 2	1	2	0	3
+2021-12-12	Västerviks IK	Björklöven	2 - 3 OT	2	3	1	2
+2021-12-14	Kristianstads IK	Västerås IK	0 - 2	0	2	0	3
+2021-12-15	MoDo Hockey	Almtuna IS	6 - 5	6	5	3	0
+2021-12-15	Mora IK	HV71	4 - 3 SO	4	3	2	1
+2021-12-15	BIK Karlskoga	Vita Hästen	3 - 2 OT	3	2	2	1
+2021-12-15	Tingsryd AIF	AIK	5 - 2	5	2	3	0
+2021-12-15	Troja-Ljungby	Södertälje SK	4 - 2	4	2	3	0
+2021-12-17	Björklöven	MoDo Hockey	7 - 3	7	3	3	0
+2021-12-17	Västerås IK	Mora IK	2 - 3	2	3	0	3
+2021-12-17	Almtuna IS	AIK	4 - 2	4	2	3	0
+2021-12-17	Södertälje SK	BIK Karlskoga	2 - 3	2	3	0	3
+2021-12-17	Vita Hästen	Troja-Ljungby	5 - 3	5	3	3	0
+2021-12-17	Västerviks IK	Kristianstads IK	0 - 2	0	2	0	3
+2021-12-17	Tingsryd AIF	HV71	0 - 4	0	4	0	3
+2021-12-18	Mora IK	Södertälje SK	3 - 2 OT	3	2	2	1
+2021-12-18	BIK Karlskoga	Västerås IK	4 - 2	4	2	3	0
+2021-12-18	AIK	Vita Hästen	3 - 2 SO	3	2	2	1
+2021-12-18	Troja-Ljungby	Tingsryd AIF	6 - 5 OT	6	5	2	1
+2021-12-18	MoDo Hockey	Björklöven	7 - 1	7	1	3	0
+2021-12-18	HV71	Almtuna IS	2 - 1	2	1	3	0
+2021-12-18	Kristianstads IK	Västerviks IK	5 - 0	5	0	3	0
+2021-12-27	Mora IK	MoDo Hockey	4 - 3 OT	4	3	2	1
+2021-12-27	BIK Karlskoga	Almtuna IS	4 - 3 OT	4	3	2	1
+2021-12-27	Västerås IK	Björklöven	6 - 5 OT	6	5	2	1
+2021-12-27	Södertälje SK	Troja-Ljungby	2 - 3 OT	2	3	1	2
+2021-12-27	Vita Hästen	Kristianstads IK	3 - 4 SO	3	4	1	2
+2021-12-27	Västerviks IK	HV71	5 - 2	5	2	3	0
+2021-12-27	Tingsryd AIF	AIK	2 - 5	2	5	0	3
+2021-12-29	Björklöven	BIK Karlskoga	3 - 4 SO	3	4	1	2
+2021-12-29	MoDo Hockey	Västerviks IK	4 - 3 OT	4	3	2	1
+2021-12-29	Almtuna IS	Mora IK	3 - 2	3	2	3	0
+2021-12-29	AIK	Södertälje SK	4 - 3	4	3	3	0
+2021-12-29	Vita Hästen	Västerås IK	5 - 4	5	4	3	0
+2021-12-29	Troja-Ljungby	HV71	0 - 2	0	2	0	3
+2021-12-29	Tingsryd AIF	Kristianstads IK	2 - 3 SO	2	3	1	2
+2021-12-30	Mora IK	Vita Hästen	5 - 4 SO	5	4	2	1
+2021-12-30	Västerås IK	Almtuna IS	5 - 1	5	1	3	0
+2021-12-30	Södertälje SK	AIK	0 - 3	0	3	0	3
+2021-12-30	HV71	Tingsryd AIF	5 - 3	5	3	3	0
+2021-12-30	Kristianstads IK	Troja-Ljungby	9 - 1	9	1	3	0
+2022-01-05	Almtuna IS	Björklöven	0 - 3	0	3	0	3
+2022-01-12	Mora IK	Västerviks IK	3 - 1	3	1	3	0
+2022-01-12	Kristianstads IK	MoDo Hockey	4 - 3 OT	4	3	2	1
+2022-01-12	BIK Karlskoga	HV71	4 - 3	4	3	3	0
+2022-01-14	BIK Karlskoga	Mora IK	5 - 2	5	2	3	0
+2022-01-14	Tingsryd AIF	MoDo Hockey	1 - 3	1	3	0	3
+2022-01-14	Västerås IK	Kristianstads IK	6 - 3	6	3	3	0
+2022-01-16	BIK Karlskoga	Södertälje SK	0 - 2	0	2	0	3
+2022-01-16	Mora IK	Kristianstads IK	3 - 4	3	4	0	3
+2022-01-17	Mora IK	Kristianstads IK	6 - 5	6	5	3	0
+2022-01-17	Almtuna IS	HV71	2 - 3	2	3	0	3
+2022-01-19	Björklöven	HV71	2 - 5	2	5	0	3
+2022-01-19	MoDo Hockey	Troja-Ljungby	1 - 2 SO	1	2	1	2
+2022-01-19	Södertälje SK	Tingsryd AIF	2 - 4	2	4	0	3
+2022-01-19	AIK	Mora IK	1 - 2	1	2	0	3
+2022-01-19	Almtuna IS	Kristianstads IK	2 - 5	2	5	0	3
+2022-01-19	Vita Hästen	Västerås IK	5 - 1	5	1	3	0
+2022-01-21	MoDo Hockey	HV71	3 - 1	3	1	3	0
+2022-01-21	Mora IK	Almtuna IS	1 - 2	1	2	0	3
+2022-01-21	Västerviks IK	Södertälje SK	4 - 3	4	3	3	0
+2022-01-21	Kristianstads IK	AIK	4 - 2	4	2	3	0
+2022-01-21	Västerås IK	Tingsryd AIF	4 - 0	4	0	3	0
+2022-01-22	Västerviks IK	AIK	1 - 3	1	3	0	3
+2022-01-23	MoDo Hockey	Södertälje SK	4 - 3 SO	4	3	2	1
+2022-01-23	Tingsryd AIF	Vita Hästen	2 - 3 OT	2	3	1	2
+2022-01-24	Kristianstads IK	Björklöven	2 - 7	2	7	0	3
+2022-01-25	Tingsryd AIF	Almtuna IS	3 - 2 SO	3	2	2	1
+2022-01-26	BIK Karlskoga	Björklöven	3 - 2 OT	3	2	2	1
+2022-01-26	Södertälje SK	MoDo Hockey	3 - 7	3	7	0	3
+2022-01-26	AIK	Vita Hästen	3 - 0	3	0	3	0
+2022-01-26	HV71	Västerviks IK	4 - 3	4	3	3	0
+2022-01-28	Björklöven	Mora IK	1 - 2 OT	1	2	1	2
+2022-01-28	Almtuna IS	Västerviks IK	4 - 3	4	3	3	0
+2022-01-28	Troja-Ljungby	AIK	1 - 4	1	4	0	3
+2022-01-28	BIK Karlskoga	MoDo Hockey	5 - 2	5	2	3	0
+2022-01-29	Södertälje SK	Västerviks IK	3 - 2 SO	3	2	2	1
+2022-01-30	Mora IK	Vita Hästen	3 - 6	3	6	0	3
+2022-01-30	Björklöven	Almtuna IS	5 - 1	5	1	3	0
+2022-01-30	Troja-Ljungby	BIK Karlskoga	1 - 4	1	4	0	3
+2022-02-02	Björklöven	AIK	6 - 3	6	3	3	0
+2022-02-02	Mora IK	Troja-Ljungby	5 - 0	5	0	3	0
+2022-02-02	MoDo Hockey	BIK Karlskoga	4 - 3 OT	4	3	2	1
+2022-02-02	Västerås IK	Västerviks IK	3 - 4	3	4	0	3
+2022-02-02	Vita Hästen	HV71	3 - 4	3	4	0	3
+2022-02-02	Tingsryd AIF	Södertälje SK	5 - 4	5	4	3	0
+2022-02-04	MoDo Hockey	AIK	4 - 1	4	1	3	0
+2022-02-04	HV71	Västerås IK	4 - 1	4	1	3	0
+2022-02-04	Kristianstads IK	Tingsryd AIF	2 - 4	2	4	0	3
+2022-02-04	Mora IK	Västerviks IK	2 - 0	2	0	3	0
+2022-02-05	Almtuna IS	BIK Karlskoga	0 - 1	0	1	0	3
+2022-02-05	Södertälje SK	Björklöven	4 - 1	4	1	3	0
+2022-02-05	Troja-Ljungby	Vita Hästen	4 - 3	4	3	3	0
+2022-02-06	AIK	Kristianstads IK	3 - 2	3	2	3	0
+2022-02-06	Almtuna IS	Björklöven	5 - 4 OT	5	4	2	1
+2022-02-06	Västerviks IK	Västerås IK	1 - 2 OT	1	2	1	2
+2022-02-08	Troja-Ljungby	Västerås IK	1 - 2 SO	1	2	1	2
+2022-02-09	Björklöven	AIK	2 - 3	2	3	0	3
+2022-02-09	BIK Karlskoga	Mora IK	4 - 0	4	0	3	0
+2022-02-09	Almtuna IS	Tingsryd AIF	3 - 2	3	2	3	0
+2022-02-09	Södertälje SK	MoDo Hockey	2 - 3 SO	2	3	1	2
+2022-02-09	HV71	Vita Hästen	8 - 2	8	2	3	0
+2022-02-09	Västerviks IK	Kristianstads IK	3 - 7	3	7	0	3
+2022-02-11	Mora IK	MoDo Hockey	4 - 3	4	3	3	0
+2022-02-11	BIK Karlskoga	Södertälje SK	4 - 2	4	2	3	0
+2022-02-11	Västerås IK	Björklöven	0 - 4	0	4	0	3
+2022-02-11	AIK	Almtuna IS	5 - 0	5	0	3	0
+2022-02-11	Vita Hästen	Västerviks IK	4 - 3 OT	4	3	2	1
+2022-02-11	Tingsryd AIF	Troja-Ljungby	3 - 2	3	2	3	0
+2022-02-11	Kristianstads IK	HV71	1 - 2	1	2	0	3
+2022-02-12	Almtuna IS	Vita Hästen	3 - 1	3	1	3	0
+2022-02-12	Södertälje SK	AIK	3 - 1	3	1	3	0
+2022-02-12	HV71	BIK Karlskoga	4 - 1	4	1	3	0
+2022-02-12	Västerviks IK	Tingsryd AIF	3 - 4 OT	3	4	1	2
+2022-02-13	MoDo Hockey	Mora IK	2 - 1	2	1	3	0
+2022-02-13	Troja-Ljungby	Kristianstads IK	4 - 3	4	3	3	0
+2022-02-14	Almtuna IS	Vita Hästen	4 - 3 SO	4	3	2	1
+2022-02-15	AIK	Tingsryd AIF	4 - 3 OT	4	3	2	1
+2022-02-16	Björklöven	Vita Hästen	6 - 2	6	2	3	0
+2022-02-16	MoDo Hockey	Almtuna IS	4 - 3 SO	4	3	2	1
+2022-02-16	Kristianstads IK	Mora IK	2 - 5	2	5	0	3
+2022-02-16	BIK Karlskoga	Troja-Ljungby	4 - 2	4	2	3	0
+2022-02-16	Södertälje SK	HV71	3 - 7	3	7	0	3
+2022-02-16	Västerviks IK	Västerås IK	5 - 0 WO	5	0	3	0
+2022-02-18	Västerås IK	Södertälje SK	0 - 5 WO	0	5	0	3
+2022-02-18	Almtuna IS	Västerviks IK	1 - 4	1	4	0	3
+2022-02-18	AIK	Björklöven	6 - 1	6	1	3	0
+2022-02-18	Kristianstads IK	Mora IK	0 - 4	0	4	0	3
+2022-02-18	Tingsryd AIF	HV71	0 - 6	0	6	0	3
+2022-02-19	Vita Hästen	MoDo Hockey	4 - 5 SO	4	5	1	2
+2022-02-19	HV71	Almtuna IS	5 - 3	5	3	3	0
+2022-02-19	Kristianstads IK	Troja-Ljungby	4 - 0	4	0	3	0
+2022-02-20	AIK	MoDo Hockey	4 - 1	4	1	3	0
+2022-02-20	Tingsryd AIF	Björklöven	3 - 2 SO	3	2	2	1
+2022-02-21	Troja-Ljungby	Mora IK	1 - 3	1	3	0	3
+2022-02-22	Södertälje SK	Vita Hästen	1 - 4	1	4	0	3
+2022-02-23	Björklöven	Tingsryd AIF	5 - 2	5	2	3	0
+2022-02-23	MoDo Hockey	Kristianstads IK	4 - 3	4	3	3	0
+2022-02-23	BIK Karlskoga	AIK	1 - 0	1	0	3	0
+2022-02-23	Almtuna IS	Västerås IK	0 - 4	0	4	0	3
+2022-02-23	HV71	Västerviks IK	2 - 3	2	3	0	3
+2022-02-23	Troja-Ljungby	Mora IK	7 - 6 SO	7	6	2	1
+2022-02-25	Mora IK	HV71	3 - 4 SO	3	4	1	2
+2022-02-25	Västerås IK	BIK Karlskoga	4 - 2	4	2	3	0
+2022-02-25	AIK	Troja-Ljungby	6 - 3	6	3	3	0
+2022-02-25	Västerviks IK	Almtuna IS	4 - 1	4	1	3	0
+2022-02-25	MoDo Hockey	Tingsryd AIF	2 - 1	2	1	3	0
+2022-02-25	Björklöven	Kristianstads IK	4 - 2	4	2	3	0
+2022-02-25	Vita Hästen	Södertälje SK	4 - 1	4	1	3	0
+2022-02-26	Västerås IK	HV71	3 - 2	3	2	3	0
+2022-02-26	Västerviks IK	Almtuna IS	3 - 2	3	2	3	0
+2022-02-27	Södertälje SK	Vita Hästen	3 - 2	3	2	3	0
+2022-02-28	AIK	BIK Karlskoga	2 - 6	2	6	0	3
+2022-02-28	Troja-Ljungby	Västerås IK	2 - 3 OT	2	3	1	2
+2022-02-28	Västerviks IK	Björklöven	1 - 6	1	6	0	3
+2022-03-02	Tingsryd AIF	Västerås IK	2 - 3	2	3	0	3
+2022-03-02	Vita Hästen	AIK	0 - 1	0	1	0	3
+2022-03-02	HV71	Björklöven	2 - 3 OT	2	3	1	2
+2022-03-02	Troja-Ljungby	MoDo Hockey	3 - 7	3	7	0	3
+2022-03-02	Västerviks IK	BIK Karlskoga	2 - 3 OT	2	3	1	2
+2022-03-02	Kristianstads IK	Södertälje SK	3 - 2 OT	3	2	2	1
+2022-03-04	BIK Karlskoga	Tingsryd AIF	1 - 0	1	0	3	0
+2022-03-04	Västerås IK	Mora IK	3 - 4	3	4	0	3
+2022-03-04	Vita Hästen	Almtuna IS	4 - 3 OT	4	3	2	1
+2022-03-04	AIK	Västerviks IK	2 - 4	2	4	0	3
+2022-03-04	HV71	MoDo Hockey	4 - 0	4	0	3	0
+2022-03-04	Troja-Ljungby	Björklöven	1 - 3	1	3	0	3
+2022-03-04	Södertälje SK	Kristianstads IK	1 - 3	1	3	0	3
+2022-03-05	BIK Karlskoga	HV71	1 - 4	1	4	0	3
+2022-03-06	Björklöven	Vita Hästen	4 - 1	4	1	3	0
+2022-03-06	Tingsryd AIF	Kristianstads IK	2 - 1	2	1	3	0
+2022-03-06	Västerås IK	Troja-Ljungby	5 - 0	5	0	3	0
+2022-03-07	Västerås IK	Troja-Ljungby	5 - 2	5	2	3	0
+2022-03-09	Troja-Ljungby	Tingsryd AIF	4 - 3 OT	4	3	2	1
+2022-03-09	Vita Hästen	BIK Karlskoga	5 - 2	5	2	3	0
+2022-03-09	HV71	Södertälje SK	3 - 1	3	1	3	0
+2022-03-09	Mora IK	Västerås IK	5 - 2	5	2	3	0
+2022-03-09	Kristianstads IK	Almtuna IS	1 - 5	1	5	0	3
+2022-03-09	MoDo Hockey	AIK	5 - 2	5	2	3	0
+2022-03-11	HV71	Troja-Ljungby	3 - 2	3	2	3	0
+2022-03-11	BIK Karlskoga	Vita Hästen	3 - 2 SO	3	2	2	1
+2022-03-11	Västerviks IK	Mora IK	2 - 1 OT	2	1	2	1
+2022-03-11	Björklöven	Västerås IK	4 - 6	4	6	0	3
+2022-03-11	Södertälje SK	Tingsryd AIF	2 - 3	2	3	0	3
+2022-03-13	Vita Hästen	Södertälje SK	3 - 4 OT	3	4	1	2
+2022-03-13	AIK	Tingsryd AIF	1 - 4	1	4	0	3
+2022-03-13	Björklöven	Troja-Ljungby	3 - 2 OT	3	2	2	1
+2022-03-14	Västerviks IK	BIK Karlskoga	5 - 2	5	2	3	0
+2022-03-14	Västerås IK	MoDo Hockey	2 - 4	2	4	0	3
+2022-03-16	Björklöven	Västerviks IK	4 - 2	4	2	3	0
+2022-03-16	AIK	MoDo Hockey	1 - 3	1	3	0	3
+2022-03-16	Almtuna IS	Västerås IK	2 - 3 OT	2	3	1	2
+2022-03-16	Vita Hästen	Kristianstads IK	2 - 8	2	8	0	3
+2022-03-16	HV71	Mora IK	6 - 5 OT	6	5	2	1
+2022-03-16	Troja-Ljungby	Södertälje SK	2 - 4	2	4	0	3
+2022-03-16	Tingsryd AIF	BIK Karlskoga	1 - 4	1	4	0	3
+        `;
+
+        // --- GLOBALA VARIABLER ---
+        let allTeams, allDates, pointsByDate, pointsByMatches, minGamesPlayed;
+
+        // --- DATABEARBETNING ---
+        function processData() {
+            const lines = rawData.trim().split('\n').slice(1);
+            const matches = lines.map(line => {
+                const parts = line.split('\t');
+                return { 
+                    date: parts[0].trim(), homeTeam: parts[1], awayTeam: parts[2], homeGoals: parseInt(parts[4]),
+                    awayGoals: parseInt(parts[5]), homePoints: parseInt(parts[6]), awayPoints: parseInt(parts[7]) 
+                };
+            }).sort((a, b) => a.date.localeCompare(b.date));
+
+            allTeams = [...new Set(matches.flatMap(m => [m.homeTeam, m.awayTeam]))].sort((a,b) => a.localeCompare(b, 'sv'));
+            allDates = ["Start", ...[...new Set(matches.map(m => m.date))]];
+
+            pointsByDate = {};
+            allTeams.forEach(team => {
+                pointsByDate[team] = { "Start": { points: 0, goalDiff: 0 } };
+                let cumulativePoints = 0; let cumulativeGoalDiff = 0;
+                allDates.slice(1).forEach(date => {
+                    matches.forEach(match => {
+                        if (match.date === date) {
+                            if (match.homeTeam === team) {
+                                cumulativePoints += match.homePoints; cumulativeGoalDiff += (match.homeGoals - match.awayGoals);
+                            }
+                            if (match.awayTeam === team) {
+                                cumulativePoints += match.awayPoints; cumulativeGoalDiff += (match.awayGoals - match.homeGoals);
+                            }
+                        }
+                    });
+                    pointsByDate[team][date] = { points: cumulativePoints, goalDiff: cumulativeGoalDiff };
+                });
+            });
+
+            const teamHistory = {};
+            allTeams.forEach(team => teamHistory[team] = [{ games: 0, points: 0, goalDiff: 0 }]);
+            
+            matches.forEach(match => {
+                const homeLast = teamHistory[match.homeTeam].slice(-1)[0];
+                teamHistory[match.homeTeam].push({ games: homeLast.games + 1, points: homeLast.points + match.homePoints, goalDiff: homeLast.goalDiff + (match.homeGoals - match.awayGoals) });
+                const awayLast = teamHistory[match.awayTeam].slice(-1)[0];
+                teamHistory[match.awayTeam].push({ games: awayLast.games + 1, points: awayLast.points + match.awayPoints, goalDiff: awayLast.goalDiff + (match.awayGoals - match.homeGoals) });
+            });
+            
+            minGamesPlayed = Math.min(...Object.values(teamHistory).map(h => h.length - 1));
+            
+            pointsByMatches = Array(minGamesPlayed + 1).fill(null).map(() => ({}));
+            for (let i = 0; i <= minGamesPlayed; i++) {
+                allTeams.forEach(team => {
+                    const entry = teamHistory[team].find(e => e.games === i) || teamHistory[team].filter(e => e.games < i).slice(-1)[0];
+                    pointsByMatches[i][team] = { points: entry.points, goalDiff: entry.goalDiff };
+                });
+            }
+
+            const lastDate = allDates[allDates.length - 1];
+            FINAL_LEADER_POINTS = Math.max(...allTeams.map(team => pointsByDate[team][lastDate].points));
+        }
+
+        // --- INITIERING AV UI ---
+        const slider = document.getElementById('timeline-slider');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const colorPalette = document.getElementById('color-palette');
+        const resetAllColorsBtn = document.getElementById('reset-all-colors-btn');
+        const dropdownToggleButton = document.getElementById('dropdown-toggle-button');
+        const dropdownMenuContent = document.getElementById('dropdown-menu-content');
+        const dropdownContainer = document.querySelector('.title-dropdown');
+        const chartContainer = document.querySelector('.chart-container');
+        const chartCanvas = document.getElementById('points-chart');
+        
+        const chartCtx = chartCanvas.getContext('2d');
+        const pointsChart = new Chart(chartCtx, {
+            type: 'bar',
+            data: { labels: [], datasets: [{ label: 'Poäng', data: [] }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Viktigt för dynamisk höjd
+                indexAxis: 'y',
+                scales: { 
+                    x: { beginAtZero: true, title: { display: true, text: 'Totala poäng' }, ticks: { precision: 0 } } 
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        function initializeUI() {
+            const teamSelectionContainer = document.getElementById('team-selection');
+            teamSelectionContainer.innerHTML = '';
+            allTeams.forEach(team => {
+                const wrapper = document.createElement('div'); wrapper.className = 'team-item-wrapper';
+                const label = document.createElement('label'); label.className = 'team-label';
+                label.innerHTML = `<input type="checkbox" class="team-checkbox" value="${team}" checked> <span>${team}</span>`;
+                const colorIcon = document.createElement('span'); colorIcon.className = 'color-picker-icon';
+                colorIcon.innerHTML = '&#x1F3A8;'; colorIcon.dataset.team = team; colorIcon.title = 'Ändra färg';
+                wrapper.appendChild(label); wrapper.appendChild(colorIcon); teamSelectionContainer.appendChild(wrapper);
+            });
+
+            PALETTE_COLORS.forEach(color => {
+                const swatch = document.createElement('span'); swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = color; swatch.dataset.color = color; colorPalette.appendChild(swatch);
+            });
+            colorPalette.innerHTML += '<span id="reset-color" title="Återställ färg">&#10060;</span>';
+
+            setupEventListeners();
+            updateSliderRange();
+            updateChart();
+        }
+        
+        function stopPlayback() {
+            if (playbackInterval) {
+                clearInterval(playbackInterval); playbackInterval = null;
+                playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden');
+            }
+        }
+
+        function togglePlayback() {
+            if (playbackInterval) { stopPlayback(); } 
+            else {
+                playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
+                playbackInterval = setInterval(() => {
+                    let currentValue = parseInt(slider.value);
+                    if (currentValue < slider.max) { slider.value = currentValue + 1; updateChart(); } 
+                    else { stopPlayback(); }
+                }, PLAYBACK_SPEED_MS);
+            }
+        }
+
+        function updateSliderRange() {
+            stopPlayback();
+            const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+            slider.max = (mode === 'matches') ? minGamesPlayed : allDates.length - 1;
+            slider.value = 0;
+        }
+
+        function updateChart() {
+            const selectedTeams = Array.from(document.querySelectorAll('.team-checkbox:checked'));
+            const selectedTeamNames = selectedTeams.map(cb => cb.value);
+            const numSelectedTeams = selectedTeamNames.length; // Antal lag som ska visas
+            const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+            const step = parseInt(slider.value);
+
+            document.getElementById('filter-summary').textContent = `Filtrera lag (${selectedTeams.length}/${allTeams.length} valda)`;
+            resetAllColorsBtn.classList.toggle('hidden', Object.keys(teamColors).length === 0);
+
+            let currentData = {}; let displayLabel = "";
+            if (mode === 'matches') {
+                displayLabel = step === 0 ? "&nbsp;" : `Efter ${step} spelade matcher`;
+                currentData = pointsByMatches[step];
+            } else {
+                const date = allDates[step];
+                displayLabel = date === "Start" ? "&nbsp;" : date;
+                currentData = {}; allTeams.forEach(team => currentData[team] = pointsByDate[team][date]);
+            }
+            document.getElementById('current-step-display').innerHTML = displayLabel;
+
+            let chartData = selectedTeamNames.map(team => ({ team: team, points: currentData[team].points, goalDiff: currentData[team].goalDiff }));
+            
+            const axisOption = document.querySelector('input[name="axis-scale"]:checked').value;
+            switch (axisOption) {
+                case 'seasonMax': pointsChart.options.scales.x.max = SEASON_MAX_POINTS; break;
+                case 'currentLeader': pointsChart.options.scales.x.max = FINAL_LEADER_POINTS; break;
+                default: 
+                    const maxPointValue = chartData.length > 0 ? Math.max(...chartData.map(d => d.points)) : 0;
+                    pointsChart.options.scales.x.max = (maxPointValue < 3 && maxPointValue >= 0) ? 3 : undefined; break;
+            }
+            
+            const sortOrder = document.querySelector('input[name="sort-order"]:checked').value;
+            if (sortOrder === 'points') {
+                chartData.sort((a, b) => {
+                    if (b.points !== a.points) return b.points - a.points;
+                    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+                    return a.team.localeCompare(b.team, 'sv');
+                });
+            } else { chartData.sort((a, b) => a.team.localeCompare(b.team, 'sv')); }
+            
+            // Beräkna och sätt dynamisk höjd
+            const calculatedHeight = numSelectedTeams * MIN_BAR_HEIGHT + CHART_PADDING;
+            chartContainer.style.height = `${calculatedHeight}px`;
+
+            pointsChart.data.labels = chartData.map(d => d.team);
+            pointsChart.data.datasets[0].data = chartData.map(d => d.points);
+            pointsChart.data.datasets[0].backgroundColor = chartData.map(d => teamColors[d.team] || DEFAULT_BAR_COLOR);
+            pointsChart.update();
+            
+            document.querySelectorAll('.color-picker-icon').forEach(icon => {
+                const teamName = icon.dataset.team;
+                if (teamColors[teamName]) { icon.innerHTML = `<div class="color-indicator" style="background-color: ${teamColors[teamName]}"></div>`; } 
+                else { icon.innerHTML = '&#x1F3A8;'; }
+            });
+        }
+
+        function setupEventListeners() {
+            slider.addEventListener('input', () => { stopPlayback(); updateChart(); });
+            playPauseBtn.addEventListener('click', togglePlayback);
+
+            const teamSelectionContainer = document.querySelector('#team-selection');
+            teamSelectionContainer.addEventListener('click', (e) => {
+                const icon = e.target.closest('.color-picker-icon');
+                if (icon) {
+                    stopPlayback(); const teamName = icon.dataset.team; const rect = icon.getBoundingClientRect();
+                    colorPalette.style.display = 'flex';
+                    colorPalette.style.left = `${rect.left + window.scrollX}px`;
+                    colorPalette.style.top = `${rect.bottom + window.scrollY + 5}px`;
+                    colorPalette.dataset.team = teamName;
+                }
+            });
+
+            colorPalette.addEventListener('click', (e) => {
+                const teamName = colorPalette.dataset.team;
+                if (e.target.classList.contains('color-swatch')) { teamColors[teamName] = e.target.dataset.color; } 
+                else if (e.target.id === 'reset-color') { delete teamColors[teamName]; }
+                colorPalette.style.display = 'none'; updateChart();
+            });
+            
+            resetAllColorsBtn.addEventListener('click', () => { teamColors = {}; updateChart(); });
+
+            document.addEventListener('click', (e) => {
+                const target = e.target;
+                if (!colorPalette.contains(target) && !target.closest('.color-picker-icon')) { colorPalette.style.display = 'none'; }
+                if (!dropdownContainer.contains(target)) { dropdownMenuContent.classList.remove('active'); dropdownContainer.classList.remove('active');}
+            });
+
+            dropdownToggleButton.addEventListener('click', (e) => {
+                 e.stopPropagation();
+                 dropdownMenuContent.classList.toggle('active');
+                 dropdownContainer.classList.toggle('active');
+            });
+
+            document.querySelectorAll('input[name="sort-order"], input[name="axis-scale"]').forEach(radio => radio.addEventListener('change', () => { stopPlayback(); updateChart(); }));
+            document.querySelectorAll('input[name="timeline-mode"]').forEach(radio => radio.addEventListener('change', () => { updateSliderRange(); updateChart(); }));
+
+            document.getElementById('select-all').addEventListener('click', () => { stopPlayback(); document.querySelectorAll('.team-checkbox').forEach(cb => cb.checked = true); updateChart(); });
+            document.getElementById('deselect-all').addEventListener('click', () => { stopPlayback(); document.querySelectorAll('.team-checkbox').forEach(cb => cb.checked = false); updateChart(); });
+
+            document.getElementById('prev-step').addEventListener('click', () => {
+                stopPlayback(); let val = parseInt(slider.value); if (val > 0) { slider.value = val - 1; updateChart(); }
+            });
+            document.getElementById('next-step').addEventListener('click', () => {
+                stopPlayback(); let val = parseInt(slider.value); if (val < slider.max) { slider.value = val + 1; updateChart(); }
+            });
+        }
+
+        processData();
+        initializeUI();
+    </script>
+</body>
+</html>

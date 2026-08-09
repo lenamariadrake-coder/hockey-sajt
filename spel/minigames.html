@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="sv">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minispel</title>
+  <style>
+    /* Minimal CSS med nödvändiga skuggor / visuella hjälpmedel (ingen hover-elevation på listan) */
+    :root {
+      --bg: #f7f8fa;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #6b7280;
+      --accent: #0b6efd;
+      --maxw: 900px;
+    }
+
+    /* Grund */
+    html,
+    body {
+      height: 100%
+    }
+
+    body {
+      margin: 0;
+      padding: 2rem 1rem;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      line-height: 1.45;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* Huvudbehållare — subtil skugga och rundade hörn */
+    .wrap {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem;
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid rgba(15, 17, 34, 0.04);
+      box-shadow: 0 8px 24px rgba(15, 17, 34, 0.06);
+    }
+
+    /* Typografi */
+    h1 {
+      margin: 0 0 0.6rem 0;
+      font-size: 2rem;
+    }
+
+    h2.section-heading {
+      margin: 2.2rem 0 1rem 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    p {
+      margin: 0 0 0.9rem 0;
+      color: var(--text);
+    }
+
+    p.lead {
+      margin-bottom: 0.6rem;
+    }
+
+    /* Lista — neutral stil utan klickindikation; lätt separation */
+    ol.fragor {
+      margin: 0 0 0 1.25rem;
+      padding: 0;
+      list-style: decimal;
+    }
+
+    li.fraga {
+      margin: 0 0 0.5rem 0;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      background: transparent;
+      /* inga transitions eller hover-lyft här så ämnen inte ser klickbara ut */
+    }
+
+    /* subtil linje mellan poster för separation */
+    li.fraga+li.fraga {
+      border-top: 1px solid rgba(15, 17, 34, 0.03);
+      padding-top: 0.7rem;
+      margin-top: 0.3rem;
+    }
+
+    /* Länkar — synliga men diskreta */
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    a:focus {
+      outline: 3px solid rgba(11, 110, 253, 0.12);
+      outline-offset: 3px;
+    }
+
+
+
+
+
+    /* Enkel mobiljustering */
+    @media (max-width:520px) {
+      body {
+        padding: 1rem;
+      }
+
+      .wrap {
+        padding: 1rem;
+        border-radius: 10px;
+      }
+
+      li.fraga {
+        padding: 0.6rem 0.6rem;
+      }
+    }
+
+    /* Team-knappar — placerar dem på en rad, pill-knappar med bra fokus */
+    .team-links {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      /* bryt till nästa rad på små skärmar */
+      align-items: center;
+      margin: 0 0 0.8rem 0;
+      /* utrymme under raden */
+    }
+
+    .team-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.36rem 0.7rem;
+      font-size: 0.95rem;
+      line-height: 1;
+      text-decoration: none;
+      border-radius: 999px;
+      border: 1px solid rgba(11, 110, 253, 0.12);
+      background: rgba(11, 110, 253, 0.06);
+      color: var(--accent);
+      transition: background-color .12s ease, transform .06s ease, box-shadow .12s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Diskret variant för sekundär (om du vill markera aktuell sida, använd .team-link.active) */
+    .team-link.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: rgba(11, 110, 253, 0.22);
+      box-shadow: 0 6px 18px rgba(11, 110, 253, 0.08);
+    }
+
+    /* Hover och fokus — gör tydligt att det är klickbart */
+    .team-link:hover,
+    .team-link:focus {
+      background: rgba(11, 110, 253, 0.12);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    /* Tydlig fokusring för tangentbordsanvändare */
+    .team-link:focus-visible {
+      box-shadow: 0 0 0 3px rgba(11, 110, 253, 0.12);
+      border-color: rgba(11, 110, 253, 0.22);
+    }
+
+    /* Mobiljustering: större tryckyta på små skärmar */
+    @media (max-width:520px) {
+      .team-link {
+        padding: 0.48rem 0.9rem;
+        font-size: 1rem;
+      }
+    }
+
+
+    /* Respektera användarens önskan om reducerad rörelse */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+
+    /* ===== SPELÖVERSIKT ===== */
+
+    /* Container för spelkort */
+    .game-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      margin-top: 1rem;
+    }
+
+    /* Varje spelkort */
+    .game-card {
+      background: var(--card);
+      border: 1px solid rgba(15, 17, 34, 0.05);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 4px 10px rgba(15, 17, 34, 0.04);
+    }
+
+    /* Knappliknande länkar till spelen */
+    .game-link {
+      display: inline-block;
+      margin-bottom: 0.4rem;
+      padding: 0.45rem 0.9rem;
+      background: rgba(11, 110, 253, 0.08);
+      color: var(--accent);
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background-color .12s ease, transform .06s ease;
+    }
+
+    .game-link:hover,
+    .game-link:focus {
+      background: rgba(11, 110, 253, 0.15);
+      transform: translateY(-1px);
+    }
+
+    /* Tillbaka-knapp */
+    .tillbakaknapp {
+      display: inline-block;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+      margin-bottom: 1.2rem;
+    }
+
+    .tillbakaknapp:hover,
+    .tillbakaknapp:focus {
+      text-decoration: underline;
+    }
+
+    /* Mobiljustering */
+    @media (max-width:520px) {
+      .game-card {
+        padding: 0.9rem;
+      }
+
+      .game-link {
+        display: block;
+        width: fit-content;
+      }
+    }
+
+    /* ===== SPELÖVERSIKT / KNAPPAR ===== */
+
+    /* Kortlista */
+    .game-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+      margin-top: 1rem;
+    }
+
+    .game-card {
+      background: var(--card);
+      border: 1px solid rgba(15, 17, 34, 0.06);
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 6px 16px rgba(15, 17, 34, 0.05);
+    }
+
+    /* Bas-knapp */
+    .btn {
+      display: inline-block;
+      text-decoration: none;
+      /* överstyr understrykning */
+      font-weight: 600;
+      padding: 0.55rem 1rem;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff !important;
+      /* säkerställ vit text */
+      border: 1px solid rgba(11, 110, 253, 0.2);
+      transition: transform .06s ease, box-shadow .12s ease, background-color .12s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:hover,
+    .btn:focus {
+      background: #0a5fe0;
+      /* lite mörkare */
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(11, 110, 253, 0.18);
+      outline: none;
+    }
+
+    /* Tillbakalänk – diskret pill-knapp, inte fylld */
+    .tillbakaknapp {
+      display: inline-block;
+      text-decoration: none;
+      /* ingen understrykning */
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid rgba(11, 110, 253, 0.25);
+      color: var(--accent);
+      background: rgba(11, 110, 253, 0.06);
+      font-weight: 500;
+    }
+
+    .tillbakaknapp:hover,
+    .tillbakaknapp:focus {
+      background: rgba(11, 110, 253, 0.12);
+      outline: none;
+      text-decoration: none;
+    }
+
+    /* Valfritt: två kolumner på större skärmar */
+    @media (min-width:720px) {
+      .game-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.1rem;
+      }
+    }
+  </style>
+
+</head>
+
+<body>
+  <div class="wrap">
+
+    <p><a class="tillbakaknapp" href="../index.html" aria-label="Gå tillbaka till startsidan">Tillbaka till startsidan</a>
+    </p>
+
+    <!--h1>Minispel</h1-->
+    <!--p class="lead">Här hittar du små spel med hockeytema.</p-->
+
+    <section>
+      <!--h2 class="section-heading">Tillgängliga spel</h2-->
+
+      <div class="game-list">
+
+        <div class="game-card">
+          <a class="game-link btn" href="memory_game_hockey.html">Memory-spel</a>
+          <p>
+            Matcha spelare med rätt nummer i ett klassiskt memoryspel. När du är klar får du
+            se hur lång tid det tog, hur många drag du behövde samt hur många missar du fick.
+            En sorts miss är att du misslyckas att matcha ett par trots att minst en av brickorna
+            du vände på var känd sedan tidigare. Den andra sortens miss är när du vänder på en bricka
+            och missar att vända på den matchande brickan trots att den är känd sedan tidigare.</p>
+          <p>
+            Tillgängliga lag: samtliga lag i Hockeyallsvenskan, SDHL och SHL samt Detroit Red Wings i NHL.
+          </p>
+          <p>
+            OBS! Laguppställningarna kan ha ändrats något sedan spelen senast uppdaterades.
+          </p>
+        </div>
+
+        <div class="game-card">
+          <a class="game-link btn" href="match_jersey_number.html">Matcha spelare med rätt nummer på tid</a>
+          <p style="padding-top: 10px">
+            Du ska försöka matcha varje spelare i valt lag med rätt nummer så snabbt som möjligt eller vice versa,
+            det bestämmer du själv. Du får en spelare eller ett nummer i taget och har en kort stund på dig att välja
+            rätt alternativ. Om du väntar för länge eller klickar på fel nummer/spelare har du förlorat.
+          </p>
+          <p>
+            Du kan även välja att blanda lag fritt för en ännu större utmaning.
+          </p>
+          <p>
+            Tillgängliga lag: samtliga lag i Hockeyallsvenskan, SDHL och SHL samt Detroit Red Wings i NHL.
+          </p>
+          <p>
+            OBS! Laguppställningarna kan ha ändrats något sedan spelen senast uppdaterades.
+          </p>
+
+        </div>
+
+
+      </div>
+    </section>
+
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poängställning SHL 2025&#8211;2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 1.5rem;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+         h1 {
+             margin-bottom: 2rem;
+             text-align: center;
+         }
+        .title-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-toggle {
+            background: none; border: none; padding: 0; margin: 0; font-size: 1.4rem;
+            font-weight: bold; color: #1a2533; cursor: pointer; display: flex; align-items: center;
+        }
+        .dropdown-arrow {
+            margin-left: 0.5rem; font-size: 1rem; transition: transform 0.2s ease-in-out;
+        }
+        .title-dropdown.active .dropdown-arrow { transform: rotate(180deg); }
+        .dropdown-menu {
+            display: none; position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
+            background-color: white; border: 1px solid #ddd; border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 1000; min-width: 250px; padding: 0.5rem 0;
+        }
+        .dropdown-menu.active { display: block; }
+        .dropdown-menu a {
+            display: block; padding: 0.45rem 1rem; color: #007bff; text-decoration: none; white-space: nowrap; font-size: 1.4rem;
+        }
+        .dropdown-menu a:hover { background-color: #f8f9fa; }
+
+        .dropdown-menu hr {
+            border: none; /* Ta bort standardramen */
+            border-top: 1px solid #d0d0d0; /* Lägg till en tunn, ljusgrå linje */
+            margin: 0.7rem 0; /* Lite luft ovanför och under linjen */
+        }
+
+        /* Stil för den valda länken */
+        .dropdown-menu a.chosen {
+            color: #000; /* Svart text */
+            font-weight: bold; /* Gör den fet (rekommenderat) */
+        }
+
+        /* Ta bort hover-effekt för den valda länken */
+        .dropdown-menu a.chosen:hover {
+            background-color: transparent; /* Ingen bakgrundsfärg */
+        }
+
+        .filter-section {
+            border: 1px solid #ddd; border-radius: 8px; margin-bottom: 2rem; margin-top: 1rem;
+        }
+        .filter-section summary {
+            cursor: pointer; padding: 1rem; font-weight: bold; list-style-position: inside;
+        }
+        .filter-section summary:hover { background-color: #f7f7f7; }
+        .filter-content {
+            display: flex; gap: 1.5rem; align-items: flex-start; padding: 0 1rem 1rem 1rem; border-top: 1px solid #ddd;
+        }
+        
+        #team-selection {
+            flex-grow: 1; display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 1rem;
+        }
+        
+        .action-buttons {
+            display: flex; flex-direction: column; gap: 0.5rem; flex-shrink: 0; padding-top: 1rem;
+            min-width: 175px; align-items: flex-end;
+        }
+        .action-buttons button {
+             padding: 0.5rem 1rem; border: 1px solid #6c757d; background-color: #fff; color: #6c757d;
+             border-radius: 5px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; white-space: nowrap;
+        }
+        .action-buttons button:hover { background-color: #6c757d; color: #fff; }
+
+        .team-item-wrapper {
+            display: flex; align-items: center; background-color: #e9ecef; border-radius: 20px; transition: background-color 0.2s;
+        }
+        .team-item-wrapper:hover { background-color: #dbe4f0; }
+        .team-label {
+            display: flex; align-items: center; padding: 0.5rem 0 0.5rem 1rem; cursor: pointer; font-size: 0.9rem;
+        }
+        .team-label input { margin-right: 0.5rem; }
+        
+        .color-picker-icon {
+            display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0.5rem 0.75rem;
+            margin-left: 0.5rem; border-left: 1px solid rgba(0,0,0,0.1); font-size: 1.1rem; width: 1em; height: 1em;
+        }
+        .color-indicator {
+            width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .controls-wrapper {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 2rem;
+        }
+        .main-control-groups { display: flex; flex-wrap: wrap; gap: 1rem; }
+        
+        .control-group {
+            display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; border: 1px solid #e9ecef;
+            background-color: #f8f9fa; padding: 0.75rem 1rem; border-radius: 8px;
+        }
+        #reset-all-colors-btn {
+             padding: 0.5rem 1rem; border: 1px solid #dc3545; background-color: #fff; color: #dc3545;
+             border-radius: 5px; cursor: pointer; transition: all 0.2s; font-weight: bold;
+        }
+        #reset-all-colors-btn:hover { background-color: #dc3545; color: #fff; }
+
+        /* --- Dynamisk höjd för diagrammet --- */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            min-height: 200px; /* Minimum höjd */
+            /* Ingen fast height här längre */
+        }
+
+        .slider-wrapper {
+            margin-top: 2.5rem; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 1rem 1.5rem;
+        }
+        .slider-display {
+            display: flex;
+            /* justify-content: space-between; ÄNDRAD FRÅN space-between */
+            justify-content: space-around; /* <= ÄNDRING: Bättre centrering vid radbyte */
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap; /* <= NY RAD: Tillåter elementen att byta rad */
+        }
+        .slider-info { /* <= NY REGEL FÖR DEN NYA DIV:en */
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-grow: 1; /* Tar upp ledigt utrymme */
+            justify-content: center; /* Centrerar när knappar radbryts */
+            margin-bottom: 0.5rem; /* Lite luft när knappar är under */
+        }
+        #slider-label {
+            text-transform: uppercase; letter-spacing: 1px; font-weight: bold; color: #495057;
+        }
+        #current-step-display {
+            font-weight: bold; font-size: 1.25rem; color: #007bff; text-align: center; flex-grow: 1; min-height: 1.5rem;
+        }
+        .player-controls { display: flex; gap: 0.5rem; }
+        .player-controls button {
+            display: flex; align-items: center; justify-content: center; background-color: #007bff; color: #fff;
+            border: none; padding: 0.6rem 1rem; border-radius: 5px; font-weight: bold; cursor: pointer;
+            transition: background-color 0.2s; white-space: nowrap;
+        }
+        .player-controls button svg { width: 1em; height: 1em; fill: currentColor; }
+        .player-controls button:hover { background-color: #0056b3; }
+        .hidden { display: none; }
+        
+        #timeline-slider {
+            -webkit-appearance: none; appearance: none; width: 100%; background: transparent; cursor: pointer;
+        }
+        #timeline-slider::-webkit-slider-runnable-track { background: #ced4da; height: 10px; border-radius: 5px; }
+        #timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; margin-top: -7px; background: #007bff; height: 24px; width: 24px;
+            border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.25);
+        }
+        #timeline-slider::-moz-range-track { background: #ced4da; height: 10px; border-radius: 5px; }
+        #timeline-slider::-moz-range-thumb {
+            background: #007bff; height: 24px; width: 24px; border-radius: 50%;
+            border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.25);
+        }
+
+        #color-palette {
+            position: absolute; display: none; flex-direction: row; gap: 0.5rem; background-color: #fff; padding: 0.5rem;
+            border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100;
+        }
+        .color-swatch {
+            width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.3);
+        }
+        #reset-color { font-size: 1.2rem; cursor: pointer; line-height: 24px; }
+
+/* --- Stil för källinformation --- */
+        .source-info {
+            text-align: center; 
+            font-size: 0.85rem; /* Lite mindre text */
+            color: #6c757d;    /* Dämpad grå färg */
+            margin-top: 2.5rem; /* Lite extra utrymme ovanför */
+            padding-top: 1rem; /* Lite luft innanför om det behövs */
+            border-top: 1px solid #eee; /* Mycket svag avgränsare */
+        }
+        .source-info a {
+            color: #495057; /* Lite mörkare grå för länkar */
+            text-decoration: underline; /* Tydliggör att det är länkar */
+        }
+        .source-info a:hover {
+            color: #007bff; /* Standard blå hover-färg */
+        }
+        /* --- Slut stil källinformation --- */
+
+
+        @media (max-width: 768px) {
+            .filter-content { flex-direction: column; align-items: stretch; }
+            .action-buttons { flex-direction: row; justify-content: flex-end; }
+            .slider-info { justify-content: center; text-align: center; } /* Centrera texten */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>
+             <div class="title-dropdown">
+                 <button id="dropdown-toggle-button" class="dropdown-toggle">
+                     Poängställning SHL 2025&#8211;2026
+                     <span class="dropdown-arrow">&#9660;</span>
+                 </button>
+                 <div id="dropdown-menu-content" class="dropdown-menu">
+                     <a href="../index.html" target="_self">&#127968; Till startsidan</a>
+                     <hr>
+                     <a href="avancerat.html" target="_self">Avancerat (Hockeyallsvenskan + SHL)</a>
+                     <hr>
+                     <a href="ha_2021-2022.html" target="_self">Hockeyallsvenskan 2021&#8211;2022</a>
+                     <a href="ha_2022-2023.html" target="_self">Hockeyallsvenskan 2022&#8211;2023</a>
+                     <a href="ha_2023-2024.html" target="_self">Hockeyallsvenskan 2023&#8211;2024</a>
+                     <a href="ha_2024-2025.html" target="_self">Hockeyallsvenskan 2024&#8211;2025</a>
+                     <a href="ha_2025-2026.html" target="_self">Hockeyallsvenskan 2025&#8211;2026</a>
+                     <hr>
+                     <a href="nhl_2021-2022.html" target="_self">NHL 2021&#8211;2022</a>
+                     <a href="nhl_2022-2023.html" target="_self">NHL 2022&#8211;2023</a>
+                     <a href="nhl_2023-2024.html" target="_self">NHL 2023&#8211;2024</a>
+                     <a href="nhl_2024-2025.html" target="_self">NHL 2024&#8211;2025</a>
+                     <a href="nhl_2025-2026.html" target="_self">NHL 2025&#8211;2026</a>
+                     <hr>
+                     <a href="shl_2021-2022.html" target="_self">SHL 2021&#8211;2022</a>
+                     <a href="shl_2022-2023.html" target="_self">SHL 2022&#8211;2023</a>
+                     <a href="shl_2023-2024.html" target="_self">SHL 2023&#8211;2024</a>
+                     <a href="shl_2024-2025.html" target="_self">SHL 2024&#8211;2025</a>
+                     <a class="chosen">SHL 2025&#8211;2026</a>
+                 </div>
+             </div>
+        </h1>
+
+        <details class="filter-section">
+            <summary id="filter-summary">Filtrera lag</summary>
+            <div class="filter-content">
+                <div id="team-selection"></div>
+                <div class="action-buttons">
+                    <button id="select-all">Markera alla</button>
+                    <button id="deselect-all">Avmarkera alla</button>
+                    <button id="reset-all-colors-btn" class="hidden">Återställ alla färger &#10060;</button>
+                </div>
+            </div>
+        </details>
+        
+        <div class="controls-wrapper">
+             <div class="main-control-groups">
+                <div class="control-group">
+                    <strong>Tidsaxel:</strong>
+                    <label><input type="radio" name="timeline-mode" value="matches" checked> Spelade matcher</label>
+                    <label><input type="radio" name="timeline-mode" value="date"> Datum</label>
+                </div>
+                <div class="control-group">
+                    <strong>Sortera:</strong>
+                    <label><input type="radio" name="sort-order" value="alpha" checked> Alfabetisk</label>
+                    <label><input type="radio" name="sort-order" value="points"> Placering</label>
+                </div>
+                <div class="control-group">
+                    <strong>Poängaxel:</strong>
+                    <label><input type="radio" name="axis-scale" value="currentLeader" checked> Poängledare</label>
+                    <label><input type="radio" name="axis-scale" value="seasonMax"> Max för säsongen</label>
+                    <label><input type="radio" name="axis-scale" value="dynamic"> Flexibel</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="points-chart"></canvas>
+        </div>
+
+        <div class="slider-wrapper">
+            <div class="slider-display">
+                <div class="slider-info"> <label for="timeline-slider" id="slider-label">Välj tidpunkt eller klicka på play</label>
+                <p id="current-step-display"></p>
+                </div>
+                <div class="player-controls">
+                    <button id="prev-step">&lt; Föregående</button>
+                    <button id="play-pause-btn" title="Spela upp/Pausa">
+                        <svg id="play-icon" viewBox="0 0 16 16"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
+                        <svg id="pause-icon" class="hidden" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5A1.5 1.5 0 0 1 5.5 3.5zm4 0A1.5 1.5 0 0 1 11 5v6a1.5 1.5 0 0 1-3 0V5A1.5 1.5 0 0 1 9.5 3.5z"/></svg>
+                    </button>
+                    <button id="next-step">Nästa &gt;</button>
+                </div>
+            </div>
+            <input type="range" id="timeline-slider" min="0" max="1" value="0">
+        </div>
+        <p class="source-info">
+            Statistik hämtad från: 
+            <a href="https://www.hockeyallsvenskan.se/" target="_blank">hockeyallsvenskan.se</a>, 
+            <a href="https://www.shl.se/" target="_blank">shl.se</a>, 
+            <a href="https://www.hockey-reference.com/" target="_blank">hockey-reference.com</a>.
+        </p>
+    </div>
+    <div id="color-palette"></div>
+
+<script>
+        // --- DATA OCH KONSTANTER ---
+        const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1247847413&single=true&output=tsv'; // Din Google Sheet URL
+        const SEASON_MAX_POINTS = 52 * 3; // Uppdatera detta manuellt om säsongens maxpoäng ändras
+        const PLAYBACK_SPEED_MS = 600;
+        const DEFAULT_BAR_COLOR = 'rgba(0, 123, 255, 0.7)';
+        const PALETTE_COLORS = ['#ffc107', '#dc3545', '#28a745', '#6f42c1', '#fd7e14'];
+        const MIN_BAR_HEIGHT = 28; // Minsta höjd per stapel i pixlar
+        const CHART_PADDING = 50; // Uppskattad höjd för axlar etc.
+        let FINAL_LEADER_POINTS = 0;
+        let playbackInterval = null;
+        let teamColors = {};
+
+        // --- GLOBALA VARIABLER (för data) ---
+        let allTeams = [], allDates = [], pointsByDate = {}, pointsByMatches = {}, minGamesPlayed = 0;
+        let matches = []; // Lagrar den parsade matchdatan globalt
+
+        // --- INITIERING AV UI ELEMENT ---
+        // (Flyttat hit för att vara tillgängliga globalt)
+        const slider = document.getElementById('timeline-slider');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const colorPalette = document.getElementById('color-palette');
+        const resetAllColorsBtn = document.getElementById('reset-all-colors-btn');
+        const dropdownToggleButton = document.getElementById('dropdown-toggle-button');
+        const dropdownMenuContent = document.getElementById('dropdown-menu-content');
+        const dropdownContainer = document.querySelector('.title-dropdown');
+        const chartContainer = document.querySelector('.chart-container');
+        const chartCanvas = document.getElementById('points-chart');
+        const chartCtx = chartCanvas.getContext('2d');
+        let pointsChart; // Deklareras här, initieras efter datahämtning
+
+        // --- FUNKTION FÖR ATT LADDA OCH BEARBETA DATA ---
+        async function loadAndProcessData() {
+            try {
+                // 1. Hämta data från Google Sheet
+                const response = await fetch(sheetUrl);
+                if (!response.ok) {
+                    throw new Error(`Kunde inte hämta data: ${response.statusText}`);
+                }
+                const rawDataString = await response.text();
+
+                // 2. Parsa rådatan (TSV)
+                const lines = rawDataString.trim().split('\n').slice(1); // Skippa rubrikraden
+                matches = lines.map((line, index) => {
+                    const parts = line.split('\t');
+                    // Validering och felhantering vid parsning
+                    if (parts.length < 8) {
+                        console.warn(`Rad ${index + 2} har för få kolumner:`, line);
+                        return null; // Ignorera felaktig rad
+                    }
+                    const homeGoals = parseInt(parts[4]);
+                    const awayGoals = parseInt(parts[5]);
+                    const homePoints = parseInt(parts[6]);
+                    const awayPoints = parseInt(parts[7]);
+
+                    if (isNaN(homeGoals) || isNaN(awayGoals) || isNaN(homePoints) || isNaN(awayPoints)) {
+                         console.warn(`Rad ${index + 2} innehåller ogiltiga numeriska värden:`, line);
+                         return null; // Ignorera felaktig rad
+                    }
+
+                    return { 
+                        date: parts[0].trim(), 
+                        homeTeam: parts[1].trim(), 
+                        awayTeam: parts[2].trim(), 
+                        // Matchresultat (parts[3]) används inte just nu
+                        homeGoals: homeGoals,
+                        awayGoals: awayGoals, 
+                        homePoints: homePoints, 
+                        awayPoints: awayPoints
+                    };
+                }).filter(match => match !== null); // Ta bort rader som inte kunde parsas
+
+                if (matches.length === 0) {
+                     throw new Error("Ingen giltig matchdata kunde laddas.");
+                }
+
+                // Sortera matcher efter datum (viktigt!)
+                matches.sort((a, b) => a.date.localeCompare(b.date));
+
+                // 3. Extrahera alla lag och unika datum
+                allTeams = [...new Set(matches.flatMap(m => [m.homeTeam, m.awayTeam]))].sort((a, b) => a.localeCompare(b, 'sv'));
+                allDates = ["Start", ...[...new Set(matches.map(m => m.date))]]; // Unika datum redan sorterade
+
+                // 4. Beräkna poäng och målskillnad över tid (per datum)
+                pointsByDate = {};
+                allTeams.forEach(team => {
+                    pointsByDate[team] = { "Start": { points: 0, goalDiff: 0 } };
+                    let cumulativePoints = 0; let cumulativeGoalDiff = 0;
+                    allDates.slice(1).forEach(date => {
+                        matches.forEach(match => {
+                            if (match.date === date) {
+                                if (match.homeTeam === team) {
+                                    cumulativePoints += match.homePoints; cumulativeGoalDiff += (match.homeGoals - match.awayGoals);
+                                }
+                                if (match.awayTeam === team) {
+                                    cumulativePoints += match.awayPoints; cumulativeGoalDiff += (match.awayGoals - match.homeGoals);
+                                }
+                            }
+                        });
+                        pointsByDate[team][date] = { points: cumulativePoints, goalDiff: cumulativeGoalDiff };
+                    });
+                });
+
+                // 5. Beräkna poäng och målskillnad över tid (per spelad match)
+                const teamHistory = {};
+                allTeams.forEach(team => teamHistory[team] = [{ games: 0, points: 0, goalDiff: 0 }]);
+                
+                matches.forEach(match => {
+                    const homeLast = teamHistory[match.homeTeam].slice(-1)[0];
+                    teamHistory[match.homeTeam].push({ games: homeLast.games + 1, points: homeLast.points + match.homePoints, goalDiff: homeLast.goalDiff + (match.homeGoals - match.awayGoals) });
+                    const awayLast = teamHistory[match.awayTeam].slice(-1)[0];
+                    teamHistory[match.awayTeam].push({ games: awayLast.games + 1, points: awayLast.points + match.awayPoints, goalDiff: awayLast.goalDiff + (match.awayGoals - match.homeGoals) });
+                });
+                
+                // Hitta minsta antal spelade matcher bland ALLA lag
+                minGamesPlayed = Math.min(...Object.values(teamHistory).map(h => h.length - 1));
+                if (minGamesPlayed < 0) minGamesPlayed = 0; // Säkerställ att det inte blir negativt om inga matcher finns
+                
+                // Bygg upp data per matchomgång upp till minGamesPlayed
+                pointsByMatches = Array(minGamesPlayed + 1).fill(null).map(() => ({}));
+                for (let i = 0; i <= minGamesPlayed; i++) {
+                    allTeams.forEach(team => {
+                        // Hitta lagets data efter exakt i matcher, eller den senaste om de inte spelat i matcher än
+                        const entry = teamHistory[team].find(e => e.games === i) || teamHistory[team].filter(e => e.games <= i).slice(-1)[0];
+                         if (entry) {
+                             pointsByMatches[i][team] = { points: entry.points, goalDiff: entry.goalDiff };
+                         } else {
+                             // Fallback om ett lag inte har någon data alls (bör inte hända med Start)
+                             pointsByMatches[i][team] = { points: 0, goalDiff: 0 };
+                         }
+                    });
+                }
+
+                // 6. Beräkna slutgiltig ledares poäng (om det finns datum)
+                const lastDate = allDates.length > 1 ? allDates[allDates.length - 1] : "Start";
+                FINAL_LEADER_POINTS = allTeams.length > 0 ? Math.max(...allTeams.map(team => pointsByDate[team][lastDate]?.points || 0)) : 0;
+
+
+                // 7. Initiera UI när all data är klar
+                initializeUI();
+
+            } catch (error) {
+                console.error('Fel vid laddning eller bearbetning av data:', error);
+                // Visa ett felmeddelande för användaren på sidan
+                chartContainer.innerHTML = `<p style="color: red; text-align: center;">Kunde inte ladda matchdata. Försök ladda om sidan.</p>`;
+            }
+        }
+
+        // --- INITIERING AV CHART.JS ---
+        // Görs här för att säkerställa att chartCtx är definierad
+        function initializeChart() {
+             pointsChart = new Chart(chartCtx, {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Poäng', data: [] }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: { 
+                        x: { beginAtZero: true, title: { display: true, text: 'Totala poäng' }, ticks: { precision: 0 } } 
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+
+        // --- INITIERING AV UI (Körs EFTER datahämtning) ---
+        function initializeUI() {
+            // Skapa Chart.js-instansen nu när vi vet att datan finns (eller misslyckades)
+            initializeChart();
+
+            const teamSelectionContainer = document.getElementById('team-selection');
+            teamSelectionContainer.innerHTML = ''; // Rensa eventuella gamla element
+            allTeams.forEach(team => {
+                const wrapper = document.createElement('div'); wrapper.className = 'team-item-wrapper';
+                const label = document.createElement('label'); label.className = 'team-label';
+                label.innerHTML = `<input type="checkbox" class="team-checkbox" value="${team}" checked> <span>${team}</span>`;
+                const colorIcon = document.createElement('span'); colorIcon.className = 'color-picker-icon';
+                colorIcon.innerHTML = '&#x1F3A8;'; colorIcon.dataset.team = team; colorIcon.title = 'Ändra färg';
+                wrapper.appendChild(label); wrapper.appendChild(colorIcon); teamSelectionContainer.appendChild(wrapper);
+            });
+
+            // Rensa och bygg upp färgpaletten (ifall initializeUI körs igen vid fel)
+            colorPalette.innerHTML = ''; 
+            PALETTE_COLORS.forEach(color => {
+                const swatch = document.createElement('span'); swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = color; swatch.dataset.color = color; colorPalette.appendChild(swatch);
+            });
+            colorPalette.innerHTML += '<span id="reset-color" title="Återställ färg">&#10060;</span>';
+
+            setupEventListeners();
+            updateSliderRange(); // Sätt maxvärde på slidern
+            updateChart(); // Rita diagrammet första gången
+        }
+        
+        // --- PLAYBACK-FUNKTIONER ---
+        function stopPlayback() {
+            if (playbackInterval) {
+                clearInterval(playbackInterval); playbackInterval = null;
+                playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden');
+            }
+        }
+
+        function togglePlayback() {
+            if (playbackInterval) { stopPlayback(); } 
+            else {
+                playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
+                playbackInterval = setInterval(() => {
+                    let currentValue = parseInt(slider.value);
+                    if (currentValue < slider.max) { slider.value = currentValue + 1; updateChart(); } 
+                    else { stopPlayback(); }
+                }, PLAYBACK_SPEED_MS);
+            }
+        }
+
+        // --- UPPDATERINGSFUNKTIONER ---
+        function updateSliderRange() {
+            stopPlayback(); // Stoppa alltid uppspelning vid byte av läge
+            const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+            // Säkerställ att max inte är negativt om inga matcher finns
+            slider.max = Math.max(0, (mode === 'matches') ? minGamesPlayed : allDates.length - 1); 
+            slider.value = 0; // Starta alltid från början
+        }
+
+        function updateChart() {
+            // Avbryt om diagrammet inte är initierat (kan hända vid laddningsfel)
+            if (!pointsChart) return; 
+
+            const selectedTeams = Array.from(document.querySelectorAll('.team-checkbox:checked'));
+            const selectedTeamNames = selectedTeams.map(cb => cb.value);
+            const numSelectedTeams = selectedTeamNames.length;
+            const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+            const step = parseInt(slider.value);
+
+            // Uppdatera texter och knappsynlighet
+            document.getElementById('filter-summary').textContent = `Filtrera lag (${selectedTeams.length}/${allTeams.length} valda)`;
+            resetAllColorsBtn.classList.toggle('hidden', Object.keys(teamColors).length === 0);
+
+            // Hämta korrekt data för den valda tidpunkten
+            let currentData = {}; 
+            let displayLabel = "";
+            if (mode === 'matches') {
+                displayLabel = step === 0 ? "&nbsp;" : `Efter ${step} spelade matcher`;
+                // Säkerställ att vi hämtar från en giltig index
+                currentData = (pointsByMatches && pointsByMatches[step]) ? pointsByMatches[step] : {}; 
+            } else {
+                const date = (allDates && allDates[step]) ? allDates[step] : "Start";
+                displayLabel = date === "Start" ? "&nbsp;" : date;
+                currentData = {}; 
+                allTeams.forEach(team => {
+                    // Hämta data för datumet, fallback till startvärden om det saknas
+                    currentData[team] = (pointsByDate[team] && pointsByDate[team][date]) ? pointsByDate[team][date] : { points: 0, goalDiff: 0 };
+                });
+            }
+            document.getElementById('current-step-display').innerHTML = displayLabel;
+
+            // Skapa dataobjekt för Chart.js
+            let chartData = selectedTeamNames.map(team => ({ 
+                team: team, 
+                // Använd 0 om data saknas för laget vid denna tidpunkt
+                points: currentData[team]?.points ?? 0, 
+                goalDiff: currentData[team]?.goalDiff ?? 0
+            }));
+            
+            // Sätt maxvärde för poängaxeln
+            const axisOption = document.querySelector('input[name="axis-scale"]:checked').value;
+            switch (axisOption) {
+                case 'seasonMax': pointsChart.options.scales.x.max = SEASON_MAX_POINTS; break;
+                case 'currentLeader': pointsChart.options.scales.x.max = FINAL_LEADER_POINTS; break;
+                default: 
+                    const maxPointValue = chartData.length > 0 ? Math.max(0, ...chartData.map(d => d.points)) : 0; // Säkerställ > 0
+                    pointsChart.options.scales.x.max = (maxPointValue < 3 && maxPointValue >= 0) ? 3 : undefined; break;
+            }
+            
+            // Sortera datan
+            const sortOrder = document.querySelector('input[name="sort-order"]:checked').value;
+            if (sortOrder === 'points') {
+                chartData.sort((a, b) => {
+                    if (b.points !== a.points) return b.points - a.points;
+                    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+                    return a.team.localeCompare(b.team, 'sv');
+                });
+            } else { chartData.sort((a, b) => a.team.localeCompare(b.team, 'sv')); }
+            
+            // Beräkna och sätt diagrammets höjd
+            const calculatedHeight = Math.max(200, numSelectedTeams * MIN_BAR_HEIGHT + CHART_PADDING); // Minst 200px
+            chartContainer.style.height = `${calculatedHeight}px`;
+
+            // Uppdatera Chart.js data
+            pointsChart.data.labels = chartData.map(d => d.team);
+            pointsChart.data.datasets[0].data = chartData.map(d => d.points);
+            pointsChart.data.datasets[0].backgroundColor = chartData.map(d => teamColors[d.team] || DEFAULT_BAR_COLOR);
+            
+            // Uppdatera diagrammet
+            pointsChart.update();
+            
+            // Uppdatera färgikonerna i filterlistan
+            document.querySelectorAll('.color-picker-icon').forEach(icon => {
+                const teamName = icon.dataset.team;
+                if (teamColors[teamName]) { icon.innerHTML = `<div class="color-indicator" style="background-color: ${teamColors[teamName]}"></div>`; } 
+                else { icon.innerHTML = '&#x1F3A8;'; }
+            });
+        }
+
+        // --- EVENT LISTENERS ---
+        function setupEventListeners() {
+            // Alla interaktioner ska stoppa uppspelning
+            slider.addEventListener('input', () => { stopPlayback(); updateChart(); });
+            playPauseBtn.addEventListener('click', togglePlayback);
+
+            const teamSelectionContainer = document.querySelector('#team-selection');
+            // Använd event delegation för checkbox-ändringar
+            teamSelectionContainer.addEventListener('change', (e) => {
+                if(e.target.classList.contains('team-checkbox')) { 
+                    stopPlayback(); 
+                    updateChart(); 
+                }
+            });
+            
+            // Använd event delegation för färgikon-klick
+            teamSelectionContainer.addEventListener('click', (e) => {
+                const icon = e.target.closest('.color-picker-icon');
+                if (icon) {
+                    stopPlayback(); 
+                    const teamName = icon.dataset.team; 
+                    const rect = icon.getBoundingClientRect();
+                    colorPalette.style.display = 'flex';
+                    // Justera position så paletten inte hamnar utanför skärmen
+                    const paletteWidth = colorPalette.offsetWidth;
+                    const spaceRight = window.innerWidth - rect.left - window.scrollX;
+                    if (spaceRight < paletteWidth) {
+                         colorPalette.style.left = `${rect.right + window.scrollX - paletteWidth}px`; // Flytta åt vänster
+                    } else {
+                         colorPalette.style.left = `${rect.left + window.scrollX}px`; // Standardposition
+                    }
+                    colorPalette.style.top = `${rect.bottom + window.scrollY + 5}px`;
+                    colorPalette.dataset.team = teamName;
+                }
+            });
+
+            // Hantera klick inuti färgpaletten
+            colorPalette.addEventListener('click', (e) => {
+                const teamName = colorPalette.dataset.team;
+                if (!teamName) return; // Avbryt om inget lag är valt
+
+                if (e.target.classList.contains('color-swatch')) { 
+                    teamColors[teamName] = e.target.dataset.color; 
+                } else if (e.target.id === 'reset-color') { 
+                    delete teamColors[teamName]; 
+                }
+                colorPalette.style.display = 'none'; // Dölj paletten efter val
+                updateChart();
+            });
+            
+            // Global återställningsknapp
+            resetAllColorsBtn.addEventListener('click', () => { 
+                stopPlayback(); // Stoppa om uppspelning pågår
+                teamColors = {}; 
+                updateChart(); 
+            });
+
+            // Global klickhanterare för att stänga palett/dropdown
+            document.addEventListener('click', (e) => {
+                const target = e.target;
+                // Stäng färgpalett
+                if (!colorPalette.contains(target) && !target.closest('.color-picker-icon')) { 
+                    colorPalette.style.display = 'none'; 
+                }
+                // Stäng dropdown
+                if (!dropdownContainer.contains(target)) { 
+                    dropdownMenuContent.classList.remove('active'); 
+                    dropdownContainer.classList.remove('active');
+                }
+            });
+
+            // Dropdown-knappens klickhanterare
+            dropdownToggleButton.addEventListener('click', (e) => {
+                 e.stopPropagation(); // Viktigt: hindra document-klicket från att stänga direkt
+                 dropdownMenuContent.classList.toggle('active');
+                 dropdownContainer.classList.toggle('active');
+            });
+
+            // Radioknappar för kontroller
+            document.querySelectorAll('input[name="sort-order"], input[name="axis-scale"]').forEach(radio => radio.addEventListener('change', () => { stopPlayback(); updateChart(); }));
+            document.querySelectorAll('input[name="timeline-mode"]').forEach(radio => radio.addEventListener('change', () => { updateSliderRange(); updateChart(); /* updateSliderRange anropar updateChart */ }));
+
+            // Markera/Avmarkera alla knappar
+            document.getElementById('select-all').addEventListener('click', () => { 
+                stopPlayback(); 
+                document.querySelectorAll('.team-checkbox').forEach(cb => cb.checked = true); 
+                updateChart(); 
+            });
+            document.getElementById('deselect-all').addEventListener('click', () => { 
+                stopPlayback(); 
+                document.querySelectorAll('.team-checkbox').forEach(cb => cb.checked = false); 
+                updateChart(); 
+            });
+
+            // Föregående/Nästa knappar
+            document.getElementById('prev-step').addEventListener('click', () => {
+                stopPlayback(); let val = parseInt(slider.value); if (val > 0) { slider.value = val - 1; updateChart(); }
+            });
+            document.getElementById('next-step').addEventListener('click', () => {
+                stopPlayback(); let val = parseInt(slider.value); if (val < slider.max) { slider.value = val + 1; updateChart(); }
+            });
+        }
+
+        // --- STARTA PROGRAMMET ---
+        loadAndProcessData(); // Initierar datahämtning och sedan UI
+    </script>
+</body>
+</html>

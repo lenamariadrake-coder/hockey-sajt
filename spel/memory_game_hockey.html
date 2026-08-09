@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hockey-memory</title>
+<style>
+        :root {
+            --card-size: 110px;
+            --gap-size: 12px;
+            --border-radius: 10px;
+        }
+
+        /* ----- Djurgården Tema ----- */
+        .theme-dif {
+            --primary-color: #0033A0;   /* Mörkblå */
+            --secondary-color: #FFD100; /* Gul */
+            --accent-color: #D50032;    /* Röd */
+            --text-color-on-light: #000000;
+            --background-color: #f0f2f5;
+            --card-front-color: var(--primary-color);
+        }
+
+         /* ----- Detroit Tema ----- */
+        .theme-redwings {
+            --primary-color: #E01C21;   /* Röd */
+            --secondary-color: #E01C21; /* Röd */
+            --accent-color: #E01C21;    /* Röd */
+            --text-color-on-light: #000000;
+            --background-color: #f0f2f5;
+            --card-front-color: var(--primary-color);
+        }
+
+       /* ----- MoDo Tema ----- */
+        .theme-modo {
+            --primary-color: #007C30;   /* Grön */
+            --secondary-color: #E01C21; /* Röd */
+            --accent-color: #FFFFFF;    /* Vit */
+            --text-color-on-dark: #FFFFFF;
+            --background-color: #1a1a1a;
+            --card-front-color: var(--primary-color);
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--background-color, #f0f2f5);
+            transition: background-color 0.5s;
+            padding: 20px;
+        }
+        
+        .hidden { display: none !important; }
+
+        .screen {
+            width: 100%;
+            max-width: 900px;
+            text-align: center;
+            padding: 30px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1, h2 {
+            color: var(--text-color-on-dark, #333);
+            margin-bottom: 25px;
+        }
+        
+        .theme-dif h1, .theme-dif h2 { color: var(--text-color-on-light); }
+        .theme-redwings h1, .theme-redwings h2 { color: var(--text-color-on-light); }
+        
+        .button-group { 
+            display: flex;
+            flex-direction: column; /* Staplar knapparna vertikalt */
+            align-items: center;   /* Centrerar knapparna horisontellt */
+            gap: 20px; 
+        }
+        .btn {
+            display: inline-block; /* Säkerställer att rörelsen fungerar korrekt */
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            color: white;
+            text-decoration: none; /* Tar bort understrykningen */
+        }
+        
+        .btn:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
+
+        /* --- NYA STILAR FÖR STARTSIDAN --- */
+        #start-screen {
+            padding-bottom: 50px; /* Mer utrymme för "Fler spel"-knappen */
+        }
+        
+        .league-accordion {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 60px;
+        }
+        
+        .btn-league {
+            background-color: #333;
+            width: 100%;
+        }
+
+        .team-list-container {
+            /* Använder grid för snygg "dragspels"-animering */
+            display: grid;
+            grid-template-rows: 0fr; /* Stängd från början */
+            transition: grid-template-rows 0.4s ease-out;
+        }
+        
+        .team-list-container.expanded {
+            grid-template-rows: 1fr; /* Öppen */
+        }
+        
+       /* Inner-wrapper behövs för grid-animeringen */
+        .team-list-inner {
+             min-height: 0; 
+             
+             /* TA BORT DEN GAMLA PADDING-RADEN OCH ERSÄTT MED DENNA:
+                Sätter 0 padding uppe/nere, men behåller 10px på sidorna.
+             */
+             padding: 0 10px;
+
+             background-color: rgba(0, 0, 0, 0.05);
+             border-radius: var(--border-radius);
+             overflow: hidden;
+             
+             /* LÄGG TILL EN TRANSITION FÖR PADDING:
+                Detta gör att paddingen animeras snyggt.
+             */
+             transition: padding-top 0.4s ease-out, padding-bottom 0.4s ease-out;
+        }
+
+.team-list-container.expanded .team-list-inner {
+            /* När containern är expanderad, sätt tillbaka paddingen
+               uppe och nere till 20px. 
+            */
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        .team-list {
+            /* Detta sköter kolumnerna! */
+            list-style: none;
+            padding: 0 10px;
+            margin: 0;
+            text-align: left;
+            
+            /* Ställ in en "ideal" bredd för varje kolumn */
+            column-width: 180px;
+            
+            /* Sätt ett mellanrum mellan kolumnerna */
+            column-gap: 15px;
+        }
+        
+        .btn-team {
+            display: block; /* Gör att de tar upp hela bredden i sin kolumn-del */
+            padding: 10px 15px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            background-color: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+            border: none;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        
+        .btn-team:hover {
+            background-color: rgba(0,0,0,0.1);
+            transform: translateX(5px);
+        }
+        /* --- SLUT PÅ NYA STILAR --- */
+
+
+        .btn-dif { background-color: #0033A0; }
+        .btn-redwings { background-color: #E01C21; }
+        .btn-modo { background-color: #E01C21; }
+        .btn-mode { background-color: #555; }
+        .btn-restart { background-color: #555555; }
+        .btn-reset { background-color: #555555; }
+        .btn-home { background-color: #6c757d; }
+
+        .game-container { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 900px;
+        }
+        
+        #stats {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--text-color-on-dark, #333);
+        }
+        .theme-dif #stats { color: var(--text-color-on-light); }
+        .theme-redwings #stats { color: var(--text-color-on-light); }
+
+        #debug-info {
+            min-height: 24px;
+            font-size: 1.1em;
+            font-weight: bold;
+            text-align: center;
+        }
+        .theme-dif #debug-info { color: var(--accent-color); }
+        .theme-redwings #debug-info { color: var(--accent-color); }
+        .theme-modo #debug-info { color: var(--secondary-color); }
+
+
+        .game-board {
+            display: grid;
+            gap: var(--gap-size);
+            perspective: 1200px;
+            max-width: 95vw;
+        }
+
+        .card {
+            width: var(--card-size);
+            height: var(--card-size);
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            cursor: pointer;
+        }
+        
+        .card.is-flipped { transform: rotateY(180deg); }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            text-align: center;
+            padding: 5px;
+        }
+        
+        .card-face--front { background-color: var(--card-front-color); }
+
+        .card-face--back {
+            background-color: #ffffff;
+            color: var(--primary-color);
+            transform: rotateY(180deg);
+        }
+        
+        .card-content-number { font-size: 3.5em; font-weight: bold; }
+        .card-content-name { font-size: 1.1em; font-weight: 600; line-height: 1.2; }
+
+        .card.is-matched { pointer-events: none; }
+        .card.is-matched .card-face { opacity: 0.5; }
+
+        #end-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex; justify-content: center; align-items: center; z-index: 100;
+        }
+        
+        .end-screen-content {
+            background-color: var(--background-color, white);
+            padding: 40px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .end-screen-content h1 { color: var(--secondary-color); font-size: 3em; }
+        .end-screen-content p { font-size: 1.2em; margin: 15px 0; }
+        .theme-dif .end-screen-content p { color: var(--text-color-on-light); }
+        .theme-redwings .end-screen-content p { color: var(--text-color-on-light); }
+        .theme-modo .end-screen-content p { color: var(--text-color-on-dark); }
+        .theme-modo #restart-btn { color: white; }
+
+        /* --- START PÅ STILAR FÖR PLUGGLÄGE --- */
+        
+        .study-wrap {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: left;
+        }
+
+        .study-wrap h2 {
+            text-align: center;
+        }
+
+        /* Styling för Fieldset och Radio-knappar (från ditt andra spel) */
+        .study-wrap fieldset {
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 12px;
+            padding: 12px;
+            margin: 0 0 12px;
+        }
+        .study-wrap legend {
+            padding: 0 6px;
+            color: var(--text-color-on-light, #333);
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .radio-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .radio-row label {
+            display: inline-block;
+            background: #eee;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: #333;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+        }
+        .radio-row input[type="radio"] {
+            display: none;
+        }
+        .radio-row input[type="radio"]:checked + label {
+            background: var(--primary-color, #007bff);
+            border-color: var(--primary-color, #007bff);
+            color: #ffffff;
+        }
+        .radio-row label:hover {
+            border-color: #bbb;
+        }
+
+        /* Styling för dropdown (från ditt andra spel) */
+        select.team-select-dropdown {
+            width: 100%;
+            padding: 10px 14px;
+            background: #eee;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            color: #333;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23555'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd' /%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 20px;
+            font-family: inherit;
+        }
+        
+/* Knappar för sortering */
+        .study-actions .btn {
+            /* Inaktiv stil (matchar nu inaktiv radio-knapp) */
+            background-color: #eee;
+            border: 2px solid #ddd;
+            color: #333;
+            
+            /* Justering för att behålla samma höjd:
+               Originalknappen hade padding 12px upp/ner och ingen ram.
+               Denna har 2px ram, så vi minskar padding till 10px (12px - 2px = 10px).
+            */
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+        
+        .study-actions .btn.active-sort {
+            /* Aktiv stil (matchar aktiv radio-knapp) */
+            background-color: var(--primary-color, #007bff);
+            color: white;
+            
+            /* Återställ border och padding till originalvärden */
+            border: none;
+            padding-top: 12px;
+            padding-bottom: 12px;
+        }
+
+        
+        /* Panelen för listan */
+        .study-panel {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background: #fff;
+            padding: 10px;
+        }
+        .study-list {
+             column-count: 2;
+             column-gap: 12px;
+        }
+        .study-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #f9f9f9;
+            margin-bottom: 6px;
+            break-inside: avoid;
+        }
+        .study-name { font-weight: 600; color: #222; }
+        .study-num { opacity: .9; font-variant-numeric: tabular-nums; color: #444; }
+        
+        p.muted {
+            color: #777;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        /* Fix för kolumner på små skärmar */
+        @media (max-width: 500px) {
+            .study-list {
+                column-count: 1;
+            }
+        }
+        
+        /* --- SLUT PÅ STILAR FÖR PLUGGLÄGE --- */
+
+/* Responsiv layout för små skärmar (mobiler) */
+@media (max-width: 600px) {
+    :root {
+        --card-size: 65px;
+        --gap-size: 8px;
+    }
+    
+    /* Tvingar team-listan till en kolumn på smala skärmar */
+    .team-list {
+        column-width: 100%; 
+    }
+    
+    .game-board {
+        grid-template-columns: repeat(auto-fit, minmax(var(--card-size), 1fr)) !important;
+    }
+    .card-content-number { font-size: 2em; }
+    .card-content-name { font-size: 0.7em; }
+    .game-header { flex-direction: column; gap: 15px; }
+}
+
+.bottom-home {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    
+    font-size: 28px;
+    text-decoration: none;
+    line-height: 1;
+    
+    padding: 10px 14px;
+    border-radius: 999px;
+
+    background: rgba(255, 255, 255, 0.85);
+    color: #333;
+
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    z-index: 1000;
+}
+
+.bottom-home:hover {
+    transform: translateX(-50%) translateY(-2px);
+    background: #fff;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+}
+
+    </style>
+</head>
+<body>
+
+<div id="loading-screen" class="screen">
+        <h2>Laddar spelare...</h2>
+        <p style="color: #666;">Hämtar data från Google Sheets...</p>
+    </div>
+
+
+    <div id="start-screen" class="screen hidden">
+        <h2>Välj liga och lag</h2>
+        <div id="league-accordion" class="league-accordion">
+            </div>
+<div class="button-group" style="margin-bottom: 20px;">
+             <button id="studyBtn" class="btn btn-mode">Plugga spelare</button>
+        </div>
+        
+        <div>
+            <a href="minigames.html" class="btn btn-home">Fler spel</a>
+        </div>
+    </div>
+    
+<div id="mode-screen" class="screen hidden">
+        <h2>Välj spelläge</h2>
+        <div class="button-group">
+            <button class="btn btn-mode" data-mode="7">7 slumpade spelare</button>
+            <button class="btn btn-mode" data-mode="12">12 slumpade spelare</button>
+            <button class="btn btn-mode" data-mode="16">16 slumpade spelare</button>
+            <button class="btn btn-mode" data-mode="all">Hela laget</button>
+            
+            <button id="modeBackBtn" class="btn btn-reset" style="margin-top: 20px;">Tillbaka</button>
+        </div>
+    </div>
+
+
+    <div id="game-container" class="game-container hidden">
+        <div class="game-header">
+            <div id="stats"><span id="timer">Tid: 0s</span></div>
+            <button id="reset-btn" class="btn btn-reset">Tillbaka</button>
+        </div>
+        <div id="debug-info"></div>
+        <div class="game-board" id="game-board"></div>
+    </div>
+    
+    <div id="end-screen" class="hidden">
+        <div class="end-screen-content">
+            <h1>Slutsignalen har gått!</h1>
+            <p id="final-time"></p>
+            <p id="final-moves"></p>
+            <p id="final-misses"></p>
+            <button id="restart-btn" class="btn btn-restart">Spela Igen</button>
+        </div>
+    </div>
+
+<div id="study-screen" class="screen hidden">
+        <div class="study-wrap">
+            <h2 style="margin-bottom: 15px;">Plugga spelare</h2>
+
+            <fieldset>
+                <legend>Välj liga</legend>
+                <div class="radio-row" id="studyLeagueSelection" role="group" aria-label="Liga (study)">
+                </div>
+            </fieldset>
+
+            <fieldset id="studyTeamSelectWrapper" style="display: none;">
+                <legend>Välj lag</legend>
+                <select id="studyTeamSelect" class="team-select-dropdown">
+                </select>
+            </fieldset>
+
+            <div class="study-actions" style="display:flex; gap:10px; flex-wrap:wrap; margin:15px 0 12px;">
+                <button id="sortByNameBtn" class="btn btn-mode active-sort">Bokstavsordning</button>
+                <button id="sortByNumberBtn" class="btn btn-mode">Nummerordning</button>
+            </div>
+
+            <div class="study-panel">
+                <div id="studyList" class="study-list" aria-live="polite">
+                    <p class="muted">Välj liga och lag för att se spelare.</p>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button id="closeStudyBtn" class="btn btn-reset">Tillbaka</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+
+        const startScreen = document.getElementById('start-screen');
+        const modeScreen = document.getElementById('mode-screen');
+        const gameContainer = document.getElementById('game-container');
+        const endScreen = document.getElementById('end-screen');
+        const gameBoard = document.getElementById('game-board');
+        const timerDisplay = document.getElementById('timer');
+        const debugInfo = document.getElementById('debug-info');
+        const leagueAccordion = document.getElementById('league-accordion');
+        const loadingScreen = document.getElementById('loading-screen');
+        const studyScreen = document.getElementById('study-screen');
+        const studyBtn = document.getElementById('studyBtn');
+        const closeStudyBtn = document.getElementById('closeStudyBtn');
+        const studyList = document.getElementById('studyList');
+        const sortByNameBtn = document.getElementById('sortByNameBtn');
+        const sortByNumberBtn = document.getElementById('sortByNumberBtn');
+
+        const studyLeagueSelection = document.getElementById('studyLeagueSelection');
+        const studyTeamSelectWrapper = document.getElementById('studyTeamSelectWrapper');
+        const studyTeamSelect = document.getElementById('studyTeamSelect');
+        const modeBackBtn = document.getElementById('modeBackBtn');
+
+        let selectedLeagueKey, selectedTeamKey, cardValues = [], hasFlippedCard = false, lockBoard = false;
+        let firstCard, secondCard;
+        let mismatchedPair = [];
+        
+        let totalMoves = 0, misses = 0, matchedPairs = 0, seconds = 0;
+        let timerInterval;
+        let knownPairValues = new Set(); // Minne för "Kända Par" (värden)
+        let knownCardIds = new Set(); // Minne för "Kända Exakta Brickor" (ID:n)
+
+        // --- NY VARIABEL FÖR STEG 3 ---
+        let currentSortMode = 'name'; // 'name' eller 'number'
+        // -----------------------------
+
+// =================================================================
+        //  NY LOGIK FÖR STARTSIDAN
+        // =================================================================
+
+        /**
+         * Bygger upp hela startsidans "dragspel" (accordion) dynamiskt
+         * baserat på TEAMS-objektet.
+         */
+        function createStartScreen() {
+            leagueAccordion.innerHTML = ''; // Rensa eventuellt gammalt innehåll
+
+            // Loopa igenom varje liga (t.ex. 'shl', 'nhl')
+            const sortedLeagueKeys = Object.keys(TEAMS).sort((a, b) => TEAMS[a].name.localeCompare(TEAMS[b].name));
+            for (const leagueKey of sortedLeagueKeys) {
+                const league = TEAMS[leagueKey];
+                
+                // 1. Skapa ligaknappen (t.ex. "SHL")
+                const leagueButton = document.createElement('button');
+                leagueButton.className = 'btn btn-league';
+                leagueButton.textContent = league.name;
+                leagueButton.dataset.leagueKey = leagueKey;
+                leagueAccordion.appendChild(leagueButton);
+                
+                // 2. Skapa containern för laglistan (den som expanderar)
+                const teamListContainer = document.createElement('div');
+                teamListContainer.className = 'team-list-container';
+                
+                // 3. Skapa en inre wrapper (behövs för grid-animeringen)
+                const teamListInner = document.createElement('div');
+                teamListInner.className = 'team-list-inner';
+
+                // 4. Skapa själva listan (som blir kolumner)
+                const teamList = document.createElement('ul');
+                teamList.className = 'team-list';
+                
+                // 5. Hämta och sortera lagnamnen alfabetiskt
+                const teamKeys = Object.keys(league.teams);
+                teamKeys.sort((a, b) => league.teams[a].name.localeCompare(league.teams[b].name));
+
+                // 6. Skapa en knapp för varje lag i den sorterade listan
+                teamKeys.forEach(teamKey => {
+                    const team = league.teams[teamKey];
+                    const li = document.createElement('li');
+                    const teamButton = document.createElement('button');
+                    teamButton.className = 'btn-team';
+                    teamButton.textContent = team.name;
+                    teamButton.dataset.teamKey = teamKey;
+                    teamButton.dataset.leagueKey = leagueKey;
+                    
+                    // Inaktivera knappen om inga spelare finns
+                    if (Object.keys(team.players).length === 0) {
+                        teamButton.disabled = true;
+                        teamButton.style.opacity = '0.5';
+                        teamButton.style.cursor = 'not-allowed';
+                    }
+                    
+                    li.appendChild(teamButton);
+                    teamList.appendChild(li);
+                });
+
+                // 7. Lägg ihop allt
+                teamListInner.appendChild(teamList);
+                teamListContainer.appendChild(teamListInner);
+                leagueAccordion.appendChild(teamListContainer);
+            }
+        }
+        
+
+
+// ... efter createStartScreen() ...
+
+        /**
+         * Fyller ligaväljaren (radio-knappar) i plugg-läget.
+         */
+        function populateStudyLeagues() {
+            studyLeagueSelection.innerHTML = ''; // Rensa
+            let isFirstLeague = true;
+
+            const sortedLeagueKeys = Object.keys(TEAMS).sort((a, b) => TEAMS[a].name.localeCompare(TEAMS[b].name));
+            for (const leagueKey of sortedLeagueKeys) {
+                const league = TEAMS[leagueKey];
+                const radioId = `study-league-${leagueKey}`;
+                
+                const input = document.createElement('input');
+                input.type = 'radio';
+                input.id = radioId;
+                input.name = 'study-league';
+                input.value = leagueKey;
+                
+                // Välj första ligan automatiskt
+                if (isFirstLeague) {
+                    input.checked = true;
+                    isFirstLeague = false;
+                }
+                
+                const label = document.createElement('label');
+                label.htmlFor = radioId;
+                label.textContent = league.name;
+                
+                studyLeagueSelection.appendChild(input);
+                studyLeagueSelection.appendChild(label);
+            }
+            
+            // Fyll lagen för den första, automatiskt valda ligan
+            if (studyLeagueSelection.querySelector('input:checked')) {
+                const firstLeagueKey = studyLeagueSelection.querySelector('input:checked').value;
+                populateStudyTeams(firstLeagueKey);
+            }
+        }
+
+        /**
+         * Fyller lagväljaren (dropdown) i plugg-läget baserat på vald liga.
+         */
+        function populateStudyTeams(leagueKey) {
+            studyTeamSelect.innerHTML = ''; // Rensa gamla lag
+            studyTeamSelectWrapper.style.display = 'none'; // Göm ifall ligan är tom
+           
+            const league = TEAMS[leagueKey];
+            if (!league || !league.teams) return; // Säkerhetskoll
+
+            // Hämta och sortera lagnamnen alfabetiskt
+            const teamKeys = Object.keys(league.teams);
+            teamKeys.sort((a, b) => league.teams[a].name.localeCompare(league.teams[b].name));
+            
+            if (teamKeys.length === 0) return; // Hoppa över om inga lag finns
+
+            // Skapa ett "Välj..."-alternativ
+            const defaultOption = document.createElement('option');
+            defaultOption.value = "";
+            defaultOption.textContent = "Välj ett lag...";
+            studyTeamSelect.appendChild(defaultOption);
+
+            // Lägg till alla lag
+            teamKeys.forEach(teamKey => {
+                const team = league.teams[teamKey];
+                const option = document.createElement('option');
+                option.value = teamKey; // Vi sparar nyckeln, t.ex. 'dif-shl'
+                option.textContent = team.name;
+                studyTeamSelect.appendChild(option);
+            });
+            
+            studyTeamSelectWrapper.style.display = 'block'; // Visa dropdownen
+            renderStudyList();
+        }
+
+        /**
+         * Uppdaterar knapparnas utseende baserat på currentSortMode
+         */
+        function updateSortButtons() {
+            if (currentSortMode === 'name') {
+                sortByNameBtn.classList.add('active-sort');
+                sortByNumberBtn.classList.remove('active-sort');
+            } else {
+                sortByNumberBtn.classList.add('active-sort');
+                sortByNameBtn.classList.remove('active-sort');
+            }
+        }
+
+        /**
+         * Hämtar, sorterar och ritar ut spelarlistan i plugg-läget.
+         */
+        function renderStudyList() {
+            // Rensa listan
+            studyList.innerHTML = '<p class="muted">Välj ett lag för att se spelare.</p>';
+            
+            // Hämta valen
+            const selectedLeagueRadio = studyLeagueSelection.querySelector('input:checked');
+            const selectedLeagueKey = selectedLeagueRadio ? selectedLeagueRadio.value : null;
+            const selectedTeamKey = studyTeamSelect.value;
+            
+            // Avbryt om liga eller lag saknas (t.ex. om "Välj ett lag..." är aktivt)
+            if (!selectedLeagueKey || !selectedTeamKey) {
+                return;
+            }
+
+            // Hämta spelardatan
+            const playersObject = TEAMS[selectedLeagueKey]?.teams[selectedTeamKey]?.players;
+            if (!playersObject) return; // Säkerhetskoll
+            
+            // --- Konvertera din datastruktur ---
+            // Från: { '9': 'Jack York', '12': 'Scott Pooley' }
+            // Till: [ { name: 'Jack York', number: '9' }, { name: 'Scott Pooley', number: '12' } ]
+            const playerList = Object.entries(playersObject).map(([number, name]) => {
+                return { name: name, number: number };
+            });
+            
+            if (playerList.length === 0) {
+                 studyList.innerHTML = '<p class="muted">Inga spelare hittades för detta lag.</p>';
+                 return;
+            }
+
+            // --- Sortera listan ---
+            if (currentSortMode === 'name') {
+                // Sortera efter namn
+                playerList.sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+            } else {
+                // Sortera efter nummer (konvertera till siffror för korrekt sortering)
+                playerList.sort((a, b) => parseInt(a.number) - parseInt(b.number));
+            }
+            
+            // --- Rita ut listan ---
+            studyList.innerHTML = ''; // Rensa "Välj lag..."-meddelandet
+            const frag = document.createDocumentFragment();
+            
+            playerList.forEach(player => {
+                const row = document.createElement('div');
+                row.className = 'study-row';
+                
+                const nameEl = document.createElement('div');
+                nameEl.className = 'study-name';
+                nameEl.textContent = player.name;
+                
+                const numEl = document.createElement('div');
+                numEl.className = 'study-num';
+                numEl.textContent = `#${player.number}`; // Lägg till # för tydlighet
+                
+                row.appendChild(nameEl);
+                row.appendChild(numEl);
+                frag.appendChild(row);
+            });
+            
+            studyList.appendChild(frag);
+        }
+
+
+// =================================================================
+        //  GLOBAL DATA (Fylls vid laddning)
+        // =================================================================
+        let TEAMS = {}; // Denna kommer att fyllas av initializeApp()
+
+        // --- NY OFFLINE-SWITCH ---
+        // Sätt till 'true' för att ladda från lokala .txt-filer (kräver Live Server)
+        // Sätt till 'false' för att ladda från Google Sheets (kräver internet)
+        const USE_LOCAL_FILES = false;
+        // -------------------------
+
+        // Länkar till dina publicerade Google Sheets
+        const GOOGLE_PLAYERS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=123605134&single=true&output=tsv';
+        const GOOGLE_TEAMS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=365651820&single=true&output=tsv';
+        
+        // Länkar till lokala filer (måste köras via Live Server)
+        const LOCAL_PLAYERS_URL = 'players.txt';
+        const LOCAL_TEAMS_URL = 'teams.txt';
+
+        // Bestäm vilka länkar som ska användas
+        const PLAYERS_URL = USE_LOCAL_FILES ? LOCAL_PLAYERS_URL : GOOGLE_PLAYERS_URL;
+        const TEAMS_URL = USE_LOCAL_FILES ? LOCAL_TEAMS_URL : GOOGLE_TEAMS_URL;
+
+
+        /**
+         * Omvandlar en TSV-textsträng...
+         */
+        function parseTSV(tsvText, columns) {
+        // ...
+            const data = [];
+            const lines = tsvText.split('\n'); // Dela upp i rader
+            
+            // Hoppa över rubrikraden (rad 0)
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue; // Hoppa över tomma rader
+
+                const values = line.split('\t'); // Dela upp med TAB
+                
+                // Skippa rader som inte har rätt antal kolumner (skydd mot data-fel)
+                if (values.length !== columns.length) {
+                    console.warn('Skippar felaktig rad:', line);
+                    continue;
+                }
+
+                const entry = {};
+                for (let j = 0; j < columns.length; j++) {
+                    entry[columns[j]] = values[j].trim();
+                }
+                data.push(entry);
+            }
+            return data;
+        }
+
+        /**
+         * Bygger den nästlade TEAMS-strukturen som spelet förväntar sig,
+         * från de två "platta" listorna hämtade från Google Sheets.
+         * @param {Array<Object>} teamsList - Parsad data från teams-fliken.
+         * @param {Array<Object>} playersList - Parsad data från players-fliken.
+         */
+        function buildTeamsObject(teamsList, playersList) {
+            const newTeamsObject = {};
+            const teamIdToLeagueKeyMap = {}; // För att snabbt hitta var en spelare hör hemma
+
+            // Steg 1: Bygg upp ligor och lag
+            teamsList.forEach(team => {
+                const { team_id, team_name, league } = team;
+                
+                // Skapa en säker "key" för ligan, t.ex. "Hockeyallsvenskan" -> "hockeyallsvenskan"
+                const leagueKey = league.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                // Skapa ligan om den inte finns
+                if (!newTeamsObject[leagueKey]) {
+                    newTeamsObject[leagueKey] = {
+                        name: league, // Det fulla namnet, t.ex. "HockeyAllsvenskan"
+                        teams: {}
+                    };
+                }
+
+                // Lägg till laget i ligan (med en tom player-lista)
+                newTeamsObject[leagueKey].teams[team_id] = {
+                    name: team_name,
+                    players: {}
+                };
+                
+                // Spara en genväg för Steg 2
+                teamIdToLeagueKeyMap[team_id] = leagueKey;
+            });
+
+            // Steg 2: Fyll i spelarna
+            playersList.forEach(player => {
+                const { player_name, number, team_id } = player;
+                
+                // Hitta vilken liga spelarens lag tillhör
+                const leagueKey = teamIdToLeagueKeyMap[team_id];
+
+                if (leagueKey && newTeamsObject[leagueKey].teams[team_id]) {
+                    // Lägg till spelaren i rätt lag i formatet { '9': 'Jack York' }
+                    newTeamsObject[leagueKey].teams[team_id].players[number] = player_name;
+                } else {
+                    console.warn(`Kunde inte placera spelare: ${player_name} (lag-ID: ${team_id})`);
+                }
+            });
+
+            return newTeamsObject;
+        }
+
+
+        /**
+         * Huvudfunktion som körs när sidan laddas.
+         * Hämtar all data, bygger objektet och startar sedan spelet.
+         */
+        async function initializeApp() {
+            try {
+                // Visa laddningsskärmen
+                showScreen(loadingScreen);
+
+                // Hämta båda filerna samtidigt
+                const [teamDataResponse, playerDataResponse] = await Promise.all([
+                    fetch(TEAMS_URL),
+                    fetch(PLAYERS_URL)
+                ]);
+
+                if (!teamDataResponse.ok || !playerDataResponse.ok) {
+                    throw new Error('Kunde inte hämta data från Google Sheets.');
+                }
+
+                const teamsTSV = await teamDataResponse.text();
+                const playersTSV = await playerDataResponse.text();
+
+                // Omvandla texten till listor med objekt
+                const teamsList = parseTSV(teamsTSV, ['team_id', 'team_name', 'league']);
+                const playersList = parseTSV(playersTSV, ['player_name', 'number', 'team_id']);
+                
+                // Bygg det slutgiltiga TEAMS-objektet
+                TEAMS = buildTeamsObject(teamsList, playersList);
+
+                // --- STARTA SPELET ---
+                // Nu när TEAMS är fyllt kan vi köra de vanliga startfunktionerna
+                createStartScreen();
+                populateStudyLeagues();
+                
+                // Dölj laddningsskärmen och visa startskärmen
+                showScreen(startScreen);
+
+            } catch (error) {
+                console.error('Kunde inte ladda spelet:', error);
+                loadingScreen.innerHTML = '<h2>Kunde inte ladda spelet</h2><p style="color:red;">Kontrollera att Google Sheet-länkarna är korrekt publicerade och att du har internetanslutning.</p>';
+            }
+        }
+
+
+
+// --- NY LISTENER FÖR STEG 2 ---
+        studyLeagueSelection.addEventListener('change', (e) => {
+            if (e.target.name === 'study-league') {
+                const selectedLeagueKey = e.target.value;
+                populateStudyTeams(selectedLeagueKey);
+                renderStudyList(); // <-- LÄGG TILL DENNA RAD (rensar listan)
+            }
+        });
+        // -----------------------------
+
+// --- NYA LISTENERS FÖR STEG 3 ---
+        studyTeamSelect.addEventListener('change', () => {
+            renderStudyList(); // Rita om listan när man väljer ett lag
+        });
+
+        sortByNameBtn.addEventListener('click', () => {
+            currentSortMode = 'name';
+            updateSortButtons();
+            renderStudyList(); // Rita om listan med ny sortering
+        });
+        
+        sortByNumberBtn.addEventListener('click', () => {
+            currentSortMode = 'number';
+            updateSortButtons();
+            renderStudyList(); // Rita om listan med ny sortering
+        });
+        // -----------------------------
+
+
+        /**
+         * Hanterar alla klick på startsidan (både liga-knappar och lag-knappar)
+         */
+        startScreen.addEventListener('click', (e) => {
+            const target = e.target;
+            
+            // Klick på en LIGA-knapp (öppna/stänga dragspel)
+            if (target.matches('.btn-league')) {
+                const teamContainer = target.nextElementSibling;
+                const isExpanded = teamContainer.classList.contains('expanded');
+
+                // Stäng alla andra öppna listor
+                document.querySelectorAll('.team-list-container.expanded').forEach(container => {
+                    if (container !== teamContainer) {
+                        container.classList.remove('expanded');
+                    }
+                });
+                
+                // Toggla den klickade listan
+                teamContainer.classList.toggle('expanded', !isExpanded);
+            }
+            
+            // Klick på en LAG-knapp (starta spelet)
+            if (target.matches('.btn-team') && !target.disabled) {
+                selectedLeagueKey = target.dataset.leagueKey;
+                selectedTeamKey = target.dataset.teamKey;
+                
+                // Sätt CSS-tema baserat på lagets nyckel (t.ex. 'dif' -> .theme-dif)
+                document.body.className = `theme-${selectedTeamKey}`;
+                
+                startScreen.classList.add('hidden');
+                modeScreen.classList.remove('hidden');
+            }
+        });
+
+
+
+
+// --- NY HJÄLPFUNKTION FÖR SKÄRMAR ---
+        function showScreen(screenToShow) {
+            // Göm alla skärmar
+            loadingScreen.classList.add('hidden');
+            startScreen.classList.add('hidden');
+            modeScreen.classList.add('hidden');
+            gameContainer.classList.add('hidden');
+            endScreen.classList.add('hidden');
+            studyScreen.classList.add('hidden'); // Glöm inte den nya
+            
+            // Visa bara den vi vill visa
+            if (screenToShow) {
+                screenToShow.classList.remove('hidden');
+            }
+        }
+        // ------------------------------------
+
+
+        // =================================================================
+        //  SPELLOGIK (Uppdaterad)
+        // =================================================================
+
+        modeScreen.addEventListener('click', (e) => {
+            if (e.target.matches('[data-mode]')) {
+                const selectedMode = e.target.dataset.mode;
+                showScreen(null); // Gömmer modeskärmen, startGame visar spelskärmen
+                startGame(selectedMode);
+            }
+        });
+        
+function returnToStart() {
+        clearInterval(timerInterval);
+        // endScreen är redan gömd av showScreen
+        gameBoard.innerHTML = '';
+        document.body.className = '';
+
+        // Stäng alla öppna dragspel
+        document.querySelectorAll('.team-list-container.expanded').forEach(container => {
+            container.classList.remove('expanded');
+        });
+
+        showScreen(startScreen); // Gå tillbaka till start
+    }
+
+        document.getElementById('restart-btn').addEventListener('click', returnToStart);
+        document.getElementById('reset-btn').addEventListener('click', returnToStart);
+
+        function startGame(mode) {
+            resetGame();
+            
+            // *** UPPDATERAD RAD ***
+            // Hämtar spelare från den nya nästlade TEAMS-strukturen
+            const allPlayers = TEAMS[selectedLeagueKey].teams[selectedTeamKey].players;
+            
+            const allNumbers = Object.keys(allPlayers);
+            let numbersForGame;
+            
+            if (mode === 'all') {
+                numbersForGame = allNumbers;
+            } else {
+                numbersForGame = [...allNumbers].sort(() => 0.5 - Math.random()).slice(0, parseInt(mode));
+            }
+
+            cardValues = [];
+            numbersForGame.forEach(num => {
+                cardValues.push({ value: num, display: num, type: 'number' });
+                cardValues.push({ value: num, display: allPlayers[num], type: 'name' });
+            });
+            cardValues.sort(() => 0.5 - Math.random());
+            
+            let columns;
+            const numUniqueCards = numbersForGame.length;
+            if (numUniqueCards >= 25) { 
+                columns = 10;
+            } else if (numUniqueCards > 15) {
+                columns = 8;
+            } else if (numUniqueCards > 7) {
+                columns = 6;
+            } else {
+                columns = 7;
+            }
+            
+            gameBoard.style.gridTemplateColumns = `repeat(${columns}, var(--card-size))`;
+
+            createBoard();
+            showScreen(gameContainer); // Visar spelskärmen
+            startTimer();
+        }
+
+        function createBoard() {
+            cardValues.forEach((cardData, index) => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.value = cardData.value;
+                card.dataset.id = index.toString(); // ID som textsträng
+
+                let cardContent;
+                if (cardData.type === 'number') {
+                    cardContent = `<span class="card-content-number">${cardData.display}</span>`;
+                } else {
+                    cardContent = `<span class="card-content-name">${cardData.display}</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="card-face card-face--front"></div>
+                    <div class="card-face card-face--back">${cardContent}</div>
+                `;
+                card.addEventListener('click', flipCard);
+                gameBoard.appendChild(card);
+            });
+        }
+        
+        function cleanUpMismatchedPair() {
+            if (mismatchedPair.length > 0) {
+                mismatchedPair[0].classList.remove('is-flipped');
+                mismatchedPair[1].classList.remove('is-flipped');
+                mismatchedPair = [];
+            }
+        }
+        
+        function flipCard() {
+            if (lockBoard || this === firstCard || this.classList.contains('is-matched')) return;
+            
+            if (!hasFlippedCard) {
+                debugInfo.textContent = '';
+            }
+            
+            cleanUpMismatchedPair();
+            this.classList.add('is-flipped');
+
+            if (!hasFlippedCard) {
+                hasFlippedCard = true;
+                firstCard = this;
+                return;
+            }
+
+            secondCard = this;
+            totalMoves++;
+            checkForMatch();
+        }
+        
+        function checkForMatch() {
+            const isMatch = firstCard.dataset.value === secondCard.dataset.value;
+            
+            // --- IMPLEMENTERING AV DIN LOGIK ---
+
+            // 1. KONTROLLERA FÖR MISSAR
+            if (!isMatch) {
+                // Villkor A: Om första brickan tillhör ett "Känt Par"
+                if (knownPairValues.has(firstCard.dataset.value)) {
+                    misses++;
+                  //  debugInfo.textContent = 'MISS!';
+                } 
+                // Villkor B: Om första brickan var ny, men andra är en "Känd Exakt Bricka"
+                else if (knownCardIds.has(secondCard.dataset.id)) {
+                    misses++;
+                  //  debugInfo.textContent = 'MISS!';
+                }
+            }
+
+            // 2. UPPDATERA MINNET (EFTER KONTROLLEN)
+            knownPairValues.add(firstCard.dataset.value);
+            knownPairValues.add(secondCard.dataset.value);
+            knownCardIds.add(firstCard.dataset.id);
+            knownCardIds.add(secondCard.dataset.id);
+            
+            // 3. HANTERA SPELETS FLÖDE
+            if (isMatch) {
+                disableCards();
+            } else {
+                handleMismatch();
+            }
+        }
+        
+        function disableCards() {
+            firstCard.removeEventListener('click', flipCard);
+            secondCard.removeEventListener('click', flipCard);
+            firstCard.classList.add('is-matched');
+            secondCard.classList.add('is-matched');
+            matchedPairs++;
+
+            if (matchedPairs === cardValues.length / 2) {
+                setTimeout(endGame, 1000);
+            } else {
+                resetBoardState();
+            }
+        }
+
+        function handleMismatch() {
+            mismatchedPair = [firstCard, secondCard];
+            resetBoardState();
+        }
+        
+        function resetBoardState() {
+            [hasFlippedCard, lockBoard] = [false, false];
+            [firstCard, secondCard] = [null, null];
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            cleanUpMismatchedPair();
+            document.getElementById('final-time').textContent = `Tid: ${seconds} sekunder`;
+            document.getElementById('final-moves').textContent = `Antal drag: ${totalMoves}`;
+            document.getElementById('final-misses').textContent = `Antalet missar: ${misses}`;
+            endScreen.classList.remove('hidden'); // Slutskärmen är ett "overlay", så den behöver inte använda showScreen
+        }
+
+        function resetGame() {
+            totalMoves = 0; misses = 0; matchedPairs = 0; seconds = 0;
+            clearInterval(timerInterval);
+            timerDisplay.textContent = 'Tid: 0s';
+            gameBoard.innerHTML = '';
+            knownPairValues.clear();
+            knownCardIds.clear();
+            mismatchedPair = [];
+            resetBoardState();
+            if(debugInfo) debugInfo.textContent = '';
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                seconds++;
+                timerDisplay.textContent = `Tid: ${seconds}s`;
+            }, 1000);
+        }
+        
+
+// --- NYA LISTENERS FÖR STEG 1 ---
+        studyBtn.addEventListener('click', () => {
+            showScreen(studyScreen);
+        });
+        
+        closeStudyBtn.addEventListener('click', () => {
+            returnToStart(); // Använd samma funktion som "Tillbaka" från spelet
+        });
+        
+        modeBackBtn.addEventListener('click', () => {
+            returnToStart(); // Använd också samma "Tillbaka"-funktion
+        });
+        // --------------------------------
+
+
+        // =================================================================
+        //  Starta hela applikationen
+        // =================================================================
+        initializeApp();
+
+    </script>
+    <a href="../index.html" class="bottom-home" aria-label="Till startsidan" title="Till startsidan">
+    🏠
+</a>
+
+</body>
+</html>

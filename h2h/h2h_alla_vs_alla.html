@@ -1,0 +1,1572 @@
+<!doctype html>
+<html lang="sv">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Alla möter alla</title>
+    <style>
+        /***********************************************************
+   * 1) Theme tokens
+   ***********************************************************/
+        :root {
+            --bg: #0b1220;
+            --card: #0f1a2e;
+            --card-2: #0c1528;
+
+            --text: #e7eefc;
+            --muted: #b6c3e3;
+
+            --border: rgba(255, 255, 255, .12);
+
+            --btn: rgba(255, 255, 255, .08);
+            --btn-hover: rgba(255, 255, 255, .12);
+
+            --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+
+            --primary: rgba(122, 162, 255, .18);
+            --primary-border: rgba(122, 162, 255, .45);
+
+            --ok: rgba(45, 212, 191, .14);
+            --ok-border: rgba(45, 212, 191, .55);
+
+            --danger: rgba(255, 107, 107, .14);
+            --danger-border: rgba(255, 107, 107, .55);
+
+            --restart: rgba(255, 107, 107, .28);
+            --restart-border: rgba(255, 107, 107, .95);
+        }
+
+        /***********************************************************
+   * 2) Base / layout
+   ***********************************************************/
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+            background:
+                radial-gradient(1200px 600px at 20% 0%, rgba(122, 162, 255, .20), transparent 55%),
+                radial-gradient(900px 500px at 80% 20%, rgba(45, 212, 191, .14), transparent 50%),
+                var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .wrap {
+            max-width: 800px;
+            margin: 0 auto;
+            display: grid;
+            gap: 16px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+
+
+        h1 {
+            margin: 0;
+            font-size: 20px;
+            letter-spacing: .02em;
+        }
+
+        .hint {
+            margin-left: auto;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .06), transparent 70%), var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            padding: 16px;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 12px 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /***********************************************************
+   * 3) Buttons
+   ***********************************************************/
+        button {
+            appearance: none;
+            border: 1px solid var(--border);
+            background: var(--btn);
+            color: var(--text);
+            border-radius: 12px;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-weight: 650;
+            letter-spacing: .01em;
+            transition: transform .05s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+            user-select: none;
+        }
+
+        button:hover {
+            background: var(--btn-hover);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button[disabled] {
+            opacity: .45;
+            cursor: not-allowed;
+        }
+
+        button.small {
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-weight: 750;
+            font-size: 12px;
+        }
+
+        .btn-primary {
+            border-color: var(--primary-border);
+            background: var(--primary);
+        }
+
+        /* extra tydlig "Börja" */
+        .btn-start {
+            border-color: rgba(45, 212, 191, .85);
+            background: rgba(45, 212, 191, .20);
+            box-shadow: 0 0 0 3px rgba(45, 212, 191, .12);
+        }
+
+        .btn-start:hover {
+            background: rgba(45, 212, 191, .28);
+        }
+
+        .btn-ok {
+            border-color: var(--ok-border);
+            background: var(--ok);
+        }
+
+        .btn-danger {
+            border-color: var(--danger-border);
+            background: var(--danger);
+        }
+
+        .btn-copy.is-copied {
+            border-color: rgba(45, 212, 191, .90);
+            background: rgba(45, 212, 191, .28);
+        }
+
+        /* extra tydlig "Börja om" i resultatvyn */
+        .btn-restart {
+            border-color: var(--restart-border);
+            background: var(--restart);
+            box-shadow: 0 0 0 3px rgba(255, 107, 107, .14);
+        }
+
+        .btn-restart:hover {
+            background: rgba(255, 107, 107, .36);
+        }
+
+.ghost-btn{
+  visibility: hidden;
+  pointer-events: none;
+}
+
+        /***********************************************************
+   * 4) Inputs
+   ***********************************************************/
+        .grid-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr 220px;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+            align-content: start;
+        }
+
+        label {
+            font-size: 12px;
+            color: var(--muted);
+            letter-spacing: .03em;
+            text-transform: uppercase;
+            font-weight: 750;
+        }
+
+        textarea,
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, .15);
+            color: var(--text);
+            outline: none;
+            font-size: 14px;
+        }
+
+        /* Auto-grow: ingen intern scroll, varken vertikal eller horisontell */
+        textarea {
+            min-height: calc(20 * 1.35em + 24px);
+            /* ~20 rader + padding */
+            height: auto;
+            resize: none;
+            overflow: hidden;
+            line-height: 1.35;
+            white-space: pre-wrap;
+            /* bryt rader visuellt */
+            overflow-wrap: anywhere;
+            /* bryt långa tokens */
+        }
+
+        .mini {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.35;
+        }
+
+        .error {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 107, 107, .55);
+            background: rgba(255, 107, 107, .12);
+            color: #ffe4e4;
+            display: none;
+        }
+
+        .error.is-visible {
+            display: block;
+        }
+
+        /***********************************************************
+   * 5) Match view
+   ***********************************************************/
+        .match-top {
+            display: grid;
+            gap: 10px;
+        }
+
+        .match-title {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .pair {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: .01em;
+        }
+
+        .meta {
+            font-size: 13px;
+            color: var(--muted);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .progress {
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .10);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .progress>div {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(122, 162, 255, .85), rgba(45, 212, 191, .70));
+            border-radius: 999px;
+            transition: width .2s ease;
+        }
+
+        .scoreboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .scorebox {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .05), transparent 70%), var(--card-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+        }
+
+        .scorebox .name {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .scorebox .points {
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: .02em;
+        }
+
+        .scorebox .sub {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .options button {
+            min-width: 64px;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        /***********************************************************
+   * 6) Results table
+   ***********************************************************/
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, .10);
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            font-weight: 850;
+            background: rgba(255, 255, 255, .04);
+        }
+
+        tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        /* Global hem-länk (emoji, alltid synlig) */
+        .home-link {
+            position: sticky;
+            top: 14px;
+            z-index: 1000;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 40px;
+            height: 40px;
+
+            font-size: 22px;
+            line-height: 1;
+
+            text-decoration: none;
+            cursor: pointer;
+
+            background: rgba(0, 0, 0, .15);
+            border: 1px solid rgba(255, 255, 255, .18);
+            border-radius: 10px;
+        }
+
+        .home-link:hover {
+            background: rgba(255, 255, 255, .18);
+        }
+
+
+        .home-link:hover {
+            background: rgba(255, 255, 255, .18);
+        }
+
+/***********************************************************
+ * 1) Yttre details-kort ("Så här funkar appen")
+ ***********************************************************/
+.howitworks {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, .10);
+  padding: 10px 12px;
+}
+
+/***********************************************************
+ * 2) Summary-rad (återanvänds av både yttre och nästlade details)
+ * - Pilarna följer rubriken (inte längst till höger)
+ * - Texten växlar mellan stängd/öppen (utan JS)
+ ***********************************************************/
+.sum {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;    /* viktigt: gör att pilen sitter nära texten */
+  align-items: center;
+  gap: 10px;
+  font-weight: 850;
+  user-select: none;
+}
+
+.sum::-webkit-details-marker {
+  display: none;
+}
+
+/* Pil efter själva label-texten */
+.sum-label::after {
+  content: " ▾";
+  opacity: .85;
+}
+
+/* När details är öppen: byt pil */
+details[open] > .sum .sum-label::after {
+  content: " ▴";
+}
+
+/* Växla synlig text (stängd/öppen) */
+.sum-open {
+  display: none;
+}
+
+details[open] > .sum .sum-closed {
+  display: none;
+}
+
+details[open] > .sum .sum-open {
+  display: inline;
+}
+
+/***********************************************************
+ * 3) Innehållet i guiden (brödtexten)
+ ***********************************************************/
+.howitworks-body {
+  margin-top: 10px;
+}
+
+.howitworks-body p {
+  margin: 0 0 10px;
+}
+
+.howitworks-body p:last-child {
+  margin-bottom: 0;
+}
+
+.howitworks-body ol > li {
+  margin-bottom: 12px;
+}
+
+/***********************************************************
+ * 4) Nästlad details (fulltext)
+ * - Visuellt separerad från snabbguiden
+ ***********************************************************/
+.howitworks-full {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+/* Valfritt: lite mindre “rubrik-känsla” i den nästlade summaryn */
+.howitworks-full > .sum {
+  font-size: 14px;
+}
+
+
+        /***********************************************************
+   * 7) Responsive
+   ***********************************************************/
+        @media (max-width: 900px) {
+            .grid-inputs {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .home-link {
+                top: 10px;
+                left: 10px;
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="wrap">
+        <header>
+            <a href="../index.html" class="home-link" aria-label="Till startsidan" title="Till startsidan">🏠</a>
+            <h1>Alla möter alla</h1>
+            <!-- <div class="hint">Generiskt “alla möter alla” + klickbara motalternativ</div> -->
+        </header>
+
+        <!-- SETUP -->
+        <section class="card" id="setupCard">
+            <div class="row">
+                <button id="btnPresetHA" class="btn-primary">Hockeyallsvenskan</button>
+                <button id="btnPresetSHL" class="btn-primary">SHL</button>
+                <button id="btnPresetCustom" class="btn-primary">valfritt</button>
+
+                <button id="btnStart" class="btn-primary btn-start" disabled>Börja</button>
+                <!-- <span class="hint" id="setupHint">Välj preset och starta.</span> -->
+            </div>
+
+            <div id="inputsArea" class="hidden">
+                <div class="grid-inputs">
+                    <div class="field">
+                        <div class="row" style="justify-content: space-between;">
+                            <label for="terms" style="margin:0;">Begrepp (ett per rad)</label>
+                            <button id="btnClearTerms" class="small" type="button">Rensa</button>
+                        </div>
+                        <textarea id="terms" spellcheck="false"
+                            placeholder="Skriv eller klistra in en rad per begrepp"></textarea>
+                        <!-- <div class="mini">Alfanumeriska strängar, flera rader.</div> -->
+                    </div>
+
+                    <div class="field">
+                        <div class="row" style="justify-content: space-between;">
+                            <label for="pairs" style="margin:0;">Motalternativ</label>
+                            <button id="btnClearPairs" class="small" type="button">Rensa</button>
+                        </div>
+<textarea id="pairs" spellcheck="false" placeholder="Ex:
+0, 3
+1, 2
+2, 1
+3, 0"></textarea>
+                        <div class="mini">Varje rad ska bestå av exakt två tal, åtskilda med ett kommatecken.
+                        </div>
+                    </div>
+
+<div class="field">
+  <div class="row row--fieldhead" style="justify-content: space-between;">
+    <label for="yCount" style="margin:0;">Antal klick per möte</label>
+
+    <!-- Osynlig men "riktig" knapp, så höjden matchar de andra -->
+    <button class="small ghost-btn" type="button" tabindex="-1" aria-hidden="true" disabled>Rensa</button>
+  </div>
+
+  <input id="yCount" type="text" inputmode="numeric" placeholder="t.ex. 4" />
+</div>
+                </div>
+
+                <div class="error" id="setupError"></div>
+            </div>
+        </section>
+
+        <!-- MATCH -->
+        <section class="card hidden" id="matchCard">
+            <div class="match-top">
+                <div class="match-title">
+                    <div class="pair" id="pairTitle">A vs B</div>
+                    <div class="meta">
+                        <div id="metaOrder">Möte 1 / 1</div>
+                        <div id="metaClicks">Klick: 0 / 0</div>
+                        <button id="btnRestartAllMatch" class="btn-danger" type="button">Börja om</button>
+                    </div>
+                </div>
+
+                <div class="progress" aria-label="Progress">
+                    <div id="progressBar"></div>
+                </div>
+
+                <div class="scoreboard">
+                    <div class="scorebox">
+                        <div class="name" id="nameA">A</div>
+                        <div class="points" id="pointsA">0</div>
+                        <div class="sub" id="subA">Ackumulerat i detta möte</div>
+                    </div>
+                    <div class="scorebox">
+                        <div class="name" id="nameB">B</div>
+                        <div class="points" id="pointsB">0</div>
+                        <div class="sub" id="subB">Ackumulerat i detta möte</div>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="hint">Välj poäng till A (B får automatiskt motpoängen).</div>
+                <div class="options" id="optionsArea"></div>
+
+                <div class="divider"></div>
+
+                <div class="row">
+                    <button id="btnReset" class="btn-danger">Återställ</button>
+                    <button id="btnNext" class="btn-primary" disabled>Nästa</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- RESULTS -->
+        <section class="card hidden" id="resultsCard">
+            <div class="row" style="justify-content: space-between;">
+                <div>
+                    <div style="font-size:18px;font-weight:900;">Sluttabell</div>
+                    <div class="hint">Sorterad efter poäng (fallande), delade placeringar grupperas.</div>
+                </div>
+                <button id="btnCopy" class="btn-ok btn-copy">Kopiera tabell</button>
+                <button id="btnDownloadLog" class="btn-ok" type="button">Ladda ner logg</button>
+                <button id="btnRestartAllResults" class="btn-restart" type="button">Börja om</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="table-wrap">
+                <table id="resultsTable" aria-label="Sluttabell">
+                    <thead>
+                        <tr>
+                            <th id="thPos" style="width:110px;">Position</th>
+                            <th id="thName">Begrepp</th>
+                            <th id="thPts" style="width:140px;">Poäng</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="hint" id="copyHint" style="margin-top:10px;"></div>
+        </section>
+
+        <!-- SÅ HÄR FUNKAR APPEN (utfällbar) -->
+        <section class="card" id="howItWorksCard">
+            <details class="howitworks">
+<summary class="sum">
+  <span class="sum-label sum-closed">Klicka för snabbguide</span>
+  <span class="sum-label sum-open">Stäng snabbguiden</span>
+</summary>
+
+
+                <!-- Här klistrar du in din text -->
+                <div class="howitworks-body">
+                    <h2>Snabbguide: tippa en säsong</h2>
+
+                    <ol>
+                        <li>
+                            <strong>Klicka på Hockeyallsvenskan eller SHL.</strong><br>
+                            Appen fyller då automatiskt i alla 14 lag, rätt motalternativ samt fyra klick per möte.
+                        </li>
+
+                        <li>
+                            <strong>Klicka på Börja.</strong><br>
+                            Du får nu upp det första mötet att ta ställning till. Ordningen är slumpad.
+                        </li>
+
+                        <li>
+                            <strong>Behandla ett lagpar i taget.</strong><br>
+                            Tänk endast på hur dessa två lag står sig mot varandra över fyra matcher
+                            under säsongen – ignorera tabellen i övrigt.
+                        </li>
+
+                        <li>
+                            <strong>Klicka fyra gånger, en gång per match.</strong><br>
+                            Varje klick motsvarar ett tänkt matchutfall:
+                            <ul>
+                                <li>3–0: klar seger för laget till vänster</li>
+                                <li>2–1: seger för laget till vänster efter övertid/straffar</li>
+                                <li>1–2: seger för laget till höger efter övertid/straffar</li>
+                                <li>0–3: klar seger för laget till höger</li>
+                            </ul>
+                        </li>
+
+                        <li>
+                            <strong>Justera vid behov.</strong><br>
+                            Om du ångrar dig kan du använda Återställ för att nollställa
+                            det aktuella mötet och klicka om.
+                        </li>
+
+                        <li>
+                            <strong>Gå vidare när fyra klick är gjorda.</strong><br>
+                            Först då blir Nästa-knappen aktiv och du går vidare till nästa lagpar.
+                        </li>
+
+                        <li>
+                            <strong>Upprepa tills alla möten är klara.</strong><br>
+                            Alla lag möter alla andra, exakt en gång per lagpar i appen.
+                        </li>
+
+                        <li>
+                            <strong>Studera sluttabellen.</strong><br>
+                            När sista mötet är klart visas en färdig tabell med position, lag och poäng.
+                        </li>
+
+                        <li>
+                            <strong>Kopiera eller exportera resultatet.</strong><br>
+                            Du kan kopiera tabellen direkt eller ladda ner en detaljerad logg
+                            över alla klick om du vill granska hur resultatet byggdes upp.
+                        </li>
+                    </ol>
+<details class="howitworks-full">
+  <summary class="sum">
+    <span class="sum-label sum-closed">Klicka för mer fullständiga instruktioner</span>
+    <span class="sum-label sum-open">Stäng de fullständiga instruktionerna</span>
+  </summary>
+
+  <div class="howitworks-body">
+<h2>Översikt</h2>
+
+<p>Alla möter alla är en interaktiv webbaserad app för att systematiskt jämföra och rangordna en uppsättning objekt genom upprepade, strukturerade möten. Appen är byggd för situationer där varje objekt ska möta alla andra ett fast antal gånger, och där utfallet av varje möte kan avgöras i ett eller flera steg som tillsammans påverkar en slutlig totalpoäng.</p>
+
+<p>Appen lämpar sig särskilt väl för att tippa eller simulera en hel säsong i en liga, men är medvetet utformad så att den lika gärna kan användas för andra typer av jämförelser, rankingar eller scenarier där man vill fatta många lokala beslut utan att i förväg behöva ta ställning till hur de sammantaget påverkar helheten.</p>
+
+<h2>Grundidé: alla möter alla, ett möte i taget</h2>
+
+<p>Appen bygger på idén att alla objekt ska jämföras med alla andra, men att jämförelserna görs en i taget, isolerat från helheten. Som ett konkret exempel kan man tänka sig tippning av en sluttabell i SHL. Detta kan upplevas som ett mer systematiskt och potentiellt mer objektivt alternativ än att försöka rangordna alla lag direkt utifrån en övergripande helhetsbedömning.</p>
+
+<p>I SHL deltar 14 lag, och varje lag möter alla andra fyra gånger under säsongen. För att bygga upp en sluttabell kan man använda appen genom att behandla varje lagkombination för sig, utan att behöva ta ställning till hur den samlade tabellen ska se ut under arbetets gång.</p>
+
+<p>Det enklaste sättet att använda appen är att för varje lagpar avgöra vilket lag som förväntas ta fler poäng än det andra. Om man bedömer att lag A är starkare än lag B kan man till exempel klicka på ett alternativ som ger lag A 1 poäng, varpå lag B automatiskt får 0 poäng. Varje möte reduceras då till ett enda beslut.</p>
+
+<p>Man kan också välja ett mer nyanserat angreppssätt, motsvarande ett klassiskt 1X2-tänk. I ett sådant upplägg innebär ett klick på 2 att lag A förväntas vinna och ta 2 poäng medan lag B får 0, ett klick på 1 att lagen bedöms vara jämnstarka och båda tilldelas 1 poäng, och ett klick på 0 att lag B förväntas vara starkare och ta 2 poäng medan lag A får 0.</p>
+
+<p>För den som vill efterlikna verklig poängfördelning mer exakt krävs dock att poängen fördelas över flera matcher, vilket i SHL motsvarar maximalt 12 poäng mellan två lag. Appen erbjuder då två huvudsakliga arbetssätt. Antingen kan man mata in samtliga poängkombinationer som tillsammans summeras till 12 och fatta ett enda beslut per lagpar. Eller så kan man använda ett upplägg där varje enskild match behandlas separat. Om man klickar på knappen SHL är det detta alternativ som föreslås.</p>
+
+<p>I det senare fallet används motalternativ som summeras till tre poäng per match:</p>
+
+<ul>
+  <li>0, 3</li>
+  <li>1, 2</li>
+  <li>2, 1</li>
+  <li>3, 0</li>
+</ul>
+
+<p>Genom att klicka fyra gånger, en gång per match, byggs poängfördelningen mellan lagen upp steg för steg.</p>
+
+<p>Om man till exempel tippar att lag A vinner två matcher under ordinarie tid, förlorar en match på övertid eller straffar och vinner en på samma sätt, klickar man två gånger på 3, en gång på 1 och en gång på 2. Resultatet blir då totalt 9 poäng till lag A och 3 poäng till lag B.</p>
+
+<p>Den avgörande poängen är att detta sätt att arbeta ofta upplevs som mer intuitivt än att direkt ange ett sammanlagt poängutfall, eftersom varje klick motsvarar ett konkret matchscenario snarare än ett abstrakt totalvärde.</p>
+
+<h2>Tydlig återkoppling och möjlighet att ångra</h2>
+
+<p>Under varje möte visar appen löpande:</p>
+
+<ul>
+  <li>hur många klick som återstår</li>
+  <li>hur många poäng lag A och lag B har ackumulerat i just detta möte</li>
+  <li>vilket möte i ordningen det är, via både text och progressindikator</li>
+</ul>
+
+<p>Om användaren ångrar sig finns en Återställ-funktion som nollställer det aktuella mötet utan att påverka tidigare möten eller den övergripande poängställningen. Först när exakt fyra klick har gjorts kan man gå vidare till nästa möte, vilket säkerställer att alla möten behandlas konsekvent.</p>
+
+<h2>Slumpad mötesordning och neutralitet</h2>
+
+<p>Mötena presenteras i slumpad ordning. Det innebär att användaren inte nödvändigtvis börjar med de två första lagen i listan, och inte heller kan förutse exakt vilken jämförelse som kommer härnäst.</p>
+
+<h2>Slutresultat: tabell med korrekt rangordning</h2>
+
+<p>När alla möten är genomförda presenteras en sluttabell i tabellform. Tabellen innehåller:</p>
+
+<ul>
+  <li>Position</li>
+  <li>Lag</li>
+  <li>Totalpoäng</li>
+</ul>
+
+<p>Lagen sorteras efter totalpoäng i fallande ordning. Om flera lag delar samma poäng visas positionssiffran endast på den första raden i gruppen, medan övriga rader lämnas tomma i positionskolumnen. Inom en poänglik grupp sorteras lagen alfanumeriskt, vilket ger ett stabilt och förutsägbart resultat.</p>
+
+<h2>Export och spårbarhet</h2>
+
+<p>Appen erbjuder två former av export:</p>
+
+<ul>
+  <li>Sluttabellen kan kopieras som tabbseparerad text, inklusive rubriker, vilket gör att den kan klistras in direkt i Excel eller andra kalkylprogram utan efterarbete.</li>
+  <li>En detaljerad logg över alla gjorda val kan laddas ner som TSV-fil på användarens begäran. Loggen är osynlig under användning, men innehåller en rad per klick med information om:</li>
+</ul>
+
+<ul>
+  <li>vilket möte det gällde</li>
+  <li>vilka lag som möttes</li>
+  <li>vilket alternativ som valdes</li>
+  <li>vilket klick i ordningen det var</li>
+</ul>
+
+<p>Detta gör appen särskilt användbar när man vill kunna granska, analysera eller i efterhand förstå hur slutresultatet har vuxit fram.</p>
+     
+  </div>
+</details>
+
+
+                </div>
+            </details>
+        </section>
+
+    </div>
+
+    <script>
+        /***********************************************************
+         * Alla möter alla — JS
+         * Strukturerad version (samma funktionalitet, mer ordning)
+         ***********************************************************/
+
+        /* =========================================================
+           0) Presets (startvärden för HA/SHL)
+           ========================================================= */
+        const PRESET_PAIRS = "0, 3\n1, 2\n2, 1\n3, 0";
+        const PRESET_Y = "4";
+
+        const PRESET_HA_TERMS =
+            `AIK
+Almtuna IS
+BIK Karlskoga
+Björklöven
+IK Oskarshamn
+Kalmar HC
+MoDo Hockey
+Mora IK
+Nybro Vikings
+Södertälje SK
+Troja-Ljungby
+Vimmerby Hockey
+Västerås IK
+Östersunds IK`;
+
+        const PRESET_SHL_TERMS =
+            `Brynäs IF
+Djurgårdens IF
+Färjestad BK
+Frölunda HC
+HV71
+Leksands IF
+Linköping HC
+Luleå Hockey
+Malmö Redhawks
+Örebro Hockey
+Rögle BK
+Skellefteå AIK
+Timrå IK
+Växjö Lakers`;
+
+
+        /* =========================================================
+           1) DOM-refs (alla element vi jobbar med)
+           ========================================================= */
+        const el = {
+            // Cards/views
+            setupCard: document.getElementById('setupCard'),
+            matchCard: document.getElementById('matchCard'),
+            resultsCard: document.getElementById('resultsCard'),
+
+            // Preset buttons
+            btnPresetHA: document.getElementById('btnPresetHA'),
+            btnPresetSHL: document.getElementById('btnPresetSHL'),
+            btnPresetCustom: document.getElementById('btnPresetCustom'),
+
+            // Setup / inputs
+            btnStart: document.getElementById('btnStart'),
+            inputsArea: document.getElementById('inputsArea'),
+            setupError: document.getElementById('setupError'),
+
+            terms: document.getElementById('terms'),
+            pairs: document.getElementById('pairs'),
+            y: document.getElementById('yCount'),
+
+            btnClearTerms: document.getElementById('btnClearTerms'),
+            btnClearPairs: document.getElementById('btnClearPairs'),
+
+            // Match view
+            pairTitle: document.getElementById('pairTitle'),
+            metaOrder: document.getElementById('metaOrder'),
+            metaClicks: document.getElementById('metaClicks'),
+            progressBar: document.getElementById('progressBar'),
+
+            nameA: document.getElementById('nameA'),
+            nameB: document.getElementById('nameB'),
+            pointsA: document.getElementById('pointsA'),
+            pointsB: document.getElementById('pointsB'),
+
+            optionsArea: document.getElementById('optionsArea'),
+            btnReset: document.getElementById('btnReset'),
+            btnNext: document.getElementById('btnNext'),
+
+            btnRestartAllMatch: document.getElementById('btnRestartAllMatch'),
+
+            // Results view
+            resultsTable: document.getElementById('resultsTable'),
+            resultsTbody: document.getElementById('resultsTable')?.querySelector('tbody'),
+            btnCopy: document.getElementById('btnCopy'),
+            copyHint: document.getElementById('copyHint'),
+
+            thPos: document.getElementById('thPos'),
+            thName: document.getElementById('thName'),
+            thPts: document.getElementById('thPts'),
+
+            btnRestartAllResults: document.getElementById('btnRestartAllResults'),
+            btnDownloadLog: document.getElementById('btnDownloadLog'),
+        };
+
+
+        /* =========================================================
+           2) State (appens “sanning”)
+           ========================================================= */
+        const state = {
+            // vilken preset som senast valdes (styr rubriker i slutresultat)
+            presetMode: null, // 'ha' | 'shl' | 'custom'
+
+            // indata
+            terms: [],
+            pairs: [],        // [{a:number, b:number}, ...]
+            y: 0,
+
+            // fixtures (alla möten, slumpad ordning)
+            fixtures: [],     // [{aIdx, bIdx}, ...]
+            fixtureIndex: 0,  // vilket möte vi är på
+
+            // match-nivå (resetas av Återställ och när man går vidare)
+            clicks: 0,
+            matchPointsA: 0,
+            matchPointsB: 0,
+
+            // totals (ackumuleras över hela körningen)
+            totals: new Map(), // term -> points
+            log: [], // osynlig logg av alla val (för TSV-export)
+
+        };
+
+
+        /* =========================================================
+           3) Små UI-hjälpare (fel, show/hide, start-knapp osv)
+           ========================================================= */
+        function showError(msg) {
+            el.setupError.textContent = msg;
+            el.setupError.classList.add('is-visible');
+        }
+        function clearError() {
+            el.setupError.textContent = '';
+            el.setupError.classList.remove('is-visible');
+        }
+
+        function showInputsArea() {
+            el.inputsArea.classList.remove('hidden');
+        }
+
+        function setActiveView(viewName) {
+            // viewName: 'setup' | 'match' | 'results'
+            el.setupCard.classList.toggle('hidden', viewName !== 'setup');
+            el.matchCard.classList.toggle('hidden', viewName !== 'match');
+            el.resultsCard.classList.toggle('hidden', viewName !== 'results');
+        }
+
+
+        /* =========================================================
+           4) Text/parse-helpers (validering & parsing)
+           ========================================================= */
+        function splitLines(text) {
+            return String(text || '')
+                .replace(/\r/g, '')
+                .split('\n')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+        }
+
+        /**
+         * Auto-grow för textarea så att vi aldrig får intern scroll.
+         * Viktigt: kallas både vid input och när vi fyller presets.
+         */
+        function autoGrowTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+
+        function parseTerms() {
+            const terms = splitLines(el.terms.value);
+            if (terms.length < 2) {
+                return { ok: false, error: 'Begrepp: du behöver minst 2 rader (minst två begrepp).' };
+            }
+            return { ok: true, value: terms };
+        }
+
+        function parseY() {
+            const raw = String(el.y.value || '').trim();
+            if (!/^\d+$/.test(raw)) {
+                return { ok: false, error: 'y: måste vara ett heltal (t.ex. 4).' };
+            }
+            const y = Number(raw);
+            if (!Number.isFinite(y) || y <= 0) {
+                return { ok: false, error: 'y: måste vara ett heltal större än 0.' };
+            }
+            return { ok: true, value: y };
+        }
+
+        function parsePairs() {
+            const raw = String(el.pairs.value || '').replace(/\r/g, '');
+            const lines = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+
+            if (lines.length === 0) {
+                return { ok: false, error: 'Motalternativ: du behöver minst en rad (t.ex. "0, 3").' };
+            }
+
+            const pairs = [];
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+
+                // Tillåt endast siffror, mellanslag, komma, minus
+                if (!/^[\d\s,\-]+$/.test(line)) {
+                    return {
+                        ok: false,
+                        error: `Motalternativ: ogiltiga tecken på rad ${i + 1}. Tillåtet: heltal, mellanslag, kommatecken.`
+                    };
+                }
+
+                const parts = line.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                if (parts.length !== 2) {
+                    return { ok: false, error: `Motalternativ: rad ${i + 1} måste ha exakt två tal separerade med kommatecken.` };
+                }
+
+                const a = Number(parts[0]);
+                const b = Number(parts[1]);
+                if (!Number.isInteger(a) || !Number.isInteger(b)) {
+                    return { ok: false, error: `Motalternativ: rad ${i + 1} måste innehålla heltal.` };
+                }
+
+                pairs.push({ a, b });
+            }
+
+            return { ok: true, value: pairs };
+        }
+
+        /**
+         * Start-knappen ska vara enabled först när det *ser* rimligt ut
+         * (slutvalidering sker ändå i onStart()).
+         */
+        function validateAndToggleStart() {
+            const hasTerms = splitLines(el.terms.value).length >= 2;
+            const hasPairs = splitLines(el.pairs.value).length >= 1;
+            const hasY = String(el.y.value || '').trim().length > 0;
+            el.btnStart.disabled = !(hasTerms && hasPairs && hasY);
+        }
+
+
+        /* =========================================================
+           5) Fixtures & totals (matchlista + poängbank)
+           ========================================================= */
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function buildFixtures(n) {
+            const fixtures = [];
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    fixtures.push({ aIdx: i, bIdx: j });
+                }
+            }
+            return shuffle(fixtures);
+        }
+
+        function currentFixture() {
+            return state.fixtures[state.fixtureIndex] || null;
+        }
+
+        function ensureTotals() {
+            // Nollställ totals för alla termer vi har just nu
+            state.totals = new Map();
+            for (const t of state.terms) {
+                state.totals.set(t, 0);
+            }
+        }
+
+
+        /* =========================================================
+           6) Match-nivå (återställning, UI-uppdatering, commit)
+           ========================================================= */
+        function resetMatchLocal() {
+            state.clicks = 0;
+            state.matchPointsA = 0;
+            state.matchPointsB = 0;
+        }
+
+        function updateMatchUI() {
+            const fx = currentFixture();
+            if (!fx) return;
+
+            const totalFixtures = state.fixtures.length;
+            const order = state.fixtureIndex + 1;
+
+            const A = state.terms[fx.aIdx];
+            const B = state.terms[fx.bIdx];
+
+            el.pairTitle.textContent = `${A} vs ${B}`;
+            el.nameA.textContent = A;
+            el.nameB.textContent = B;
+
+            el.pointsA.textContent = String(state.matchPointsA);
+            el.pointsB.textContent = String(state.matchPointsB);
+
+            el.metaOrder.textContent = `Möte ${order} / ${totalFixtures}`;
+            el.metaClicks.textContent = `Klick: ${state.clicks} / ${state.y}`;
+
+            // Progressbar: 0% på första mötet, 100% på sista
+            const pct = totalFixtures <= 1
+                ? 100
+                : Math.round(((order - 1) / (totalFixtures - 1)) * 100);
+
+            el.progressBar.style.width = `${pct}%`;
+
+            // Nästa blir tillgänglig först när man klickat exakt y gånger
+            el.btnNext.disabled = (state.clicks !== state.y);
+        }
+
+        function renderOptionButtons() {
+            // Bygger knapparna för A-poängen (B beräknas automatiskt via paret)
+            el.optionsArea.innerHTML = '';
+
+            for (const p of state.pairs) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = String(p.a);
+
+                btn.addEventListener('click', () => {
+                    if (state.clicks >= state.y) return;
+
+                    state.clicks += 1;
+                    state.matchPointsA += p.a;
+                    state.matchPointsB += p.b;
+
+                    const fx = currentFixture();
+                    const A = state.terms[fx.aIdx];
+                    const B = state.terms[fx.bIdx];
+
+                    // === LOGGPOST (en rad per klick) ===
+                    state.log.push({
+                        fixtureIndex: state.fixtureIndex + 1,
+                        teamA: A,
+                        teamB: B,
+                        clickNumber: state.clicks,
+                        valueA: p.a,
+                        valueB: p.b
+                    });
+
+                    updateMatchUI();
+                });
+
+
+                el.optionsArea.appendChild(btn);
+            }
+        }
+
+        function commitMatchToTotals() {
+            const fx = currentFixture();
+            if (!fx) return;
+
+            const A = state.terms[fx.aIdx];
+            const B = state.terms[fx.bIdx];
+
+            state.totals.set(A, (state.totals.get(A) || 0) + state.matchPointsA);
+            state.totals.set(B, (state.totals.get(B) || 0) + state.matchPointsB);
+        }
+
+
+        /* =========================================================
+           7) Resultat: tabellrubriker + standings rendering
+           ========================================================= */
+        function updateTableHeaders() {
+            // HA/SHL => Position, Lag, Poäng
+            // Custom => Position, Begrepp, Poäng
+            el.thPos.textContent = 'Position';
+            el.thPts.textContent = 'Poäng';
+            el.thName.textContent = (state.presetMode === 'ha' || state.presetMode === 'shl') ? 'Lag' : 'Begrepp';
+        }
+
+        function buildStandingsRows() {
+            // Skapa rows
+            const rows = state.terms.map(t => ({
+                term: t,
+                points: state.totals.get(t) || 0,
+            }));
+
+            // Sortera: poäng desc, därefter alfabetiskt
+            rows.sort((r1, r2) => {
+                if (r2.points !== r1.points) return r2.points - r1.points;
+                return String(r1.term).localeCompare(String(r2.term), 'sv', { numeric: true, sensitivity: 'base' });
+            });
+
+            // Gruppad placering: bara första raden i delad grupp får positionssiffra
+            let pos = 1;
+            let i = 0;
+            while (i < rows.length) {
+                const pts = rows[i].points;
+                const start = i;
+
+                while (i < rows.length && rows[i].points === pts) i++;
+                const end = i;
+                const groupSize = end - start;
+
+                for (let k = start; k < end; k++) {
+                    rows[k].positionDisplay = (k === start) ? String(pos) : '';
+                }
+
+                pos += groupSize;
+            }
+
+            return rows;
+        }
+
+        function renderResults() {
+            updateTableHeaders();
+
+            const rows = buildStandingsRows();
+            el.resultsTbody.innerHTML = '';
+
+            for (const r of rows) {
+                const tr = document.createElement('tr');
+
+                const tdPos = document.createElement('td');
+                tdPos.textContent = r.positionDisplay;
+
+                const tdTerm = document.createElement('td');
+                tdTerm.textContent = r.term;
+
+                const tdPts = document.createElement('td');
+                tdPts.textContent = String(r.points);
+
+                tr.append(tdPos, tdTerm, tdPts);
+                el.resultsTbody.appendChild(tr);
+            }
+        }
+
+
+        /* =========================================================
+           8) Clipboard: TSV från table + kopiering
+           ========================================================= */
+        function buildTSVFromResultsTable() {
+            const lines = [];
+
+            const headers = Array
+                .from(el.resultsTable.querySelectorAll('thead th'))
+                .map(th => th.textContent.trim());
+
+            lines.push(headers.join('\t'));
+
+            const trs = Array.from(el.resultsTable.querySelectorAll('tbody tr'));
+            for (const tr of trs) {
+                const cells = Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim());
+                lines.push(cells.join('\t'));
+            }
+
+            return lines.join('\n');
+        }
+
+        function buildTSVFromLog() {
+            const header = [
+                'Mote',
+                'A',
+                'B',
+                'Klick',
+                'Poang_A',
+                'Poang_B'
+            ];
+
+            const lines = [header.join('\t')];
+
+            for (const row of state.log) {
+                lines.push([
+                    row.fixtureIndex,
+                    row.teamA,
+                    row.teamB,
+                    row.clickNumber,
+                    row.valueA,
+                    row.valueB
+                ].join('\t'));
+            }
+
+            return lines.join('\n');
+        }
+
+        function downloadTSV(filename, content) {
+            const blob = new Blob([content], { type: 'text/tab-separated-values;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+
+        async function copyToClipboard(text) {
+            // Modern API först
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+        }
+
+
+        /* =========================================================
+           9) “Börja om” — behåll inputs, nollställ körningen
+           ========================================================= */
+        function restartToSetupKeepInputs() {
+            // Tillbaka till setup-vyn utan att röra inputs
+            setActiveView('setup');
+            showInputsArea();
+
+            // Nollställ körningen
+            state.fixtures = [];
+            state.fixtureIndex = 0;
+            resetMatchLocal();
+            state.totals = new Map();
+            state.log = [];
+
+
+            // Start-knappen ska spegla nuvarande fält
+            validateAndToggleStart();
+        }
+
+
+        /* =========================================================
+           10) Preset-hantering
+           ========================================================= */
+        function setPreset(mode) {
+            state.presetMode = mode;
+
+            showInputsArea();
+            clearError();
+
+            if (mode === 'ha') {
+                el.terms.value = PRESET_HA_TERMS;
+                el.pairs.value = PRESET_PAIRS;
+                el.y.value = PRESET_Y;
+            } else if (mode === 'shl') {
+                el.terms.value = PRESET_SHL_TERMS;
+                el.pairs.value = PRESET_PAIRS;
+                el.y.value = PRESET_Y;
+            } else {
+                // custom: tomt men placeholders syns
+                el.terms.value = '';
+                el.pairs.value = '';
+                el.y.value = '';
+            }
+
+            // Auto-grow efter att vi satt text
+            autoGrowTextarea(el.terms);
+            autoGrowTextarea(el.pairs);
+
+            validateAndToggleStart();
+        }
+
+
+        /* =========================================================
+           11) “Start”-flöde (validera -> bygg fixtures -> visa match)
+           ========================================================= */
+        function onStart() {
+            clearError();
+
+            const t = parseTerms();
+            if (!t.ok) return showError(t.error);
+
+            const p = parsePairs();
+            if (!p.ok) return showError(p.error);
+
+            const y = parseY();
+            if (!y.ok) return showError(y.error);
+
+            // Skriv indata till state
+            state.terms = t.value;
+            state.pairs = p.value;
+            state.y = y.value;
+
+            // Bygg möten
+            state.fixtures = buildFixtures(state.terms.length);
+            state.fixtureIndex = 0;
+
+            // Nollställ totals + matchstatus
+            ensureTotals();
+            resetMatchLocal();
+
+            // Rendera match UI
+            renderOptionButtons();
+            updateMatchUI();
+
+            // Visa matchvyn
+            setActiveView('match');
+        }
+
+
+        /* =========================================================
+           12) Match-interaktioner (Återställ / Nästa)
+           ========================================================= */
+        function onResetMatch() {
+            // Återställ endast aktuellt möte
+            resetMatchLocal();
+            updateMatchUI();
+        }
+
+        function onNextMatch() {
+            // Får bara gå vidare när klick == y
+            if (state.clicks !== state.y) return;
+
+            // Spara matchen till totals
+            commitMatchToTotals();
+
+            // Vidare till nästa fixture
+            state.fixtureIndex += 1;
+
+            // Slut?
+            if (state.fixtureIndex >= state.fixtures.length) {
+                setActiveView('results');
+                renderResults();
+                return;
+            }
+
+
+
+            // Ny match
+            resetMatchLocal();
+            updateMatchUI();
+        }
+
+
+        /* =========================================================
+           13) Results: Copy
+           ========================================================= */
+        async function onCopyResults() {
+            const tsv = buildTSVFromResultsTable();
+
+            try {
+                const ok = await copyToClipboard(tsv);
+                if (!ok) throw new Error('copy failed');
+
+                el.btnCopy.classList.add('is-copied');
+                el.copyHint.textContent = 'Kopierat! Klistra in i Excel.';
+                setTimeout(() => el.btnCopy.classList.remove('is-copied'), 700);
+                setTimeout(() => el.copyHint.textContent = '', 1400);
+            } catch (e) {
+                el.copyHint.textContent = 'Kunde inte kopiera automatiskt i denna webbläsare. Markera och kopiera manuellt.';
+            }
+        }
+
+        function onDownloadLog() {
+            if (!state.log || state.log.length === 0) {
+                alert('Ingen logg att ladda ner ännu.');
+                return;
+            }
+
+            const tsv = buildTSVFromLog();
+            downloadTSV('alla_moter_alla_logg.tsv', tsv);
+        }
+
+
+        /* =========================================================
+           14) Event listeners (samlat)
+           ========================================================= */
+        // Presets
+        el.btnPresetHA.addEventListener('click', () => setPreset('ha'));
+        el.btnPresetSHL.addEventListener('click', () => setPreset('shl'));
+        el.btnPresetCustom.addEventListener('click', () => setPreset('custom'));
+
+        // Input: valideringskänsla + autogrow
+        [el.terms, el.pairs, el.y].forEach(inputEl => {
+            inputEl.addEventListener('input', () => {
+                clearError();
+                validateAndToggleStart();
+
+                if (inputEl === el.terms || inputEl === el.pairs) {
+                    autoGrowTextarea(inputEl);
+                }
+            });
+        });
+
+        // Rensa-knappar (bara textareorna)
+        el.btnClearTerms.addEventListener('click', () => {
+            el.terms.value = '';
+            clearError();
+            validateAndToggleStart();
+            autoGrowTextarea(el.terms);
+        });
+
+        el.btnClearPairs.addEventListener('click', () => {
+            el.pairs.value = '';
+            clearError();
+            validateAndToggleStart();
+            autoGrowTextarea(el.pairs);
+        });
+
+        // Start
+        el.btnStart.addEventListener('click', onStart);
+
+        // Match interactions
+        el.btnReset.addEventListener('click', onResetMatch);
+        el.btnNext.addEventListener('click', onNextMatch);
+
+        // Copy + restart (båda “Börja om” kör samma logik)
+        el.btnCopy.addEventListener('click', onCopyResults);
+        el.btnRestartAllMatch.addEventListener('click', restartToSetupKeepInputs);
+        el.btnRestartAllResults.addEventListener('click', restartToSetupKeepInputs);
+        el.btnDownloadLog.addEventListener('click', onDownloadLog);
+
+
+        /* =========================================================
+           15) Init
+           ========================================================= */
+        // Startläge: inputs dolda tills preset väljs
+        // (men vi autogrow:ar ändå så att tomma textareas får “20 rader”-höjd)
+        autoGrowTextarea(el.terms);
+        autoGrowTextarea(el.pairs);
+        validateAndToggleStart();
+    </script>
+</body>
+
+</html>

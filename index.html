@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="sv">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Avbytarnas avbytarbänk: Random hockeysida för oss som inte platsar i förstakedjan</title>
+  <style>
+    /* Samma grundtema som tidigare sida */
+    :root {
+      --bg: #f7f8fa;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #6b7280;
+      --accent: #0b6efd;
+      --maxw: 900px;
+    }
+
+    /* Grund */
+    html,
+    body {
+      height: 100%
+    }
+
+    body {
+      margin: 0;
+      padding: 2rem 1rem;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      line-height: 1.45;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* Huvudbehållare */
+    .wrap {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem;
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid rgba(15, 17, 34, 0.04);
+      box-shadow: 0 8px 24px rgba(15, 17, 34, 0.06);
+    }
+
+    /* Typografi */
+    h1 {
+      margin: 0 0 0.6rem 0;
+      font-size: 2rem;
+    }
+
+    p.lead {
+      margin: 0 0 0.9rem 0;
+      color: var(--text);
+    }
+
+    h2.section-heading {
+      margin: 2rem 0 0.9rem 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    /* Länkar */
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    a:focus {
+      outline: 3px solid rgba(11, 110, 253, 0.12);
+      outline-offset: 3px;
+    }
+
+    /* Reuse av “pill-knappar” för snabbnav */
+    .team-links {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 0.4rem 0 1.1rem 0;
+    }
+
+    .team-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.36rem 0.7rem;
+      font-size: 0.95rem;
+      line-height: 1;
+      text-decoration: none;
+      border-radius: 999px;
+      border: 1px solid rgba(11, 110, 253, 0.12);
+      background: rgba(11, 110, 253, 0.06);
+      color: var(--accent);
+      transition: background-color .12s ease, transform .06s ease, box-shadow .12s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .team-link:hover,
+    .team-link:focus {
+      background: rgba(11, 110, 253, 0.12);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .team-link:focus-visible {
+      box-shadow: 0 0 0 3px rgba(11, 110, 253, 0.12);
+      border-color: rgba(11, 110, 253, 0.22);
+    }
+
+    /* Kort / moduler */
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    .card {
+      border: 1px solid rgba(15, 17, 34, 0.06);
+      border-radius: 12px;
+      padding: 1rem;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(15, 17, 34, 0.05);
+    }
+
+    .card h3 {
+      margin: 0 0 0.4rem 0;
+      font-size: 1.05rem;
+    }
+
+    .card p {
+      margin: 0 0 0.7rem 0;
+      color: var(--text);
+    }
+
+    .card .meta {
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    /* Sekundärknappar inuti kort (samma “pill”-stil) */
+    .card .actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.4rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.42rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid rgba(11, 110, 253, 0.12);
+      background: rgba(11, 110, 253, 0.06);
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: background-color .12s ease, transform .06s ease, box-shadow .12s ease;
+    }
+
+    .btn:hover,
+    .btn:focus {
+      background: rgba(11, 110, 253, 0.12);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .btn:focus-visible {
+      box-shadow: 0 0 0 3px rgba(11, 110, 253, 0.12);
+      border-color: rgba(11, 110, 253, 0.22);
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 1.4rem;
+      padding-top: 0.9rem;
+      border-top: 1px solid rgba(15, 17, 34, 0.06);
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* Mobiljustering */
+    @media (max-width:640px) {
+      body {
+        padding: 1rem;
+      }
+
+      .wrap {
+        padding: 1rem;
+        border-radius: 10px;
+      }
+
+      .btn {
+        padding: 0.5rem 0.9rem;
+        font-size: 1rem;
+      }
+    }
+
+    /* Respektera reducerad rörelse */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+
+    .contact-footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(15, 17, 34, 0.04);
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .contact-footer a {
+      color: var(--muted);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .contact-footer a:hover {
+      color: var(--accent);
+    }
+  </style>
+</head>
+
+<body>
+  <main class="wrap" role="main" aria-labelledby="page-title">
+    <h1 id="page-title">Avbytarnas avbytarbänk</h1>
+    <p class="lead">
+      Random hockeysida för oss som inte platsar i förstakedjan.
+    </p>
+
+    <div class="cards">
+      <!-- Kort: Poängställning -->
+      <article class="card" aria-labelledby="card-regular_season-title">
+        <h3 id="card-regular_season-title">Visualisering av poängställning</h3>
+        <p>
+          Kolla in visualiseringar av poängställningen i Hockeyallsvenskans, SHL:s och NHL:s grundserier de senaste
+          åren, inklusive aktuell säsong. Du kommer först till aktuell säsong och kan därifrån välja annan liga
+          och/eller säsong i rullgardinen. Det finns diverse olika val du kan göra för att på ett smidigt sätt följa hur
+          många poäng lagen hade vid olika tillfällen.</p>
+        <p>Grundläget är att följa ställningen match för match, vilket ger en mer rättvisande bild än efter datum, då
+          tabellen ofta haltar.</p>
+        <p>Det finns en play-knapp som möjliggör att man kan följa
+          grafiken även på liten skärm, då man kan sätta igång animationen och sedan skrolla upp för att kolla på
+          poängförändringarna.</p>
+        <p>Öppnas i ett separat fönster.</p>
+        <p><span style="background-color: yellow">Nyhet!</span> Ett avancerat läge
+          <a href="poangstallning/avancerat.html" target="_blank" title="Öppnas i ett separat fönster">SHL och Hockeyallsvenskan i
+            kombination</a>
+          som låter dig jämföra lagens poängutveckling match för match, över olika säsonger och ligor. Allt du kan se i
+          de
+          tidigare vyerna går att se i denna, men de gamla finns kvar då de är mycket enklare om det endast är den
+          specifika
+          säsongen man är intresserad av.
+        </p>
+        <div class="actions">
+          <a class="btn" href="poangstallning/ha_2025-2026.html" target="_blank"
+            title="Öppnas i ett separat fönster">Hockeyallsvenskan</a>
+          <a class="btn" href="poangstallning/nhl_2025-2026.html" target="_blank" title="Öppnas i ett separat fönster">NHL</a>
+          <a class="btn" href="poangstallning/shl_2025-2026.html" target="_blank" title="Öppnas i ett separat fönster">SHL</a>
+          <a class="btn" href="poangstallning/avancerat.html" target="_blank" title="Öppnas i ett separat fönster">SHL och
+            Hockeyallsvenskan i kombination</a>
+        </div>
+      </article>
+      <!-- Kort: Tabelltips -->
+      <article class="card" aria-labelledby="card-tips-title">
+        <h3 id="card-tips-title">Tabelltips & uppföljning</h3>
+        <p>
+          Jämför tabelltips med verkliga tabeller i Hockeyallsvenskan och SHL. Tipsen har samlats in från forummedlemmar
+          på HockeySnack samt från
+          diverse offentliggjorda tips från journalister. Det finns även en möjlighet att lägga in egna tips om man har.
+        </p>
+        <!--p class="meta">Se hur bra din magkänsla var – över tid.</p-->
+        <div class="actions">
+          <a class="btn" href="tips/ha-tips.html">Hockeyallsvenskan</a>
+          <a class="btn" href="tips/shl-tips.html">SHL</a>
+        </div>
+      </article>
+
+      <!-- Kort: Minispel -->
+      <article class="card" aria-labelledby="card-minispel-title">
+        <h3 id="card-minispel-title">Minispel</h3>
+        <p>
+          Lär dig spelarnas nummer genom att spela memory eller genom att testa reaktionsförmågan. Välj mellan samtliga
+          lag i Hockeyallsvenskan, SDHL och SHL samt Detroit Red Wings i NHL.
+        </p>
+        <p>
+          OBS! Laguppställningarna kan ha ändrats något sedan spelen senast uppdaterades.
+        </p>
+        <!--p class="meta">Snabbt, lärorikt, och lätt att återkomma till.</p-->
+        <div class="actions">
+          <a class="btn" href="spel/minigames.html">Spela nu</a>
+        </div>
+      </article>
+
+      <!-- Kort: Alla möter alla -->
+      <article class="card" aria-labelledby="card-vbf-title">
+        <h3 id="card-vbf-title">Alla möter alla</h3>
+        <p>Ett verktyg för att bygga upp en rangordning genom att jämföra två objekt i taget. Varje par behandlas
+          separat och bidrar till ett slutresultat som visas först när alla jämförelser är klara.</p>
+        <p>Verktyget kan med fördel användas för att tippa en hel säsong i SHL eller Hockeyallsvenskan, där lagen möts
+          fyra gånger per säsong. Genom att fördela poäng mellan två lag i taget, match för match, kan man successivt
+          bygga upp en sluttabell utan att behöva ta ställning till helheten förrän alla möten är genomförda.</p>
+        <p>Det tar tid att gå igenom alla möten även om man inte tänker alltför länge, men jämfört med att gå och
+          grubbla länge på vilket lag som borde hamna ovanför ett annat innebär det nog för många en tidsbesparing.
+          Förutsatt att man accepterar den sluttabell man får, förstås.</p>
+        <div class="actions">
+          <a class="btn" href="h2h/h2h_alla_vs_alla.html">Till verktyget</a>
+        </div>
+      </article>
+
+      <!-- Kort: Vem blir först -->
+      <article class="card" aria-labelledby="card-vbf-title">
+        <h3 id="card-vbf-title">Vem blir först?</h3>
+        <p>
+          Inför säsongen var det möjligt att tippa vem i Djurgården respektive MoDo som skulle bli först att göra mål,
+          få första assisten etc. Här är tanken att ni ska kunna följa utfallet under säsongen.</p>
+          <p>MoDo är hyfsat uppdaterad och förhoppningsvis mestadels korrekt. Några saker är svåra att kolla upp i efterhand. Exempelvis dömdes ett mål
+          bort efter videogranskning i bortamatchen mot Södertälje, men eftersom jag inte såg den på tv utan på plats uppfattade
+          jag inte vem som eventuellt skulle fått målet och det går inte heller att hitta information om det på nätet. Jag har därför
+          angett att Milton Gästrins bortdömda mål är det första. Det finns kanske annat som inte är helt korrekt heller. Ber om uräkt för 
+          det i så fall. Det är som tur var inga prispengar inblandade.</p>
+          <p>Djurgården är inte särskilt uppdaterad, men det är bara mina närmast sörjande som tippat, så de får ge sig till tåls.</p>
+
+          <!--p class="meta">Kort, tydligt och uppdateras i takt med omgångarna.</p-->
+        <div class="actions">
+          <a class="btn" href="forst/first.html">Till tippningen</a>
+        </div>
+      </article>
+
+      <!-- Kort: Spellista -->
+      <article class="card" aria-labelledby="card-spellista-title">
+        <h3 id="card-regular_season-title">Djurgårdens säsong enligt Suno</h3>
+        <p>
+          Lyssna på Djurgårdens säsong, låt för låt. ChatGPT har tolkat den grundläggande statistiken från matcherna
+          från Djurgårdens synvinkel och omvandlat det till en Suno-prompt enligt fasta instruktioner om genre. ChatGPT
+          har även kommit på namnet på låten och skapat en bild som passar samt beskrivit matchen kortfattat.</p>
+        <p>Inget i promptarna, låtarna, titlarna eller beskrivningarna har efterjusterats, förutom när ChatGPT helt
+          glömt bort instruktionerna och därför behövt bli påmind och sedan blivit promptad på nytt.
+        </p>
+        <p>
+          Beskrivningarna är skrivna av AI:n helt utifrån den grundläggande statistiken och speglar inte nödvändigtvis
+          matchens karaktär rättvist. Ibland är svenskan inte heller korrekt. Men experimentet består i att inte påverka
+          något av
+          detta, utan låta de ursprungliga instruktionerna bestämma. Det enda val som gjorts av en människa är vilken av
+          Sunos två
+          genereringar som ska få representera matchen.
+        </p>
+        <p>Öppnas i ett separat fönster.</p>
+        </p>
+        <!--p class="meta">Snabbt, lärorikt, och lätt att återkomma till.</p-->
+        <div class="actions">
+          <a class="btn" href="https://suno.com/playlist/a7fe12e3-067d-43fd-bb50-1104a3767769" target="_blank"
+            title="Öppnas i ett separat fönster">Lyssna</a>
+        </div>
+      </article>
+
+      <!-- Lågmäld footer -->
+      <!--footer>
+      <p>&copy; 2025 Hockeyhörnan — “tippningar, tabeller & minispel”.</p>
+    </footer-->
+
+      <footer class="contact-footer">
+        <p>Denna sida är 100% ett hobbyprojekt och kanske inte uppdateras blixtsnabbt.<br />Vill du komma i kontakt går
+          det bra att mejla <a href="mailto:avbytarnasavbytarbank@gmail.com">avbytarnasavbytarbank@gmail.com</a>.</p>
+      </footer>
+  </main>
+</body>
+
+</html>
