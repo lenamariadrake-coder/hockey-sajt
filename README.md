@@ -18,7 +18,23 @@ Bland annat:
 - Vem blir först?
 - diverse minispel
 
-Innehållet utvecklas och förändras efter hand.
+Innehållet utvecklas och förändras efter hand – ibland planerat, ibland för att jag råkar få en idé som verkar roligare än det jag egentligen höll på med.
+
+## 🤖 Byggd med väldigt mycket AI
+
+AI är en stor del av hur det här projektet har blivit till. Jag använder AI för att bolla idéer, skriva och förstå kod, felsöka, utveckla funktioner och för att få hjälp med verktyg som VS Code, GitHub och Netlify.
+
+Man skulle därför kunna säga att sajten är **100 % tack vare AI och 100 % tack vare mig**. Utan AI hade jag inte kunnat bygga allt det här – och utan mina idéer, infall, envishet och beslut om vad som faktiskt ska byggas hade det inte heller funnits något att bygga.
+
+Matematiken går kanske inte riktigt ihop, men det gör webbplatsen.
+
+## 🎨 Om spretighet och design
+
+Jag är fullt medveten om att sajten är spretig. Olika delar har tillkommit vid olika tidpunkter, av olika anledningar och med varierande ambitionsnivå. Den skulle definitivt kunna göras både enhetligare och snyggare.
+
+Men det är också en del av charmen för mig. Jag gillar att den har vuxit fram bit för bit och att jag själv har byggt upp den medan jag har lärt mig saker längs vägen.
+
+Därför ligger en stor designöversyn ganska långt ner på prioriteringslistan – åtminstone tills jag eventuellt en dag vaknar med en plötslig och överväldigande motivation att snygga till allt.
 
 ## ⚠️ Ett hobbyprojekt
 
