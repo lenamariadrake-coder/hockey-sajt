@@ -1883,8 +1883,7 @@
             .h2h-tipper-panel {
                 width: 100%;
                 max-width: 100%;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
+                overflow: visible;
             }
 
             /* Gör bara topplistan lite kompaktare */
@@ -1915,8 +1914,8 @@
 
                 transform: translate(-50%, -50%);
 
-                width: max-content;
-                max-width: calc(100vw - 2rem);
+                width: calc(100vw - 2rem);
+                max-width: 32rem;
 
                 white-space: normal;
                 overflow-wrap: break-word;
@@ -2020,8 +2019,7 @@
                                     <th>Plats</th>
                                     <th class="col-team">
                                         Tippare
-                                        <span class="th-info"
-                                            data-mobile-tip="Tryck på en tippare för att se detaljer."
+                                        <span class="th-info" data-mobile-tip="Tryck på en tippare för att se detaljer."
                                             aria-label="Hjälp: tryck på en tippare för att se detaljer.">ℹ️</span>
                                     </th>
                                     <th class="num">Lag</th>
