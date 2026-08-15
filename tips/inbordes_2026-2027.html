@@ -1904,6 +1904,27 @@
                 font-size: .78rem;
             }
         }
+
+        @media (max-width: 520px) {
+            .th-info::after {
+                position: fixed;
+
+                left: 50%;
+                right: auto;
+                top: 50%;
+
+                transform: translate(-50%, -50%);
+
+                width: max-content;
+                max-width: calc(100vw - 2rem);
+
+                white-space: normal;
+                overflow-wrap: break-word;
+
+                text-align: left;
+                z-index: 99999;
+            }
+        }
     </style>
 
 
@@ -2000,8 +2021,8 @@
                                     <th class="col-team">
                                         Tippare
                                         <span class="th-info"
-                                            data-mobile-tip="Hovra över en tippare för att se detaljer."
-                                            aria-label="Hjälp: hovra över en tippare för att se detaljer.">ℹ️</span>
+                                            data-mobile-tip="Tryck på en tippare för att se detaljer."
+                                            aria-label="Hjälp: tryck på en tippare för att se detaljer.">ℹ️</span>
                                     </th>
                                     <th class="num">Lag</th>
                                     <th class="num">
