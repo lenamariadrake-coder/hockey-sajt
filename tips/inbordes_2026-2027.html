@@ -341,7 +341,7 @@
 
         /* Egen tooltip för info-ikoner */
         .th-info::after {
-            content: attr(data-mobile-tip);
+            content: attr(data-desktop-tip);
             position: absolute;
             left: 50%;
             top: 120%;
@@ -1906,6 +1906,7 @@
         }
 
         @media (max-width: 520px) {
+
             /* På mobil används en riktig fristående tooltipruta i body.
                Pseudo-elementet stängs av helt för att undvika problem
                med iOS/Safari + scrollbara tabeller. */
@@ -2041,8 +2042,10 @@
                                     <th>Plats</th>
                                     <th class="col-team">
                                         Tippare
-                                        <span class="th-info" data-mobile-tip="Tryck på en tippare för att se detaljer."
-                                            aria-label="Hjälp: tryck på en tippare för att se detaljer.">ℹ️</span>
+                                        <span class="th-info"
+                                            data-desktop-tip="Hovra över en tippare för att se detaljer."
+                                            data-mobile-tip="Tryck på en tippare för att se detaljer."
+                                            aria-label="Hjälp: visa detaljer för en tippare.">ℹ️</span>
                                     </th>
                                     <th class="num">Lag</th>
                                     <th class="num">
