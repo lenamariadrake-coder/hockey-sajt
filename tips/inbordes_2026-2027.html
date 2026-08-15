@@ -1906,30 +1906,44 @@
         }
 
         @media (max-width: 520px) {
-
-            /* Viktigt: transform på ikonen får inte skapa
-       ett eget koordinatsystem för fixed-tooltipen */
+            /* På mobil används en riktig fristående tooltipruta i body.
+               Pseudo-elementet stängs av helt för att undvika problem
+               med iOS/Safari + scrollbara tabeller. */
             .th-info {
                 transform: none;
             }
 
             .th-info::after {
-                position: fixed;
+                display: none !important;
+            }
 
+            .mobile-th-tooltip {
+                position: fixed;
                 left: 1rem;
                 right: 1rem;
                 top: 50%;
-
-                width: auto;
-                max-width: none;
-
                 transform: translateY(-50%);
+
+                z-index: 99999;
+
+                padding: .7rem .85rem;
+                border-radius: 12px;
+                background: rgba(20, 20, 20, .94);
+                color: #fff;
+
+                font-size: .9rem;
+                font-weight: 600;
+                line-height: 1.35;
+                text-align: left;
 
                 white-space: normal;
                 overflow-wrap: break-word;
 
-                text-align: left;
-                z-index: 99999;
+                box-shadow: 0 12px 36px rgba(0, 0, 0, .28);
+            }
+
+            .mobile-th-tooltip[hidden] {
+                display: none;
             }
         }
     </style>
@@ -3082,10 +3096,20 @@
     </script>
 
     <script>
-        // Mobilhjälp för ℹ️ – samma mekanik som originalet, med H2H-text.
+        // Mobilhjälp för ℹ️.
+        // På mobil används en fristående tooltipruta direkt under <body>,
+        // så den inte påverkas av tabellens overflow/scroll eller iOS Safari.
         (function () {
             const mq = window.matchMedia('(max-width: 768px)');
             if (!mq.matches) return;
+
+            let activeIcon = null;
+
+            const mobileTooltip = document.createElement('div');
+            mobileTooltip.className = 'mobile-th-tooltip';
+            mobileTooltip.setAttribute('role', 'tooltip');
+            mobileTooltip.hidden = true;
+            document.body.appendChild(mobileTooltip);
 
             function prepare(icon) {
                 if (!icon || icon.dataset.mobileTipPrepared === '1') return;
@@ -3107,6 +3131,27 @@
                 document.querySelectorAll('.th-info').forEach(prepare);
             }
 
+            function closeTooltip() {
+                mobileTooltip.hidden = true;
+                mobileTooltip.textContent = '';
+
+                if (activeIcon) {
+                    activeIcon.setAttribute('aria-expanded', 'false');
+                    activeIcon = null;
+                }
+            }
+
+            function openTooltip(icon) {
+                prepare(icon);
+
+                const text = icon.getAttribute('data-mobile-tip') || '';
+                mobileTooltip.textContent = text;
+                mobileTooltip.hidden = false;
+
+                activeIcon = icon;
+                icon.setAttribute('aria-expanded', 'true');
+            }
+
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', prepareAll, { once: true });
             } else {
@@ -3117,17 +3162,28 @@
                 const icon = event.target.closest?.('.th-info');
 
                 if (icon) {
-                    prepare(icon);
-                    document.querySelectorAll('.th-info.show-tip').forEach(el => {
-                        if (el !== icon) el.classList.remove('show-tip');
-                    });
-                    icon.classList.toggle('show-tip');
+                    if (activeIcon === icon && !mobileTooltip.hidden) {
+                        closeTooltip();
+                    } else {
+                        closeTooltip();
+                        openTooltip(icon);
+                    }
+
+                    event.preventDefault();
                     event.stopPropagation();
                     return;
                 }
 
-                document.querySelector('.th-info.show-tip')?.classList.remove('show-tip');
+                if (!mobileTooltip.hidden) {
+                    closeTooltip();
+                }
             }, true);
+
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    closeTooltip();
+                }
+            });
         })();
     </script>
 </body>
