@@ -2335,7 +2335,30 @@
             box.setAttribute('role', 'tooltip');
 
             if (isStartMode) {
-                box.textContent = 'Ingen faktisk tabell finns ännu i startläget.';
+                const grid = document.createElement('div');
+                grid.className = 'tt-grid';
+
+                const colPick = document.createElement('div');
+                colPick.className = 'tt-col';
+
+                const headPick = document.createElement('div');
+                headPick.className = 'tt-head';
+                headPick.textContent = 'Tippad ordning';
+                colPick.appendChild(headPick);
+
+                const ol = document.createElement('ol');
+                ol.className = 'h2h-pick-list';
+
+                row.picks.forEach(pick => {
+                    const li = document.createElement('li');
+                    li.textContent = getDisplayTeamName(pick.team_id);
+                    ol.appendChild(li);
+                });
+
+                colPick.appendChild(ol);
+                grid.appendChild(colPick);
+                box.appendChild(grid);
+
                 return box;
             }
 
