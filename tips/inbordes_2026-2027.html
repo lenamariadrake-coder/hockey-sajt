@@ -2490,18 +2490,29 @@
             return correctRounds;
         }
 
+        function getFinalPointSpread(standings) {
+            if (!Array.isArray(standings) || standings.length < 2) return null;
+            return standings[0].points - standings[standings.length - 1].points;
+        }
+
         function buildParticipantRows(actualRankByTeamId, standings, isStartMode, currentRound) {
             const rows = [];
             const roundsPlayed = isStartMode ? 0 : (Number(currentRound) || 0);
+            const isFinalRound = roundsPlayed === 52;
+            const actualPointSpread = isFinalRound ? getFinalPointSpread(standings) : null;
 
             H2H_TIPS_BY_PARTICIPANT.forEach(participant => {
                 const picks = participant.picks || [];
+                const pointSpreadTip = participant.h2h_point_spread_tip;
 
                 rows.push({
                     participant_id: participant.participant_id,
                     display_name: participant.display_name || participant.participant_id,
                     picks,
-                    h2h_point_spread_tip: participant.h2h_point_spread_tip,
+                    h2h_point_spread_tip: pointSpreadTip,
+                    pointSpreadDiff: isFinalRound && Number.isFinite(pointSpreadTip) && Number.isFinite(actualPointSpread)
+                        ? Math.abs(pointSpreadTip - actualPointSpread)
+                        : null,
                     teamCount: picks.length,
                     correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId),
                     correctRounds: isStartMode ? 0 : countCorrectRounds(picks, roundsPlayed),
@@ -2525,7 +2536,80 @@
                 return a.display_name.localeCompare(b.display_name, 'sv');
             });
 
+            // Utslagsfrågan används endast efter omgång 52 och endast om
+            // förstaplatsen fortfarande är delad efter Lag + Utfall.
+            if (isFinalRound) {
+                const correctRows = rows.filter(row => row.correct === true);
+
+                if (correctRows.length > 1) {
+                    const bestTeamCount = correctRows[0].teamCount;
+                    const bestCorrectRounds = correctRows[0].correctRounds;
+
+                    const tiedForFirst = correctRows.filter(row =>
+                        row.teamCount === bestTeamCount &&
+                        row.correctRounds === bestCorrectRounds
+                    );
+
+                    if (tiedForFirst.length > 1 && tiedForFirst.every(row => Number.isFinite(row.pointSpreadDiff))) {
+                        tiedForFirst.sort((a, b) => {
+                            const aDiff = Number.isFinite(a.pointSpreadDiff) ? a.pointSpreadDiff : Infinity;
+                            const bDiff = Number.isFinite(b.pointSpreadDiff) ? b.pointSpreadDiff : Infinity;
+
+                            if (aDiff !== bDiff) return aDiff - bDiff;
+                            return a.display_name.localeCompare(b.display_name, 'sv');
+                        });
+
+                        const firstIds = new Set(tiedForFirst.map(row => row.participant_id));
+                        const reordered = [];
+                        let inserted = false;
+
+                        rows.forEach(row => {
+                            if (firstIds.has(row.participant_id)) {
+                                if (!inserted) {
+                                    reordered.push(...tiedForFirst);
+                                    inserted = true;
+                                }
+                            } else {
+                                reordered.push(row);
+                            }
+                        });
+
+                        return reordered;
+                    }
+                }
+            }
+
             return rows;
+        }
+
+        function getFinalTiebreakInfo(rows, standings, round) {
+            if (Number(round) !== 52) return null;
+
+            const correctRows = rows.filter(row => row.correct === true);
+            if (correctRows.length < 2) return null;
+
+            const bestTeamCount = correctRows[0].teamCount;
+            const bestCorrectRounds = correctRows[0].correctRounds;
+            const finalists = correctRows.filter(row =>
+                row.teamCount === bestTeamCount &&
+                row.correctRounds === bestCorrectRounds
+            );
+
+            if (finalists.length < 2) return null;
+
+            const actualPointSpread = getFinalPointSpread(standings);
+            const validFinalists = finalists.filter(row => Number.isFinite(row.pointSpreadDiff));
+            if (!Number.isFinite(actualPointSpread) || validFinalists.length !== finalists.length) return null;
+
+            const bestDiff = Math.min(...finalists.map(row => row.pointSpreadDiff));
+            const winners = finalists.filter(row => row.pointSpreadDiff === bestDiff);
+
+            return {
+                actualPointSpread,
+                finalists,
+                winners,
+                bestDiff
+            };
         }
 
         /* ===========================================================
@@ -2804,6 +2888,27 @@
 
             renderSummary(standings, isStartMode, movementByTeam);
 
+            const finalTiebreak = getFinalTiebreakInfo(rows, standings, round);
+            if (finalTiebreak && h2hSummary) {
+                const { actualPointSpread, finalists, winners, bestDiff } = finalTiebreak;
+                const details = finalists.map(row =>
+                    `${row.display_name}: ${row.h2h_point_spread_tip} (${row.pointSpreadDiff} ifrån)`
+                ).join(' · ');
+
+                const winnerNames = winners.map(row => row.display_name);
+                const winnerText = winnerNames.length <= 2
+                    ? winnerNames.join(' och ')
+                    : `${winnerNames.slice(0, -1).join(', ')} och ${winnerNames.at(-1)}`;
+
+                const sharedWinnerWord = winners.length === 2 ? 'båda' : 'alla';
+
+                const message = winners.length === 1
+                    ? `🏆 <strong>Utslagsfrågan avgjorde förstaplatsen.</strong> ${winners[0].display_name} var närmast den faktiska poängskillnaden på ${actualPointSpread} poäng.`
+                    : `🏆 <strong>Delad förstaplats även efter utslagsfrågan.</strong> ${winnerText} var ${sharedWinnerWord} ${bestDiff} poäng från den faktiska poängskillnaden på ${actualPointSpread} poäng.`;
+
+                h2hSummary.innerHTML += `<br><span>${message}</span><br><span>${details}</span>`;
+            }
+
             const tbody = tableStand.querySelector('tbody');
             tbody.innerHTML = '';
 
@@ -2826,7 +2931,21 @@
                 } else {
                     correctSeen += 1;
 
-                    const rankKey = `${row.teamCount}|${row.correctRounds}`;
+                    let rankKey = `${row.teamCount}|${row.correctRounds}`;
+
+                    // Efter omgång 52 skiljer utslagsfrågan endast dem som låg
+                    // på delad förstaplats efter Lag + Utfall. Lika avstånd ger
+                    // fortsatt delad placering.
+                    if (Number(round) === 52 && Number.isFinite(row.pointSpreadDiff)) {
+                        const firstCorrect = rows.find(r => r.correct === true);
+                        const tiedForOrdinaryFirst = firstCorrect &&
+                            row.teamCount === firstCorrect.teamCount &&
+                            row.correctRounds === firstCorrect.correctRounds;
+
+                        if (tiedForOrdinaryFirst) {
+                            rankKey += `|${row.pointSpreadDiff}`;
+                        }
+                    }
 
                     if (lastCorrectRankKey === null || rankKey !== lastCorrectRankKey) {
                         tdRank.textContent = String(correctSeen);
