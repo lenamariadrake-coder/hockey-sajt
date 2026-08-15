@@ -1905,6 +1905,40 @@
             }
         }
 
+
+        /* =========================================================
+           TABELLRÖRELSE – jämfört med föregående omgång
+           ========================================================= */
+        .movement-up {
+            background: #dcfce7;
+        }
+
+        .movement-down {
+            background: #fee2e2;
+        }
+
+        #leagueStandings tbody tr.movement-up > td {
+            background: #dcfce7;
+        }
+
+        #leagueStandings tbody tr.movement-down > td {
+            background: #fee2e2;
+        }
+
+        #leagueStandings tbody tr.movement-up:hover > td {
+            background: #d1fae5;
+        }
+
+        #leagueStandings tbody tr.movement-down:hover > td {
+            background: #fecaca;
+        }
+
+        .current-order-team {
+            display: inline-block;
+            padding: .08rem .28rem;
+            border-radius: 5px;
+        }
+
         @media (max-width: 768px) {
 
             /* På mobil används en riktig fristående tooltipruta i body.
@@ -2628,7 +2662,34 @@
            TOPPLISTA
            =========================================================== */
 
-        function renderSummary(standings, isStartMode) {
+        function buildMovementByTeam(round, standings) {
+            const movement = new Map();
+
+            // Ingen rörelse visas i startläget eller efter omgång 1,
+            // eftersom det då saknas en föregående spelad omgång att jämföra med.
+            if (!Number.isFinite(round) || round <= 1) return movement;
+
+            const previousStandings = STANDING_SNAPSHOTS.get(round - 1);
+            if (!previousStandings) return movement;
+
+            const previousRankByTeam = new Map(
+                previousStandings.map((row, index) => [row.team, index + 1])
+            );
+
+            standings.forEach((row, index) => {
+                const currentRank = index + 1;
+                const previousRank = previousRankByTeam.get(row.team);
+
+                if (!Number.isFinite(previousRank)) return;
+
+                if (currentRank < previousRank) movement.set(row.team, 'up');
+                else if (currentRank > previousRank) movement.set(row.team, 'down');
+            });
+
+            return movement;
+        }
+
+        function renderSummary(standings, isStartMode, movementByTeam) {
             if (!h2hSummary) return;
 
             if (isStartMode || !standings.length) {
@@ -2638,7 +2699,15 @@
 
             const orderedNames = standings.map(row => {
                 const teamId = TEAM_ID_BY_LONGNAME.get(row.team);
-                return teamId ? getDisplayTeamName(teamId) : row.team;
+                const name = teamId ? getDisplayTeamName(teamId) : row.team;
+                const move = movementByTeam?.get(row.team);
+                const cls = move === 'up'
+                    ? ' movement-up'
+                    : move === 'down'
+                        ? ' movement-down'
+                        : '';
+
+                return `<span class="current-order-team${cls}">${name}</span>`;
             });
 
             const spread = standings[0].points - standings[standings.length - 1].points;
@@ -2648,7 +2717,7 @@
                 `<strong>Poängskillnad första–sista:</strong> ${spread}`;
         }
 
-        function renderLeagueStandings(standings, isStartMode) {
+        function renderLeagueStandings(standings, isStartMode, movementByTeam) {
             if (!leagueStand) return;
 
             const tbody = leagueStand.querySelector('tbody');
@@ -2658,6 +2727,10 @@
             standings.forEach((standingRow, index) => {
                 const tr = document.createElement('tr');
                 const teamId = TEAM_ID_BY_LONGNAME.get(standingRow.team);
+                const move = movementByTeam?.get(standingRow.team);
+
+                if (move === 'up') tr.classList.add('movement-up');
+                else if (move === 'down') tr.classList.add('movement-down');
 
                 const tdRank = document.createElement('td');
                 tdRank.className = 'num';
@@ -2692,14 +2765,16 @@
         function renderTableForRound(round) {
             const isStartMode = round === null;
             const standings = buildStandingsForRound(round);
-            renderLeagueStandings(standings, isStartMode);
+            const movementByTeam = buildMovementByTeam(round, standings);
+
+            renderLeagueStandings(standings, isStartMode, movementByTeam);
             const actualRankByTeamId = isStartMode
                 ? new Map()
                 : buildActualRankByTeamId(standings);
 
             const rows = buildParticipantRows(actualRankByTeamId, standings, isStartMode, round);
 
-            renderSummary(standings, isStartMode);
+            renderSummary(standings, isStartMode, movementByTeam);
 
             const tbody = tableStand.querySelector('tbody');
             tbody.innerHTML = '';
