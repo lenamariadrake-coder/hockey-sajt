@@ -4029,9 +4029,16 @@ Lag 14</pre>
 
             const rowColorToggleSummary =
                 document.getElementById('rowColorToggleSummary');
+            const movementToggleLabel =
+                document.getElementById('movementToggleLabel');
 
             if (rowColorToggleSummary) {
                 rowColorToggleSummary.style.display =
+                    (view === 'table') ? '' : 'none';
+            }
+
+            if (movementToggleLabel) {
+                movementToggleLabel.style.display =
                     (view === 'table') ? '' : 'none';
             }
 
