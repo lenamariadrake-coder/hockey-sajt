@@ -340,37 +340,38 @@
         }
 
         /* Endast på smal skärm: skapa en egen tooltip via pseudo-element */
-        @media (max-width: 768px) {
-            .th-info::after {
-                content: attr(data-mobile-tip);
-                position: absolute;
-                left: 50%;
-                top: 120%;
-                transform: translateX(-50%);
-                white-space: nowrap;
+@media (max-width: 768px) {
+    .th-info::after {
+        content: attr(data-mobile-tip);
+        position: absolute;
+        left: 50%;
+        top: 120%;
+        transform: translateX(-50%);
 
-                /* enkel "tooltip-look" */
-                padding: .45rem .6rem;
-                border-radius: 10px;
-                font-size: .85rem;
-                font-weight: 600;
-                line-height: 1.2;
+        width: min(32ch, calc(100vw - 2rem));
+        white-space: normal;
 
-                background: rgba(20, 20, 20, .92);
-                color: #fff;
+        /* enkel "tooltip-look" */
+        padding: .45rem .6rem;
+        border-radius: 10px;
+        font-size: .85rem;
+        font-weight: 600;
+        line-height: 1.2;
 
-                opacity: 0;
-                pointer-events: none;
-                z-index: 9999;
+        background: rgba(20, 20, 20, .92);
+        color: #fff;
 
-                /* liten skugga */
-                box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
-            }
+        display: none;
+        z-index: 9999;
 
-            .th-info.show-tip::after {
-                opacity: 1;
-            }
-        }
+        /* liten skugga */
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+    }
+
+    .th-info.show-tip::after {
+        display: block;
+    }
+}
 
 
 
