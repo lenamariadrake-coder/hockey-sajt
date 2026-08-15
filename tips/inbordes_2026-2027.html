@@ -1879,12 +1879,12 @@
                 padding-right: .75rem;
             }
 
-            /* Topplistan får scrolla om någon mobil ändå är för smal */
+            /* Ingen intern scroll på mobil.
+               Sidan själv får sköta eventuell scrollning. */
             .h2h-tipper-panel {
                 width: 100%;
                 max-width: 100%;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
+                overflow: visible;
             }
 
             /* Gör bara topplistan lite kompaktare */
