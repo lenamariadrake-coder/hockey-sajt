@@ -1783,64 +1783,6 @@
                 grid-template-columns: 1fr;
             }
         }
-
-
-        /* =========================================================
-           H2H – LIGATABELL + TOPPLISTA PÅ BRED SKÄRM
-           ========================================================= */
-        .h2h-tables-layout {
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            gap: 2rem;
-            width: max-content;
-            max-width: 100%;
-            margin: 0 auto;
-        }
-
-        .h2h-table-panel {
-            flex: 0 0 auto;
-        }
-
-        .h2h-tables-layout table {
-            margin: 1rem 0 0;
-        }
-
-        #leagueStandings thead th.col-team {
-            text-align: left;
-        }
-
-        #leagueStandings thead tr:first-child th:first-child {
-            border-top-left-radius: 10px;
-        }
-
-        #leagueStandings thead tr:first-child th:last-child {
-            border-top-right-radius: 10px;
-        }
-
-        #leagueStandings thead th {
-            background-clip: padding-box;
-        }
-
-        @media (max-width: 900px) {
-            .h2h-tables-layout {
-                display: block;
-                width: 100%;
-            }
-
-            .h2h-league-panel {
-                display: none;
-            }
-
-            .h2h-tipper-panel {
-                width: 100%;
-            }
-
-            #tableStandings {
-                margin-left: auto;
-                margin-right: auto;
-            }
-        }
 </style>
 
 
@@ -1912,41 +1854,21 @@
 
                 <div id="h2hSummary" class="h2h-summary" aria-live="polite"></div>
 
-                <div class="h2h-tables-layout">
-                    <div class="h2h-table-panel h2h-league-panel" aria-label="Aktuell SHL-tabell">
-                        <table id="leagueStandings" class="aktuell_tabell hidden">
-                            <thead>
-                                <tr>
-                                    <th>Plats</th>
-                                    <th class="col-team">Lag</th>
-                                    <th class="num" title="Matcher">M</th>
-                                    <th class="num" title="Poäng">P</th>
-                                    <th class="num" title="Målskillnad">+/−</th>
-                                    <th class="num" title="Gjorda mål">GM</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-
-                    <div class="h2h-table-panel h2h-tipper-panel">
-                        <table id="tableStandings" class="aktuell_tabell hidden">
-                            <thead>
-                                <tr id="tableStandingsHeadRow">
-                                    <th>Plats</th>
-                                    <th class="col-team">
-                                        Tippare
-                                        <span class="th-info" title="Hovra över en tippare för att se detaljer."
-                                            aria-label="Hjälp: hovra över en tippare för att se detaljer.">ℹ️</span>
-                                    </th>
-                                    <th class="num">Lag</th>
-                                    <th class="num">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
+                <table id="tableStandings" class="aktuell_tabell hidden">
+                    <thead>
+                        <tr id="tableStandingsHeadRow">
+                            <th>Plats</th>
+                            <th class="col-team">
+                                Tippare
+                                <span class="th-info" title="Hovra över en tippare för att se detaljer."
+                                    aria-label="Hjälp: hovra över en tippare för att se detaljer.">ℹ️</span>
+                            </th>
+                            <th class="num">Lag</th>
+                            <th class="num">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
 
                 <div class="source">Källa: Google Sheets</div>
             </section>
@@ -1961,7 +1883,6 @@
            =========================================================== */
 
         const tableStand = document.getElementById('tableStandings');
-        const leagueStand = document.getElementById('leagueStandings');
         const roundButtons = document.getElementById('roundButtons');
         const exportBtn = document.getElementById('exportBtn');
         const timelineSlider = document.getElementById('timeline-slider');
@@ -2469,51 +2390,9 @@
                 `<strong>Poängskillnad första–sista:</strong> ${spread}`;
         }
 
-        function renderLeagueStandings(standings, isStartMode) {
-            if (!leagueStand) return;
-
-            const tbody = leagueStand.querySelector('tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
-            standings.forEach((standingRow, index) => {
-                const tr = document.createElement('tr');
-                const teamId = TEAM_ID_BY_LONGNAME.get(standingRow.team);
-
-                const tdRank = document.createElement('td');
-                tdRank.className = 'num';
-                tdRank.textContent = isStartMode ? '—' : String(index + 1);
-
-                const tdTeam = document.createElement('td');
-                tdTeam.textContent = teamId ? getDisplayTeamName(teamId) : standingRow.team;
-
-                const tdGames = document.createElement('td');
-                tdGames.className = 'num';
-                tdGames.textContent = isStartMode ? '—' : String(standingRow.g);
-
-                const tdPoints = document.createElement('td');
-                tdPoints.className = 'num';
-                tdPoints.textContent = isStartMode ? '—' : String(standingRow.points);
-
-                const tdGoalDiff = document.createElement('td');
-                tdGoalDiff.className = 'num';
-                tdGoalDiff.textContent = isStartMode
-                    ? '—'
-                    : `${standingRow.gd > 0 ? '+' : ''}${standingRow.gd}`;
-
-                const tdGoalsFor = document.createElement('td');
-                tdGoalsFor.className = 'num';
-                tdGoalsFor.textContent = isStartMode ? '—' : String(standingRow.gf);
-
-                tr.append(tdRank, tdTeam, tdGames, tdPoints, tdGoalDiff, tdGoalsFor);
-                tbody.appendChild(tr);
-            });
-        }
-
         function renderTableForRound(round) {
             const isStartMode = round === null;
             const standings = buildStandingsForRound(round);
-            renderLeagueStandings(standings, isStartMode);
             const actualRankByTeamId = isStartMode
                 ? new Map()
                 : buildActualRankByTeamId(standings);
@@ -2896,12 +2775,10 @@
 
                 loadingBox?.classList.add('hidden');
                 tableStand?.classList.remove('hidden');
-                leagueStand?.classList.remove('hidden');
             } catch (error) {
                 console.error('[init]', error);
                 loadingBox?.classList.add('hidden');
                 tableStand?.classList.add('hidden');
-                leagueStand?.classList.add('hidden');
                 showError(error.message || String(error));
             }
         }
