@@ -1943,9 +1943,9 @@
                                     <th class="num">
                                         Rätta omgångar
                                         <span class="th-info"
-                                            title="Antal omgångar då hela den tippade ordningen varit korrekt."
-                                            data-mobile-tip="Antal omgångar då hela den tippade ordningen varit korrekt."
-                                            aria-label="Hjälp: antal omgångar då hela den tippade ordningen varit korrekt.">ℹ️</span>
+                                            title="Antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt."
+                                            data-mobile-tip="Antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt."
+                                            aria-label="Hjälp: antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt.">ℹ️</span>
                                     </th>
                                     <th class="num">Status</th>
                                 </tr>
@@ -2311,30 +2311,8 @@
             return correctRounds;
         }
 
-        function buildPointsByTeamId(standings) {
-            const map = new Map();
-
-            standings.forEach(row => {
-                const teamId = TEAM_ID_BY_LONGNAME.get(row.team);
-                if (teamId) map.set(teamId, row.points);
-            });
-
-            return map;
-        }
-
-        function getPickedPointSpread(picks, pointsByTeamId) {
-            if (!Array.isArray(picks) || picks.length < 2) return -Infinity;
-
-            const firstPoints = pointsByTeamId.get(picks[0].team_id);
-            const lastPoints = pointsByTeamId.get(picks[picks.length - 1].team_id);
-
-            if (!Number.isFinite(firstPoints) || !Number.isFinite(lastPoints)) return -Infinity;
-            return firstPoints - lastPoints;
-        }
-
         function buildParticipantRows(actualRankByTeamId, standings, isStartMode, currentRound) {
             const rows = [];
-            const pointsByTeamId = isStartMode ? new Map() : buildPointsByTeamId(standings);
             const roundsPlayed = isStartMode ? 0 : (Number(currentRound) || 0);
 
             H2H_TIPS_BY_PARTICIPANT.forEach(participant => {
@@ -2347,8 +2325,7 @@
                     teamCount: picks.length,
                     correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId),
                     correctRounds: isStartMode ? 0 : countCorrectRounds(picks, roundsPlayed),
-                    roundsPlayed,
-                    pointSpread: isStartMode ? null : getPickedPointSpread(picks, pointsByTeamId)
+                    roundsPlayed
                 });
             });
 
@@ -2363,7 +2340,6 @@
                 if (a.correct && b.correct) {
                     if (b.teamCount !== a.teamCount) return b.teamCount - a.teamCount;
                     if (b.correctRounds !== a.correctRounds) return b.correctRounds - a.correctRounds;
-                    if (b.pointSpread !== a.pointSpread) return b.pointSpread - a.pointSpread;
                 }
 
                 return a.display_name.localeCompare(b.display_name, 'sv');
@@ -2614,7 +2590,7 @@
                 } else {
                     correctSeen += 1;
 
-                    const rankKey = `${row.teamCount}|${row.correctRounds}|${row.pointSpread}`;
+                    const rankKey = `${row.teamCount}|${row.correctRounds}`;
 
                     if (lastCorrectRankKey === null || rankKey !== lastCorrectRankKey) {
                         tdRank.textContent = String(correctSeen);
