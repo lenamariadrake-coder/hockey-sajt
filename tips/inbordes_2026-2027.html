@@ -1767,6 +1767,16 @@
             font-weight: 600;
         }
 
+        .tipper-tooltip .h2h-point-spread-tip {
+            margin: .7rem 0 0;
+            padding-top: .6rem;
+            border-top: 1px solid var(--border);
+            font-size: .85rem;
+            font-weight: 700;
+            color: var(--text);
+            white-space: nowrap;
+        }
+
         .data-error {
             margin: 1rem auto 0;
             max-width: 720px;
@@ -1994,7 +2004,7 @@
 
         // TODO: klistra in den publicerade TSV-adressen för fliken tips_shl_2026-2027.
         // Förväntade kolumner:
-        // participant_id | display_name | tip_type | team_id | pick_rank
+        // participant_id | display_name | tip_type | team_id | pick_rank | h2h_point_spread_tip
         const H2H_TIPS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv';
 
         const ROUND_STORAGE_KEY = 'round_shl_h2h_2026_2027';
@@ -2099,13 +2109,15 @@
             const iType = idx('tip_type');
             const iTeam = idx('team_id');
             const iRank = idx('pick_rank');
+            const iPointSpreadTip = idx('h2h_point_spread_tip');
 
             const missing = [
                 ['participant_id', iParticipant],
                 ['display_name', iDisplay],
                 ['tip_type', iType],
                 ['team_id', iTeam],
-                ['pick_rank', iRank]
+                ['pick_rank', iRank],
+                ['h2h_point_spread_tip', iPointSpreadTip]
             ].filter(([, i]) => i === -1).map(([name]) => name);
 
             if (missing.length) {
@@ -2121,6 +2133,8 @@
                 const display_name = r[iDisplay] || participant_id;
                 const team_id = r[iTeam];
                 const pick_rank = Number(r[iRank]);
+                const pointSpreadRaw = r[iPointSpreadTip];
+                const h2h_point_spread_tip = pointSpreadRaw === '' ? null : Number(pointSpreadRaw);
 
                 if (!participant_id || !team_id || !Number.isFinite(pick_rank)) return;
 
@@ -2128,12 +2142,18 @@
                     H2H_TIPS_BY_PARTICIPANT.set(participant_id, {
                         participant_id,
                         display_name,
+                        h2h_point_spread_tip: Number.isFinite(h2h_point_spread_tip)
+                            ? h2h_point_spread_tip
+                            : null,
                         picks: []
                     });
                 }
 
                 const participant = H2H_TIPS_BY_PARTICIPANT.get(participant_id);
                 if (!participant.display_name && display_name) participant.display_name = display_name;
+                if (participant.h2h_point_spread_tip === null && Number.isFinite(h2h_point_spread_tip)) {
+                    participant.h2h_point_spread_tip = h2h_point_spread_tip;
+                }
                 participant.picks.push({ team_id, pick_rank });
             });
 
@@ -2322,6 +2342,7 @@
                     participant_id: participant.participant_id,
                     display_name: participant.display_name || participant.participant_id,
                     picks,
+                    h2h_point_spread_tip: participant.h2h_point_spread_tip,
                     teamCount: picks.length,
                     correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId),
                     correctRounds: isStartMode ? 0 : countCorrectRounds(picks, roundsPlayed),
@@ -2381,6 +2402,13 @@
                 colPick.appendChild(ol);
                 grid.appendChild(colPick);
                 box.appendChild(grid);
+
+                const pointSpreadTip = document.createElement('p');
+                pointSpreadTip.className = 'h2h-point-spread-tip';
+                pointSpreadTip.textContent = Number.isFinite(row.h2h_point_spread_tip)
+                    ? `Utslagsfråga: ${row.h2h_point_spread_tip} poäng`
+                    : 'Utslagsfråga: —';
+                box.appendChild(pointSpreadTip);
 
                 return box;
             }
@@ -2464,6 +2492,14 @@
             }
 
             box.appendChild(grid);
+
+            const pointSpreadTip = document.createElement('p');
+            pointSpreadTip.className = 'h2h-point-spread-tip';
+            pointSpreadTip.textContent = Number.isFinite(row.h2h_point_spread_tip)
+                ? `Utslagsfråga: ${row.h2h_point_spread_tip} poäng`
+                : 'Utslagsfråga: —';
+            box.appendChild(pointSpreadTip);
+
             return box;
         }
 
