@@ -1869,16 +1869,31 @@
             }
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 520px) {
             .container {
-                width: fit-content;
-                min-width: 100%;
-                max-width: none;
+                width: 100%;
+                max-width: 100%;
+                padding-left: .75rem;
+                padding-right: .75rem;
+                overflow-x: hidden;
             }
 
-            .h2h-tables-layout {
-                width: fit-content;
-                min-width: 100%;
+            .h2h-tables-layout,
+            .h2h-tipper-panel {
+                width: 100%;
+                max-width: 100%;
+            }
+
+            #tableStandings {
+                width: 100%;
+                max-width: 100%;
+                table-layout: auto;
+            }
+
+            #tableStandings th,
+            #tableStandings td {
+                padding-left: .55rem;
+                padding-right: .55rem;
             }
         }
     </style>
