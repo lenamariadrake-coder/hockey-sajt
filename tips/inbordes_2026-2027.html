@@ -1690,7 +1690,7 @@
             outline: 2px solid rgba(0, 0, 0, .35);
             outline-offset: 2px;
         }
-    
+
         /* =========================================================
            H2H – VERSION 1
            ========================================================= */
@@ -1868,7 +1868,20 @@
                 margin-right: auto;
             }
         }
-</style>
+
+        @media (max-width: 900px) {
+            .container {
+                width: fit-content;
+                min-width: 100%;
+                max-width: none;
+            }
+
+            .h2h-tables-layout {
+                width: fit-content;
+                min-width: 100%;
+            }
+        }
+    </style>
 
 
 
@@ -2767,7 +2780,7 @@
 
             try {
                 localStorage.setItem(ROUND_STORAGE_KEY, String(value));
-            } catch {}
+            } catch { }
 
             state.currentRound = value === 0 ? null : value;
 
@@ -2866,7 +2879,7 @@
                 };
 
                 btn.addEventListener('pointerdown', event => {
-                    try { btn.setPointerCapture?.(event.pointerId); } catch {}
+                    try { btn.setPointerCapture?.(event.pointerId); } catch { }
 
                     longPressFired = false;
                     clearTimer();
@@ -3068,4 +3081,5 @@
         })();
     </script>
 </body>
+
 </html>
