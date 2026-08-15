@@ -1940,6 +1940,13 @@
                                             aria-label="Hjälp: hovra över en tippare för att se detaljer.">ℹ️</span>
                                     </th>
                                     <th class="num">Lag</th>
+                                    <th class="num">
+                                        Rätta omgångar
+                                        <span class="th-info"
+                                            title="Antal omgångar då hela den tippade ordningen varit korrekt."
+                                            data-mobile-tip="Antal omgångar då hela den tippade ordningen varit korrekt."
+                                            aria-label="Hjälp: antal omgångar då hela den tippade ordningen varit korrekt.">ℹ️</span>
+                                    </th>
                                     <th class="num">Status</th>
                                 </tr>
                             </thead>
@@ -2288,17 +2295,60 @@
             return team?.team_name_short || team?.team_name_long || teamId;
         }
 
-        function buildParticipantRows(actualRankByTeamId, isStartMode) {
+        function countCorrectRounds(picks, throughRound) {
+            if (!Number.isFinite(throughRound) || throughRound <= 0) return 0;
+
+            let correctRounds = 0;
+
+            for (let round = 1; round <= throughRound; round++) {
+                const snapshot = STANDING_SNAPSHOTS.get(round);
+                if (!snapshot) continue;
+
+                const rankMap = buildActualRankByTeamId(snapshot);
+                if (isH2HTipCorrect(picks, rankMap)) correctRounds += 1;
+            }
+
+            return correctRounds;
+        }
+
+        function buildPointsByTeamId(standings) {
+            const map = new Map();
+
+            standings.forEach(row => {
+                const teamId = TEAM_ID_BY_LONGNAME.get(row.team);
+                if (teamId) map.set(teamId, row.points);
+            });
+
+            return map;
+        }
+
+        function getPickedPointSpread(picks, pointsByTeamId) {
+            if (!Array.isArray(picks) || picks.length < 2) return -Infinity;
+
+            const firstPoints = pointsByTeamId.get(picks[0].team_id);
+            const lastPoints = pointsByTeamId.get(picks[picks.length - 1].team_id);
+
+            if (!Number.isFinite(firstPoints) || !Number.isFinite(lastPoints)) return -Infinity;
+            return firstPoints - lastPoints;
+        }
+
+        function buildParticipantRows(actualRankByTeamId, standings, isStartMode, currentRound) {
             const rows = [];
+            const pointsByTeamId = isStartMode ? new Map() : buildPointsByTeamId(standings);
+            const roundsPlayed = isStartMode ? 0 : (Number(currentRound) || 0);
 
             H2H_TIPS_BY_PARTICIPANT.forEach(participant => {
                 const picks = participant.picks || [];
+
                 rows.push({
                     participant_id: participant.participant_id,
                     display_name: participant.display_name || participant.participant_id,
                     picks,
                     teamCount: picks.length,
-                    correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId)
+                    correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId),
+                    correctRounds: isStartMode ? 0 : countCorrectRounds(picks, roundsPlayed),
+                    roundsPlayed,
+                    pointSpread: isStartMode ? null : getPickedPointSpread(picks, pointsByTeamId)
                 });
             });
 
@@ -2312,11 +2362,8 @@
 
                 if (a.correct && b.correct) {
                     if (b.teamCount !== a.teamCount) return b.teamCount - a.teamCount;
-
-                    // Final tiebreaker är medvetet inte implementerad ännu:
-                    // överlämningen anger att den ska användas först efter färdig serie,
-                    // men anger inte vilken tiebreaker som ska användas.
-                    return a.display_name.localeCompare(b.display_name, 'sv');
+                    if (b.correctRounds !== a.correctRounds) return b.correctRounds - a.correctRounds;
+                    if (b.pointSpread !== a.pointSpread) return b.pointSpread - a.pointSpread;
                 }
 
                 return a.display_name.localeCompare(b.display_name, 'sv');
@@ -2541,7 +2588,7 @@
                 ? new Map()
                 : buildActualRankByTeamId(standings);
 
-            const rows = buildParticipantRows(actualRankByTeamId, isStartMode);
+            const rows = buildParticipantRows(actualRankByTeamId, standings, isStartMode, round);
 
             renderSummary(standings, isStartMode);
 
@@ -2549,7 +2596,7 @@
             tbody.innerHTML = '';
 
             let correctSeen = 0;
-            let lastCorrectTeamCount = null;
+            let lastCorrectRankKey = null;
             let dividerInserted = false;
 
             rows.forEach((row, index) => {
@@ -2567,9 +2614,11 @@
                 } else {
                     correctSeen += 1;
 
-                    if (lastCorrectTeamCount === null || row.teamCount !== lastCorrectTeamCount) {
+                    const rankKey = `${row.teamCount}|${row.correctRounds}|${row.pointSpread}`;
+
+                    if (lastCorrectRankKey === null || rankKey !== lastCorrectRankKey) {
                         tdRank.textContent = String(correctSeen);
-                        lastCorrectTeamCount = row.teamCount;
+                        lastCorrectRankKey = rankKey;
                     } else {
                         tdRank.textContent = '';
                     }
@@ -2600,6 +2649,10 @@
                 tdCount.className = 'num';
                 tdCount.textContent = String(row.teamCount);
 
+                const tdCorrectRounds = document.createElement('td');
+                tdCorrectRounds.className = 'num';
+                tdCorrectRounds.textContent = `${row.correctRounds}/${row.roundsPlayed}`;
+
                 const tdStatus = document.createElement('td');
                 tdStatus.className = 'num h2h-status';
 
@@ -2613,7 +2666,7 @@
                     tdStatus.classList.add('incorrect');
                 }
 
-                tr.append(tdRank, tdTipper, tdCount, tdStatus);
+                tr.append(tdRank, tdTipper, tdCount, tdCorrectRounds, tdStatus);
                 tbody.appendChild(tr);
             });
 
@@ -2945,8 +2998,15 @@
             function prepare(icon) {
                 if (!icon || icon.dataset.mobileTipPrepared === '1') return;
 
-                icon.setAttribute('data-mobile-tip', 'Tryck på tipparens namn för att se detaljer.');
-                icon.setAttribute('aria-label', 'Tryck på tipparens namn för att se detaljer');
+                const mobileTip = icon.getAttribute('data-mobile-tip')
+                    || 'Tryck på tipparens namn för att se detaljer.';
+
+                icon.setAttribute('data-mobile-tip', mobileTip);
+
+                if (!icon.getAttribute('aria-label')) {
+                    icon.setAttribute('aria-label', mobileTip);
+                }
+
                 icon.removeAttribute('title');
                 icon.dataset.mobileTipPrepared = '1';
             }
