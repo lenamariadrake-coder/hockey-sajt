@@ -1849,6 +1849,21 @@
             background-clip: padding-box;
         }
 
+        /* Historikläge: ingen tipparlista, ligatabellen står ensam och centrerad. */
+        .h2h-tables-layout.historical-mode {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .h2h-tables-layout.historical-mode .h2h-tipper-panel {
+            display: none;
+        }
+
+        .h2h-tables-layout.historical-mode .h2h-league-panel {
+            display: block;
+        }
+
         @media (max-width: 900px) {
             .h2h-tables-layout {
                 display: block;
@@ -1857,6 +1872,16 @@
 
             .h2h-league-panel {
                 display: none;
+            }
+
+            .h2h-tables-layout.historical-mode .h2h-league-panel {
+                display: block;
+            }
+
+            .h2h-tables-layout.historical-mode {
+                display: flex;
+                justify-content: center;
+                width: 100%;
             }
 
             .h2h-tipper-panel {
@@ -2122,6 +2147,7 @@
         const loadingBox = document.getElementById('tableLoading');
         const dataError = document.getElementById('dataError');
         const h2hSummary = document.getElementById('h2hSummary');
+        const h2hTablesLayout = document.querySelector('.h2h-tables-layout');
 
         /* ===========================================================
            DATAKÄLLOR
@@ -2133,8 +2159,10 @@
         // Samma team_id-/namnkälla som i originalfilen.
         const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1219108197&single=true&output=tsv';
 
-        // TODO: klistra in den publicerade TSV-adressen för fliken tips_shl_2026-2027.
-        // Förväntade kolumner:
+        // Publicerad TSV-adress för H2H-tips.
+        // Lämna som tom sträng ('') för historikläge utan tips. Då visas bara
+        // Aktuell ordning + den faktiska ligatabellen (även på mobil).
+        // Förväntade kolumner när en tipskälla används:
         // participant_id | display_name | tip_type | team_id | pick_rank | h2h_point_spread_tip
         const H2H_TIPS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv';
 
@@ -3139,9 +3167,22 @@
 
         async function init() {
             try {
+                const historicalMode = !H2H_TIPS_TSV_URL.trim();
+
+                if (historicalMode) {
+                    h2hTablesLayout?.classList.add('historical-mode');
+                    const loadingText = loadingBox?.querySelector('div:last-child');
+                    if (loadingText) loadingText.textContent = 'Laddar tabell…';
+                }
+
                 await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
                 await loadAndPrepareStandingsFromTSV(TSV_URL);
-                await loadH2HTipsFromTSV(H2H_TIPS_TSV_URL);
+
+                if (!historicalMode) {
+                    await loadH2HTipsFromTSV(H2H_TIPS_TSV_URL);
+                } else {
+                    H2H_TIPS_BY_PARTICIPANT.clear();
+                }
 
                 timelineSlider.min = '0';
                 timelineSlider.max = String(state.latestRound ?? 0);
@@ -3155,7 +3196,7 @@
                 renderTableForRound(state.currentRound);
 
                 loadingBox?.classList.add('hidden');
-                tableStand?.classList.remove('hidden');
+                tableStand?.classList.toggle('hidden', historicalMode);
                 leagueStand?.classList.remove('hidden');
             } catch (error) {
                 console.error('[init]', error);
