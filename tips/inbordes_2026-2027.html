@@ -339,39 +339,55 @@
             color: var(--text);
         }
 
-        /* Endast på smal skärm: skapa en egen tooltip via pseudo-element */
-@media (max-width: 768px) {
-    .th-info::after {
-        content: attr(data-mobile-tip);
-        position: absolute;
-        left: 50%;
-        top: 120%;
-        transform: translateX(-50%);
+        /* Egen tooltip för info-ikoner */
+        .th-info::after {
+            content: attr(data-mobile-tip);
+            position: absolute;
+            left: 50%;
+            top: 120%;
+            transform: translateX(-50%);
 
-        width: min(32ch, calc(100vw - 2rem));
-        white-space: normal;
+            width: min(32ch, calc(100vw - 2rem));
+            white-space: normal;
 
-        /* enkel "tooltip-look" */
-        padding: .45rem .6rem;
-        border-radius: 10px;
-        font-size: .85rem;
-        font-weight: 600;
-        line-height: 1.2;
+            padding: .45rem .6rem;
+            border-radius: 10px;
+            font-size: .85rem;
+            font-weight: 600;
+            line-height: 1.3;
 
-        background: rgba(20, 20, 20, .92);
-        color: #fff;
+            background: rgba(20, 20, 20, .92);
+            color: #fff;
 
-        display: none;
-        z-index: 9999;
+            display: none;
+            z-index: 9999;
 
-        /* liten skugga */
-        box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
-    }
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
 
-    .th-info.show-tip::after {
-        display: block;
-    }
-}
+            text-transform: none;
+            letter-spacing: normal;
+            text-align: left;
+        }
+
+        /* Dator: visa vid hover */
+        @media (min-width: 769px) {
+            .th-info:hover::after {
+                display: block;
+            }
+        }
+
+        /* Mobil: visa vid tryck */
+        @media (max-width: 768px) {
+            .th-info::after {
+                right: 0;
+                left: auto;
+                transform: none;
+            }
+
+            .th-info.show-tip::after {
+                display: block;
+            }
+        }
 
 
 
@@ -1947,14 +1963,14 @@
                                     <th>Plats</th>
                                     <th class="col-team">
                                         Tippare
-                                        <span class="th-info" title="Hovra över en tippare för att se detaljer."
+                                        <span class="th-info"
+                                            data-mobile-tip="Hovra över en tippare för att se detaljer."
                                             aria-label="Hjälp: hovra över en tippare för att se detaljer.">ℹ️</span>
                                     </th>
                                     <th class="num">Lag</th>
                                     <th class="num">
                                         Utfall
                                         <span class="th-info"
-                                            title="Antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt."
                                             data-mobile-tip="Antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt."
                                             aria-label="Hjälp: antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt.">ℹ️</span>
                                     </th>
