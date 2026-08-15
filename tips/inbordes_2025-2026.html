@@ -1,0 +1,3310 @@
+<!DOCTYPE html>
+<html lang="sv">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tippartopplista</title>
+
+    <!-- html2canvas för export av aktiv vy -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+    <style>
+        /* =========================================================
+ 0) DESIGN-TOKENS / VARIABLER
+ ========================================================= */
+        :root {
+            --bg: #f4f4f9;
+            --card: #ffffff;
+            --text: #0f172a;
+            --text-muted: #6b7280;
+            --accent: #007C30;
+            --border: #e2e8f0;
+            --row-hover: #f8faff;
+            --header-bg: #f8fafc;
+
+            /* OBS: dubletter – sista värdet vinner (behåll ordningen!)
+           ⚠️ Om du “ändrar knapparnas gråa” och inget händer: du har troligen ändrat den FÖRSTA.
+           Ändra de sista värdena i blocket nedan. */
+            --btn-gray-bg: #f1f5f9;
+            --btn-gray-hover: #e2e8f0;
+            --btn-gray-bg: #f7f8fb;
+            --btn-gray-hover: #eef2f7;
+
+            /* en “rad” i topbaren */
+            --ui-gap: 10px;
+
+            /* ⚠️ OBS: --ui-row-h används senare (topbar-grid).
+           Se till att den finns i filen (om den definieras någon annanstans: ok). */
+            /* --ui-row-h: 42px; */
+        }
+
+        /* =========================================================
+ 1) BAS / RESET
+ ========================================================= */
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            line-height: 1.45;
+        }
+
+        /* =========================================================
+ 2) HUVUDLAYOUT
+ ========================================================= */
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--card);
+            padding: 1rem 1rem 2rem;
+        }
+
+        header.page-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .5rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        /* =========================================================
+ 3) LÄNKAR / KNAPPAR (generellt)
+ ========================================================= */
+        .ghost-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .35rem .8rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text);
+            background: var(--card);
+            font-weight: 600;
+        }
+
+        .ghost-link:hover {
+            background: var(--header-bg);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .45rem .85rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .btn[disabled] {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        /* =========================================================
+ 4) TABS
+ ---------------------------------------------------------
+ ⚠️ Tips: align-items (inte align-content) är det som oftast påverkar “center-känsla”
+ i en enradig flex-rad. align-content påverkar primärt när rader wrap:ar.
+ ========================================================= */
+        .tabs {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            flex-wrap: wrap;
+
+            /* ✅ reservera höjd (sätts av JS) så reglaget hamnar identiskt */
+            /* min-height: var(--tabs-reserve-h, auto); */
+
+            /* align-content påverkar främst när flex-wrap skapar flera rader */
+            align-content: center;
+        }
+
+        /* Tab-knappar (gäller både <button> och <a>) */
+        .tab-btn {
+            padding: .5rem .9rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--btn-gray-bg);
+            cursor: pointer;
+            font-weight: 700;
+
+            /* 🔒 gör <a> och <button> identiska i “höjd-känsla” */
+            font: inherit;
+            line-height: 1;
+            box-sizing: border-box;
+            white-space: nowrap;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            /* gör inget för button, men tar bort underline för a */
+            color: inherit;
+        }
+
+        /* Aktiv tab (button har aria-selected, länken har normalt inte det) */
+        .tab-btn[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            cursor: default;
+        }
+
+        /* Snitt-länk */
+        .tab-btn-link {
+            /* Om du vill trimma Snitt, ändra här (annars: låt vara tomt) */
+            /* font-size: .95rem; */
+            /* padding: .45rem .85rem; */
+            /* min-height: 2.2rem; */
+
+            /* din aktiva override */
+            padding: .6rem .9rem;
+            /* lite mer upp/ner, samma i sidled som tab-btn */
+        }
+
+        /* Fin hover på “inaktiva” tabs */
+        .tab-btn:hover:not([aria-selected="true"]) {
+            background: var(--btn-gray-hover);
+        }
+
+        /* Allt extra i tab-raden (sourceFilter + rowColorControls) */
+        .tabs #sourceFilter {
+            display: inline-flex;
+            align-items: center;
+            gap: .6rem;
+        }
+
+        /* Labels med input (radio/checkbox) på tab-raden */
+        .tabs label,
+        .tabs .rowcolor-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            line-height: 1;
+        }
+
+        /* Radios/checkboxar hamnar ofta lite off utan detta */
+        .tabs input[type="checkbox"],
+        .tabs input[type="radio"] {
+            margin: 0;
+            transform: translateY(1px);
+        }
+
+        /* =========================================================
+ 5) VYER (visa/dölj)
+ ========================================================= */
+        .views>section {
+            display: none;
+        }
+
+        .views>section[aria-hidden="false"] {
+            display: block;
+        }
+
+        /* =========================================================
+ 6) ACTIONS-RAD
+ ========================================================= */
+        .actions {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: .5rem 0 1rem;
+        }
+
+        /* =========================================================
+ 7) SIFFERKNAPPAR (OMGÅNGAR)
+ ========================================================= */
+        /* Sifferknappar (omgångar) – döljer nu i och med att reglaget finns */
+        .siffror-wrap {
+            display: none;
+        }
+
+        .siffror-btn {
+            display: inline-grid;
+            place-items: center;
+            min-width: 38px;
+            height: 38px;
+            padding: 0 .2rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            background: var(--btn-gray-bg);
+            font-weight: 700;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .siffror-btn:hover {
+            background: var(--btn-gray-hover);
+        }
+
+        .siffror-btn.vald {
+            background: var(--accent);
+            color: #fff;
+            pointer-events: none;
+        }
+
+        .siffror-btn.inaktiv {
+            background: var(--header-bg);
+            color: var(--text-muted);
+            opacity: .7;
+            pointer-events: none;
+        }
+
+        .current-badge {
+            font-size: .85em;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 560px) {
+            .siffror-btn {
+                min-width: 34px;
+                height: 34px;
+                font-size: .95rem;
+            }
+        }
+
+        /* =========================================================
+ 8) TABELL (LIGATABELL)
+ ========================================================= */
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: max-content;
+            margin: 1rem auto 0;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: visible;
+            /* tillåt tooltips att sticka ut */
+            background: #fff;
+        }
+
+        thead,
+        tbody {
+            overflow: visible;
+        }
+
+        th,
+        td {
+            padding: .6rem .8rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        thead th {
+            background: var(--header-bg);
+            font-weight: 800;
+            color: var(--text);
+            text-transform: uppercase;
+            font-size: .85rem;
+            letter-spacing: .02em;
+        }
+
+        #tableStandings thead th.col-team {
+            text-align: left;
+        }
+
+        /* Info-ikon i kolumnrubrik – BAS (kan override:as längre ner) */
+        .th-info {
+            margin-left: .35rem;
+            color: var(--text-muted);
+            font-weight: 900;
+            cursor: help;
+            user-select: none;
+
+            position: relative;
+            /* behövs för att mobil-tooltip ska kunna positioneras */
+        }
+
+        .th-info:hover {
+            color: var(--text);
+        }
+
+        /* Egen tooltip för info-ikoner */
+        .th-info::after {
+            content: attr(data-desktop-tip);
+            position: absolute;
+            left: 50%;
+            top: 120%;
+            transform: translateX(-50%);
+
+            width: min(32ch, calc(100vw - 2rem));
+            white-space: normal;
+
+            padding: .45rem .6rem;
+            border-radius: 10px;
+            font-size: .85rem;
+            font-weight: 600;
+            line-height: 1.3;
+
+            background: rgba(20, 20, 20, .92);
+            color: #fff;
+
+            display: none;
+            z-index: 9999;
+
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+
+            text-transform: none;
+            letter-spacing: normal;
+            text-align: left;
+        }
+
+        /* Dator: visa vid hover */
+        @media (min-width: 769px) {
+            .th-info:hover::after {
+                display: block;
+            }
+        }
+
+        /* Mobil: visa vid tryck */
+        @media (max-width: 768px) {
+            .th-info::after {
+                right: 0;
+                left: auto;
+                transform: none;
+            }
+
+            .th-info.show-tip::after {
+                display: block;
+            }
+        }
+
+
+
+        tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        tbody tr:hover {
+            background: var(--row-hover);
+        }
+
+        .num {
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Korrigera rundade hörn på tabellens övre header */
+        #tableStandings thead tr:first-child th:first-child {
+            border-top-left-radius: 10px;
+        }
+
+        #tableStandings thead tr:first-child th:last-child {
+            border-top-right-radius: 10px;
+        }
+
+        #tableStandings thead th {
+            background-clip: padding-box;
+        }
+
+        /* =========================================================
+ 9) SOURCE FILTER – BAS
+ ---------------------------------------------------------
+ ⚠️ BAS FÖR OVERRIDE
+ - Default: hidden tills .is-visible
+ - Förutsätter att ev. overrides ligger SENARE i filen
+
+ ⚠️ VIKTIGT I DENNA FIL:
+ - Denna BAS-logik “slås över” längre ner (sektion 23),
+   där #sourceFilter tvingas alltid synlig i Topplista.
+ - Om du felsöker “varför syns #sourceFilter ändå?” -> hoppa till sektion 23.
+ ========================================================= */
+        #sourceFilter {
+            display: inline-flex;
+            align-items: center;
+            gap: .8rem;
+
+            /* alltid plats i layouten */
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+
+            /* undvik små höjdskillnader */
+            min-height: 2.2rem;
+        }
+
+        #sourceFilter.is-visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Kryssrutor: visa hobby/experter (alltid synliga) */
+        #sourceFilter .source-options {
+            display: inline-flex;
+            align-items: center;
+            gap: .75rem;
+            margin-left: .75rem;
+            padding-left: .75rem;
+            border-left: 1px solid var(--border);
+        }
+
+        /* Bas-variant inne i #sourceFilter (snävare gap än global .source-options) */
+        #sourceFilter .source-options label {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            white-space: nowrap;
+        }
+
+        /* Kompakt label + undvik radbrytning inne i varje alternativ */
+        #sourceFilter label {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            white-space: nowrap;
+        }
+
+        /* Disabled-look för framtida/inaktivt placeringsläge
+ (Legacy-stöd: om “Placering” återintroduceras ska det synas att valet inte är aktivt ännu.) */
+        #sourceFilter.is-disabled-placement label[data-mode="placement"] {
+            opacity: .45;
+            filter: grayscale(1);
+            cursor: help;
+            /* hjälp-cursor på hela "Placering"-alternativet */
+        }
+
+        /* Viktigt: låt hover gå via labeln (så tooltipen funkar över både radio + text) */
+        #sourceFilter.is-disabled-placement input[value="placement"] {
+            pointer-events: none;
+        }
+
+        /* =========================================================
+ 10) HJÄLPTEXT / KÄLLRAD
+ ========================================================= */
+        .source {
+            margin: 1rem auto 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: .85rem;
+        }
+
+        /* =========================================================
+ 11) TIDSLINJE (SLIDER)
+ ========================================================= */
+        .slider-wrapper {
+            position: relative;
+            margin: 1rem auto 0;
+            width: 100%;
+            padding: 1rem;
+            background: var(--header-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .slider-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem 1rem;
+            flex-wrap: wrap;
+            margin-bottom: .75rem;
+        }
+
+        .slider-info {
+            display: flex;
+            align-items: baseline;
+            gap: .75rem;
+            flex-wrap: wrap;
+        }
+
+        #slider-label {
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+            font-size: .85rem;
+            color: var(--text-muted);
+        }
+
+        #current-step-display {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text);
+            min-height: 1.2em;
+        }
+
+        .slider-controls {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+        }
+
+        /* Mjuk hover/tryck-känsla bara för knapparna i spelaren */
+        .slider-controls .btn {
+            transition: transform .12s ease, box-shadow .15s ease, filter .15s ease, background .15s ease;
+        }
+
+        .slider-controls .btn:hover:not([disabled]) {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, .12);
+            background: var(--btn-gray-hover);
+        }
+
+        .slider-controls .btn.primary:hover:not([disabled]) {
+            filter: brightness(0.95);
+        }
+
+        .slider-controls .btn:active:not([disabled]) {
+            transform: translateY(0);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, .10);
+        }
+
+        .slider-controls .btn:focus-visible {
+            outline: 2px solid rgba(0, 124, 48, .45);
+            outline-offset: 3px;
+        }
+
+        /* Range – “appig” look */
+        #timeline-slider {
+            width: 100%;
+            background: transparent;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        #timeline-slider::-webkit-slider-runnable-track {
+            height: 10px;
+            border-radius: 999px;
+            background: #d5dbe7;
+        }
+
+        #timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -7px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, .08);
+        }
+
+        #timeline-slider::-moz-range-track {
+            height: 10px;
+            border-radius: 999px;
+            background: #d5dbe7;
+        }
+
+        #timeline-slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, .08);
+        }
+
+        /* =========================================================
+ 12) RADFÄRGER (TABELL) + PALETT
+ ========================================================= */
+        .rowcolor-controls.is-hidden {
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #rowColorControls {
+            display: inline-flex;
+            align-items: center;
+            gap: .8rem;
+
+            min-height: 2.2rem;
+            margin-left: auto;
+
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .rowcolor-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            font-weight: 600;
+        }
+
+        .rowcolor-scope {
+            display: inline-flex;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .rowcolor-scope label {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            white-space: nowrap;
+        }
+
+        /* Reset-knapp (kommenterad) */
+        /* #rowColorResetBtn { margin-left: auto; } */
+        /* #rowColorResetBtn.is-hidden { visibility: hidden; opacity: 0; pointer-events: none; } */
+
+        /* X: egen span */
+        .btn-x {
+            display: inline-grid;
+            place-items: center;
+            width: 1.15em;
+            height: 1.15em;
+            line-height: 1;
+            font-size: 0.95em;
+        }
+
+        .rowcolor-palette {
+            position: absolute;
+            z-index: 9999;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: .5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, .12);
+            width: max-content;
+        }
+
+        .rowcolor-swatches {
+            display: flex;
+            gap: .4rem;
+            align-items: center;
+            padding: .25rem;
+        }
+
+        .rowcolor-swatch {
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, .12);
+            cursor: pointer;
+        }
+
+        .rowcolor-swatch:hover {
+            transform: translateY(-1px);
+        }
+
+        .rowcolor-clear {
+            margin-top: .4rem;
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            padding: .4rem .6rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .rowcolor-icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .rowcolor-icon-btn:hover {
+            background: var(--header-bg);
+        }
+
+        td.rowcolor-cell {
+            padding: .45rem .45rem;
+        }
+
+        th[data-rowcolor] {
+            position: relative;
+        }
+
+        th[data-rowcolor] #rowColorResetX {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            transform: translateY(-50%);
+        }
+
+        .summary-actions {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            flex-wrap: wrap;
+        }
+
+        .rowcolor-toggle--summary {
+            margin-left: auto;
+        }
+
+        /* =========================================================
+ 13) EGET TIPS (CUSTOM) – panel + inmatning
+ ========================================================= */
+        .custom-panel {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0 14px 0;
+            background: #fff;
+            display: none;
+            /* Styrs av JS/klassen .open */
+            width: 100%;
+        }
+
+        .custom-panel.open {
+            display: block;
+        }
+
+        .rank-panel-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Denna container centrerar innehållet i mitten av skärmen */
+        .custom-content-centered {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            /* Allt inuti (knappar/text) börjar till vänster */
+            margin: 0 auto;
+            /* Centrerar boxen horisontellt */
+            width: 100%;
+            max-width: 600px;
+            /* Ändra här om du vill ha rutan bredare/smalare */
+        }
+
+        /* Textrutan */
+        #custom-input {
+            width: 100%;
+            height: 280px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.35;
+            resize: vertical;
+            display: block;
+            margin-bottom: 15px;
+        }
+
+        /* Knappraden */
+        .custom-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        /* Meddelanden (Ok/Fel) */
+        .custom-panel .msg {
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .custom-panel .msg.ok {
+            color: #065f46;
+        }
+
+        .custom-panel .msg.err {
+            color: #b91c1c;
+        }
+
+        /* Hjälptext (infällbar) */
+        .custom-help {
+            width: 100%;
+            color: var(--text-muted);
+            font-size: .95rem;
+            line-height: 1.35;
+            text-align: left;
+        }
+
+        .custom-help summary {
+            cursor: pointer;
+            user-select: none;
+            font-weight: 700;
+        }
+
+        .custom-help[open] summary {
+            margin-bottom: 6px;
+        }
+
+        .custom-help__body p {
+            margin: 6px 0;
+        }
+
+        .custom-help__body ul {
+            margin: 6px 0 10px 18px;
+        }
+
+        .custom-help__ex {
+            margin: 6px 0 10px 0;
+            padding: 8px 10px;
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            background: #fafafa;
+            overflow: auto;
+        }
+
+        /* Växla summary-text */
+        .custom-help .when-open {
+            display: none;
+        }
+
+        .custom-help[open] .when-open {
+            display: inline;
+        }
+
+        .custom-help[open] .when-closed {
+            display: none;
+        }
+
+        /* =========================================================
+ 14) RESPONSIVE: kontroller får ALDRIG svälla utanför skärmen
+ ========================================================= */
+        .controls,
+        .controls-row {
+            max-width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px 14px;
+        }
+
+        .controls>*,
+        .controls-row>* {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        .source-options {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            max-width: 100%;
+        }
+
+        /* Global variant (används i controls-row m.m. där .source-options kan förekomma) */
+        .source-options label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 680px) {
+            .source-options {
+                width: 100%;
+            }
+
+            #btn-open-custom {
+                flex: 0 0 auto;
+                width: 42px;
+            }
+
+            .controls .divider,
+            .controls-row .divider {
+                display: none !important;
+            }
+        }
+
+        /* =========================================================
+ 15) NAV-TOAST
+ ========================================================= */
+        .nav-toast {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -0.2rem;
+            text-align: center;
+
+            font-size: .9rem;
+            color: var(--text-muted);
+
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity .25s ease, transform .25s ease;
+
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .nav-toast.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 700px) {
+            .nav-toast {
+                bottom: .4rem;
+                font-size: .85rem;
+                padding: .35rem .7rem;
+                border-radius: 999px;
+
+                background: rgba(248, 250, 252, 0.92);
+                border: 1px solid var(--border);
+
+                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px);
+
+                box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+            }
+        }
+
+        /* =========================================================
+ 16) TOPBAR – LAYOUT-GRID
+ ---------------------------------------------------------
+ ⚠️ STRUKTURELLT ORDNINGSKÄNSLIG
+ - Definierar hela sidans layout-ryggrad
+ - Förutsätter att ikon-/control-overrides kommer EFTER
+ - Flytta inte utan att verifiera hela UI:t
+ ========================================================= */
+        .topbar {
+            display: grid;
+            grid-template-rows: var(--ui-row-h) var(--ui-row-h) calc(var(--ui-row-h) * 2);
+            gap: var(--ui-gap);
+            margin-bottom: 0.75rem;
+        }
+
+        .topbar-row--nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            min-height: var(--ui-row-h);
+        }
+
+        .topbar-nav {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            min-height: var(--ui-row-h);
+        }
+
+        /* Ikon-länkar: samma stil som ghost-link men kompakt */
+        .icon-link {
+            width: 42px;
+            height: 42px;
+            justify-content: center;
+            padding: 0;
+        }
+
+        /* Gör 📸 lika stor klickyta som 🏠/📄 */
+        .topbar-nav #exportBtn {
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+            border-radius: 12px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .topbar-nav #exportBtn:focus-visible {
+            outline: 2px solid rgba(122, 162, 255, .45);
+            outline-offset: 3px;
+        }
+
+        .topbar-row--tabs {
+            min-height: var(--ui-row-h);
+        }
+
+        .topbar-row--controls {
+            min-height: calc(var(--ui-row-h) * 2);
+        }
+
+        .view-controls-stack {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+
+        .view-controls-stack>#sourceFilter,
+        .view-controls-stack>#rowColorControls {
+            grid-area: 1 / 1;
+            align-self: center;
+        }
+
+        /* =========================================================
+ 16B) SOURCE FILTER – TOPBAR LAYOUT-TWEAKS (inte synlighet!)
+ ---------------------------------------------------------
+ ⚠️ Detta block justerar WRAP/HÖJD/overflow för stack-layouten.
+ Synlighet styrs i sektion 9 (BAS) och kan tvingas i sektion 23 (OVERRIDE).
+ ========================================================= */
+        #sourceFilter {
+            min-height: var(--ui-row-h);
+
+            /* Gör sourceFilter mer “mobilstabilt”: låt det wrappa men inte bli oändligt högt */
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            max-height: calc(var(--ui-row-h) * 2);
+            overflow: visible;
+        }
+
+        /* Gör knappen kompaktare i sourceFilter */
+        #btn-open-custom {
+            padding: .45rem .65rem;
+        }
+
+        /* =========================================================
+ 17) UTILS
+ ========================================================= */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* =========================================================
+ 18) TIPPER-TOOLTIP (tipslista 1..14)
+ ========================================================= */
+        .tipper-tooltip-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            cursor: help;
+        }
+
+        .tipper-tooltip-wrap:focus {
+            outline: none;
+        }
+
+        .tipper-tooltip-wrap:focus-visible {
+            outline: 2px solid rgba(0, 124, 48, .35);
+            outline-offset: 3px;
+            border-radius: 8px;
+        }
+
+        /* Själva rutan */
+        .tipper-tooltip {
+            position: absolute;
+            top: calc(100% + .45rem);
+            left: 0;
+            z-index: 60;
+
+            /* Krymp till innehåll (men aldrig större än viewport) */
+            width: fit-content;
+            max-width: calc(100vw - 2rem);
+
+            /* ALDRIG klipp/ellipsis/radbrytning -> scrolla hellre horisontellt */
+            overflow-x: auto;
+            overflow-y: visible;
+
+            padding: .6rem .75rem .6rem .25rem;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, .12), 0 0 0 1px rgba(0, 0, 0, .06);
+
+            color: var(--text);
+            font-weight: 600;
+            font-size: .92rem;
+
+            opacity: 0;
+            transform: translateY(4px);
+            pointer-events: none;
+            transition: opacity .12s ease, transform .12s ease;
+
+            /* gör scrollen lite “diskret” */
+            scrollbar-width: thin;
+            /* Firefox */
+        }
+
+        /* Visa vid hover + fokus (keyboard-friendly) */
+        .tipper-tooltip-wrap:hover .tipper-tooltip,
+        .tipper-tooltip-wrap:focus-within .tipper-tooltip {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Innehåll: två tabeller sida vid sida */
+        .tipper-tooltip .tt-grid {
+            display: grid;
+            grid-template-columns: max-content max-content;
+            gap: .9rem;
+            align-items: start;
+
+            /* Viktigt: låt gridens bredd vara exakt “innehållsbredd” */
+            width: max-content;
+        }
+
+        /* Varje “kolumn” */
+        .tipper-tooltip .tt-col {
+            width: max-content;
+        }
+
+        /* Rubriker */
+        .tipper-tooltip .tt-head {
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+            font-size: .78rem;
+            color: var(--text-muted);
+            margin: 0 0 .4rem 0;
+
+            /* aligna rubriken med lagnamnskolumnen (förbi !-kolumnen) */
+            padding-left: calc(1.1em + .45rem);
+        }
+
+        /* Gemensam ol-stil */
+        .tipper-tooltip .tt-col ol {
+            margin: 0;
+            padding-left: 0;
+            list-style: none;
+            width: max-content;
+        }
+
+        /* Rader: ! | LAG | PIL+SIFFRA */
+        .tipper-tooltip .tt-col li {
+            display: grid;
+            grid-template-columns: 1.1em auto 5.5ch;
+            /* diff får egen kolumn */
+            column-gap: .45rem;
+            align-items: baseline;
+        }
+
+        /* Utropstecken-kolumn */
+        .tipper-tooltip .tt-flag {
+            display: inline-flex;
+            justify-content: center;
+            width: 1.1em;
+            color: #b91c1c;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        /* Lagnamn: ALDRIG radbrytning, ALDRIG ellipsis */
+        .tipper-tooltip .tt-team {
+            white-space: nowrap;
+            overflow: visible;
+            text-overflow: clip;
+        }
+
+        /* Pilar+siffra: egen kolumn, tight men med lite luft */
+        .tipper-tooltip .tt-diff {
+            font-variant-numeric: tabular-nums;
+            opacity: .9;
+            white-space: nowrap;
+            justify-self: end;
+            /* snygg kolumnlinjering */
+        }
+
+        /* Mobil: stapla kolumner (men fortfarande inga radbrytningar i lagnamn) */
+        @media (max-width: 520px) {
+            .tipper-tooltip .tt-grid {
+                grid-template-columns: 1fr;
+                width: max-content;
+            }
+        }
+
+        /* =========================================================
+ 19) IKON-TOGGLE (🎨)
+ ========================================================= */
+        .rowcolor-toggle--icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .06);
+            cursor: pointer;
+            position: relative;
+            opacity: .9;
+        }
+
+        .rowcolor-toggle--icon input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .rowcolor-toggle--icon .toggle-icon {
+            line-height: 1;
+            font-size: 1.15rem;
+        }
+
+        .rowcolor-toggle--icon input:checked+.toggle-icon {
+            transform: translateY(-.5px);
+        }
+
+        .rowcolor-toggle--icon:has(input:checked) {
+            background: rgba(122, 162, 255, .18);
+            border-color: rgba(122, 162, 255, .55);
+            box-shadow: 0 0 0 2px rgba(122, 162, 255, .18) inset;
+            opacity: 1;
+        }
+
+        .rowcolor-toggle--icon:has(input:checked)::after {
+            content: "";
+            position: absolute;
+            top: 7px;
+            right: 7px;
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--accent);
+        }
+
+        /* =========================================================
+ 20) HEADER-IKONER – RESET / INTERAKTION
+ ---------------------------------------------------------
+ ⚠️ ORDNINGSKÄNSLIG
+ - Måste ligga EFTER generella .btn / .icon-regler
+ - Nollställer border/background/box-shadow medvetet
+ - Hover/focus ska vinna över default-knappar
+ ========================================================= */
+        .topbar .icon-link,
+        .topbar #exportBtn,
+        .topbar .rowcolor-toggle--icon {
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        .topbar-nav .icon-link,
+        .topbar-nav #exportBtn {
+            font-size: 1.15rem;
+            line-height: 1;
+        }
+
+        .topbar #exportBtn {
+            margin-left: 0px;
+            cursor: pointer;
+        }
+
+        .topbar .rowcolor-toggle--icon:has(input:checked)::after {
+            content: "";
+            position: absolute;
+            top: 7px;
+            right: 7px;
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--accent);
+        }
+
+        .topbar .rowcolor-toggle--icon:has(input:checked) {
+            opacity: 1;
+            filter: drop-shadow(0 0 6px rgba(122, 162, 255, .35));
+        }
+
+        /* =========================================================
+ 21) PLAIN IKONKNAPP – VISUELL UTILITY
+ ========================================================= */
+        .btn-icon-plain {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            line-height: 1;
+            font-size: 1.15rem;
+        }
+
+        .btn-icon-plain:hover {
+            background: rgba(255, 255, 255, .08);
+        }
+
+        .btn-icon-plain:focus-visible {
+            outline: 2px solid rgba(122, 162, 255, .45);
+            outline-offset: 3px;
+        }
+
+        .btn-icon-plain,
+        .btn-icon-plain * {
+            cursor: pointer;
+        }
+
+        .topbar-nav .icon-link:hover,
+        .topbar #exportBtn:hover,
+        .topbar .rowcolor-toggle--icon:hover,
+        .topbar .rowcolor-toggle--icon:focus-within {
+            background: rgba(15, 23, 42, 0.06) !important;
+        }
+
+        .source-item {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            position: relative;
+        }
+
+        /* =========================================================
+ 22) RESPONSIVE VISIBILITY: .m-tip (ℹ️)
+ ========================================================= */
+        .m-tip {
+            display: none;
+        }
+
+        @media (max-width: 700px) {
+            .m-tip {
+                display: inline-block;
+            }
+
+            #sourceFilter {
+                overflow: visible;
+                max-height: none;
+            }
+
+            .m-tip>summary {
+                list-style: none;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                line-height: 1;
+                user-select: none;
+
+                padding: .15rem .35rem;
+                border-radius: 999px;
+            }
+
+            .m-tip>summary::-webkit-details-marker {
+                display: none;
+            }
+
+            .m-tip__box {
+                position: absolute;
+                top: calc(100% + .4rem);
+                left: 0;
+                z-index: 50;
+
+                width: max-content;
+                max-width: min(36ch, calc(100vw - 2rem));
+                white-space: normal;
+                overflow-wrap: anywhere;
+
+                padding: .55rem .65rem;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: var(--card, #fff);
+                box-shadow: 0 12px 40px rgba(0, 0, 0, .12), 0 0 0 1px rgba(0, 0, 0, .06);
+            }
+
+            .m-tip:not([open]) .m-tip__box {
+                display: none;
+            }
+        }
+
+        /* =========================================================
+ 23) SOURCE FILTER – OVERRIDE (Topplista)
+ ---------------------------------------------------------
+ ⚠️ ORDNINGSKÄNSLIG SEKTION
+ - Måste ligga EFTER “SOURCE FILTER – BAS”
+ - Här tvingas synlighet: .is-visible i sektion 9 blir i praktiken irrelevant i Topplista.
+ ========================================================= */
+        #sourceFilter {
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        #sourceFilter .source-options {
+            margin-left: 0 !important;
+            padding-left: 0 !important;
+            border-left: 0 !important;
+        }
+
+        /* =========================================================
+ 24) LOADING STATE – TOPPLISTA
+ ========================================================= */
+        .loading-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: .6rem;
+
+            margin: 1.2rem auto 0;
+            padding: 1.2rem 1.4rem;
+
+            max-width: 420px;
+
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--header-bg);
+
+            font-weight: 700;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            animation: spin 0.9s linear infinite;
+        }
+
+        .loading-progress {
+            font-size: .85rem;
+            font-weight: 800;
+            letter-spacing: .02em;
+            color: var(--text);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===========================================================
+ 25) Rank-panel (Steg 4) – UI-skal för "Anpassa"
+ =========================================================== */
+        .rank-panel {
+            margin: 10px 0 14px 0;
+        }
+
+        .rank-panel-inner {
+            border: 1px solid var(--border, rgba(0, 0, 0, .12));
+            border-radius: 12px;
+            padding: 12px 12px;
+            background: rgba(255, 255, 255, .75);
+            backdrop-filter: blur(6px);
+
+            /* ENDA ändringen: breddbegränsning + centrering */
+            max-width: 500px;
+            /* ← DENNA SIFFRA ändrar du senare */
+            margin-left: auto;
+            margin-right: auto;
+            width: 100%;
+        }
+
+
+        .rank-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .rank-panel-title {
+            font-weight: 800;
+            letter-spacing: .2px;
+        }
+
+        .rank-panel-help summary {
+            cursor: pointer;
+            user-select: none;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin: 6px 0 6px 0;
+        }
+
+        .rank-panel-help-body {
+            margin-top: 8px;
+            color: var(--text);
+            line-height: 1.35;
+        }
+
+        .rank-panel-body .muted {
+            color: var(--text-muted);
+            font-size: .95rem;
+        }
+
+        /* =========================================================
+ 26) INFO-IKON (.th-info) – OVERRIDE
+ ---------------------------------------------------------
+ ⚠️ ORDNINGSKÄNSLIG
+ - Denna sektion SKA ligga efter basregeln för .th-info
+ - Överstyr bara opacity/font-size/position
+ - (Färg/cursor kommer från basregeln i sektion 8)
+ ========================================================= */
+        .th-info {
+            display: inline-block;
+            opacity: .75;
+            font-size: .95em;
+            transform: translateY(-.5px);
+        }
+
+        .th-info:hover {
+            opacity: 1;
+        }
+
+        /* ===========================================================
+ 27) Rank-panel – kolumnlista (Steg 5)
+ =========================================================== */
+        .rank-col-list {
+            list-style: none;
+            padding: 0;
+            margin: 8px 0 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .rank-col-item {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+        }
+
+        .rank-col-item:hover {
+            background: rgba(0, 0, 0, .03);
+            border-color: rgba(0, 0, 0, .08);
+        }
+
+        .rank-col-label {
+            font-weight: 700;
+        }
+
+        .rank-col-item.inactive {
+            opacity: .45;
+        }
+
+        .rank-col-actions {
+            display: inline-flex;
+            gap: 6px;
+        }
+
+        .rank-col-btn {
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: .95rem;
+            line-height: 1;
+            padding: 2px 4px;
+            border-radius: 6px;
+        }
+
+        .rank-col-btn:hover {
+            background: rgba(0, 0, 0, .08);
+        }
+
+        /* ===========================================================
+ 28) CTA-look för "Anpassa topplistan" (LAYOUT-NEUTRAL)
+ -----------------------------------------------------------
+ ⚠️ Ändra INTE padding/height/line-height här utan avsikt,
+ eftersom knappen då kan “hoppa” eller rubba topbarens grid.
+
+ OBS: var(--tab-padding-*) används med fallback här. Om du har ett system,
+ definiera dem gärna i :root. Annars är det helt ok att de bara är fallback.
+ =========================================================== */
+        #btnCustomizeRank.tab-btn-customize {
+            box-sizing: border-box;
+            margin: 0;
+            height: auto;
+            line-height: inherit;
+            padding: calc(var(--tab-padding-y, .45rem)) calc(var(--tab-padding-x, .85rem) + .35rem);
+            white-space: nowrap;
+
+            border: 1px solid rgba(0, 0, 0, .10);
+            background: linear-gradient(180deg, rgba(255, 231, 155, .95), rgba(255, 201, 92, .95));
+            color: rgba(0, 0, 0, .85);
+
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .7),
+                0 2px 10px rgba(0, 0, 0, .08);
+
+            font-weight: 800;
+            letter-spacing: .1px;
+        }
+
+        #btnCustomizeRank.tab-btn-customize:hover {
+            filter: brightness(1.02);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .75),
+                0 3px 14px rgba(0, 0, 0, .10);
+        }
+
+        #btnCustomizeRank.tab-btn-customize:active {
+            transform: translateY(0);
+            filter: brightness(.99);
+        }
+
+        #btnCustomizeRank .cta-spark {
+            margin-right: .45rem;
+            color: #d35400;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, .55);
+            opacity: .95;
+        }
+
+        #btnCustomizeRank.tab-btn-customize[aria-expanded="true"] {
+            background: linear-gradient(180deg, rgba(255, 214, 120, .98), rgba(255, 178, 58, .98));
+            border-color: rgba(0, 0, 0, .18);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .6),
+                0 2px 10px rgba(0, 0, 0, .10);
+        }
+
+        #btnCustomizeRank.tab-btn-customize:focus-visible {
+            outline: 2px solid rgba(0, 0, 0, .35);
+            outline-offset: 2px;
+        }
+
+        /* =========================================================
+           H2H – VERSION 1
+           ========================================================= */
+        .h2h-summary {
+            margin: 1rem auto 0;
+            width: fit-content;
+            max-width: 100%;
+            color: var(--text-muted);
+            font-size: .9rem;
+            text-align: center;
+        }
+
+        .h2h-summary strong {
+            color: var(--text);
+        }
+
+        .h2h-divider td {
+            border-top: 3px solid var(--border);
+        }
+
+        .h2h-status {
+            font-weight: 800;
+        }
+
+        .h2h-status.correct {
+            color: #08783e;
+        }
+
+        .h2h-status.incorrect {
+            color: #9f1239;
+        }
+
+        .tipper-tooltip-wrap {
+            cursor: pointer;
+        }
+
+        .tipper-tooltip-wrap.is-open .tipper-tooltip {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .tipper-tooltip {
+            padding: .75rem;
+        }
+
+        .tipper-tooltip .tt-grid {
+            grid-template-columns: max-content max-content;
+            gap: 1rem;
+        }
+
+        .tipper-tooltip .tt-head {
+            padding-left: 0;
+        }
+
+        .tipper-tooltip .h2h-actual-table {
+            margin: 0;
+            width: max-content;
+            font-size: .88rem;
+        }
+
+        .tipper-tooltip .h2h-actual-table th,
+        .tipper-tooltip .h2h-actual-table td {
+            padding: .34rem .55rem;
+        }
+
+        .tipper-tooltip .h2h-actual-table .selected-team {
+            font-weight: 900;
+        }
+
+        .tipper-tooltip .h2h-actual-table .selected-team.correct-pick {
+            background: #d9f7e5;
+        }
+
+        .tipper-tooltip .h2h-pick-list {
+            margin: 0;
+            padding-left: 1.7rem;
+            min-width: 12rem;
+        }
+
+        .tipper-tooltip .h2h-pick-list li {
+            display: list-item;
+            padding: .2rem 0;
+            white-space: nowrap;
+        }
+
+        .tipper-tooltip .h2h-detail-note {
+            margin: 0 0 .5rem;
+            color: var(--text-muted);
+            font-size: .82rem;
+            font-weight: 600;
+        }
+
+        .tipper-tooltip .h2h-point-spread-tip {
+            margin: .7rem 0 0;
+            padding-top: .6rem;
+            border-top: 1px solid var(--border);
+            font-size: .85rem;
+            font-weight: 700;
+            color: var(--text);
+            white-space: nowrap;
+        }
+
+        .data-error {
+            margin: 1rem auto 0;
+            max-width: 720px;
+            padding: .8rem 1rem;
+            border: 1px solid #fecaca;
+            border-radius: 10px;
+            background: #fff1f2;
+            color: #881337;
+            font-weight: 700;
+        }
+
+        @media (max-width: 520px) {
+            .tipper-tooltip .tt-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+
+        /* =========================================================
+           H2H – LIGATABELL + TOPPLISTA PÅ BRED SKÄRM
+           ========================================================= */
+        .h2h-tables-layout {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 2rem;
+            width: max-content;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .h2h-table-panel {
+            flex: 0 0 auto;
+        }
+
+        .h2h-tables-layout table {
+            margin: 1rem 0 0;
+        }
+
+        #leagueStandings thead th.col-team {
+            text-align: left;
+        }
+
+        #leagueStandings thead tr:first-child th:first-child {
+            border-top-left-radius: 10px;
+        }
+
+        #leagueStandings thead tr:first-child th:last-child {
+            border-top-right-radius: 10px;
+        }
+
+        #leagueStandings thead th {
+            background-clip: padding-box;
+        }
+
+        /* Historikläge: ingen tipparlista, ligatabellen står ensam och centrerad. */
+        .h2h-tables-layout.historical-mode {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .h2h-tables-layout.historical-mode .h2h-tipper-panel {
+            display: none;
+        }
+
+        .h2h-tables-layout.historical-mode .h2h-league-panel {
+            display: block;
+        }
+
+        @media (max-width: 900px) {
+            .h2h-tables-layout {
+                display: block;
+                width: 100%;
+            }
+
+            .h2h-league-panel {
+                display: none;
+            }
+
+            .h2h-tables-layout.historical-mode .h2h-league-panel {
+                display: block;
+            }
+
+            .h2h-tables-layout.historical-mode {
+                display: flex;
+                justify-content: center;
+                width: 100%;
+            }
+
+            .h2h-tipper-panel {
+                width: 100%;
+            }
+
+            #tableStandings {
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
+
+        @media (max-width: 520px) {
+
+            /* Vanlig mobilbredd på sidan */
+            .container {
+                width: 100%;
+                max-width: 100%;
+                padding-left: .75rem;
+                padding-right: .75rem;
+            }
+
+            /* Ingen intern scroll på mobil.
+               Sidan själv får sköta eventuell scrollning. */
+            .h2h-tipper-panel {
+                width: 100%;
+                max-width: 100%;
+                overflow: visible;
+            }
+
+            /* Gör bara topplistan lite kompaktare */
+            #tableStandings {
+                margin-left: auto;
+                margin-right: auto;
+                font-size: .9rem;
+            }
+
+            #tableStandings th,
+            #tableStandings td {
+                padding-left: .35rem;
+                padding-right: .35rem;
+            }
+
+            #tableStandings thead th {
+                font-size: .78rem;
+            }
+        }
+
+
+        /* =========================================================
+           TABELLRÖRELSE – jämfört med föregående omgång
+           ========================================================= */
+        .movement-up {
+            background: #dcfce7;
+        }
+
+        .movement-down {
+            background: #fee2e2;
+        }
+
+        #leagueStandings tbody tr.movement-up > td {
+            background: #dcfce7;
+        }
+
+        #leagueStandings tbody tr.movement-down > td {
+            background: #fee2e2;
+        }
+
+        #leagueStandings tbody tr.movement-up:hover > td {
+            background: #d1fae5;
+        }
+
+        #leagueStandings tbody tr.movement-down:hover > td {
+            background: #fecaca;
+        }
+
+        .current-order-team {
+            display: inline-block;
+            padding: .08rem .28rem;
+            border-radius: 5px;
+        }
+
+        @media (max-width: 768px) {
+
+            /* På mobil används en riktig fristående tooltipruta i body.
+               Pseudo-elementet stängs av helt för att undvika problem
+               med iOS/Safari + scrollbara tabeller. */
+            .th-info {
+                transform: none;
+            }
+
+            .th-info::after {
+                display: none !important;
+            }
+
+            .mobile-th-tooltip {
+                position: fixed;
+                left: 1rem;
+                right: 1rem;
+                top: 50%;
+                transform: translateY(-50%);
+
+                z-index: 99999;
+
+                padding: .7rem .85rem;
+                border-radius: 12px;
+                background: rgba(20, 20, 20, .94);
+                color: #fff;
+
+                font-size: .9rem;
+                font-weight: 600;
+                line-height: 1.35;
+                text-align: left;
+
+                white-space: normal;
+                overflow-wrap: break-word;
+
+                box-shadow: 0 12px 36px rgba(0, 0, 0, .28);
+            }
+
+            .mobile-th-tooltip[hidden] {
+                display: none;
+            }
+        }
+    </style>
+
+
+
+
+</head>
+
+<body>
+    <div class="container">
+
+        <header class="topbar" aria-label="Kontroller">
+            <div class="topbar-nav">
+                <a class="ghost-link icon-link" href="../index.html" aria-label="Till startsidan"
+                    title="Till startsidan">🏠</a>
+
+                <button id="exportBtn" class="btn btn-icon" aria-label="Spara aktiv vy som bild"
+                    title="Spara aktiv vy som bild">📸</button>
+
+                <div class="topbar-tabs tabs" aria-label="Vy">
+                    <button class="tab-btn" type="button" aria-selected="true">Inbördes ordning</button>
+                </div>
+            </div>
+
+            <!-- Behåller originalsidans reserverade luft i topbaren. -->
+            <div class="topbar-row topbar-row--controls" aria-hidden="true"></div>
+        </header>
+
+        <section class="controls">
+            <div class="siffror-wrap" id="roundButtons" aria-label="Omgångar (antal matcher)"></div>
+            <p class="source" style="margin-top: 0.5rem; margin-bottom: 0.5rem; text-align: left;">
+                Visar endast data i den mån lagen har spelat lika många matcher.
+            </p>
+        </section>
+
+        <section class="slider-wrapper" aria-label="Tidslinje">
+            <div class="slider-display">
+                <div class="slider-info">
+                    <span id="slider-label">Tidslinje</span>
+                    <span id="current-step-display">&nbsp;</span>
+                </div>
+
+                <div class="slider-controls">
+                    <button id="step-prev" class="btn" type="button" aria-label="Föregående">◀</button>
+
+                    <button id="play-pause" class="btn primary" type="button" aria-label="Spela upp / pausa">
+                        <span class="play-icon">▶</span>
+                        <span class="pause-icon hidden">⏸</span>
+                    </button>
+
+                    <button id="step-next" class="btn" type="button" aria-label="Nästa">▶</button>
+                </div>
+
+                <div id="nav-toast" class="nav-toast" hidden>
+                    💡 Tips: håll inne ◀ eller ▶ för att hoppa till start/slut
+                </div>
+            </div>
+
+            <input id="timeline-slider" type="range" min="0" max="1" value="0" step="1" />
+        </section>
+
+        <div class="views">
+            <section id="viewTable" role="tabpanel" aria-hidden="false" aria-label="Topplista">
+                <div id="tableLoading" class="loading-box" aria-live="polite">
+                    <div class="loading-spinner" aria-hidden="true"></div>
+                    <div>Laddar H2H-topplista…</div>
+                </div>
+
+                <div id="dataError" class="data-error hidden" role="alert"></div>
+
+                <div id="h2hSummary" class="h2h-summary" aria-live="polite"></div>
+
+                <div class="h2h-tables-layout">
+                    <div class="h2h-table-panel h2h-league-panel" aria-label="Aktuell SHL-tabell">
+                        <table id="leagueStandings" class="aktuell_tabell hidden">
+                            <thead>
+                                <tr>
+                                    <th>Plats</th>
+                                    <th class="col-team">Lag</th>
+                                    <th class="num" title="Matcher">M</th>
+                                    <th class="num" title="Poäng">P</th>
+                                    <th class="num" title="Målskillnad">+/−</th>
+                                    <th class="num" title="Gjorda mål">GM</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="h2h-table-panel h2h-tipper-panel">
+                        <table id="tableStandings" class="aktuell_tabell hidden">
+                            <thead>
+                                <tr id="tableStandingsHeadRow">
+                                    <th>Plats</th>
+                                    <th class="col-team">
+                                        Tippare
+                                        <span class="th-info"
+                                            data-desktop-tip="Hovra över en tippare för att se detaljer."
+                                            data-mobile-tip="Tryck på en tippare för att se detaljer."
+                                            aria-label="Hjälp: visa detaljer för en tippare.">ℹ️</span>
+                                    </th>
+                                    <th class="num">Lag</th>
+                                    <th class="num">
+                                        Utfall
+                                        <span class="th-info"
+                                            data-mobile-tip="Antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt."
+                                            aria-label="Hjälp: antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt.">ℹ️</span>
+                                    </th>
+                                    <th class="num">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="source">Källa: Google Sheets</div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        /* ===========================================================
+           H2H SHL 2026/27 – byggd från originalsidans struktur.
+           Behållet: matchinläsning, standings-snapshots, tidslinje,
+           play/pause, long-press, export och grundlayout.
+           =========================================================== */
+
+        const tableStand = document.getElementById('tableStandings');
+        const leagueStand = document.getElementById('leagueStandings');
+        const roundButtons = document.getElementById('roundButtons');
+        const exportBtn = document.getElementById('exportBtn');
+        const timelineSlider = document.getElementById('timeline-slider');
+        const currentStepDisplay = document.getElementById('current-step-display');
+        const btnPrev = document.getElementById('step-prev');
+        const btnNext = document.getElementById('step-next');
+        const btnPlayPause = document.getElementById('play-pause');
+        const playIcon = btnPlayPause?.querySelector('.play-icon');
+        const pauseIcon = btnPlayPause?.querySelector('.pause-icon');
+        const loadingBox = document.getElementById('tableLoading');
+        const dataError = document.getElementById('dataError');
+        const h2hSummary = document.getElementById('h2hSummary');
+        const h2hTablesLayout = document.querySelector('.h2h-tables-layout');
+
+        /* ===========================================================
+           DATAKÄLLOR
+           =========================================================== */
+
+        // Samma matchdata som i originalfilen.
+        const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1247847413&single=true&output=tsv';
+
+        // Samma team_id-/namnkälla som i originalfilen.
+        const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1219108197&single=true&output=tsv';
+
+        // Publicerad TSV-adress för H2H-tips.
+        // Lämna som tom sträng ('') för historikläge utan tips. Då visas bara
+        // Aktuell ordning + den faktiska ligatabellen (även på mobil).
+        // Förväntade kolumner när en tipskälla används:
+        // participant_id | display_name | tip_type | team_id | pick_rank | h2h_point_spread_tip
+        const H2H_TIPS_TSV_URL = '';
+
+        const ROUND_STORAGE_KEY = 'round_shl_h2h_2026_2027';
+
+        /* ===========================================================
+           STATE / DATA
+           =========================================================== */
+
+        const state = {
+            currentRound: null,
+            latestRound: null,
+            roundsAvailable: new Set()
+        };
+
+        let STANDING_SNAPSHOTS = new Map();
+        let ALL_TEAMS_LONG = [];
+        let TEAM_BY_ID = new Map();
+        let TEAM_ID_BY_LONGNAME = new Map();
+        let H2H_TIPS_BY_PARTICIPANT = new Map();
+
+        let playbackTimer = null;
+        const PLAYBACK_MS = 900;
+
+        /* ===========================================================
+           TSV / LAG / MATCHER
+           =========================================================== */
+
+        function parseTSV(text) {
+            return String(text || '')
+                .split(/\r?\n/)
+                .filter(line => line.trim().length > 0)
+                .map(line => line.split('\t').map(cell => cell.trim()));
+        }
+
+        function toInt(v) {
+            const n = parseInt(v, 10);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function isNum(v) {
+            return typeof v === 'number' && Number.isFinite(v);
+        }
+
+        function standingsComparator(a, b) {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.gd !== a.gd) return b.gd - a.gd;
+            if (b.gf !== a.gf) return b.gf - a.gf;
+            return a.team.localeCompare(b.team, 'sv');
+        }
+
+        async function fetchText(url, label) {
+            if (!url) throw new Error(`${label}: URL saknas.`);
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`${label}: HTTP ${response.status}.`);
+            return response.text();
+        }
+
+        async function loadTeamsFromTSV(url) {
+            const rows = parseTSV(await fetchText(url, 'Lagdata'));
+            if (!rows.length) throw new Error('Lagdata: inga rader hittades.');
+
+            const hdr = rows[0].map(h => h.trim());
+            const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+
+            const iId = idx('team_id');
+            const iShort = idx('team_name_short');
+            const iLong = idx('team_name_long');
+            const iAbbr = idx('team_name_abbr');
+
+            if (iId === -1 || iLong === -1) {
+                throw new Error('Lagdata: team_id eller team_name_long saknas.');
+            }
+
+            TEAM_BY_ID.clear();
+            TEAM_ID_BY_LONGNAME.clear();
+
+            rows.slice(1).forEach(r => {
+                const team_id = r[iId];
+                if (!team_id) return;
+
+                const obj = {
+                    team_id,
+                    team_name_abbr: iAbbr !== -1 ? r[iAbbr] : '',
+                    team_name_short: iShort !== -1 ? r[iShort] : '',
+                    team_name_long: iLong !== -1 ? r[iLong] : ''
+                };
+
+                TEAM_BY_ID.set(team_id, obj);
+                if (obj.team_name_long) TEAM_ID_BY_LONGNAME.set(obj.team_name_long, team_id);
+            });
+        }
+
+        async function loadH2HTipsFromTSV(url) {
+            const rows = parseTSV(await fetchText(url, 'H2H-tips'));
+            if (!rows.length) throw new Error('H2H-tips: inga rader hittades.');
+
+            const hdr = rows[0].map(h => h.trim());
+            const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+
+            const iParticipant = idx('participant_id');
+            const iDisplay = idx('display_name');
+            const iType = idx('tip_type');
+            const iTeam = idx('team_id');
+            const iRank = idx('pick_rank');
+            const iPointSpreadTip = idx('h2h_point_spread_tip');
+
+            const missing = [
+                ['participant_id', iParticipant],
+                ['display_name', iDisplay],
+                ['tip_type', iType],
+                ['team_id', iTeam],
+                ['pick_rank', iRank],
+                ['h2h_point_spread_tip', iPointSpreadTip]
+            ].filter(([, i]) => i === -1).map(([name]) => name);
+
+            if (missing.length) {
+                throw new Error(`H2H-tips: saknar kolumn(er): ${missing.join(', ')}.`);
+            }
+
+            H2H_TIPS_BY_PARTICIPANT.clear();
+
+            rows.slice(1).forEach(r => {
+                if (String(r[iType] || '').toLowerCase() !== 'h2h') return;
+
+                const participant_id = r[iParticipant];
+                const display_name = r[iDisplay] || participant_id;
+                const team_id = r[iTeam];
+                const pick_rank = Number(r[iRank]);
+                const pointSpreadRaw = r[iPointSpreadTip];
+                const h2h_point_spread_tip = pointSpreadRaw === '' ? null : Number(pointSpreadRaw);
+
+                if (!participant_id || !team_id || !Number.isFinite(pick_rank)) return;
+
+                if (!H2H_TIPS_BY_PARTICIPANT.has(participant_id)) {
+                    H2H_TIPS_BY_PARTICIPANT.set(participant_id, {
+                        participant_id,
+                        display_name,
+                        h2h_point_spread_tip: Number.isFinite(h2h_point_spread_tip)
+                            ? h2h_point_spread_tip
+                            : null,
+                        picks: []
+                    });
+                }
+
+                const participant = H2H_TIPS_BY_PARTICIPANT.get(participant_id);
+                if (!participant.display_name && display_name) participant.display_name = display_name;
+                if (participant.h2h_point_spread_tip === null && Number.isFinite(h2h_point_spread_tip)) {
+                    participant.h2h_point_spread_tip = h2h_point_spread_tip;
+                }
+                participant.picks.push({ team_id, pick_rank });
+            });
+
+            H2H_TIPS_BY_PARTICIPANT.forEach(participant => {
+                participant.picks.sort((a, b) => a.pick_rank - b.pick_rank);
+            });
+
+            if (!H2H_TIPS_BY_PARTICIPANT.size) {
+                throw new Error('H2H-tips: inga rader med tip_type = h2h hittades.');
+            }
+        }
+
+        async function loadAndPrepareStandingsFromTSV(url) {
+            const rows = parseTSV(await fetchText(url, 'Matchdata'));
+            if (!rows.length) throw new Error('Matchdata: inga rader hittades.');
+
+            const hdr = rows[0].map(h => h.trim());
+            const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+
+            const iHomeTeam = idx('Hemmalag');
+            const iAwayTeam = idx('Bortalag');
+            const iHomeGoals = idx('Hemmamål');
+            const iAwayGoals = idx('Bortamål');
+            const iHomePts = idx('Hemmapoäng');
+            const iAwayPts = idx('Bortapoäng');
+            const iDate = idx('Datum');
+
+            const required = [
+                ['Hemmalag', iHomeTeam],
+                ['Bortalag', iAwayTeam],
+                ['Hemmamål', iHomeGoals],
+                ['Bortamål', iAwayGoals]
+            ].filter(([, i]) => i === -1).map(([name]) => name);
+
+            if (required.length) {
+                throw new Error(`Matchdata: saknar kolumn(er): ${required.join(', ')}.`);
+            }
+
+            const teamsSet = new Set();
+            rows.slice(1).forEach(r => {
+                if (r[iHomeTeam]) teamsSet.add(r[iHomeTeam]);
+                if (r[iAwayTeam]) teamsSet.add(r[iAwayTeam]);
+            });
+
+            ALL_TEAMS_LONG = Array.from(teamsSet).sort((a, b) => a.localeCompare(b, 'sv'));
+
+            const hist = new Map();
+            ALL_TEAMS_LONG.forEach(team => {
+                hist.set(team, [{ g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]);
+            });
+
+            const dataRows = rows.slice(1);
+            if (iDate !== -1) {
+                dataRows.sort((a, b) => new Date(a[iDate]) - new Date(b[iDate]));
+            }
+
+            for (const r of dataRows) {
+                const ht = r[iHomeTeam];
+                const at = r[iAwayTeam];
+                if (!ht || !at || !hist.has(ht) || !hist.has(at)) continue;
+
+                const hg = toInt(r[iHomeGoals]);
+                const ag = toInt(r[iAwayGoals]);
+                const hp = iHomePts !== -1 ? toInt(r[iHomePts]) : null;
+                const ap = iAwayPts !== -1 ? toInt(r[iAwayPts]) : null;
+
+                const hHist = hist.get(ht);
+                const aHist = hist.get(at);
+                const prevH = hHist[hHist.length - 1];
+                const prevA = aHist[aHist.length - 1];
+
+                const nextH = {
+                    g: prevH.g + 1,
+                    points: prevH.points + (hp ?? (isNum(hg) && isNum(ag) ? (hg > ag ? 3 : 0) : 0)),
+                    gf: prevH.gf + (isNum(hg) ? hg : 0),
+                    ga: prevH.ga + (isNum(ag) ? ag : 0)
+                };
+                nextH.gd = nextH.gf - nextH.ga;
+
+                const nextA = {
+                    g: prevA.g + 1,
+                    points: prevA.points + (ap ?? (isNum(hg) && isNum(ag) ? (ag > hg ? 3 : 0) : 0)),
+                    gf: prevA.gf + (isNum(ag) ? ag : 0),
+                    ga: prevA.ga + (isNum(hg) ? hg : 0)
+                };
+                nextA.gd = nextA.gf - nextA.ga;
+
+                hHist.push(nextH);
+                aHist.push(nextA);
+            }
+
+            const minTotalGames = ALL_TEAMS_LONG.length
+                ? Math.min(...ALL_TEAMS_LONG.map(team => hist.get(team).length - 1))
+                : 0;
+
+            STANDING_SNAPSHOTS = new Map();
+            state.roundsAvailable = new Set();
+
+            for (let m = 0; m <= minTotalGames; m++) {
+                const snapshot = ALL_TEAMS_LONG.map(team => {
+                    const s = hist.get(team)[m];
+                    return {
+                        team,
+                        g: s.g,
+                        points: s.points,
+                        gf: s.gf,
+                        ga: s.ga,
+                        gd: s.gd
+                    };
+                }).sort(standingsComparator);
+
+                STANDING_SNAPSHOTS.set(m, snapshot);
+                if (m > 0) state.roundsAvailable.add(m);
+            }
+
+            state.latestRound = minTotalGames || null;
+        }
+
+        /* ===========================================================
+           H2H-LOGIK
+           =========================================================== */
+
+        function buildStandingsForRound(round) {
+            const r = round === null ? 0 : round;
+            const snapshot = STANDING_SNAPSHOTS.get(r);
+            if (snapshot) return snapshot;
+
+            return ALL_TEAMS_LONG.map(team => ({
+                team, g: 0, points: 0, gf: 0, ga: 0, gd: 0
+            })).sort((a, b) => a.team.localeCompare(b.team, 'sv'));
+        }
+
+        function buildActualRankByTeamId(standings) {
+            const map = new Map();
+            standings.forEach((row, index) => {
+                const teamId = TEAM_ID_BY_LONGNAME.get(row.team);
+                if (teamId) map.set(teamId, index + 1);
+            });
+            return map;
+        }
+
+        function isH2HTipCorrect(picks, actualRankByTeamId) {
+            if (!Array.isArray(picks) || picks.length < 2) return false;
+
+            let previousRank = -Infinity;
+
+            for (const pick of picks) {
+                const actualRank = actualRankByTeamId.get(pick.team_id);
+                if (!Number.isFinite(actualRank)) return false;
+                if (actualRank <= previousRank) return false;
+                previousRank = actualRank;
+            }
+
+            return true;
+        }
+
+        function getDisplayTeamName(teamId) {
+            const team = TEAM_BY_ID.get(teamId);
+            return team?.team_name_short || team?.team_name_long || teamId;
+        }
+
+        function countCorrectRounds(picks, throughRound) {
+            if (!Number.isFinite(throughRound) || throughRound <= 0) return 0;
+
+            let correctRounds = 0;
+
+            for (let round = 1; round <= throughRound; round++) {
+                const snapshot = STANDING_SNAPSHOTS.get(round);
+                if (!snapshot) continue;
+
+                const rankMap = buildActualRankByTeamId(snapshot);
+                if (isH2HTipCorrect(picks, rankMap)) correctRounds += 1;
+            }
+
+            return correctRounds;
+        }
+
+        function buildParticipantRows(actualRankByTeamId, standings, isStartMode, currentRound) {
+            const rows = [];
+            const roundsPlayed = isStartMode ? 0 : (Number(currentRound) || 0);
+
+            H2H_TIPS_BY_PARTICIPANT.forEach(participant => {
+                const picks = participant.picks || [];
+
+                rows.push({
+                    participant_id: participant.participant_id,
+                    display_name: participant.display_name || participant.participant_id,
+                    picks,
+                    h2h_point_spread_tip: participant.h2h_point_spread_tip,
+                    teamCount: picks.length,
+                    correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId),
+                    correctRounds: isStartMode ? 0 : countCorrectRounds(picks, roundsPlayed),
+                    roundsPlayed
+                });
+            });
+
+            if (isStartMode) {
+                rows.sort((a, b) => a.display_name.localeCompare(b.display_name, 'sv'));
+                return rows;
+            }
+
+            rows.sort((a, b) => {
+                if (a.correct !== b.correct) return a.correct ? -1 : 1;
+
+                if (a.correct && b.correct) {
+                    if (b.teamCount !== a.teamCount) return b.teamCount - a.teamCount;
+                    if (b.correctRounds !== a.correctRounds) return b.correctRounds - a.correctRounds;
+                }
+
+                return a.display_name.localeCompare(b.display_name, 'sv');
+            });
+
+            return rows;
+        }
+
+        /* ===========================================================
+           DETALJVY – återanvänder originalets tooltip/popup
+           =========================================================== */
+
+        function buildTipperTooltipElement(row, standings, actualRankByTeamId, isStartMode) {
+            const box = document.createElement('div');
+            box.className = 'tipper-tooltip';
+            box.setAttribute('role', 'tooltip');
+
+            if (isStartMode) {
+                const grid = document.createElement('div');
+                grid.className = 'tt-grid';
+
+                const colPick = document.createElement('div');
+                colPick.className = 'tt-col';
+
+                const headPick = document.createElement('div');
+                headPick.className = 'tt-head';
+                headPick.textContent = 'Tippad ordning';
+                colPick.appendChild(headPick);
+
+                const ol = document.createElement('ol');
+                ol.className = 'h2h-pick-list';
+
+                row.picks.forEach(pick => {
+                    const li = document.createElement('li');
+                    li.textContent = getDisplayTeamName(pick.team_id);
+                    ol.appendChild(li);
+                });
+
+                colPick.appendChild(ol);
+                grid.appendChild(colPick);
+                box.appendChild(grid);
+
+                const pointSpreadTip = document.createElement('p');
+                pointSpreadTip.className = 'h2h-point-spread-tip';
+                pointSpreadTip.textContent = Number.isFinite(row.h2h_point_spread_tip)
+                    ? `Utslagsfråga: ${row.h2h_point_spread_tip} poäng`
+                    : 'Utslagsfråga: —';
+                box.appendChild(pointSpreadTip);
+
+                return box;
+            }
+
+            const selected = new Set(row.picks.map(p => p.team_id));
+
+            const grid = document.createElement('div');
+            grid.className = 'tt-grid';
+
+            const colActual = document.createElement('div');
+            colActual.className = 'tt-col';
+
+            const headActual = document.createElement('div');
+            headActual.className = 'tt-head';
+            headActual.textContent = 'Faktisk tabell';
+            colActual.appendChild(headActual);
+
+            const actualTable = document.createElement('table');
+            actualTable.className = 'h2h-actual-table';
+
+            const thead = document.createElement('thead');
+            const hr = document.createElement('tr');
+            ['Plats', 'Lag', 'P'].forEach((label, index) => {
+                const th = document.createElement('th');
+                th.textContent = label;
+                if (index !== 1) th.className = 'num';
+                hr.appendChild(th);
+            });
+            thead.appendChild(hr);
+
+            const tbody = document.createElement('tbody');
+
+            standings.forEach((standingRow, index) => {
+                const teamId = TEAM_ID_BY_LONGNAME.get(standingRow.team);
+                const tr = document.createElement('tr');
+
+                if (teamId && selected.has(teamId)) {
+                    tr.classList.add('selected-team');
+                    if (row.correct === true) tr.classList.add('correct-pick');
+                }
+
+                const tdRank = document.createElement('td');
+                tdRank.className = 'num';
+                tdRank.textContent = String(index + 1);
+
+                const tdTeam = document.createElement('td');
+                tdTeam.textContent = teamId ? getDisplayTeamName(teamId) : standingRow.team;
+
+                const tdPoints = document.createElement('td');
+                tdPoints.className = 'num';
+                tdPoints.textContent = String(standingRow.points);
+
+                tr.append(tdRank, tdTeam, tdPoints);
+                tbody.appendChild(tr);
+            });
+
+            actualTable.append(thead, tbody);
+            colActual.appendChild(actualTable);
+            grid.appendChild(colActual);
+
+            if (row.correct === false) {
+                const colPick = document.createElement('div');
+                colPick.className = 'tt-col';
+
+                const headPick = document.createElement('div');
+                headPick.className = 'tt-head';
+                headPick.textContent = 'Tippad ordning';
+                colPick.appendChild(headPick);
+
+                const ol = document.createElement('ol');
+                ol.className = 'h2h-pick-list';
+
+                row.picks.forEach(pick => {
+                    const li = document.createElement('li');
+                    li.textContent = getDisplayTeamName(pick.team_id);
+                    ol.appendChild(li);
+                });
+
+                colPick.appendChild(ol);
+                grid.appendChild(colPick);
+            }
+
+            box.appendChild(grid);
+
+            const pointSpreadTip = document.createElement('p');
+            pointSpreadTip.className = 'h2h-point-spread-tip';
+            pointSpreadTip.textContent = Number.isFinite(row.h2h_point_spread_tip)
+                ? `Utslagsfråga: ${row.h2h_point_spread_tip} poäng`
+                : 'Utslagsfråga: —';
+            box.appendChild(pointSpreadTip);
+
+            return box;
+        }
+
+        function closeAllTipperPopups(except = null) {
+            document.querySelectorAll('.tipper-tooltip-wrap.is-open').forEach(el => {
+                if (el !== except) el.classList.remove('is-open');
+            });
+        }
+
+        document.addEventListener('click', event => {
+            const wrap = event.target.closest?.('.tipper-tooltip-wrap');
+
+            if (wrap) {
+                const willOpen = !wrap.classList.contains('is-open');
+                closeAllTipperPopups(wrap);
+                wrap.classList.toggle('is-open', willOpen);
+                event.stopPropagation();
+                return;
+            }
+
+            closeAllTipperPopups();
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeAllTipperPopups();
+        });
+
+        /* ===========================================================
+           TOPPLISTA
+           =========================================================== */
+
+        function buildMovementByTeam(round, standings) {
+            const movement = new Map();
+
+            // Ingen rörelse visas i startläget eller efter omgång 1,
+            // eftersom det då saknas en föregående spelad omgång att jämföra med.
+            if (!Number.isFinite(round) || round <= 1) return movement;
+
+            const previousStandings = STANDING_SNAPSHOTS.get(round - 1);
+            if (!previousStandings) return movement;
+
+            const previousRankByTeam = new Map(
+                previousStandings.map((row, index) => [row.team, index + 1])
+            );
+
+            standings.forEach((row, index) => {
+                const currentRank = index + 1;
+                const previousRank = previousRankByTeam.get(row.team);
+
+                if (!Number.isFinite(previousRank)) return;
+
+                if (currentRank < previousRank) movement.set(row.team, 'up');
+                else if (currentRank > previousRank) movement.set(row.team, 'down');
+            });
+
+            return movement;
+        }
+
+        function renderSummary(standings, isStartMode, movementByTeam) {
+            if (!h2hSummary) return;
+
+            if (isStartMode || !standings.length) {
+                h2hSummary.textContent = 'Ingen aktuell tabell ännu.';
+                return;
+            }
+
+            const orderedNames = standings.map(row => {
+                const teamId = TEAM_ID_BY_LONGNAME.get(row.team);
+                const name = teamId ? getDisplayTeamName(teamId) : row.team;
+                const move = movementByTeam?.get(row.team);
+                const cls = move === 'up'
+                    ? ' movement-up'
+                    : move === 'down'
+                        ? ' movement-down'
+                        : '';
+
+                return `<span class="current-order-team${cls}">${name}</span>`;
+            });
+
+            const spread = standings[0].points - standings[standings.length - 1].points;
+
+            h2hSummary.innerHTML =
+                `<strong>Aktuell ordning:</strong> ${orderedNames.join(' → ')}<br>` +
+                `<strong>Poängskillnad första–sista:</strong> ${spread}`;
+        }
+
+        function renderLeagueStandings(standings, isStartMode, movementByTeam) {
+            if (!leagueStand) return;
+
+            const tbody = leagueStand.querySelector('tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            standings.forEach((standingRow, index) => {
+                const tr = document.createElement('tr');
+                const teamId = TEAM_ID_BY_LONGNAME.get(standingRow.team);
+                const move = movementByTeam?.get(standingRow.team);
+
+                if (move === 'up') tr.classList.add('movement-up');
+                else if (move === 'down') tr.classList.add('movement-down');
+
+                const tdRank = document.createElement('td');
+                tdRank.className = 'num';
+                tdRank.textContent = isStartMode ? '—' : String(index + 1);
+
+                const tdTeam = document.createElement('td');
+                tdTeam.textContent = teamId ? getDisplayTeamName(teamId) : standingRow.team;
+
+                const tdGames = document.createElement('td');
+                tdGames.className = 'num';
+                tdGames.textContent = isStartMode ? '—' : String(standingRow.g);
+
+                const tdPoints = document.createElement('td');
+                tdPoints.className = 'num';
+                tdPoints.textContent = isStartMode ? '—' : String(standingRow.points);
+
+                const tdGoalDiff = document.createElement('td');
+                tdGoalDiff.className = 'num';
+                tdGoalDiff.textContent = isStartMode
+                    ? '—'
+                    : `${standingRow.gd > 0 ? '+' : ''}${standingRow.gd}`;
+
+                const tdGoalsFor = document.createElement('td');
+                tdGoalsFor.className = 'num';
+                tdGoalsFor.textContent = isStartMode ? '—' : String(standingRow.gf);
+
+                tr.append(tdRank, tdTeam, tdGames, tdPoints, tdGoalDiff, tdGoalsFor);
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTableForRound(round) {
+            const isStartMode = round === null;
+            const standings = buildStandingsForRound(round);
+            const movementByTeam = buildMovementByTeam(round, standings);
+
+            renderLeagueStandings(standings, isStartMode, movementByTeam);
+            const actualRankByTeamId = isStartMode
+                ? new Map()
+                : buildActualRankByTeamId(standings);
+
+            const rows = buildParticipantRows(actualRankByTeamId, standings, isStartMode, round);
+
+            renderSummary(standings, isStartMode, movementByTeam);
+
+            const tbody = tableStand.querySelector('tbody');
+            tbody.innerHTML = '';
+
+            let correctSeen = 0;
+            let lastCorrectRankKey = null;
+            let dividerInserted = false;
+
+            rows.forEach((row, index) => {
+                const tr = document.createElement('tr');
+
+                if (!isStartMode && row.correct === false && !dividerInserted && correctSeen > 0) {
+                    tr.classList.add('h2h-divider');
+                    dividerInserted = true;
+                }
+
+                const tdRank = document.createElement('td');
+
+                if (isStartMode || row.correct !== true) {
+                    tdRank.textContent = '';
+                } else {
+                    correctSeen += 1;
+
+                    const rankKey = `${row.teamCount}|${row.correctRounds}`;
+
+                    if (lastCorrectRankKey === null || rankKey !== lastCorrectRankKey) {
+                        tdRank.textContent = String(correctSeen);
+                        lastCorrectRankKey = rankKey;
+                    } else {
+                        tdRank.textContent = '';
+                    }
+                }
+
+                const tdTipper = document.createElement('td');
+
+                const wrap = document.createElement('span');
+                wrap.className = 'tipper-tooltip-wrap';
+                wrap.tabIndex = 0;
+                wrap.setAttribute('role', 'button');
+                wrap.setAttribute('aria-label', `Visa detaljer för ${row.display_name}`);
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = row.display_name;
+
+                const tooltip = buildTipperTooltipElement(
+                    row,
+                    standings,
+                    actualRankByTeamId,
+                    isStartMode
+                );
+
+                wrap.append(nameSpan, tooltip);
+                tdTipper.appendChild(wrap);
+
+                const tdCount = document.createElement('td');
+                tdCount.className = 'num';
+                tdCount.textContent = String(row.teamCount);
+
+                const tdCorrectRounds = document.createElement('td');
+                tdCorrectRounds.className = 'num';
+                tdCorrectRounds.textContent = `${row.correctRounds}/${row.roundsPlayed}`;
+
+                const tdStatus = document.createElement('td');
+                tdStatus.className = 'num h2h-status';
+
+                if (isStartMode) {
+                    tdStatus.textContent = '—';
+                } else if (row.correct) {
+                    tdStatus.textContent = 'Rätt';
+                    tdStatus.classList.add('correct');
+                } else {
+                    tdStatus.textContent = 'Fel';
+                    tdStatus.classList.add('incorrect');
+                }
+
+                tr.append(tdRank, tdTipper, tdCount, tdCorrectRounds, tdStatus);
+                tbody.appendChild(tr);
+            });
+
+            console.log('[h2h][render]', {
+                round,
+                participants: rows.length,
+                correct: rows.filter(r => r.correct === true).length
+            });
+        }
+
+        /* ===========================================================
+           TIDSLINJE – behåller originalbeteendet
+           =========================================================== */
+
+        function buildRoundButtons() {
+            if (!roundButtons) return;
+            roundButtons.innerHTML = '';
+
+            const max = state.latestRound ?? 0;
+
+            for (let r = 1; r <= Math.max(max, 1); r++) {
+                const btn = document.createElement('button');
+                btn.className = 'siffror-btn';
+                btn.type = 'button';
+                btn.dataset.round = String(r);
+
+                const isAvailable = state.roundsAvailable.has(r);
+                if (!isAvailable) btn.classList.add('inaktiv');
+
+                btn.textContent = String(r);
+
+                if (isAvailable) {
+                    btn.addEventListener('click', () => {
+                        stopPlayback();
+                        timelineSlider.value = String(r);
+                        applyRoundFromSliderValue();
+                    });
+                }
+
+                roundButtons.appendChild(btn);
+            }
+
+            highlightSelectedRound();
+        }
+
+        function highlightSelectedRound() {
+            roundButtons?.querySelectorAll('[data-round]').forEach(btn => {
+                const r = Number(btn.dataset.round);
+                const selected = state.currentRound === r;
+                btn.classList.toggle('vald', selected);
+                btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            });
+        }
+
+        function renderCurrentStepLabel() {
+            if (!currentStepDisplay || !timelineSlider) return;
+
+            const value = Number(timelineSlider.value);
+
+            currentStepDisplay.textContent = value === 0
+                ? 'Startläge (0 matcher)'
+                : `Efter ${value} matcher`;
+        }
+
+        function applyRoundFromSliderValue() {
+            if (!timelineSlider) return;
+
+            const value = Number(timelineSlider.value);
+
+            try {
+                localStorage.setItem(ROUND_STORAGE_KEY, String(value));
+            } catch { }
+
+            state.currentRound = value === 0 ? null : value;
+
+            highlightSelectedRound();
+            renderTableForRound(state.currentRound);
+            renderCurrentStepLabel();
+        }
+
+        function restoreRoundFromLocalStorage() {
+            if (!timelineSlider) return;
+
+            const raw = localStorage.getItem(ROUND_STORAGE_KEY);
+            const parsed = Number(raw);
+            const value = Number.isFinite(parsed) ? parsed : 0;
+            const max = Number(timelineSlider.max || '0');
+            const clamped = Math.max(0, Math.min(value, max));
+
+            timelineSlider.value = String(clamped);
+            state.currentRound = clamped === 0 ? null : clamped;
+
+            highlightSelectedRound();
+            renderCurrentStepLabel();
+        }
+
+        function isPlaying() {
+            return playbackTimer !== null;
+        }
+
+        function setPlayButtonUI(playing) {
+            playIcon?.classList.toggle('hidden', playing);
+            pauseIcon?.classList.toggle('hidden', !playing);
+
+            if (btnPlayPause) {
+                const label = playing ? 'Pausa' : 'Spela upp';
+                btnPlayPause.setAttribute('aria-label', label);
+                btnPlayPause.title = label;
+            }
+        }
+
+        function stopPlayback() {
+            if (playbackTimer) {
+                clearInterval(playbackTimer);
+                playbackTimer = null;
+            }
+            setPlayButtonUI(false);
+        }
+
+        function togglePlayback() {
+            if (!timelineSlider) return;
+
+            if (isPlaying()) {
+                stopPlayback();
+                return;
+            }
+
+            setPlayButtonUI(true);
+
+            playbackTimer = setInterval(() => {
+                const max = Number(timelineSlider.max || '0');
+                let value = Number(timelineSlider.value);
+
+                if (value >= max) {
+                    stopPlayback();
+                    return;
+                }
+
+                value += 1;
+                timelineSlider.value = String(value);
+                applyRoundFromSliderValue();
+            }, PLAYBACK_MS);
+        }
+
+        function bindTimelineControls() {
+            const LONG_PRESS_MS = 450;
+
+            function clamp(n, min, max) {
+                return Math.max(min, Math.min(max, n));
+            }
+
+            function stepTo(value) {
+                timelineSlider.value = String(value);
+                applyRoundFromSliderValue();
+            }
+
+            function bindStepButton(btn, direction) {
+                if (!btn) return;
+
+                let pressTimer = null;
+                let longPressFired = false;
+
+                const clearTimer = () => {
+                    if (pressTimer) {
+                        clearTimeout(pressTimer);
+                        pressTimer = null;
+                    }
+                };
+
+                btn.addEventListener('pointerdown', event => {
+                    try { btn.setPointerCapture?.(event.pointerId); } catch { }
+
+                    longPressFired = false;
+                    clearTimer();
+
+                    pressTimer = setTimeout(() => {
+                        longPressFired = true;
+                        stopPlayback();
+
+                        const max = Number(timelineSlider.max || '0');
+                        stepTo(direction < 0 ? 0 : max);
+                    }, LONG_PRESS_MS);
+                });
+
+                btn.addEventListener('pointerup', () => {
+                    const value = Number(timelineSlider.value || '0');
+                    const max = Number(timelineSlider.max || '0');
+
+                    clearTimer();
+
+                    if (longPressFired) return;
+
+                    stopPlayback();
+                    stepTo(clamp(value + direction, 0, max));
+                });
+
+                btn.addEventListener('pointercancel', clearTimer);
+                btn.addEventListener('pointerleave', clearTimer);
+                btn.addEventListener('contextmenu', event => event.preventDefault());
+            }
+
+            bindStepButton(btnPrev, -1);
+            bindStepButton(btnNext, 1);
+
+            btnPlayPause?.addEventListener('click', togglePlayback);
+
+            timelineSlider?.addEventListener('input', () => {
+                stopPlayback();
+                applyRoundFromSliderValue();
+            });
+        }
+
+        /* ===========================================================
+           EXPORT – samma princip som originalet
+           =========================================================== */
+
+        async function exportActiveView() {
+            const activePanel = document.getElementById('viewTable');
+            if (!activePanel) return;
+
+            if (!window.html2canvas) {
+                alert('html2canvas kunde inte laddas.');
+                return;
+            }
+
+            document.documentElement.classList.add('exporting');
+
+            const titled = activePanel.querySelectorAll('[title]');
+            const savedTitles = [];
+            titled.forEach(el => {
+                savedTitles.push([el, el.getAttribute('title')]);
+                el.removeAttribute('title');
+            });
+
+            try {
+                const width = Math.max(1, Math.ceil(activePanel.scrollWidth || activePanel.offsetWidth || 0));
+                const height = Math.max(1, Math.ceil(activePanel.scrollHeight || activePanel.offsetHeight || 0));
+
+                const canvas = await html2canvas(activePanel, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: null,
+                    width,
+                    height,
+                    windowWidth: width,
+                    windowHeight: height,
+                    scrollX: 0,
+                    scrollY: 0
+                });
+
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
+                if (!blob) throw new Error('Kunde inte skapa PNG.');
+
+                const a = document.createElement('a');
+                const now = new Date();
+                const pad = n => String(n).padStart(2, '0');
+
+                a.download =
+                    `export-shl-h2h-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-` +
+                    `${pad(now.getHours())}${pad(now.getMinutes())}.png`;
+
+                a.href = URL.createObjectURL(blob);
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(a.href);
+            } catch (error) {
+                console.error('[export]', error);
+                alert('Kunde inte exportera bilden. Se Console för detaljer.');
+            } finally {
+                savedTitles.forEach(([el, title]) => el.setAttribute('title', title));
+                document.documentElement.classList.remove('exporting');
+            }
+        }
+
+        /* ===========================================================
+           INIT
+           =========================================================== */
+
+        function showError(message) {
+            if (dataError) {
+                dataError.textContent = message;
+                dataError.classList.remove('hidden');
+            }
+        }
+
+        async function init() {
+            try {
+                const historicalMode = !H2H_TIPS_TSV_URL.trim();
+
+                if (historicalMode) {
+                    h2hTablesLayout?.classList.add('historical-mode');
+                    const loadingText = loadingBox?.querySelector('div:last-child');
+                    if (loadingText) loadingText.textContent = 'Laddar tabell…';
+                }
+
+                await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
+                await loadAndPrepareStandingsFromTSV(TSV_URL);
+
+                if (!historicalMode) {
+                    await loadH2HTipsFromTSV(H2H_TIPS_TSV_URL);
+                } else {
+                    H2H_TIPS_BY_PARTICIPANT.clear();
+                }
+
+                timelineSlider.min = '0';
+                timelineSlider.max = String(state.latestRound ?? 0);
+
+                restoreRoundFromLocalStorage();
+                buildRoundButtons();
+                bindTimelineControls();
+
+                exportBtn?.addEventListener('click', exportActiveView);
+
+                renderTableForRound(state.currentRound);
+
+                loadingBox?.classList.add('hidden');
+                tableStand?.classList.toggle('hidden', historicalMode);
+                leagueStand?.classList.remove('hidden');
+            } catch (error) {
+                console.error('[init]', error);
+                loadingBox?.classList.add('hidden');
+                tableStand?.classList.add('hidden');
+                leagueStand?.classList.add('hidden');
+                showError(error.message || String(error));
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+
+    <script>
+        // Mobilhjälp för ℹ️.
+        // På mobil används en fristående tooltipruta direkt under <body>,
+        // så den inte påverkas av tabellens overflow/scroll eller iOS Safari.
+        (function () {
+            const mq = window.matchMedia('(max-width: 768px)');
+            if (!mq.matches) return;
+
+            let activeIcon = null;
+
+            const mobileTooltip = document.createElement('div');
+            mobileTooltip.className = 'mobile-th-tooltip';
+            mobileTooltip.setAttribute('role', 'tooltip');
+            mobileTooltip.hidden = true;
+            document.body.appendChild(mobileTooltip);
+
+            function prepare(icon) {
+                if (!icon || icon.dataset.mobileTipPrepared === '1') return;
+
+                const mobileTip = icon.getAttribute('data-mobile-tip')
+                    || 'Tryck på tipparens namn för att se detaljer.';
+
+                icon.setAttribute('data-mobile-tip', mobileTip);
+
+                if (!icon.getAttribute('aria-label')) {
+                    icon.setAttribute('aria-label', mobileTip);
+                }
+
+                icon.removeAttribute('title');
+                icon.dataset.mobileTipPrepared = '1';
+            }
+
+            function prepareAll() {
+                document.querySelectorAll('.th-info').forEach(prepare);
+            }
+
+            function closeTooltip() {
+                mobileTooltip.hidden = true;
+                mobileTooltip.textContent = '';
+
+                if (activeIcon) {
+                    activeIcon.setAttribute('aria-expanded', 'false');
+                    activeIcon = null;
+                }
+            }
+
+            function openTooltip(icon) {
+                prepare(icon);
+
+                const text = icon.getAttribute('data-mobile-tip') || '';
+                mobileTooltip.textContent = text;
+                mobileTooltip.hidden = false;
+
+                activeIcon = icon;
+                icon.setAttribute('aria-expanded', 'true');
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', prepareAll, { once: true });
+            } else {
+                prepareAll();
+            }
+
+            document.addEventListener('click', event => {
+                const icon = event.target.closest?.('.th-info');
+
+                if (icon) {
+                    if (activeIcon === icon && !mobileTooltip.hidden) {
+                        closeTooltip();
+                    } else {
+                        closeTooltip();
+                        openTooltip(icon);
+                    }
+
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return;
+                }
+
+                if (!mobileTooltip.hidden) {
+                    closeTooltip();
+                }
+            }, true);
+
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    closeTooltip();
+                }
+            });
+        })();
+    </script>
+</body>
+
+</html>
