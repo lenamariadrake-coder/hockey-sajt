@@ -1870,30 +1870,38 @@
         }
 
         @media (max-width: 520px) {
+
+            /* Vanlig mobilbredd på sidan */
             .container {
                 width: 100%;
                 max-width: 100%;
                 padding-left: .75rem;
                 padding-right: .75rem;
-                overflow-x: hidden;
             }
 
-            .h2h-tables-layout,
+            /* Topplistan får scrolla om någon mobil ändå är för smal */
             .h2h-tipper-panel {
                 width: 100%;
                 max-width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
+            /* Gör bara topplistan lite kompaktare */
             #tableStandings {
-                width: 100%;
-                max-width: 100%;
-                table-layout: auto;
+                margin-left: auto;
+                margin-right: auto;
+                font-size: .9rem;
             }
 
             #tableStandings th,
             #tableStandings td {
-                padding-left: .55rem;
-                padding-right: .55rem;
+                padding-left: .35rem;
+                padding-right: .35rem;
+            }
+
+            #tableStandings thead th {
+                font-size: .78rem;
             }
         }
     </style>
