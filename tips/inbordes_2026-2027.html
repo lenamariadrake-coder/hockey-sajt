@@ -1883,7 +1883,8 @@
             .h2h-tipper-panel {
                 width: 100%;
                 max-width: 100%;
-                overflow: visible;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             /* Gör bara topplistan lite kompaktare */
@@ -1905,17 +1906,24 @@
         }
 
         @media (max-width: 520px) {
+
+            /* Viktigt: transform på ikonen får inte skapa
+       ett eget koordinatsystem för fixed-tooltipen */
+            .th-info {
+                transform: none;
+            }
+
             .th-info::after {
                 position: fixed;
 
-                left: 50%;
-                right: auto;
+                left: 1rem;
+                right: 1rem;
                 top: 50%;
 
-                transform: translate(-50%, -50%);
+                width: auto;
+                max-width: none;
 
-                width: calc(100vw - 2rem);
-                max-width: 32rem;
+                transform: translateY(-50%);
 
                 white-space: normal;
                 overflow-wrap: break-word;
