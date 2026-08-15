@@ -1265,6 +1265,40 @@
             background: rgba(15, 23, 42, 0.06) !important;
         }
 
+        /* =========================================================
+     TABELLRÖRELSER – automatisk upp/ner-markering
+     ========================================================= */
+        .movement-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            white-space: nowrap;
+            line-height: 1;
+            font-weight: 600;
+            font-size: .9rem;
+        }
+
+        .movement-toggle input {
+            margin: 0;
+            transform: translateY(1px);
+        }
+
+        #tableStandings tbody tr.movement-up > td {
+            background: #dcfce7;
+        }
+
+        #tableStandings tbody tr.movement-down > td {
+            background: #fee2e2;
+        }
+
+        #tableStandings tbody tr.movement-up:hover > td {
+            background: #d1fae5;
+        }
+
+        #tableStandings tbody tr.movement-down:hover > td {
+            background: #fecaca;
+        }
+
         /* Wrapper så label + info-ikon håller ihop utan att spränga layout */
         .heat-source {
             display: inline-flex;
@@ -1365,6 +1399,12 @@
                         aria-controls="viewTable">Tabell</button>
                     <button id="tabHeat" class="tab-btn" role="tab" aria-selected="false"
                         aria-controls="viewHeat">Värmekarta</button>
+
+                    <label id="movementToggleLabel" class="movement-toggle"
+                        title="Grönt = upp, rött = ner sedan föregående omgång">
+                        <input id="movementEnabled" type="checkbox" checked>
+                        <span>Visa tabellrörelser</span>
+                    </label>
 
                     <label id="rowColorToggleSummary" class="rowcolor-toggle rowcolor-toggle--icon"
                         title="Visa färgpaletter">
@@ -1757,6 +1797,7 @@ Lag 14</pre>
         // LocalStorage-nyckel för vald omgång (liga + säsong)
         // ⚠️ MÅSTE vara IDENTISK i systerappen
         const ROUND_STORAGE_KEY = 'round_shl_2025_2026';
+        const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2025_2026.v1';
         const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2025_2026.v1";
         const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2025_2026";
 
@@ -2733,6 +2774,7 @@ Lag 14</pre>
 
         const rowColorControls = document.getElementById('rowColorControls');
         const rowColorEnabled = document.getElementById('rowColorEnabled');
+        const movementEnabled = document.getElementById('movementEnabled');
         // (BORTTAGET) Reset-knapp i flikraden – ersatt av kryss i rubrikraden
         // const rowColorResetBtn = document.getElementById('rowColorResetBtn');
 
@@ -2768,10 +2810,10 @@ Lag 14</pre>
 
         const ROWCOLOR_PALETTE = [
             '#BFE1FF', // blå
-            '#BFF2D6', // grön
+            '#BFEFF2', // turkos
+            '#FFF1A8', // gul
             '#FFE0B8', // orange
             '#D9C8FF', // lila
-            '#FFC2D1', // rosa
             '#D5DAE1', // grå
         ];
 
@@ -2798,6 +2840,44 @@ Lag 14</pre>
         state.rowColorScope = 'row';                // Låst till 'row' (”Bara lag” avstängt – kan återaktiveras senare)
         state.rowColors = new Map();                // teamLong -> color
         state._rowColorActiveTeam = null;           // vilken rad paletten gäller just nu
+
+        state.showMovements = true;
+
+        function saveMovementPreference() {
+            try {
+                localStorage.setItem(MOVEMENT_STORAGE_KEY, state.showMovements ? '1' : '0');
+            } catch { }
+        }
+
+        function loadMovementPreference() {
+            try {
+                const raw = localStorage.getItem(MOVEMENT_STORAGE_KEY);
+                // Första besöket: påslaget som standard.
+                state.showMovements = raw === null ? true : raw === '1';
+            } catch {
+                state.showMovements = true;
+            }
+
+            if (movementEnabled) movementEnabled.checked = state.showMovements;
+        }
+
+        function setMovementMode(enabled, { clearManual = false } = {}) {
+            state.showMovements = !!enabled;
+            if (movementEnabled) movementEnabled.checked = state.showMovements;
+
+            if (state.showMovements) {
+                if (clearManual) state.rowColors?.clear?.();
+
+                // Automatisk rörelsemarkering och manuellt palettläge används aldrig samtidigt.
+                state.rowColorMode = false;
+                if (rowColorEnabled) rowColorEnabled.checked = false;
+                closeRowColorPalette();
+                syncStandingsHeaderForRowColors();
+                updateRowColorToggleTexts();
+            }
+
+            saveMovementPreference();
+        }
 
         function rowColorHasAny() {
             return state.rowColors && state.rowColors.size > 0;
@@ -2892,6 +2972,27 @@ Lag 14</pre>
                 });
             }
 
+            // Automatisk tabellrörelse. Kontrollen syns alltid och är påslagen som standard.
+            if (movementEnabled) {
+                movementEnabled.addEventListener('change', () => {
+                    const enabled = !!movementEnabled.checked;
+
+                    if (enabled) {
+                        // När rörelser slås på igen försvinner egna färger och palettläget stängs.
+                        setMovementMode(true, { clearManual: true });
+                    } else {
+                        state.showMovements = false;
+                        saveMovementPreference();
+                    }
+
+                    if (state.activeView === 'table') {
+                        renderTableForRound(state.currentRound);
+                    }
+
+                    updateRowColorResetXVisibility();
+                });
+            }
+
             // Toggle (🎨)
             if (rowColorEnabled) {
                 // Synka state från checkbox vid init (ifall filen ändrats manuellt)
@@ -2900,6 +3001,13 @@ Lag 14</pre>
 
                 rowColorEnabled.addEventListener('change', () => {
                     state.rowColorMode = !!rowColorEnabled.checked;
+
+                    if (state.rowColorMode) {
+                        // Manuella färger tar över: avmarkera rörelser utan att gömma kontrollen.
+                        state.showMovements = false;
+                        if (movementEnabled) movementEnabled.checked = false;
+                        saveMovementPreference();
+                    }
 
                     console.log("[rowcolor] mode", { on: state.rowColorMode });
 
@@ -4027,17 +4135,50 @@ Lag 14</pre>
             })).sort((a, b) => a.team.localeCompare(b.team, 'sv'));
         }
 
+        function buildMovementByTeam(round, standings) {
+            const movement = new Map();
+
+            // Startläge och omgång 1 saknar en föregående spelad omgång att jämföra med.
+            if (!Number.isFinite(round) || round <= 1) return movement;
+
+            const previousStandings = STANDING_SNAPSHOTS.get(round - 1);
+            if (!previousStandings) return movement;
+
+            const previousRows = [...previousStandings].sort(standingsComparator);
+            const previousRankByTeam = new Map(
+                previousRows.map((row, index) => [row.team, index + 1])
+            );
+
+            standings.forEach((row, index) => {
+                const currentRank = index + 1;
+                const previousRank = previousRankByTeam.get(row.team);
+                if (!Number.isFinite(previousRank)) return;
+
+                if (currentRank < previousRank) movement.set(row.team, 'up');
+                else if (currentRank > previousRank) movement.set(row.team, 'down');
+            });
+
+            return movement;
+        }
+
         function renderTableForRound(round) {
             syncStandingsHeaderForRowColors();
 
             const data = buildStandingsForRound(round);
             const rows = [...data].sort(standingsComparator);
+            const movementByTeam = state.showMovements
+                ? buildMovementByTeam(round, rows)
+                : new Map();
 
             const tbody = tableStand.querySelector('tbody');
             tbody.innerHTML = '';
 
             rows.forEach((row, idx) => {
                 const tr = document.createElement('tr');
+
+                const movement = movementByTeam.get(row.team);
+                if (movement === 'up') tr.classList.add('movement-up');
+                else if (movement === 'down') tr.classList.add('movement-down');
 
                 const tdPl = document.createElement('td');
                 tdPl.textContent = String(idx + 1);
@@ -4579,6 +4720,7 @@ Lag 14</pre>
             if (heatSortTippad) heatSortTippad.addEventListener('change', () => setHeatSortMode('tippad'));
 
             // 4.5) Radfärger (toggle + palett)
+            loadMovementPreference();
             initRowColorsUI();
 
 
