@@ -3909,28 +3909,15 @@ Lag 14</pre>
         async function loadTipsMatricesFromSheets() {
             console.log("[TIPS] START loadTipsMatricesFromSheets");
 
-            // 1) Försök cache först
-            console.log("[TIPS] läser cache...");
+            // NÄTVERK FÖRST:
+            // Tipsen är levande data. Varje sidladdning försöker därför läsa den
+            // publicerade TSV:n på nytt, så att godkända/indragna tips syns direkt.
+            // Cachen används bara som reserv om Google Sheets tillfälligt inte går att nå.
             const cached = readSharedShlTipsCache();
 
-            if (cached) {
-                console.log("[TIPS] cache HIT – hydrerar...");
-                hydrateFromSharedCache(cached);
-                console.log("[TIPS] cache hydrering KLAR");
-
-                dlog(DEBUG.tsv, "[tips][CACHE] använde SHL_TIPS_DATA_2026_2027", {
-                    hobbyTeams: Object.keys(window.TIPS_MATRIX_HOBBY || {}).length,
-                    expertTeams: Object.keys(window.TIPS_MATRIX_EXPERT || {}).length
-                });
-
-                console.log("[TIPS] KLAR via cache");
-                return;
-            }
-
-            console.log("[TIPS] cache MISS – börjar läsa Google Sheets");
-
-            // 2) Nätverk (TSV) -> bygg allt vi vill dela
             try {
+                console.log("[TIPS] nätverk först – läser Google Sheets");
+
                 console.log("[TIPS] >>> loadTeamsFromTSV START", TEAMS_SHL_TSV_URL);
                 await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
                 console.log("[TIPS] <<< loadTeamsFromTSV KLAR", {
@@ -3947,16 +3934,19 @@ Lag 14</pre>
 
                 console.log("[TIPS] >>> bygger matriser");
 
+                // 0 classic-tips är ett giltigt läge: dessa funktioner bygger då
+                // fullständiga 14x14-nollmatriser i stället för att behandla det som fel.
                 const hobbyMatrix = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_HOBBY);
                 const expertMatrix = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_EXPERT);
 
-                // ✅ Enda sanningen i resten av appen:
                 window.TIPS_MATRIX_HOBBY = hobbyMatrix;
                 window.TIPS_MATRIX_EXPERT = expertMatrix;
 
                 console.log("[TIPS] <<< matriser KLARA", {
                     hobbyTeams: Object.keys(hobbyMatrix || {}).length,
-                    expertTeams: Object.keys(expertMatrix || {}).length
+                    expertTeams: Object.keys(expertMatrix || {}).length,
+                    hobbyTippers: TIPS_BY_TIPPER_HOBBY.size,
+                    expertTippers: TIPS_BY_TIPPER_EXPERT.size
                 });
 
                 dlog(DEBUG.tsv, "[tips][TSV] Sheets -> matrices OK", {
@@ -3964,9 +3954,7 @@ Lag 14</pre>
                     expertTeams: Object.keys(window.TIPS_MATRIX_EXPERT || {}).length
                 });
 
-                // 3) Skriv superset-cache i samma format som tippartopplista vill ha
-                console.log("[TIPS] >>> bygger cache-payload");
-
+                // Skriv en färsk cache som reserv för framtida nätverksfel.
                 const payload = {
                     version: 2,
                     savedAt: new Date().toISOString(),
@@ -3978,7 +3966,6 @@ Lag 14</pre>
 
                     TEAM_BY_ID: mapToObj(TEAM_BY_ID),
                     TEAM_ID_BY_LONGNAME: (() => {
-                        // Byggs från TEAM_BY_ID (Map) som redan finns i denna app
                         const o = {};
                         TEAM_BY_ID.forEach((team, teamId) => {
                             const longName = team?.team_name_long;
@@ -3992,18 +3979,28 @@ Lag 14</pre>
                     TIPS_BY_TIPPER_EXPERT: tipsByTipperMapToObj(TIPS_BY_TIPPER_EXPERT),
                 };
 
-                console.log("[TIPS] <<< cache-payload KLAR");
                 writeSharedShlTipsCache(payload);
-                console.log("[TIPS] cache skriven");
+                console.log("[TIPS] nätverksdata KLAR + cache uppdaterad");
+                return;
 
-            } catch (e) {
-                console.error("[TIPS] FEL:", e);
+            } catch (networkError) {
+                // Google Sheets nere / nätverksfel: använd senast fungerande cache.
+                console.warn("[TIPS] nätverksläsning misslyckades", networkError);
+
+                if (cached) {
+                    console.warn("[TIPS] använder senast fungerande cache som reserv", {
+                        savedAt: cached.savedAt
+                    });
+                    hydrateFromSharedCache(cached);
+                    return;
+                }
+
+                // Ingen nätverksdata och ingen cache = riktigt datafel.
+                console.error("[TIPS] FEL: varken nätverk eller cache kunde ge tipsdata", networkError);
                 window.TIPS_MATRIX_HOBBY = null;
                 window.TIPS_MATRIX_EXPERT = null;
-                throw e;
+                throw networkError;
             }
-
-            console.log("[TIPS] SLUT");
         }
 
 
