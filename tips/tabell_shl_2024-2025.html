@@ -1446,8 +1446,8 @@
 
                 <!-- Tabs i egen grupp => jämn spacing mellan Snitt/Topplista/Tabell/Värmekarta -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
-                    <a id="tabSnitt" class="tab-btn tab-btn-link tab-placeholder-hidden" href="shl-tips_2025-2026.html" aria-label="Snitt" aria-hidden="true" tabindex="-1"
-                        title="Snitt">Snitt</a>
+                    <a id="tabSnitt" class="tab-btn tab-btn-link tab-placeholder-hidden" href="shl-tips_2025-2026.html"
+                        aria-label="Snitt" aria-hidden="true" tabindex="-1" title="Snitt">Snitt</a>
 
                     <a id="tabTopplista" class="tab-btn tab-btn-link tab-placeholder-hidden" href="shl_tippartopplista_2025-2026.html"
                         aria-label="Topplista" aria-hidden="true" tabindex="-1" title="Topplista">Topplista</a>
@@ -1463,8 +1463,8 @@
                             <option value="tabell_shl_2021-2022.html">2021/2022</option>
                             <option value="tabell_shl_2022-2023.html">2022/2023</option>
                             <option value="tabell_shl_2023-2024.html">2023/2024</option>
-                            <option value="" selected>2024/2025</option>
-                            <option value="tabell_och_varmekarta_shl_2025-2026.html">2025/2026</option>
+                            <option value="tabell_shl_2024-2025.html">2024/2025</option>
+                            <option value="" selected>2025/2026</option>
                             <option value="tabell_och_varmekarta_shl_2026-2027.html">2026/2027</option>
                         </select>
                     </div>
@@ -1862,8 +1862,15 @@ Lag 14</pre>
         function dwarn(flag, ...args) { if (flag) console.warn(...args); }
 
 
-        // TSV-källa för ställning (verklig tabell) – från ditt Google Sheet
-        const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1247847413&single=true&output=tsv';
+        // Matchdata: gemensamma games-fliken (samma källa som inbördes-sidan använder).
+        const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv';
+
+        // Vilken del av games som just den här sidan ska använda.
+        const MATCH_SEASON_ID = '2025-2026';
+        const MATCH_LEAGUE = 'SHL';
+
+        // Masterregister för lagnamn till matchdelen (team_id -> visningsnamn).
+        const MATCH_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1991699389&single=true&output=tsv';
 
         // LocalStorage-nyckel för vald omgång (liga + säsong)
         // ⚠️ MÅSTE vara IDENTISK i systerappen
@@ -3331,55 +3338,122 @@ Lag 14</pre>
            =========================================================== */
         let STANDING_SNAPSHOTS = new Map(); // round(int) -> [{team,g,points,gf,ga,gd}]
         let ALL_TEAMS_LONG = [];
+        let MATCH_TEAM_BY_ID = new Map();
 
-        async function loadAndPrepareStandingsFromTSV(url) {
-            const tsv = await fetch(url).then(r => r.text());
+        async function loadMatchTeamsFromTSV(url) {
+            const tsv = await fetch(url).then(r => {
+                if (!r.ok) throw new Error(`Lagdata: HTTP ${r.status}`);
+                return r.text();
+            });
             const rows = parseTSV(tsv);
-            if (!rows.length) return;
+            if (!rows.length) throw new Error('Lagdata: inga rader hittades.');
 
             const hdr = rows[0].map(h => h.trim());
-            const idx = (name) => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+            const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+            const iId = idx('team_id');
+            const iShort = idx('team_name_short');
+            const iLong = idx('team_name_long');
 
-            const iHomeTeam = idx('Hemmalag');
-            const iAwayTeam = idx('Bortalag');
-            const iHomeGoals = idx('Hemmamål');
-            const iAwayGoals = idx('Bortamål');
-            const iHomePts = idx('Hemmapoäng');
-            const iAwayPts = idx('Bortapoäng');
-            const iDate = idx('Datum');
-
-            // — Samla lag (långa namn) —
-            const teamsSet = new Set();
-            rows.slice(1).forEach(r => {
-                if (r[iHomeTeam]) teamsSet.add(r[iHomeTeam]);
-                if (r[iAwayTeam]) teamsSet.add(r[iAwayTeam]);
-            });
-            ALL_TEAMS_LONG = Array.from(teamsSet).sort();
-
-            // — Per-lag historik efter varje match: index m = efter m matcher —
-            // Starta varje med basen (0 matcher)
-            const hist = new Map(); // longTeam -> [{g,points,gf,ga,gd}, ...]
-            ALL_TEAMS_LONG.forEach(t => {
-                hist.set(t, [{ g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]);
-            });
-
-            // — Sortera matchrader i tid —
-            const dataRows = rows.slice(1);
-            if (iDate !== -1) {
-                dataRows.sort((a, b) => new Date(a[iDate]) - new Date(b[iDate]));
+            if (iId === -1 || iLong === -1) {
+                throw new Error('Lagdata: team_id eller team_name_long saknas.');
             }
 
-            // — Räkna upp per lag och pusha nytt "efter match"-läge till historiken —
+            MATCH_TEAM_BY_ID.clear();
+            rows.slice(1).forEach(r => {
+                const teamId = String(r[iId] || '').trim();
+                if (!teamId) return;
+                MATCH_TEAM_BY_ID.set(teamId, {
+                    team_id: teamId,
+                    team_name_short: iShort !== -1 ? String(r[iShort] || '').trim() : '',
+                    team_name_long: String(r[iLong] || '').trim()
+                });
+            });
+        }
+
+        function getMatchTeamLongName(teamId) {
+            const team = MATCH_TEAM_BY_ID.get(teamId);
+            return team?.team_name_long || team?.team_name_short || teamId;
+        }
+
+        async function loadAndPrepareStandingsFromTSV(url) {
+            const tsv = await fetch(url).then(r => {
+                if (!r.ok) throw new Error(`Matchdata: HTTP ${r.status}`);
+                return r.text();
+            });
+            const rows = parseTSV(tsv);
+            if (!rows.length) throw new Error('Matchdata: inga rader hittades.');
+
+            const hdr = rows[0].map(h => h.trim());
+            const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+
+            const iDate = idx('date');
+            const iHomeTeamId = idx('home_team_id');
+            const iAwayTeamId = idx('away_team_id');
+            const iHomeGoals = idx('home_goals');
+            const iAwayGoals = idx('away_goals');
+            const iHomePts = idx('home_points');
+            const iAwayPts = idx('away_points');
+            const iSeason = idx('season_id');
+            const iLeague = idx('league');
+
+            const required = [
+                ['date', iDate],
+                ['home_team_id', iHomeTeamId],
+                ['away_team_id', iAwayTeamId],
+                ['home_goals', iHomeGoals],
+                ['away_goals', iAwayGoals],
+                ['home_points', iHomePts],
+                ['away_points', iAwayPts],
+                ['season_id', iSeason],
+                ['league', iLeague]
+            ].filter(([, i]) => i === -1).map(([name]) => name);
+
+            if (required.length) {
+                throw new Error(`Matchdata: saknar kolumn(er): ${required.join(', ')}.`);
+            }
+
+            // games är en gemensam tabell för flera säsonger/ligor.
+            const dataRows = rows.slice(1).filter(r =>
+                String(r[iSeason] || '').trim() === MATCH_SEASON_ID &&
+                String(r[iLeague] || '').trim().toUpperCase() === MATCH_LEAGUE.toUpperCase()
+            );
+
+            if (!dataRows.length) {
+                throw new Error(`Matchdata: inga matcher hittades för ${MATCH_LEAGUE} ${MATCH_SEASON_ID}.`);
+            }
+
+            // Identifiera lag via stabila team_id. Visningsnamn hämtas separat från all_teams.
+            const teamIds = new Set();
+            dataRows.forEach(r => {
+                const homeTeamId = String(r[iHomeTeamId] || '').trim();
+                const awayTeamId = String(r[iAwayTeamId] || '').trim();
+                if (homeTeamId) teamIds.add(homeTeamId);
+                if (awayTeamId) teamIds.add(awayTeamId);
+            });
+
+            const ALL_TEAM_IDS = Array.from(teamIds).sort((a, b) =>
+                getMatchTeamLongName(a).localeCompare(getMatchTeamLongName(b), 'sv')
+            );
+
+            ALL_TEAMS_LONG = ALL_TEAM_IDS.map(getMatchTeamLongName);
+
+            const hist = new Map();
+            ALL_TEAM_IDS.forEach(teamId => {
+                hist.set(teamId, [{ g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]);
+            });
+
+            dataRows.sort((a, b) => new Date(a[iDate]) - new Date(b[iDate]));
+
             for (const r of dataRows) {
-                const ht = r[iHomeTeam], at = r[iAwayTeam];
-                if (!ht || !at) continue;
+                const ht = String(r[iHomeTeamId] || '').trim();
+                const at = String(r[iAwayTeamId] || '').trim();
+                if (!ht || !at || !hist.has(ht) || !hist.has(at)) continue;
 
                 const hg = toInt(r[iHomeGoals]);
                 const ag = toInt(r[iAwayGoals]);
-                const hp = iHomePts !== -1 ? toInt(r[iHomePts]) : null;
-                const ap = iAwayPts !== -1 ? toInt(r[iAwayPts]) : null;
+                const hp = toInt(r[iHomePts]);
+                const ap = toInt(r[iAwayPts]);
 
-                // Hämta senaste läget (copy) och uppdatera
                 const hHist = hist.get(ht);
                 const aHist = hist.get(at);
                 const prevH = hHist[hHist.length - 1];
@@ -3405,19 +3479,28 @@ Lag 14</pre>
                 aHist.push(nextA);
             }
 
-            // — Minsta totala antal matcher i datat (bestämmer "senaste omgång") —
-            const minTotalGames = Math.min(...ALL_TEAMS_LONG.map(t => hist.get(t).length - 1)); // -1 pga index 0 = bas
+            const minTotalGames = ALL_TEAM_IDS.length
+                ? Math.min(...ALL_TEAM_IDS.map(teamId => hist.get(teamId).length - 1))
+                : 0;
 
-            // — Bygg snapshots 0..minTotalGames där ALLA lag klipps till exakt m matcher —
             STANDING_SNAPSHOTS = new Map();
             state.roundsAvailable = new Set();
+
             for (let m = 0; m <= minTotalGames; m++) {
-                const arr = ALL_TEAMS_LONG.map(team => {
-                    const s = hist.get(team)[m]; // exakt efter m matcher
-                    return { team, g: s.g, points: s.points, gf: s.gf, ga: s.ga, gd: s.gd };
+                const arr = ALL_TEAM_IDS.map(teamId => {
+                    const s = hist.get(teamId)[m];
+                    return {
+                        team: getMatchTeamLongName(teamId),
+                        g: s.g,
+                        points: s.points,
+                        gf: s.gf,
+                        ga: s.ga,
+                        gd: s.gd
+                    };
                 }).sort(standingsComparator);
+
                 STANDING_SNAPSHOTS.set(m, arr);
-                if (m > 0) state.roundsAvailable.add(m); // knappar från 1..minTotalGames
+                if (m > 0) state.roundsAvailable.add(m);
             }
 
             state.latestRound = minTotalGames || null;
@@ -4718,8 +4801,9 @@ Lag 14</pre>
                 return;
             }
 
+            await loadMatchTeamsFromTSV(MATCH_TEAMS_TSV_URL);
             await loadAndPrepareStandingsFromTSV(TSV_URL);
-            loadingAdvance('Ställning laddad');
+            loadingAdvance('Ställning laddad från games');
 
             // ---------------------------------------------------------
             // 2) Bestäm maxRound och se till att roundsAvailable finns
