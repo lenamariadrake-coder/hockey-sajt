@@ -1266,6 +1266,57 @@
         }
 
         /* =========================================================
+     SÄSONGSVÄLJARE – endast i tabellvyn
+     ========================================================= */
+        .season-select-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            margin-left: .1rem;
+            white-space: nowrap;
+        }
+
+        .season-select-label {
+            font-size: .9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .season-select {
+            height: 34px;
+            padding: 0 2rem 0 .75rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--btn-gray-bg);
+            color: var(--text);
+            font: inherit;
+            font-size: .9rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .season-select:hover {
+            background: var(--btn-gray-hover);
+        }
+
+        .season-select:focus-visible {
+            outline: 2px solid rgba(0, 124, 48, .35);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 700px) {
+            .season-select-label {
+                display: none;
+            }
+
+            .season-select {
+                max-width: 118px;
+                padding-left: .65rem;
+            }
+        }
+
+        /* =========================================================
      TABELLRÖRELSER – automatisk upp/ner-markering
      ========================================================= */
         .movement-toggle {
@@ -1399,6 +1450,15 @@
                         aria-controls="viewTable">Tabell</button>
                     <button id="tabHeat" class="tab-btn" role="tab" aria-selected="false"
                         aria-controls="viewHeat">Värmekarta</button>
+
+                    <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
+                        <span class="season-select-label">Säsong</span>
+                        <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
+                            <option value="" selected>2025/26</option>
+                            <option value="tabell_och_varmekarta_shl_2024-2025.html">2024/25</option>
+                            <option value="tabell_och_varmekarta_shl_2023-2024.html">2023/24</option>
+                        </select>
+                    </div>
 
                     <label id="movementToggleLabel" class="movement-toggle"
                         title="Grönt = upp, rött = ner sedan föregående omgång">
@@ -1698,6 +1758,8 @@ Lag 14</pre>
            =========================================================== */
         const btnTabell = document.getElementById('tabTable');    // flikknapp "Tabell"
         const btnHeat = document.getElementById('tabHeat');     // flikknapp "Värmekarta"
+        const seasonSelectWrap = document.getElementById('seasonSelectWrap');
+        const seasonSelect = document.getElementById('seasonSelect');
 
         const viewTable = document.getElementById('viewTable');   // panel: Tabell
         const viewHeat = document.getElementById('viewHeat');    // panel: Värmekarta
@@ -4042,6 +4104,11 @@ Lag 14</pre>
                     (view === 'table') ? '' : 'none';
             }
 
+            if (seasonSelectWrap) {
+                seasonSelectWrap.style.display =
+                    (view === 'table') ? '' : 'none';
+            }
+
             updateRowColorControlsVisibility();
             updateHeatSortVisibility();
 
@@ -4712,6 +4779,15 @@ Lag 14</pre>
             btnHeat?.addEventListener('click', () => {
                 location.hash = '#heat';
                 setActiveView('heat');
+            });
+
+            seasonSelect?.addEventListener('change', () => {
+                const target = seasonSelect.value;
+                if (!target) return;
+
+                // Dropdownen är bara navigation mellan separata säsongsfiler.
+                // Varje fil använder sina egna säsongsspecifika localStorage-nycklar.
+                location.href = target;
             });
 
             // ---------------------------------------------------------
