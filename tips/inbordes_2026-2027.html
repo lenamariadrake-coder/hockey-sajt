@@ -1942,19 +1942,19 @@
             background: #fee2e2;
         }
 
-        #leagueStandings tbody tr.movement-up > td {
+        #leagueStandings tbody tr.movement-up>td {
             background: #dcfce7;
         }
 
-        #leagueStandings tbody tr.movement-down > td {
+        #leagueStandings tbody tr.movement-down>td {
             background: #fee2e2;
         }
 
-        #leagueStandings tbody tr.movement-up:hover > td {
+        #leagueStandings tbody tr.movement-up:hover>td {
             background: #d1fae5;
         }
 
-        #leagueStandings tbody tr.movement-down:hover > td {
+        #leagueStandings tbody tr.movement-down:hover>td {
             background: #fecaca;
         }
 
@@ -2110,6 +2110,7 @@
                                     <th class="num">
                                         Utfall
                                         <span class="th-info"
+                                            data-desktop-tip="Antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt."
                                             data-mobile-tip="Antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt."
                                             aria-label="Hjälp: antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt.">ℹ️</span>
                                     </th>
@@ -2161,7 +2162,8 @@
         const MATCH_SEASON_ID = '2025-2026';
         const MATCH_LEAGUE = 'SHL';
 
-        // Samma team_id-/namnkälla som i originalfilen. Flik teams_shl_2025-2026 i aktuella hockeysäsonger NY (obs, ska ju byta till 2026-2027 sedan)
+        // Lagkälla för visningsnamn. Matchlogiken använder inte denna för att identifiera lag.
+        // Byt denna URL till den publicerade all_teams-fliken när dess TSV-adress är på plats.
         const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1991699389&single=true&output=tsv';
 
         // Publicerad TSV-adress för H2H-tips.
@@ -2185,9 +2187,8 @@
         };
 
         let STANDING_SNAPSHOTS = new Map();
-        let ALL_TEAMS_LONG = [];
+        let ALL_TEAM_IDS = [];
         let TEAM_BY_ID = new Map();
-        let TEAM_ID_BY_LONGNAME = new Map();
         let H2H_TIPS_BY_PARTICIPANT = new Map();
 
         let playbackTimer = null;
@@ -2217,7 +2218,7 @@
             if (b.points !== a.points) return b.points - a.points;
             if (b.gd !== a.gd) return b.gd - a.gd;
             if (b.gf !== a.gf) return b.gf - a.gf;
-            return a.team.localeCompare(b.team, 'sv');
+            return getDisplayTeamName(a.team_id).localeCompare(getDisplayTeamName(b.team_id), 'sv');
         }
 
         async function fetchText(url, label) {
@@ -2244,7 +2245,6 @@
             }
 
             TEAM_BY_ID.clear();
-            TEAM_ID_BY_LONGNAME.clear();
 
             rows.slice(1).forEach(r => {
                 const team_id = r[iId];
@@ -2258,39 +2258,7 @@
                 };
 
                 TEAM_BY_ID.set(team_id, obj);
-                if (obj.team_name_long) TEAM_ID_BY_LONGNAME.set(obj.team_name_long, team_id);
             });
-        }
-
-        function resolveMatchTeamName(value) {
-            const raw = String(value || '').trim();
-            if (!raw) return '';
-
-            // 1) Matchdatan kan redan innehålla team_id.
-            if (TEAM_BY_ID.has(raw)) {
-                return TEAM_BY_ID.get(raw)?.team_name_long || raw;
-            }
-
-            // 2) Annars accepteras långnamn, kortnamn eller förkortning.
-            const needle = raw.toLocaleLowerCase('sv');
-
-            for (const team of TEAM_BY_ID.values()) {
-                const aliases = [
-                    team.team_name_long,
-                    team.team_name_short,
-                    team.team_name_abbr
-                ];
-
-                if (aliases.some(name =>
-                    String(name || '').trim().toLocaleLowerCase('sv') === needle
-                )) {
-                    return team.team_name_long || raw;
-                }
-            }
-
-            // Om inget matchar behåll originalvärdet så att tabellen fortfarande
-            // kan visas; H2H-kopplingen kommer då tydligt saknas för just laget.
-            return raw;
         }
 
         async function loadH2HTipsFromTSV(url) {
@@ -2370,8 +2338,8 @@
             const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
 
             const iDate = idx('date');
-            const iHomeTeam = idx('home_team');
-            const iAwayTeam = idx('away_team');
+            const iHomeTeamId = idx('home_team_id');
+            const iAwayTeamId = idx('away_team_id');
             const iHomeGoals = idx('home_goals');
             const iAwayGoals = idx('away_goals');
             const iHomePts = idx('home_points');
@@ -2381,8 +2349,8 @@
 
             const required = [
                 ['date', iDate],
-                ['home_team', iHomeTeam],
-                ['away_team', iAwayTeam],
+                ['home_team_id', iHomeTeamId],
+                ['away_team_id', iAwayTeamId],
                 ['home_goals', iHomeGoals],
                 ['away_goals', iAwayGoals],
                 ['home_points', iHomePts],
@@ -2408,27 +2376,31 @@
                 );
             }
 
-            const teamsSet = new Set();
+            // Matchlogiken använder nu enbart de stabila ID-kolumnerna från games.
+            // Lagregistret används endast senare för visningsnamn.
+            const teamIds = new Set();
             dataRows.forEach(r => {
-                const homeTeam = resolveMatchTeamName(r[iHomeTeam]);
-                const awayTeam = resolveMatchTeamName(r[iAwayTeam]);
+                const homeTeamId = String(r[iHomeTeamId] || '').trim();
+                const awayTeamId = String(r[iAwayTeamId] || '').trim();
 
-                if (homeTeam) teamsSet.add(homeTeam);
-                if (awayTeam) teamsSet.add(awayTeam);
+                if (homeTeamId) teamIds.add(homeTeamId);
+                if (awayTeamId) teamIds.add(awayTeamId);
             });
 
-            ALL_TEAMS_LONG = Array.from(teamsSet).sort((a, b) => a.localeCompare(b, 'sv'));
+            ALL_TEAM_IDS = Array.from(teamIds).sort((a, b) =>
+                getDisplayTeamName(a).localeCompare(getDisplayTeamName(b), 'sv')
+            );
 
             const hist = new Map();
-            ALL_TEAMS_LONG.forEach(team => {
-                hist.set(team, [{ g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]);
+            ALL_TEAM_IDS.forEach(teamId => {
+                hist.set(teamId, [{ g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]);
             });
 
             dataRows.sort((a, b) => new Date(a[iDate]) - new Date(b[iDate]));
 
             for (const r of dataRows) {
-                const ht = resolveMatchTeamName(r[iHomeTeam]);
-                const at = resolveMatchTeamName(r[iAwayTeam]);
+                const ht = String(r[iHomeTeamId] || '').trim();
+                const at = String(r[iAwayTeamId] || '').trim();
                 if (!ht || !at || !hist.has(ht) || !hist.has(at)) continue;
 
                 const hg = toInt(r[iHomeGoals]);
@@ -2461,18 +2433,18 @@
                 aHist.push(nextA);
             }
 
-            const minTotalGames = ALL_TEAMS_LONG.length
-                ? Math.min(...ALL_TEAMS_LONG.map(team => hist.get(team).length - 1))
+            const minTotalGames = ALL_TEAM_IDS.length
+                ? Math.min(...ALL_TEAM_IDS.map(teamId => hist.get(teamId).length - 1))
                 : 0;
 
             STANDING_SNAPSHOTS = new Map();
             state.roundsAvailable = new Set();
 
             for (let m = 0; m <= minTotalGames; m++) {
-                const snapshot = ALL_TEAMS_LONG.map(team => {
-                    const s = hist.get(team)[m];
+                const snapshot = ALL_TEAM_IDS.map(teamId => {
+                    const s = hist.get(teamId)[m];
                     return {
-                        team,
+                        team_id: teamId,
                         g: s.g,
                         points: s.points,
                         gf: s.gf,
@@ -2497,16 +2469,15 @@
             const snapshot = STANDING_SNAPSHOTS.get(r);
             if (snapshot) return snapshot;
 
-            return ALL_TEAMS_LONG.map(team => ({
-                team, g: 0, points: 0, gf: 0, ga: 0, gd: 0
-            })).sort((a, b) => a.team.localeCompare(b.team, 'sv'));
+            return ALL_TEAM_IDS.map(team_id => ({
+                team_id, g: 0, points: 0, gf: 0, ga: 0, gd: 0
+            })).sort(standingsComparator);
         }
 
         function buildActualRankByTeamId(standings) {
             const map = new Map();
             standings.forEach((row, index) => {
-                const teamId = TEAM_ID_BY_LONGNAME.get(row.team);
-                if (teamId) map.set(teamId, index + 1);
+                if (row.team_id) map.set(row.team_id, index + 1);
             });
             return map;
         }
@@ -2742,7 +2713,7 @@
             const tbody = document.createElement('tbody');
 
             standings.forEach((standingRow, index) => {
-                const teamId = TEAM_ID_BY_LONGNAME.get(standingRow.team);
+                const teamId = standingRow.team_id;
                 const tr = document.createElement('tr');
 
                 if (teamId && selected.has(teamId)) {
@@ -2755,7 +2726,7 @@
                 tdRank.textContent = String(index + 1);
 
                 const tdTeam = document.createElement('td');
-                tdTeam.textContent = teamId ? getDisplayTeamName(teamId) : standingRow.team;
+                tdTeam.textContent = getDisplayTeamName(teamId);
 
                 const tdPoints = document.createElement('td');
                 tdPoints.className = 'num';
@@ -2842,17 +2813,17 @@
             if (!previousStandings) return movement;
 
             const previousRankByTeam = new Map(
-                previousStandings.map((row, index) => [row.team, index + 1])
+                previousStandings.map((row, index) => [row.team_id, index + 1])
             );
 
             standings.forEach((row, index) => {
                 const currentRank = index + 1;
-                const previousRank = previousRankByTeam.get(row.team);
+                const previousRank = previousRankByTeam.get(row.team_id);
 
                 if (!Number.isFinite(previousRank)) return;
 
-                if (currentRank < previousRank) movement.set(row.team, 'up');
-                else if (currentRank > previousRank) movement.set(row.team, 'down');
+                if (currentRank < previousRank) movement.set(row.team_id, 'up');
+                else if (currentRank > previousRank) movement.set(row.team_id, 'down');
             });
 
             return movement;
@@ -2867,9 +2838,9 @@
             }
 
             const orderedNames = standings.map(row => {
-                const teamId = TEAM_ID_BY_LONGNAME.get(row.team);
-                const name = teamId ? getDisplayTeamName(teamId) : row.team;
-                const move = movementByTeam?.get(row.team);
+                const teamId = row.team_id;
+                const name = getDisplayTeamName(teamId);
+                const move = movementByTeam?.get(teamId);
                 const cls = move === 'up'
                     ? ' movement-up'
                     : move === 'down'
@@ -2895,8 +2866,8 @@
 
             standings.forEach((standingRow, index) => {
                 const tr = document.createElement('tr');
-                const teamId = TEAM_ID_BY_LONGNAME.get(standingRow.team);
-                const move = movementByTeam?.get(standingRow.team);
+                const teamId = standingRow.team_id;
+                const move = movementByTeam?.get(teamId);
 
                 if (move === 'up') tr.classList.add('movement-up');
                 else if (move === 'down') tr.classList.add('movement-down');
@@ -2906,7 +2877,7 @@
                 tdRank.textContent = isStartMode ? '—' : String(index + 1);
 
                 const tdTeam = document.createElement('td');
-                tdTeam.textContent = teamId ? getDisplayTeamName(teamId) : standingRow.team;
+                tdTeam.textContent = getDisplayTeamName(teamId);
 
                 const tdGames = document.createElement('td');
                 tdGames.className = 'num';
