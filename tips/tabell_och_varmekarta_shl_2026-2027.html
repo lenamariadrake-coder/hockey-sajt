@@ -1808,6 +1808,8 @@ Lag 14</pre>
         const loadingProgressEl = document.getElementById('loadingProgress');
         // const tableStand = document.getElementById('tableStandings'); // ✅ måste finnas innan loadingStart körs
 
+        let fatalDataError = null;
+
         let loadingStep = 0;
         const LOADING_TOTAL_STEPS = 4;
 
@@ -1833,21 +1835,37 @@ Lag 14</pre>
             tableStand?.classList.remove('hidden');
         }
 
-        function showFatalDataError(error) {
-            const message = error instanceof Error ? error.message : String(error || 'Okänt datafel');
-            console.error('[data][FATAL]', error);
+        function fillDataErrorBox(box, message) {
+            if (!box) return;
+            box.classList.remove('hidden');
+            box.innerHTML = '';
 
-            if (loadingBox) {
-                loadingBox.classList.remove('hidden');
-                loadingBox.innerHTML = '';
-                const title = document.createElement('div');
-                title.textContent = '⚠️ Datafel';
-                title.style.color = '#b91c1c';
-                const detail = document.createElement('div');
-                detail.textContent = message;
-                detail.style.fontWeight = '600';
-                loadingBox.append(title, detail);
+            const title = document.createElement('div');
+            title.textContent = '⚠️ Datafel';
+            title.style.color = '#b91c1c';
+
+            const detail = document.createElement('div');
+            detail.textContent = message;
+            detail.style.fontWeight = '600';
+
+            box.append(title, detail);
+        }
+
+        function showFatalDataError(error) {
+            fatalDataError = error instanceof Error ? error : new Error(String(error || 'Okänt datafel'));
+            const message = fatalDataError.message;
+            console.error('[data][FATAL]', fatalDataError);
+
+            fillDataErrorBox(loadingBox, message);
+
+            let heatErrorBox = document.getElementById('heatDataError');
+            if (!heatErrorBox && viewHeat) {
+                heatErrorBox = document.createElement('div');
+                heatErrorBox.id = 'heatDataError';
+                heatErrorBox.className = 'loading-box';
+                viewHeat.prepend(heatErrorBox);
             }
+            fillDataErrorBox(heatErrorBox, message);
 
             tableStand?.classList.add('hidden');
             tableHeat?.classList.add('hidden');
@@ -3619,15 +3637,33 @@ Lag 14</pre>
         }
 
         async function loadClassicTipsFromTSV(url) {
+            console.log("[TIPS][classic] fetch START", url);
+
             const tsv = await fetch(url).then(r => {
+                console.log("[TIPS][classic] fetch response", {
+                    ok: r.ok,
+                    status: r.status,
+                    statusText: r.statusText
+                });
+
                 if (!r.ok) throw new Error(`Tipsdata: HTTP ${r.status}`);
                 return r.text();
             });
 
+            console.log("[TIPS][classic] TSV mottagen", {
+                chars: tsv.length,
+                preview: tsv.slice(0, 250)
+            });
+
             const rows = parseTSV(tsv);
+            console.log("[TIPS][classic] parseTSV klar", {
+                rows: rows.length
+            });
+
             if (!rows.length) throw new Error('Tipsdata: inga rader hittades.');
 
             const hdr = rows[0].map(h => h.trim());
+            console.log("[TIPS][classic] headers", hdr);
             const idx = (name) => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
 
             const iParticipant = idx('participant_id');
@@ -3690,6 +3726,13 @@ Lag 14</pre>
 
             TIPS_BY_TIPPER_HOBBY.forEach(arr => arr.sort((a, b) => a.pick_rank - b.pick_rank));
             TIPS_BY_TIPPER_EXPERT.forEach(arr => arr.sort((a, b) => a.pick_rank - b.pick_rank));
+
+            console.log("[TIPS][classic] loader KLAR", {
+                hobbyTippers: TIPS_BY_TIPPER_HOBBY.size,
+                expertTippers: TIPS_BY_TIPPER_EXPERT.size,
+                totalClassicRows: Array.from(TIPS_BY_TIPPER_HOBBY.values()).reduce((n, arr) => n + arr.length, 0)
+                    + Array.from(TIPS_BY_TIPPER_EXPERT.values()).reduce((n, arr) => n + arr.length, 0)
+            });
         }
 
         function buildTipsMatrixFromTipsByTipper(tipsByTipperMap) {
@@ -3818,25 +3861,45 @@ Lag 14</pre>
 
 
         async function loadTipsMatricesFromSheets() {
+            console.log("[TIPS] START loadTipsMatricesFromSheets");
+
             // 1) Försök cache först
+            console.log("[TIPS] läser cache...");
             const cached = readSharedShlTipsCache();
+
             if (cached) {
+                console.log("[TIPS] cache HIT – hydrerar...");
                 hydrateFromSharedCache(cached);
+                console.log("[TIPS] cache hydrering KLAR");
 
                 dlog(DEBUG.tsv, "[tips][CACHE] använde SHL_TIPS_DATA_2026_2027", {
                     hobbyTeams: Object.keys(window.TIPS_MATRIX_HOBBY || {}).length,
                     expertTeams: Object.keys(window.TIPS_MATRIX_EXPERT || {}).length
                 });
 
+                console.log("[TIPS] KLAR via cache");
                 return;
             }
 
-            console.log("[shl][cache] MISS ->", SHL_TIPS_CACHE_KEY, "(hämtar TSV)");
+            console.log("[TIPS] cache MISS – börjar läsa Google Sheets");
 
             // 2) Nätverk (TSV) -> bygg allt vi vill dela
             try {
+                console.log("[TIPS] >>> loadTeamsFromTSV START", TEAMS_SHL_TSV_URL);
                 await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
+                console.log("[TIPS] <<< loadTeamsFromTSV KLAR", {
+                    teams: TEAM_BY_ID.size,
+                    teamIds: Array.from(TEAM_BY_ID.keys())
+                });
+
+                console.log("[TIPS] >>> loadClassicTipsFromTSV START", TIPS_SHL_TSV_URL);
                 await loadClassicTipsFromTSV(TIPS_SHL_TSV_URL);
+                console.log("[TIPS] <<< loadClassicTipsFromTSV KLAR", {
+                    hobbyTippers: TIPS_BY_TIPPER_HOBBY.size,
+                    expertTippers: TIPS_BY_TIPPER_EXPERT.size
+                });
+
+                console.log("[TIPS] >>> bygger matriser");
 
                 const hobbyMatrix = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_HOBBY);
                 const expertMatrix = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_EXPERT);
@@ -3845,12 +3908,19 @@ Lag 14</pre>
                 window.TIPS_MATRIX_HOBBY = hobbyMatrix;
                 window.TIPS_MATRIX_EXPERT = expertMatrix;
 
+                console.log("[TIPS] <<< matriser KLARA", {
+                    hobbyTeams: Object.keys(hobbyMatrix || {}).length,
+                    expertTeams: Object.keys(expertMatrix || {}).length
+                });
+
                 dlog(DEBUG.tsv, "[tips][TSV] Sheets -> matrices OK", {
                     hobbyTeams: Object.keys(window.TIPS_MATRIX_HOBBY || {}).length,
                     expertTeams: Object.keys(window.TIPS_MATRIX_EXPERT || {}).length
                 });
 
                 // 3) Skriv superset-cache i samma format som tippartopplista vill ha
+                console.log("[TIPS] >>> bygger cache-payload");
+
                 const payload = {
                     version: 2,
                     savedAt: new Date().toISOString(),
@@ -3876,14 +3946,18 @@ Lag 14</pre>
                     TIPS_BY_TIPPER_EXPERT: tipsByTipperMapToObj(TIPS_BY_TIPPER_EXPERT),
                 };
 
+                console.log("[TIPS] <<< cache-payload KLAR");
                 writeSharedShlTipsCache(payload);
+                console.log("[TIPS] cache skriven");
 
             } catch (e) {
-                console.error("[tips] FAILED to load tips matrices from TSV:", e);
+                console.error("[TIPS] FEL:", e);
                 window.TIPS_MATRIX_HOBBY = null;
                 window.TIPS_MATRIX_EXPERT = null;
                 throw e;
             }
+
+            console.log("[TIPS] SLUT");
         }
 
 
@@ -4285,6 +4359,14 @@ Lag 14</pre>
                 const show = (view === 'heat');
                 customPanel.style.display = show ? '' : 'none';
                 customPanel.setAttribute('aria-hidden', show ? 'false' : 'true');
+            }
+
+            if (fatalDataError) {
+                // Datafelet ska inte göra navigationen död.
+                // Växla bara vy och visa respektive felruta; försök inte rendera trasig data.
+                renderCurrentStepLabel();
+                updateRowColorResetXVisibility();
+                return;
             }
 
             if (view === 'table') {
@@ -4860,21 +4942,59 @@ Lag 14</pre>
             loadingStart();
 
             // ---------------------------------------------------------
+            // 0) Bind grundnavigation direkt.
+            // Datafel får aldrig göra Tabell/Värmekarta oklickbara.
+            // ---------------------------------------------------------
+            btnTabell?.addEventListener('click', () => {
+                location.hash = '#table';
+                setActiveView('table');
+            });
+
+            btnHeat?.addEventListener('click', () => {
+                location.hash = '#heat';
+                setActiveView('heat');
+            });
+
+            seasonSelect?.addEventListener('change', () => {
+                const target = seasonSelect.value;
+                if (!target) return;
+                location.href = target;
+            });
+
+            // ---------------------------------------------------------
             // 1) Ladda tipsmatriser + ställning (som du redan gör)
             // ---------------------------------------------------------
             try {
+                console.log("[INIT] START");
+
+                console.log("[INIT] >>> tips");
                 await loadTipsMatricesFromSheets();
+                console.log("[INIT] <<< tips KLART");
                 loadingAdvance('Tipsmatriser laddade');
 
                 if (!window.TIPS_MATRIX_HOBBY || !window.TIPS_MATRIX_EXPERT) {
                     throw new Error('Tipsdata: matriser saknas efter inläsning.');
                 }
 
+                console.log("[INIT] >>> match teams", MATCH_TEAMS_TSV_URL);
                 await loadMatchTeamsFromTSV(MATCH_TEAMS_TSV_URL);
+                console.log("[INIT] <<< match teams KLART", {
+                    teams: MATCH_TEAM_BY_ID.size
+                });
+
+                console.log("[INIT] >>> games/ställning", TSV_URL);
                 await loadAndPrepareStandingsFromTSV(TSV_URL);
+                console.log("[INIT] <<< games/ställning KLART", {
+                    snapshots: STANDING_SNAPSHOTS.size,
+                    latestRound: state.latestRound
+                });
+
                 loadingAdvance('Ställning laddad från games');
             } catch (error) {
                 showFatalDataError(error);
+
+                const initialView = getInitialViewFromURL() || 'table';
+                setActiveView(initialView);
                 return;
             }
 
@@ -4936,25 +5056,6 @@ Lag 14</pre>
             // ---------------------------------------------------------
             buildRoundButtons();
             loadingAdvance('UI byggd');
-
-            btnTabell?.addEventListener('click', () => {
-                location.hash = '#table';
-                setActiveView('table');
-            });
-
-            btnHeat?.addEventListener('click', () => {
-                location.hash = '#heat';
-                setActiveView('heat');
-            });
-
-            seasonSelect?.addEventListener('change', () => {
-                const target = seasonSelect.value;
-                if (!target) return;
-
-                // Dropdownen är bara navigation mellan separata säsongsfiler.
-                // Varje fil använder sina egna säsongsspecifika localStorage-nycklar.
-                location.href = target;
-            });
 
             // ---------------------------------------------------------
             // 4) Bind reset + heat sort
