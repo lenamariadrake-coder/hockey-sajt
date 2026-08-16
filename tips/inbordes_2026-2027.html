@@ -2153,8 +2153,13 @@
            DATAKÄLLOR
            =========================================================== */
 
-        // Samma matchdata som i originalfilen.
-        const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1247847413&single=true&output=tsv';
+        // Publicerad TSV-adress för fliken "games".
+        // OBS: byt URL:en nedan till den publicerade TSV-adressen för games-fliken.
+        const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv';
+
+        // Matchfiltret. Ändra säsongen här när sidan ska användas "på riktigt".
+        const MATCH_SEASON_ID = '2025-2026';
+        const MATCH_LEAGUE = 'SHL';
 
         // Samma team_id-/namnkälla som i originalfilen.
         const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1219108197&single=true&output=tsv';
@@ -2332,27 +2337,47 @@
             const hdr = rows[0].map(h => h.trim());
             const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
 
-            const iHomeTeam = idx('Hemmalag');
-            const iAwayTeam = idx('Bortalag');
-            const iHomeGoals = idx('Hemmamål');
-            const iAwayGoals = idx('Bortamål');
-            const iHomePts = idx('Hemmapoäng');
-            const iAwayPts = idx('Bortapoäng');
-            const iDate = idx('Datum');
+            const iDate = idx('date');
+            const iHomeTeam = idx('home_team');
+            const iAwayTeam = idx('away_team');
+            const iHomeGoals = idx('home_goals');
+            const iAwayGoals = idx('away_goals');
+            const iHomePts = idx('home_points');
+            const iAwayPts = idx('away_points');
+            const iSeason = idx('season_id');
+            const iLeague = idx('league');
 
             const required = [
-                ['Hemmalag', iHomeTeam],
-                ['Bortalag', iAwayTeam],
-                ['Hemmamål', iHomeGoals],
-                ['Bortamål', iAwayGoals]
+                ['date', iDate],
+                ['home_team', iHomeTeam],
+                ['away_team', iAwayTeam],
+                ['home_goals', iHomeGoals],
+                ['away_goals', iAwayGoals],
+                ['home_points', iHomePts],
+                ['away_points', iAwayPts],
+                ['season_id', iSeason],
+                ['league', iLeague]
             ].filter(([, i]) => i === -1).map(([name]) => name);
 
             if (required.length) {
                 throw new Error(`Matchdata: saknar kolumn(er): ${required.join(', ')}.`);
             }
 
+            // Filtrera först fram exakt den säsong och liga som sidan ska visa.
+            // Jämförelsen av league är inte skiftlägeskänslig.
+            const dataRows = rows.slice(1).filter(r =>
+                String(r[iSeason] || '').trim() === MATCH_SEASON_ID &&
+                String(r[iLeague] || '').trim().toUpperCase() === MATCH_LEAGUE.toUpperCase()
+            );
+
+            if (!dataRows.length) {
+                throw new Error(
+                    `Matchdata: inga matcher hittades för ${MATCH_LEAGUE} ${MATCH_SEASON_ID}.`
+                );
+            }
+
             const teamsSet = new Set();
-            rows.slice(1).forEach(r => {
+            dataRows.forEach(r => {
                 if (r[iHomeTeam]) teamsSet.add(r[iHomeTeam]);
                 if (r[iAwayTeam]) teamsSet.add(r[iAwayTeam]);
             });
@@ -2364,10 +2389,7 @@
                 hist.set(team, [{ g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]);
             });
 
-            const dataRows = rows.slice(1);
-            if (iDate !== -1) {
-                dataRows.sort((a, b) => new Date(a[iDate]) - new Date(b[iDate]));
-            }
+            dataRows.sort((a, b) => new Date(a[iDate]) - new Date(b[iDate]));
 
             for (const r of dataRows) {
                 const ht = r[iHomeTeam];
@@ -2376,8 +2398,8 @@
 
                 const hg = toInt(r[iHomeGoals]);
                 const ag = toInt(r[iAwayGoals]);
-                const hp = iHomePts !== -1 ? toInt(r[iHomePts]) : null;
-                const ap = iAwayPts !== -1 ? toInt(r[iAwayPts]) : null;
+                const hp = toInt(r[iHomePts]);
+                const ap = toInt(r[iAwayPts]);
 
                 const hHist = hist.get(ht);
                 const aHist = hist.get(at);
