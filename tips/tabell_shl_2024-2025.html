@@ -1870,7 +1870,7 @@ Lag 14</pre>
         const MATCH_LEAGUE = 'SHL';
 
         // Masterregister för lagnamn till matchdelen (team_id -> visningsnamn).
-        const MATCH_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1991699389&single=true&output=tsv';
+        const MATCH_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=491023463&single=true&output=tsv';
 
         // LocalStorage-nyckel för vald omgång (liga + säsong)
         // ⚠️ MÅSTE vara IDENTISK i systerappen
@@ -1905,6 +1905,7 @@ Lag 14</pre>
             'Timrå': 'Timrå IK',
             'Skellefteå': 'Skellefteå AIK',
             'Växjö': 'Växjö Lakers',
+            'MoDo': 'MoDo Hockey',
             'Luleå': 'Luleå Hockey',
         };
         const NAME_MAP_LONG_TO_SHORT = Object.fromEntries(
@@ -2235,6 +2236,7 @@ Lag 14</pre>
             if (has("FHC") || has("Frölunda")) return "Frölunda";
             if (has("FBK") || has("Färjestad")) return "Färjestad";
             if (has("HV")) return "HV71";
+            if (has("MoDo")) return "MoDo";
             if (has("LIF") || has("Leksand")) return "Leksand";
             if (has("LHC") || has("Linköping")) return "Linköping";
             if (has("LHF") || has("Luleå")) return "Luleå";
