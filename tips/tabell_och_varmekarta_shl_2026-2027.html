@@ -3403,6 +3403,7 @@ Lag 14</pre>
         let STANDING_SNAPSHOTS = new Map(); // round(int) -> [{team,g,points,gf,ga,gd}]
         let ALL_TEAMS_LONG = [];
         let MATCH_TEAM_BY_ID = new Map();
+        let SEASON_TEAM_IDS = new Set(); // exakt de 14 lag som ingår i SHL 2026/2027
 
         async function loadMatchTeamsFromTSV(url) {
             const tsv = await fetch(url).then(r => {
@@ -3483,15 +3484,25 @@ Lag 14</pre>
             );
 
             // Inga matcher för vald säsong är ett giltigt försäsongsläge, inte ett fel.
-            // Laglistan är redan laddad separat och används därför som grund även vid 0 spelade matcher.
-            const teamIds = new Set(MATCH_TEAM_BY_ID.keys());
+            // VIKTIGT: utgå från säsongens 14 lag, INTE från hela masterregistret.
+            // Masterregistret kan innehålla lag från andra säsonger (t.ex. Leksand).
+            if (!(SEASON_TEAM_IDS instanceof Set) || SEASON_TEAM_IDS.size !== 14) {
+                throw new Error(`Säsongslag: förväntade 14 SHL-lag men har ${SEASON_TEAM_IDS?.size ?? 0}.`);
+            }
 
-            // Komplettera med eventuella team_id som förekommer i games.
+            const teamIds = new Set(SEASON_TEAM_IDS);
+
+            // Games får bara referera till lag som ingår i den valda säsongen.
             dataRows.forEach(r => {
                 const homeTeamId = String(r[iHomeTeamId] || '').trim();
                 const awayTeamId = String(r[iAwayTeamId] || '').trim();
-                if (homeTeamId) teamIds.add(homeTeamId);
-                if (awayTeamId) teamIds.add(awayTeamId);
+
+                if (homeTeamId && !teamIds.has(homeTeamId)) {
+                    throw new Error(`Matchdata: hemmalag "${homeTeamId}" ingår inte i SHL ${MATCH_SEASON_ID}.`);
+                }
+                if (awayTeamId && !teamIds.has(awayTeamId)) {
+                    throw new Error(`Matchdata: bortalag "${awayTeamId}" ingår inte i SHL ${MATCH_SEASON_ID}.`);
+                }
             });
 
             const ALL_TEAM_IDS = Array.from(teamIds).sort((a, b) =>
@@ -3630,6 +3641,15 @@ Lag 14</pre>
             });
 
             rebuildTeamNameIndexes();
+
+            // Samma säsongsspecifika lagkälla används som facit för vilka lag
+            // som faktiskt ska ingå i SHL-tabellen denna säsong.
+            SEASON_TEAM_IDS = new Set(TEAM_BY_ID.keys());
+
+            console.log("[TEAMS][season] säsongslag laddade", {
+                count: SEASON_TEAM_IDS.size,
+                teamIds: Array.from(SEASON_TEAM_IDS)
+            });
         }
 
         function isExpertDisplayName(displayName) {
@@ -3828,6 +3848,7 @@ Lag 14</pre>
             TEAM_BY_ID.clear();
             objToMap(payload.TEAM_BY_ID).forEach((v, k) => TEAM_BY_ID.set(k, v));
             rebuildTeamNameIndexes();
+            SEASON_TEAM_IDS = new Set(TEAM_BY_ID.keys());
 
             // TIPPER_BY_ID (om appen har detta globalt; om inte, kommentera bort de tre raderna)
             if (typeof TIPPER_BY_ID !== "undefined" && TIPPER_BY_ID && TIPPER_BY_ID.clear) {
