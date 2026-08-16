@@ -2261,6 +2261,37 @@
             });
         }
 
+        function resolveMatchTeamName(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+
+            // 1) Matchdatan kan redan innehålla team_id.
+            if (TEAM_BY_ID.has(raw)) {
+                return TEAM_BY_ID.get(raw)?.team_name_long || raw;
+            }
+
+            // 2) Annars accepteras långnamn, kortnamn eller förkortning.
+            const needle = raw.toLocaleLowerCase('sv');
+
+            for (const team of TEAM_BY_ID.values()) {
+                const aliases = [
+                    team.team_name_long,
+                    team.team_name_short,
+                    team.team_name_abbr
+                ];
+
+                if (aliases.some(name =>
+                    String(name || '').trim().toLocaleLowerCase('sv') === needle
+                )) {
+                    return team.team_name_long || raw;
+                }
+            }
+
+            // Om inget matchar behåll originalvärdet så att tabellen fortfarande
+            // kan visas; H2H-kopplingen kommer då tydligt saknas för just laget.
+            return raw;
+        }
+
         async function loadH2HTipsFromTSV(url) {
             const rows = parseTSV(await fetchText(url, 'H2H-tips'));
             if (!rows.length) throw new Error('H2H-tips: inga rader hittades.');
@@ -2378,8 +2409,11 @@
 
             const teamsSet = new Set();
             dataRows.forEach(r => {
-                if (r[iHomeTeam]) teamsSet.add(r[iHomeTeam]);
-                if (r[iAwayTeam]) teamsSet.add(r[iAwayTeam]);
+                const homeTeam = resolveMatchTeamName(r[iHomeTeam]);
+                const awayTeam = resolveMatchTeamName(r[iAwayTeam]);
+
+                if (homeTeam) teamsSet.add(homeTeam);
+                if (awayTeam) teamsSet.add(awayTeam);
             });
 
             ALL_TEAMS_LONG = Array.from(teamsSet).sort((a, b) => a.localeCompare(b, 'sv'));
@@ -2392,8 +2426,8 @@
             dataRows.sort((a, b) => new Date(a[iDate]) - new Date(b[iDate]));
 
             for (const r of dataRows) {
-                const ht = r[iHomeTeam];
-                const at = r[iAwayTeam];
+                const ht = resolveMatchTeamName(r[iHomeTeam]);
+                const at = resolveMatchTeamName(r[iAwayTeam]);
                 if (!ht || !at || !hist.has(ht) || !hist.has(at)) continue;
 
                 const hg = toInt(r[iHomeGoals]);
