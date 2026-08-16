@@ -1926,6 +1926,8 @@ Lag 14</pre>
         // Ingen säsongs laguppsättning hårdkodas längre i HTML-filen.
         let NAME_MAP = {};
         let NAME_MAP_LONG_TO_SHORT = {};
+        let TEAM_ID_BY_SHORT = {};
+        let SHORT_BY_TEAM_ID = {};
         let SHORT_TEAMS = [];
 
         function rebuildTeamNameIndexes() {
@@ -1959,6 +1961,19 @@ Lag 14</pre>
             NAME_MAP_LONG_TO_SHORT = Object.fromEntries(
                 Object.entries(NAME_MAP).map(([shortN, longN]) => [longN, shortN])
             );
+
+            TEAM_ID_BY_SHORT = {};
+            SHORT_BY_TEAM_ID = {};
+
+            TEAM_BY_ID.forEach((team, teamId) => {
+                const shortName = String(team?.team_name_short || '').trim();
+                if (!shortName) {
+                    throw new Error(`Lagdata: team_name_short saknas för ${teamId}.`);
+                }
+                TEAM_ID_BY_SHORT[shortName] = teamId;
+                SHORT_BY_TEAM_ID[teamId] = shortName;
+            });
+
             SHORT_TEAMS = Object.keys(NAME_MAP).sort((a, b) =>
                 NAME_MAP[a].localeCompare(NAME_MAP[b], 'sv')
             );
@@ -3440,6 +3455,14 @@ Lag 14</pre>
             return team?.team_name_long || team?.team_name_short || teamId;
         }
 
+        function getSeasonTeamShortName(teamId) {
+            const shortName = SHORT_BY_TEAM_ID[String(teamId || '').trim()];
+            if (!shortName) {
+                throw new Error(`Säsongslag: saknar team_name_short för team_id "${teamId}".`);
+            }
+            return shortName;
+        }
+
         async function loadAndPrepareStandingsFromTSV(url) {
             const tsv = await fetch(url).then(r => {
                 if (!r.ok) throw new Error(`Matchdata: HTTP ${r.status}`);
@@ -3564,6 +3587,7 @@ Lag 14</pre>
                 const arr = ALL_TEAM_IDS.map(teamId => {
                     const s = hist.get(teamId)[m];
                     return {
+                        team_id: teamId,
                         team: getMatchTeamLongName(teamId),
                         g: s.g,
                         points: s.points,
@@ -3648,7 +3672,8 @@ Lag 14</pre>
 
             console.log("[TEAMS][season] säsongslag laddade", {
                 count: SEASON_TEAM_IDS.size,
-                teamIds: Array.from(SEASON_TEAM_IDS)
+                teamIds: Array.from(SEASON_TEAM_IDS),
+                shortByTeamId: { ...SHORT_BY_TEAM_ID }
             });
         }
 
@@ -4468,9 +4493,15 @@ Lag 14</pre>
             const snap = STANDING_SNAPSHOTS.get(r);
             if (snap) return snap;
 
-            // Baseline (0 matcher)
-            return ALL_TEAMS_LONG.map(team => ({
-                team, g: 0, points: 0, gf: 0, ga: 0, gd: 0
+            // Baseline (0 matcher) byggs från säsongens team_id.
+            return Array.from(SEASON_TEAM_IDS).map(teamId => ({
+                team_id: teamId,
+                team: getMatchTeamLongName(teamId),
+                g: 0,
+                points: 0,
+                gf: 0,
+                ga: 0,
+                gd: 0
             })).sort((a, b) => a.team.localeCompare(b.team, 'sv'));
         }
 
@@ -4484,17 +4515,17 @@ Lag 14</pre>
             if (!previousStandings) return movement;
 
             const previousRows = [...previousStandings].sort(standingsComparator);
-            const previousRankByTeam = new Map(
-                previousRows.map((row, index) => [row.team, index + 1])
+            const previousRankByTeamId = new Map(
+                previousRows.map((row, index) => [row.team_id, index + 1])
             );
 
             standings.forEach((row, index) => {
                 const currentRank = index + 1;
-                const previousRank = previousRankByTeam.get(row.team);
+                const previousRank = previousRankByTeamId.get(row.team_id);
                 if (!Number.isFinite(previousRank)) return;
 
-                if (currentRank < previousRank) movement.set(row.team, 'up');
-                else if (currentRank > previousRank) movement.set(row.team, 'down');
+                if (currentRank < previousRank) movement.set(row.team_id, 'up');
+                else if (currentRank > previousRank) movement.set(row.team_id, 'down');
             });
 
             return movement;
@@ -4515,7 +4546,7 @@ Lag 14</pre>
             rows.forEach((row, idx) => {
                 const tr = document.createElement('tr');
 
-                const movement = movementByTeam.get(row.team);
+                const movement = movementByTeam.get(row.team_id);
                 if (movement === 'up') tr.classList.add('movement-up');
                 else if (movement === 'down') tr.classList.add('movement-down');
 
@@ -4525,8 +4556,9 @@ Lag 14</pre>
                 const tdLag = document.createElement('td');
                 tdLag.textContent = row.team;
 
-                // Tooltip med snitt även i tabellen
-                const shortName = NAME_MAP_LONG_TO_SHORT[row.team] || row.team;
+                // Tooltip med snitt även i tabellen.
+                // Kopplingen går alltid via stabilt team_id, aldrig via textmatchning.
+                const shortName = getSeasonTeamShortName(row.team_id);
                 const activeAvg = getActiveAvgForTeam(shortName);
                 if (typeof activeAvg === 'number') {
                     tdLag.title = `Genomsnittlig tippad placering: ${activeAvg.toFixed(2)}`;
@@ -4622,6 +4654,7 @@ Lag 14</pre>
 
             // Bygg rader: {short,long,counts[14],avg}
             const rows = SHORT_TEAMS.map(shortN => ({
+                team_id: TEAM_ID_BY_SHORT[shortN],
                 short: shortN,
                 long: NAME_MAP[shortN] || shortN,
                 counts: getActiveTipsCountsForTeam(shortN),
@@ -4639,11 +4672,11 @@ Lag 14</pre>
             } else {
                 if (round !== null && STANDING_SNAPSHOTS.has(round)) {
                     const snap = STANDING_SNAPSHOTS.get(round);
-                    const rankLong = new Map();
-                    snap.forEach((r, i) => rankLong.set(r.team, i + 1));
+                    const rankByTeamId = new Map();
+                    snap.forEach((r, i) => rankByTeamId.set(r.team_id, i + 1));
                     rows.sort((a, b) => {
-                        const ra = rankLong.get(a.long) ?? 999;
-                        const rb = rankLong.get(b.long) ?? 999;
+                        const ra = rankByTeamId.get(a.team_id) ?? 999;
+                        const rb = rankByTeamId.get(b.team_id) ?? 999;
                         if (ra !== rb) return ra - rb;
                         return a.long.localeCompare(b.long, 'sv');
                     });
@@ -4668,11 +4701,11 @@ Lag 14</pre>
             thead.appendChild(trh);
 
             // “Verkliga placeringar” (om vald omgång)
-            let realPlacementByLong = null;
+            let realPlacementByTeamId = null;
             if (round !== null && STANDING_SNAPSHOTS.has(round)) {
-                realPlacementByLong = new Map();
+                realPlacementByTeamId = new Map();
                 STANDING_SNAPSHOTS.get(round).forEach((row, idx) => {
-                    realPlacementByLong.set(row.team, idx + 1);
+                    realPlacementByTeamId.set(row.team_id, idx + 1);
                 });
             }
 
@@ -4700,7 +4733,7 @@ Lag 14</pre>
                     let isPlacement = false;
 
                     // Vid vald omgång: röd (top-priority) + ring
-                    if (round !== null && realPlacementByLong && realPlacementByLong.get(r.long) === pos) {
+                    if (round !== null && realPlacementByTeamId && realPlacementByTeamId.get(r.team_id) === pos) {
                         paletteBase = PLACE_RED_BASE;
                         isPlacement = true;
                     }
