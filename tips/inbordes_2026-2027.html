@@ -2161,10 +2161,11 @@
         const MATCH_SEASON_ID = '2025-2026';
         const MATCH_LEAGUE = 'SHL';
 
-        // Samma team_id-/namnkälla som i originalfilen.
-        const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1219108197&single=true&output=tsv';
+        // Samma team_id-/namnkälla som i originalfilen. Flik teams_shl_2025-2026 i aktuella hockeysäsonger NY (obs, ska ju byta till 2026-2027 sedan)
+        const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1991699389&single=true&output=tsv';
 
         // Publicerad TSV-adress för H2H-tips.
+        // Filen heter inbordes-ordning och fliken heter tips_shl_2026-2027.
         // Lämna som tom sträng ('') för historikläge utan tips. Då visas bara
         // Aktuell ordning + den faktiska ligatabellen (även på mobil).
         // Förväntade kolumner när en tipskälla används:
