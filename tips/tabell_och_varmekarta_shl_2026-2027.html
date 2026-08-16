@@ -3412,12 +3412,11 @@ Lag 14</pre>
                 String(r[iLeague] || '').trim().toUpperCase() === MATCH_LEAGUE.toUpperCase()
             );
 
-            if (!dataRows.length) {
-                throw new Error(`Matchdata: inga matcher hittades för ${MATCH_LEAGUE} ${MATCH_SEASON_ID}.`);
-            }
+            // Inga matcher för vald säsong är ett giltigt försäsongsläge, inte ett fel.
+            // Laglistan är redan laddad separat och används därför som grund även vid 0 spelade matcher.
+            const teamIds = new Set(MATCH_TEAM_BY_ID.keys());
 
-            // Identifiera lag via stabila team_id. Visningsnamn hämtas separat från all_teams.
-            const teamIds = new Set();
+            // Komplettera med eventuella team_id som förekommer i games.
             dataRows.forEach(r => {
                 const homeTeamId = String(r[iHomeTeamId] || '').trim();
                 const awayTeamId = String(r[iAwayTeamId] || '').trim();
