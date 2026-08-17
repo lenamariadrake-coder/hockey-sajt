@@ -2304,28 +2304,87 @@ Lag 14</pre>
         // eller returnerar originalraden om ingen mappning träffar.
         // OBS: Detta "släpper inte igenom" okända lag – okända fångas sen av getShortTeamFromInput().
         function resolveCanonicalTeamNameFromLine(line) {
-            const s = String(line || "").trim();
-            const hay = s.toLowerCase();
-            const has = (needle) => hay.includes(String(needle).toLowerCase());
+            const input = String(line || "").trim();
+            if (!input) return input;
 
-            // SHL
-            if (has("BIF") || has("Brynäs")) return "Brynäs";
-            if (has("DIF") || has("Djurgår")) return "Djurgården";
-            if (has("FHC") || has("Frölunda")) return "Frölunda";
-            if (has("FBK") || has("Färjestad")) return "Färjestad";
-            if (has("HV")) return "HV71";
-            if (has("LIF") || has("Leksand")) return "Leksand";
-            if (has("LHC") || has("Linköping")) return "Linköping";
-            if (has("LHF") || has("Luleå")) return "Luleå";
-            if (has("MIF") || has("Malmö")) return "Malmö";
-            if (has("RBK") || has("Rögle")) return "Rögle";
-            if (has("SKE")) return "Skellefteå";
-            if (has("TIK") || has("Timrå")) return "Timrå";
-            if (has("VLH") || has("Växjö")) return "Växjö";
-            if (has("ÖRE") || has("Örebro")) return "Örebro";
+            // Eget tips ska använda exakt samma säsongslag som resten av sidan.
+            // Inga SHL-lag hårdkodas här: alias byggs från teams_shl_2026-2027
+            // (abbr + short + long), som redan ligger i TEAM_BY_ID.
+            const lower = input.toLocaleLowerCase("sv-SE");
+            const candidates = [];
 
-            // Ingen contains-träff -> låt strikt matchning avgöra
-            return s;
+            TEAM_BY_ID.forEach((team, teamId) => {
+                const shortName = String(team?.team_name_short || "").trim();
+                const longName = String(team?.team_name_long || "").trim();
+                const abbr = String(team?.team_name_abbr || "").trim();
+
+                const aliases = Array.from(new Set(
+                    [longName, shortName, abbr]
+                        .map(v => String(v || "").trim())
+                        .filter(Boolean)
+                )).sort((a, b) => b.length - a.length);
+
+                for (const alias of aliases) {
+                    const aliasLower = alias.toLocaleLowerCase("sv-SE");
+
+                    // Exakt match är säkrast och får högst prioritet.
+                    if (lower === aliasLower) {
+                        candidates.push({
+                            score: 10000 + alias.length,
+                            alias,
+                            shortName,
+                            teamId,
+                            matchType: "exact"
+                        });
+                        continue;
+                    }
+
+                    // Behåll den gamla bekvämligheten: en rad får innehålla
+                    // lagnamnet/förkortningen tillsammans med annan text.
+                    // Kräv minst 3 tecken så att mycket korta fragment inte
+                    // råkar träffa fel lag.
+                    if (alias.length >= 3 && lower.includes(aliasLower)) {
+                        candidates.push({
+                            score: 1000 + alias.length,
+                            alias,
+                            shortName,
+                            teamId,
+                            matchType: "contains"
+                        });
+                    }
+                }
+            });
+
+            if (!candidates.length) {
+                dlog(DEBUG.tips, "[custom][team-match] ingen aliasträff", { input });
+                // Låt getShortTeamFromInput() göra sin vanliga strikta kontroll.
+                return input;
+            }
+
+            candidates.sort((a, b) => b.score - a.score);
+
+            const best = candidates[0];
+            const tiedBest = candidates.filter(c => c.score === best.score);
+
+            // Ambiguös bästa träff ska inte gissas tyst.
+            const uniqueBestTeams = new Set(tiedBest.map(c => c.teamId));
+            if (uniqueBestTeams.size > 1) {
+                dwarn(DEBUG.tips, "[custom][team-match] tvetydig aliasträff", {
+                    input,
+                    candidates: tiedBest
+                });
+                return input;
+            }
+
+            dlog(DEBUG.tips, "[custom][team-match]", {
+                input,
+                matchedAlias: best.alias,
+                matchType: best.matchType,
+                shortTeam: best.shortName,
+                teamId: best.teamId
+            });
+
+            return best.shortName || input;
         }
 
         function parseCustomTipsText(rawText) {
@@ -2334,12 +2393,12 @@ Lag 14</pre>
 
             // Tom input är giltigt
             if (trimmed.length === 0) {
-                console.log("[custom][parse] Tom input -> giltigt (ingen matris byggs).");
+                dlog(DEBUG.tips, "[custom][parse] Tom input -> giltigt (ingen matris byggs).");
                 return { ok: true, tipsN: 0, matrix: null, empty: true };
             }
 
             const blocks = splitIntoBlocks(raw);
-            console.log("[custom][parse] Antal block:", blocks.length);
+            dlog(DEBUG.tips, "[custom][parse] Antal block:", blocks.length);
 
             if (!blocks.length) {
                 // Bör i praktiken inte hända pga trimmed-check, men vi är defensiva.
@@ -2366,13 +2425,13 @@ Lag 14</pre>
                 let teamLines = null;
                 if (lines.length === 14) {
                     teamLines = lines;
-                    console.log(`[custom][parse] Block ${blockNo}: 14 rader (ingen namnrad).`);
+                    dlog(DEBUG.tips, `[custom][parse] Block ${blockNo}: 14 rader (ingen namnrad).`);
                 } else if (lines.length === 15) {
                     // Första raden = namnrad/rubrik (ignoreras helt)
                     teamLines = lines.slice(1);
-                    console.log(`[custom][parse] Block ${blockNo}: 15 rader (namnrad ignoreras: "${lines[0]}").`);
+                    dlog(DEBUG.tips, `[custom][parse] Block ${blockNo}: 15 rader (namnrad ignoreras: "${lines[0]}").`);
                 } else {
-                    console.warn("[custom][parse] Fel blocklängd:", { blockNo, linesLen: lines.length });
+                    dwarn(DEBUG.tips, "[custom][parse] Fel blocklängd:", { blockNo, linesLen: lines.length });
                     return {
                         ok: false,
                         error: `Block ${blockNo}: fel antal rader (${lines.length}). Förväntar 14 lagrader, eller 15 rader (namnrad + 14 lagrader).`
@@ -2388,7 +2447,7 @@ Lag 14</pre>
                     const shortTeam = getShortTeamFromInput(canonical);
 
                     if (!shortTeam) {
-                        console.warn("[custom][parse] Okänt lag:", { blockNo, lineNoInBlock: li + 1, inputLine, canonical });
+                        dwarn(DEBUG.tips, "[custom][parse] Okänt lag:", { blockNo, lineNoInBlock: li + 1, inputLine, canonical });
                         return {
                             ok: false,
                             error: `Block ${blockNo}, lagrad ${li + 1}: okänt lag "${inputLine}".`
@@ -2425,7 +2484,7 @@ Lag 14</pre>
             // Antal tips = antal block
             const tipsN = blocks.length;
 
-            console.log("[custom][parse] OK. Antal tipsblock:", tipsN);
+            dlog(DEBUG.tips, "[custom][parse] OK. Antal tipsblock:", tipsN);
             return { ok: true, tipsN, matrix };
         }
 
