@@ -3574,6 +3574,20 @@ Lag 14</pre>
                 throw new Error(`Säsongslag: förväntade 14 SHL-lag men har ${SEASON_TEAM_IDS?.size ?? 0}.`);
             }
 
+            console.log('[games] antal filtrerade matcher:', dataRows.length);
+
+console.log(
+    '[games] team_lif-rader:',
+    dataRows.filter(r =>
+        String(r[iHomeTeamId] || '').trim() === 'team_lif' ||
+        String(r[iAwayTeamId] || '').trim() === 'team_lif'
+    )
+);
+
+console.log(
+    '[standings-cache] finns:',
+    localStorage.getItem(SHL_STANDINGS_CACHE_KEY)
+);
             const teamIds = new Set(SEASON_TEAM_IDS);
 
             // Games får bara referera till lag som ingår i den valda säsongen.
@@ -3588,6 +3602,11 @@ Lag 14</pre>
                     throw new Error(`Matchdata: bortalag "${awayTeamId}" ingår inte i SHL ${MATCH_SEASON_ID}.`);
                 }
             });
+
+
+
+
+
 
             const ALL_TEAM_IDS = Array.from(teamIds).sort((a, b) =>
                 getMatchTeamLongName(a).localeCompare(getMatchTeamLongName(b), 'sv')
