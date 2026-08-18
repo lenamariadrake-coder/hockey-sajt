@@ -1691,6 +1691,8 @@
 title="Till sammanfattningen">📄</a> -->
                 <button id="exportBtn" class="btn btn-icon" aria-label="Spara aktiv vy som bild"
                     title="Spara aktiv vy som bild">📸</button>
+                <button id="refreshGamesBtn" class="btn btn-icon-plain" type="button"
+                    aria-label="Hämta färska matchdata" title="Hämta färska matchdata från games">🔄</button>
 
                 <!-- Tabs i egen grupp => mindre spacing mellan Snitt/Topplista/Tabell och värmekarta/palett -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
@@ -1990,7 +1992,8 @@ Lag 14</pre>
 
         const roundButtons = document.getElementById('roundButtons');   // container för sifferknappar
         // const resetBtn = document.getElementById('resetBtn');       // Återställ
-        const exportBtn = document.getElementById('exportBtn');      // Spara aktiv vy som bild
+        const exportBtn = document.getElementById('exportBtn');
+        const refreshGamesBtn = document.getElementById('refreshGamesBtn'); // Hämta färska matchdata
 
 
 
@@ -5539,6 +5542,50 @@ Lag 14</pre>
 
 
 
+        async function refreshGamesOnly() {
+            if (!refreshGamesBtn) return;
+
+            const previousTitle = refreshGamesBtn.title;
+            const wantedRound = Number(timelineSlider?.value || 0);
+
+            refreshGamesBtn.disabled = true;
+            refreshGamesBtn.setAttribute('aria-busy', 'true');
+            refreshGamesBtn.title = 'Hämtar färska matchdata…';
+            stopPlayback?.('refresh games');
+
+            try {
+                // Cache-bust bara games-URL:en. Tips, eget tips, färger, filter,
+                // omgång, rankinginställningar och övrigt state lämnas orörda.
+                const freshGamesUrl = TSV_URL + (TSV_URL.includes('?') ? '&' : '?') + '_=' + Date.now();
+                await loadAndPrepareStandingsFromTSV(freshGamesUrl);
+                writeShlStandingsCache();
+
+                const maxRound = Number(state.latestRound || 0);
+                if (timelineSlider) {
+                    timelineSlider.max = String(maxRound);
+                    timelineSlider.value = String(Math.max(0, Math.min(maxRound, wantedRound)));
+                }
+
+                buildRoundButtons();
+                applyRoundFromSliderValue();
+                loadingDone();
+
+                refreshGamesBtn.title = 'Matchdata uppdaterad';
+                setTimeout(() => {
+                    if (refreshGamesBtn) refreshGamesBtn.title = previousTitle;
+                }, 1800);
+            } catch (error) {
+                console.error('[games][refresh] misslyckades', error);
+                refreshGamesBtn.title = 'Kunde inte uppdatera matchdata';
+                setTimeout(() => {
+                    if (refreshGamesBtn) refreshGamesBtn.title = previousTitle;
+                }, 2500);
+            } finally {
+                refreshGamesBtn.disabled = false;
+                refreshGamesBtn.removeAttribute('aria-busy');
+            }
+        }
+
         /* ===========================================================
            10) Init
            =========================================================== */
@@ -5560,6 +5607,10 @@ Lag 14</pre>
 
             // Steg 4: UI-skal för "Anpassa"
             bindRankCustomizePanelUI();
+
+            refreshGamesBtn?.addEventListener('click', () => {
+                refreshGamesOnly();
+            });
 
 
             try {

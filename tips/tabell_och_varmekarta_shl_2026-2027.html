@@ -1437,6 +1437,8 @@
         title="Till sammanfattningen">📄</a> -->
                 <button id="exportBtn" class="btn btn-icon" aria-label="Spara aktiv vy som bild"
                     title="Spara aktiv vy som bild">📸</button>
+                <button id="refreshGamesBtn" class="btn btn-icon-plain" type="button"
+                    aria-label="Hämta färska matchdata" title="Hämta färska matchdata från games">🔄</button>
 
                 <!-- Tabs i egen grupp => jämn spacing mellan Snitt/Topplista/Tabell/Värmekarta -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
@@ -1772,7 +1774,8 @@ Lag 14</pre>
 
         const roundButtons = document.getElementById('roundButtons');   // container för sifferknappar
         const resetBtn = document.getElementById('resetBtn');       // Återställ
-        const exportBtn = document.getElementById('exportBtn');      // Spara aktiv vy som bild
+        const exportBtn = document.getElementById('exportBtn');
+        const refreshGamesBtn = document.getElementById('refreshGamesBtn'); // Hämta färska matchdata
 
         // Sorteringsradio i heatmap: <input name="heatSort" value="placement|tippad">
         const heatSortPlacement = document.querySelector('#heatSort input[name="heatSort"][value="placement"]');
@@ -5080,6 +5083,66 @@ console.log(
 
 
 
+        async function refreshGamesOnly() {
+            if (!refreshGamesBtn) return;
+
+            const previousTitle = refreshGamesBtn.title;
+            const wantedRound = Number(timelineSlider?.value || 0);
+
+            refreshGamesBtn.disabled = true;
+            refreshGamesBtn.setAttribute('aria-busy', 'true');
+            refreshGamesBtn.title = 'Hämtar färska matchdata…';
+            stopPlayback?.('refresh games');
+
+            try {
+                // Om ställningen kom från cache vid sidstart kan matchnamnsregistret vara tomt.
+                // Återanvänd då redan laddad säsongslagdata – ingen extra nätverkshämtning görs.
+                if (MATCH_TEAM_BY_ID.size === 0 && TEAM_BY_ID?.size) {
+                    MATCH_TEAM_BY_ID.clear();
+                    TEAM_BY_ID.forEach((team, teamId) => {
+                        MATCH_TEAM_BY_ID.set(teamId, {
+                            team_id: teamId,
+                            team_name_short: String(team?.team_name_short || '').trim(),
+                            team_name_long: String(team?.team_name_long || '').trim()
+                        });
+                    });
+                }
+
+                // Cache-bust bara games-URL:en. Tips, eget tips, färger, filter,
+                // omgång och övriga inställningar lämnas helt orörda.
+                const freshGamesUrl = TSV_URL + (TSV_URL.includes('?') ? '&' : '?') + '_=' + Date.now();
+                await loadAndPrepareStandingsFromTSV(freshGamesUrl);
+                writeSharedShlStandingsCache();
+
+                const maxRound = Number(state.latestRound || 0);
+                if (timelineSlider) {
+                    timelineSlider.max = String(maxRound);
+                    timelineSlider.value = String(Math.max(0, Math.min(maxRound, wantedRound)));
+                }
+
+                buildRoundButtons();
+                fatalDataError = null;
+                document.getElementById('heatDataError')?.remove();
+                loadingDone();
+                applyRoundFromSliderValue();
+
+                refreshGamesBtn.title = 'Matchdata uppdaterad';
+                setTimeout(() => {
+                    if (refreshGamesBtn) refreshGamesBtn.title = previousTitle;
+                }, 1800);
+            } catch (error) {
+                console.error('[games][refresh] misslyckades', error);
+                showFatalDataError(error);
+                refreshGamesBtn.title = 'Kunde inte uppdatera matchdata';
+                setTimeout(() => {
+                    if (refreshGamesBtn) refreshGamesBtn.title = previousTitle;
+                }, 2500);
+            } finally {
+                refreshGamesBtn.disabled = false;
+                refreshGamesBtn.removeAttribute('aria-busy');
+            }
+        }
+
         /* ===========================================================
            10) Init
            =========================================================== */
@@ -5104,6 +5167,10 @@ console.log(
                 const target = seasonSelect.value;
                 if (!target) return;
                 location.href = target;
+            });
+
+            refreshGamesBtn?.addEventListener('click', () => {
+                refreshGamesOnly();
             });
 
             // ---------------------------------------------------------
