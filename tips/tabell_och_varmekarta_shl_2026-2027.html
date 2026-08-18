@@ -5124,7 +5124,11 @@ console.log(
                 fatalDataError = null;
                 document.getElementById('heatDataError')?.remove();
                 loadingDone();
-                applyRoundFromSliderValue();
+
+                // Matchdatan har byggts om även om användaren står kvar på samma omgång.
+                // Nollställ no-op-skyddet så aktuell tabell/värmekarta verkligen renderas om.
+                state._lastAppliedRoundValue = undefined;
+                applyRoundFromSliderValue('refresh-games');
 
                 refreshGamesBtn.title = 'Matchdata uppdaterad';
                 setTimeout(() => {

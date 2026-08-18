@@ -5568,6 +5568,10 @@ Lag 14</pre>
 
                 buildRoundButtons();
                 applyRoundFromSliderValue();
+
+                // Säkerställ en direkt omrendering från de nybyggda snapshotsen.
+                // Detta är avsiktligt även om vald omgång inte har ändrats.
+                renderTableForRound(state.currentRound);
                 loadingDone();
 
                 refreshGamesBtn.title = 'Matchdata uppdaterad';
