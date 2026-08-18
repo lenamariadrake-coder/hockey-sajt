@@ -24,7 +24,11 @@ html,body{min-height:100%;margin:0;background:var(--bg);color:var(--text);font-f
 .season-select-label{font-size:.9rem;font-weight:600;color:var(--text-muted)}
 .season-select{height:34px;padding:0 2rem 0 .75rem;border:1px solid var(--border);border-radius:999px;background:var(--btn-gray-bg);color:var(--text);font:inherit;font-size:.9rem;font-weight:700;cursor:pointer}
 .season-select:hover{background:var(--btn-gray-hover)}
-.future-league-control,.template-hidden-controls{display:none!important}
+.template-hidden-controls{display:none!important}
+.league-select-wrap{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap}
+.league-select-label{font-size:.9rem;font-weight:600;color:var(--text-muted)}
+.league-select{height:34px;padding:0 2rem 0 .75rem;border:1px solid var(--border);border-radius:999px;background:var(--btn-gray-bg);color:var(--text);font:inherit;font-size:.9rem;font-weight:700;cursor:pointer}
+.league-select:hover{background:var(--btn-gray-hover)}
 
 /* Kontrollområdet ersätter sliderboxen och utnyttjar ytan före tabellen. */
 .intro-controls{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem 2rem;padding:.85rem 1rem;border:1px solid var(--border);border-radius:10px;background:var(--header-bg);margin:0 0 1rem}
@@ -79,7 +83,7 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover
 .status{padding:1rem;border:1px solid var(--border);border-radius:10px;background:var(--header-bg);color:var(--text-muted);font-weight:700;text-align:center}
 
 @media(max-width:900px){.intro-controls{flex-direction:column}.control-groups{justify-content:flex-start}.main-layout{grid-template-columns:1fr}.standings-pane{justify-content:center;padding:0}.cards-toolbar{margin-top:.3rem}}
-@media(max-width:560px){.season-select-label{display:none}.season-select{max-width:122px;padding-left:.65rem}.intro-controls{padding:.75rem}.control-groups{gap:.8rem}.standings-pane{overflow-x:auto;justify-content:flex-start}.cards-grid{display:block}.matchup-card{max-width:none;min-width:0;width:100%;margin-bottom:.75rem}}
+@media(max-width:560px){.season-select-label,.league-select-label{display:none}.season-select,.league-select{max-width:122px;padding-left:.65rem}.intro-controls{padding:.75rem}.control-groups{gap:.8rem}.standings-pane{overflow-x:auto;justify-content:flex-start}.cards-grid{display:block}.matchup-card{max-width:none;min-width:0;width:100%;margin-bottom:.75rem}}
 </style>
 </head>
 <body>
@@ -87,7 +91,10 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover
   <header class="topbar" aria-label="Kontroller">
     <a class="ghost-link" href="../index.html" aria-label="Till startsidan" title="Till startsidan">🏠</a>
 
-    <div class="future-league-control" aria-hidden="true">Liga</div>
+    <div id="leagueSelectWrap" class="league-select-wrap">
+      <span class="league-select-label">Liga</span>
+      <select id="leagueSelect" class="league-select" aria-label="Välj liga"></select>
+    </div>
 
     <div id="seasonSelectWrap" class="season-select-wrap">
       <span class="season-select-label">Säsong</span>
@@ -101,7 +108,7 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover
 
   <section class="intro-controls" aria-label="Visningsval">
     <div class="intro-copy">
-      <strong>Inbördes resultat.</strong> Kortens nivå visar poängskillnaden i de valda inbördes mötena. Grönt/rött markerar när matchup-resultatet går emot ordningen i den tabell som visas.
+      <strong>Inbördes resultat.</strong> Kortens nivå visar poängutfallet i de valda inbördes mötena, alltid ur fokuslagets perspektiv. Grönt/rött markerar när matchup-resultatet går emot ordningen i den tabell som visas.
     </div>
     <div class="control-groups">
       <div class="control-group">
@@ -169,6 +176,7 @@ const state = {
   openTeams: new Set()
 };
 
+const leagueSelect = document.getElementById('leagueSelect');
 const seasonSelect = document.getElementById('seasonSelect');
 const localFile = document.getElementById('localFile');
 const localBadge = document.getElementById('localBadge');
@@ -258,14 +266,15 @@ function selectedMatchupGames(){
   return annotated.filter(g=>allowed.has(g.half));
 }
 
-function matchupDiff(referenceId, opponentId){
+function matchupScore(referenceId, opponentId){
   let ref=0,opp=0;
   selectedMatchupGames().forEach(g=>{
     const same=(g.home_team_id===referenceId&&g.away_team_id===opponentId)||(g.home_team_id===opponentId&&g.away_team_id===referenceId);
     if(!same)return;
-    if(g.home_team_id===referenceId){ref+=g.home_points;opp+=g.away_points}else{ref+=g.away_points;opp+=g.home_points}
+    if(g.home_team_id===referenceId){ref+=g.home_points;opp+=g.away_points}
+    else{ref+=g.away_points;opp+=g.home_points}
   });
-  return ref-opp;
+  return {ref,opp,diff:ref-opp};
 }
 
 function comparisonClass(refId,oppId,diff,rank){
@@ -276,6 +285,7 @@ function comparisonClass(refId,oppId,diff,rank){
 }
 
 function render(){
+  renderLeagueOptions();
   renderSeasonOptions();
   const games=currentGames();
   if(!games.length){tableEl.classList.add('hidden');tableStatus.classList.remove('hidden');tableStatus.textContent='Ingen matchdata för vald liga och säsong.';cardsGrid.innerHTML='<div class="empty-cards">Ingen matchup-data att visa.</div>';return}
@@ -299,26 +309,83 @@ function renderCards(tableRows){
   if(!ordered.length){cardsGrid.innerHTML='<div class="empty-cards">Klicka på + vid ett lag i tabellen, eller välj <strong>Visa alla</strong>.</div>';return}
   cardsGrid.innerHTML='';
   ordered.forEach(ref=>{
-    const opponents=tableRows.filter(r=>r.team_id!==ref.team_id).map(r=>({id:r.team_id,diff:matchupDiff(ref.team_id,r.team_id)}));
-    const levels=new Map(); opponents.forEach(o=>{if(!levels.has(o.diff))levels.set(o.diff,[]);levels.get(o.diff).push(o)});
-    if(!levels.has(0))levels.set(0,[]);
-    const values=[...levels.keys()].sort((a,b)=>b-a);
+    const opponents=tableRows
+      .filter(r=>r.team_id!==ref.team_id)
+      .map(r=>({id:r.team_id,score:matchupScore(ref.team_id,r.team_id)}));
+
+    const levels=new Map();
+    opponents.forEach(o=>{
+      const key=o.score.diff;
+      if(!levels.has(key)) levels.set(key,{score:o.score,teams:[]});
+      levels.get(key).teams.push(o);
+    });
+
+    const selectedGamesPerPair=(state.matchFirst?2:0)+(state.matchSecond?2:0);
+    const totalPointsPerPair=selectedGamesPerPair*3;
+    const neutralPoints=totalPointsPerPair/2;
+    if(!levels.has(0)) levels.set(0,{score:{ref:neutralPoints,opp:neutralPoints,diff:0},teams:[]});
+
+    // Fokuslagets sämsta matchup överst, bästa längst ned:
+    // 0–12 ... 6–6 ... 12–0 när fyra matcher visas.
+    const values=[...levels.keys()].sort((a,b)=>a-b);
     const card=document.createElement('article');card.className='matchup-card';
     const refTeam=tm.get(ref.team_id)||{name:ref.team_id};
     card.innerHTML=`<div class="matchup-card__head"><div class="matchup-card__title">${esc(refTeam.name)}</div><div class="matchup-card__meta">${state.matchFirst&&state.matchSecond?'4 möten':state.matchFirst||state.matchSecond?'2 möten':'0 möten'}</div></div><div class="levels"></div>`;
     const levelsEl=card.querySelector('.levels');
     values.forEach(v=>{
+      const level=levels.get(v);
       const row=document.createElement('div');row.className='level-row';
-      const label=document.createElement('div');label.className='level-label';label.textContent=v>0?`+${v}`:String(v);
-      const chips=document.createElement('div');chips.className='level-teams';
-      if(v===0){const focus=document.createElement('span');focus.className='team-chip focus';focus.textContent=refTeam.name;chips.appendChild(focus);const d=document.createElement('span');d.className='zero-divider';chips.appendChild(d)}
-      (levels.get(v)||[]).sort((a,b)=>(tm.get(a.id)?.abbr||a.id).localeCompare(tm.get(b.id)?.abbr||b.id,'sv')).forEach(o=>{
-        const t=tm.get(o.id)||{abbr:abbrFromId(o.id),name:o.id}; const chip=document.createElement('span');chip.className=`team-chip ${comparisonClass(ref.team_id,o.id,o.diff,rank)}`.trim();chip.textContent=t.abbr||abbrFromId(o.id);chip.title=t.name;chips.appendChild(chip)
-      });
-      row.append(label,chips);levelsEl.appendChild(row);
+
+      const label=document.createElement('div');
+      label.className='level-label';
+      label.textContent=`${level.score.ref}–${level.score.opp}`;
+
+      const chips=document.createElement('div');
+      chips.className='level-teams';
+
+      if(v===0){
+        const focus=document.createElement('span');
+        focus.className='team-chip focus';
+        focus.textContent=refTeam.name;
+        chips.appendChild(focus);
+
+        const d=document.createElement('span');
+        d.className='zero-divider';
+        chips.appendChild(d);
+      }
+
+      level.teams
+        .sort((a,b)=>(tm.get(a.id)?.abbr||a.id).localeCompare(tm.get(b.id)?.abbr||b.id,'sv'))
+        .forEach(o=>{
+          const t=tm.get(o.id)||{abbr:abbrFromId(o.id),name:o.id};
+          const chip=document.createElement('span');
+          chip.className=`team-chip ${comparisonClass(ref.team_id,o.id,o.score.diff,rank)}`.trim();
+          chip.textContent=t.abbr||abbrFromId(o.id);
+          chip.title=`${t.name}: ${o.score.ref}–${o.score.opp}`;
+          chips.appendChild(chip);
+        });
+
+      row.append(label,chips);
+      levelsEl.appendChild(row);
     });
     cardsGrid.appendChild(card);
   });
+}
+
+function renderLeagueOptions(){
+  const leagues=[...new Set(state.data.games.map(g=>g.league).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,'sv'));
+
+  if(!leagues.length){
+    leagueSelect.innerHTML='';
+    return;
+  }
+
+  if(!leagues.includes(state.league)) state.league=leagues[0];
+
+  leagueSelect.innerHTML=leagues
+    .map(l=>`<option value="${esc(l)}" ${l===state.league?'selected':''}>${esc(l)}</option>`)
+    .join('');
 }
 
 function renderSeasonOptions(){
@@ -345,6 +412,11 @@ async function loadLocalFile(file){
   dataStatus.textContent=`Lokal fil: ${file.name}`;render();
 }
 
+leagueSelect.addEventListener('change',()=>{
+  state.league=leagueSelect.value;
+  state.openTeams.clear();
+  render();
+});
 seasonSelect.addEventListener('change',()=>{state.season=seasonSelect.value;state.openTeams.clear();render()});
 matchFirst.addEventListener('change',()=>{state.matchFirst=matchFirst.checked;render()});
 matchSecond.addEventListener('change',()=>{state.matchSecond=matchSecond.checked;render()});
