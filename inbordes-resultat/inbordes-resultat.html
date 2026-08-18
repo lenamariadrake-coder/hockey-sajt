@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inbördes resultat</title>
+<style>
+:root {
+  --bg:#f4f4f9; --card:#fff; --text:#0f172a; --text-muted:#6b7280;
+  --accent:#007C30; --border:#e2e8f0; --row-hover:#f8faff;
+  --header-bg:#f8fafc; --btn-gray-bg:#f7f8fb; --btn-gray-hover:#eef2f7;
+  --win:#dcfce7; --loss:#fee2e2; --level:#f8fafc;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.45}
+.container{width:100%;max-width:1200px;margin:0 auto;background:var(--card);padding:1rem 1rem 2rem;min-height:100vh}
+.hidden{display:none!important}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Översta raden: medvetet bara Hem + Säsong i första utkastet. */
+.topbar{display:flex;align-items:center;gap:14px;min-height:42px;margin-bottom:.8rem}
+.ghost-link{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border:0;border-radius:12px;text-decoration:none;color:var(--text);background:transparent;font-weight:600;font-size:1.15rem}
+.ghost-link:hover{background:rgba(15,23,42,.06)}
+.season-select-wrap{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap}
+.season-select-label{font-size:.9rem;font-weight:600;color:var(--text-muted)}
+.season-select{height:34px;padding:0 2rem 0 .75rem;border:1px solid var(--border);border-radius:999px;background:var(--btn-gray-bg);color:var(--text);font:inherit;font-size:.9rem;font-weight:700;cursor:pointer}
+.season-select:hover{background:var(--btn-gray-hover)}
+.future-league-control,.template-hidden-controls{display:none!important}
+
+/* Kontrollområdet ersätter sliderboxen och utnyttjar ytan före tabellen. */
+.intro-controls{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem 2rem;padding:.85rem 1rem;border:1px solid var(--border);border-radius:10px;background:var(--header-bg);margin:0 0 1rem}
+.intro-copy{max-width:40rem;color:var(--text-muted);font-size:.92rem}
+.intro-copy strong{color:var(--text)}
+.control-groups{display:flex;flex-wrap:wrap;gap:1rem 1.6rem;justify-content:flex-end}
+.control-group{display:flex;flex-direction:column;gap:.35rem;min-width:max-content}
+.control-title{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)}
+.control-options{display:flex;flex-wrap:wrap;gap:.35rem .8rem}
+.control-options label{display:inline-flex;align-items:center;gap:.35rem;white-space:nowrap;font-size:.9rem;font-weight:600}
+.control-options input{margin:0}
+
+.local-box{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin:.1rem 0 .9rem;color:var(--text-muted);font-size:.86rem}
+.local-badge{font-weight:800;color:#92400e;background:#fef3c7;border:1px solid #fde68a;padding:.2rem .5rem;border-radius:999px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.42rem .72rem;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font:inherit;font-weight:700;color:var(--text)}
+.btn:hover{background:var(--btn-gray-hover)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{padding:.3rem .6rem;font-size:.86rem}
+
+/* Två huvudhalvor. Vänster tabell centreras inom sin halva. */
+.main-layout{display:grid;grid-template-columns:minmax(430px,1fr) minmax(0,1fr);gap:1.25rem;align-items:start}
+.standings-pane{min-width:0;display:flex;justify-content:center;padding:0 .65rem}
+.cards-pane{min-width:0}
+.cards-toolbar{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin:0 0 .7rem}
+.cards-toolbar .label{color:var(--text-muted);font-size:.88rem;margin-right:.15rem}
+.cards-grid{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.75rem}
+.empty-cards{width:100%;padding:1.2rem;border:1px dashed var(--border);border-radius:10px;color:var(--text-muted);text-align:center;font-size:.92rem}
+
+/* TABELL – samma grundmått/stil som mallsidan. */
+table{border-collapse:separate;border-spacing:0;width:max-content;margin:0 auto;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff}
+th,td{padding:.6rem .8rem;border-bottom:1px solid var(--border);white-space:nowrap}
+thead th{background:var(--header-bg);font-weight:800;color:var(--text);text-transform:uppercase;font-size:.85rem;letter-spacing:.02em}
+#tableStandings thead th.col-team{text-align:left}
+tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover)}
+.num{text-align:center;font-variant-numeric:tabular-nums}.team-cell{display:flex;align-items:center;gap:.45rem}
+.card-toggle{display:inline-grid;place-items:center;width:24px;height:24px;padding:0;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text-muted);cursor:pointer;font-weight:900;line-height:1}
+.card-toggle:hover{background:var(--btn-gray-hover);color:var(--text)}
+.card-toggle[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* LAGKORT – avsiktligt mindre än tabellen. */
+.matchup-card{flex:1 1 245px;max-width:290px;min-width:230px;border:1px solid var(--border);border-radius:10px;background:#fff;overflow:hidden}
+.matchup-card__head{padding:.55rem .7rem;border-bottom:1px solid var(--border);background:var(--header-bg);display:flex;align-items:baseline;justify-content:space-between;gap:.6rem}
+.matchup-card__title{font-size:.9rem;font-weight:900}.matchup-card__meta{font-size:.72rem;color:var(--text-muted);font-weight:700}
+.levels{padding:.55rem .55rem .65rem;display:flex;flex-direction:column;gap:.22rem}
+.level-row{display:grid;grid-template-columns:30px minmax(0,1fr);gap:.35rem;align-items:center;min-height:25px}
+.level-label{text-align:right;color:var(--text-muted);font-size:.72rem;font-weight:800;font-variant-numeric:tabular-nums}
+.level-teams{display:flex;gap:.28rem;flex-wrap:wrap;align-items:center;min-height:24px}
+.team-chip{display:inline-flex;align-items:center;justify-content:center;min-height:23px;padding:.16rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--level);font-size:.72rem;font-weight:800;white-space:nowrap}
+.team-chip.good{background:var(--win);border-color:#bbf7d0}.team-chip.bad{background:var(--loss);border-color:#fecaca}
+.team-chip.focus{background:#fff;border:2px solid var(--accent);color:var(--text);font-size:.74rem;padding:.12rem .45rem}
+.zero-divider{width:1px;height:18px;background:var(--border);margin:0 .05rem}
+.status{padding:1rem;border:1px solid var(--border);border-radius:10px;background:var(--header-bg);color:var(--text-muted);font-weight:700;text-align:center}
+
+@media(max-width:900px){.intro-controls{flex-direction:column}.control-groups{justify-content:flex-start}.main-layout{grid-template-columns:1fr}.standings-pane{justify-content:center;padding:0}.cards-toolbar{margin-top:.3rem}}
+@media(max-width:560px){.season-select-label{display:none}.season-select{max-width:122px;padding-left:.65rem}.intro-controls{padding:.75rem}.control-groups{gap:.8rem}.standings-pane{overflow-x:auto;justify-content:flex-start}.cards-grid{display:block}.matchup-card{max-width:none;min-width:0;width:100%;margin-bottom:.75rem}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="topbar" aria-label="Kontroller">
+    <a class="ghost-link" href="../index.html" aria-label="Till startsidan" title="Till startsidan">🏠</a>
+
+    <div class="future-league-control" aria-hidden="true">Liga</div>
+
+    <div id="seasonSelectWrap" class="season-select-wrap">
+      <span class="season-select-label">Säsong</span>
+      <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
+        <option value="2025-2026">2025/2026</option>
+      </select>
+    </div>
+
+    <div class="template-hidden-controls" aria-hidden="true">Övriga mallkontroller dolda</div>
+  </header>
+
+  <section class="intro-controls" aria-label="Visningsval">
+    <div class="intro-copy">
+      <strong>Inbördes resultat.</strong> Kortens nivå visar poängskillnaden i de valda inbördes mötena. Grönt/rött markerar när matchup-resultatet går emot ordningen i den tabell som visas.
+    </div>
+    <div class="control-groups">
+      <div class="control-group">
+        <div class="control-title">Matchups</div>
+        <div class="control-options">
+          <label><input id="matchFirst" type="checkbox" checked> Första mötena</label>
+          <label><input id="matchSecond" type="checkbox" checked> Andra mötena</label>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="control-title">Tabell</div>
+        <div class="control-options">
+          <label><input type="radio" name="tableScope" value="all" checked> Hela säsongen</label>
+          <label><input type="radio" name="tableScope" value="first"> Första mötena</label>
+          <label><input type="radio" name="tableScope" value="second"> Andra mötena</label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="localBox" class="local-box">
+    <span id="localBadge" class="local-badge hidden">LOKALT TESTLÄGE</span>
+    <span id="dataStatus">Laddar data…</span>
+    <label class="btn small" for="localFile">Läs lokal JSON</label>
+    <input id="localFile" class="sr-only" type="file" accept="application/json,.json">
+    <button id="useLive" class="btn small hidden" type="button">Återgå till live-data</button>
+  </div>
+
+  <main class="main-layout">
+    <section class="standings-pane" aria-label="Serietabell">
+      <div>
+        <div id="tableStatus" class="status">Laddar tabell…</div>
+        <table id="tableStandings" class="hidden">
+          <thead><tr><th>Plats</th><th class="col-team">Lag</th><th class="num">Matcher</th><th class="num">Poäng</th><th class="num">Målskillnad</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="cards-pane" aria-label="Lagkort">
+      <div class="cards-toolbar">
+        <span class="label">Lagkort</span>
+        <button id="showAll" class="btn small" type="button">Visa alla</button>
+        <button id="hideAll" class="btn small" type="button">Dölj alla</button>
+      </div>
+      <div id="cardsGrid" class="cards-grid">
+        <div class="empty-cards">Klicka på + vid ett lag i tabellen, eller välj <strong>Visa alla</strong>.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const LIVE_GAMES_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv';
+const HARD_CODED_ROUND = 52; // avsiktligt osynligt i UI
+
+const state = {
+  data: { teams: [], games: [] },
+  source: null,
+  league: 'SHL',
+  season: '2025-2026',
+  tableScope: 'all',
+  matchFirst: true,
+  matchSecond: true,
+  openTeams: new Set()
+};
+
+const seasonSelect = document.getElementById('seasonSelect');
+const localFile = document.getElementById('localFile');
+const localBadge = document.getElementById('localBadge');
+const useLive = document.getElementById('useLive');
+const dataStatus = document.getElementById('dataStatus');
+const tableEl = document.getElementById('tableStandings');
+const tableStatus = document.getElementById('tableStatus');
+const cardsGrid = document.getElementById('cardsGrid');
+const matchFirst = document.getElementById('matchFirst');
+const matchSecond = document.getElementById('matchSecond');
+
+function parseTSV(text){
+  const lines=String(text||'').split(/\r?\n/).filter(x=>x.trim());
+  if(!lines.length) return [];
+  const h=lines[0].split('\t').map(x=>x.trim());
+  return lines.slice(1).map(line=>{
+    const c=line.split('\t'); const o={}; h.forEach((k,i)=>o[k]=(c[i]??'').trim()); return o;
+  });
+}
+
+function normalizeData(raw){
+  const rawGames=Array.isArray(raw?.games)?raw.games:[];
+  const games=rawGames.map(g=>({
+    date:String(g.date||''),
+    league:String(g.league||'').trim().toUpperCase(),
+    season_id:String(g.season_id||'').trim(),
+    home_team_id:String(g.home_team_id||'').trim(),
+    away_team_id:String(g.away_team_id||'').trim(),
+    home_team:String(g.home_team||'').trim(),
+    away_team:String(g.away_team||'').trim(),
+    home_goals:num(g.home_goals), away_goals:num(g.away_goals),
+    home_points:num(g.home_points), away_points:num(g.away_points)
+  })).filter(g=>g.date&&g.home_team_id&&g.away_team_id&&g.league&&g.season_id);
+
+  const suppliedTeams=Array.isArray(raw?.teams)?raw.teams:[];
+  const byId=new Map();
+  suppliedTeams.forEach(t=>{
+    const id=String(t.team_id||'').trim(); if(!id)return;
+    byId.set(id,{team_id:id,name:String(t.name||t.team_name_long||t.team_name_short||id).trim(),abbr:String(t.abbr||t.team_name_abbr||'').trim()});
+  });
+  games.forEach(g=>{
+    if(!byId.has(g.home_team_id)) byId.set(g.home_team_id,{team_id:g.home_team_id,name:g.home_team||g.home_team_id,abbr:abbrFromId(g.home_team_id)});
+    if(!byId.has(g.away_team_id)) byId.set(g.away_team_id,{team_id:g.away_team_id,name:g.away_team||g.away_team_id,abbr:abbrFromId(g.away_team_id)});
+  });
+  return {teams:[...byId.values()],games};
+}
+function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
+function abbrFromId(id){return String(id||'').replace(/^team_/,'').toUpperCase()}
+function teamMap(){return new Map(state.data.teams.map(t=>[t.team_id,t]))}
+function currentGames(){return state.data.games.filter(g=>g.league===state.league&&g.season_id===state.season)}
+
+function annotateMeetingHalves(games){
+  const directional=new Map();
+  [...games].sort((a,b)=>a.date.localeCompare(b.date)).forEach(g=>{
+    const key=`${g.home_team_id}|${g.away_team_id}`;
+    if(!directional.has(key)) directional.set(key,[]);
+    directional.get(key).push(g);
+  });
+  const result=[];
+  directional.forEach(list=>list.forEach((g,i)=>result.push({...g,venueIndex:i+1,half:(i===0?'first':i===1?'second':'extra')})));
+  return result;
+}
+
+function gamesForScope(scope){
+  const annotated=annotateMeetingHalves(currentGames());
+  if(scope==='all') return annotated;
+  return annotated.filter(g=>g.half===scope);
+}
+
+function standings(scope){
+  const games=gamesForScope(scope);
+  const ids=new Set(); currentGames().forEach(g=>{ids.add(g.home_team_id);ids.add(g.away_team_id)});
+  const rows=new Map([...ids].map(id=>[id,{team_id:id,g:0,points:0,gf:0,ga:0,gd:0}]));
+  games.forEach(g=>{
+    const h=rows.get(g.home_team_id), a=rows.get(g.away_team_id); if(!h||!a)return;
+    h.g++;a.g++; h.points+=g.home_points;a.points+=g.away_points;
+    h.gf+=g.home_goals;h.ga+=g.away_goals;a.gf+=g.away_goals;a.ga+=g.home_goals;
+  });
+  rows.forEach(r=>r.gd=r.gf-r.ga);
+  const tm=teamMap();
+  return [...rows.values()].sort((a,b)=>b.points-a.points||b.gd-a.gd||b.gf-a.gf||(tm.get(a.team_id)?.name||a.team_id).localeCompare(tm.get(b.team_id)?.name||b.team_id,'sv'));
+}
+
+function selectedMatchupGames(){
+  const annotated=annotateMeetingHalves(currentGames());
+  const allowed=new Set(); if(state.matchFirst)allowed.add('first');if(state.matchSecond)allowed.add('second');
+  return annotated.filter(g=>allowed.has(g.half));
+}
+
+function matchupDiff(referenceId, opponentId){
+  let ref=0,opp=0;
+  selectedMatchupGames().forEach(g=>{
+    const same=(g.home_team_id===referenceId&&g.away_team_id===opponentId)||(g.home_team_id===opponentId&&g.away_team_id===referenceId);
+    if(!same)return;
+    if(g.home_team_id===referenceId){ref+=g.home_points;opp+=g.away_points}else{ref+=g.away_points;opp+=g.home_points}
+  });
+  return ref-opp;
+}
+
+function comparisonClass(refId,oppId,diff,rank){
+  const rr=rank.get(refId), or=rank.get(oppId); if(!rr||!or)return '';
+  if(or<rr && diff>=0) return 'good'; // högre lag men referenslaget håller jämnt/vinner
+  if(or>rr && diff<=0) return 'bad';  // lägre lag men referenslaget håller bara jämnt/förlorar
+  return '';
+}
+
+function render(){
+  renderSeasonOptions();
+  const games=currentGames();
+  if(!games.length){tableEl.classList.add('hidden');tableStatus.classList.remove('hidden');tableStatus.textContent='Ingen matchdata för vald liga och säsong.';cardsGrid.innerHTML='<div class="empty-cards">Ingen matchup-data att visa.</div>';return}
+  tableStatus.classList.add('hidden');tableEl.classList.remove('hidden');
+  const rows=standings(state.tableScope); const tm=teamMap();
+  const tbody=tableEl.querySelector('tbody');tbody.innerHTML='';
+  rows.forEach((r,i)=>{
+    const team=tm.get(r.team_id)||{name:r.team_id};
+    const tr=document.createElement('tr');
+    const isOpen=state.openTeams.has(r.team_id);
+    tr.innerHTML=`<td>${i+1}</td><td><div class="team-cell"><button class="card-toggle" type="button" aria-pressed="${isOpen}" data-team="${esc(r.team_id)}" title="${isOpen?'Dölj':'Visa'} lagkort">${isOpen?'−':'+'}</button><span>${esc(team.name)}</span></div></td><td class="num">${r.g}</td><td class="num">${r.points}</td><td class="num">${r.gd}</td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.card-toggle').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.team;state.openTeams.has(id)?state.openTeams.delete(id):state.openTeams.add(id);render()}));
+  renderCards(rows);
+}
+
+function renderCards(tableRows){
+  const tm=teamMap(); const rank=new Map(tableRows.map((r,i)=>[r.team_id,i+1]));
+  const ordered=tableRows.filter(r=>state.openTeams.has(r.team_id));
+  if(!ordered.length){cardsGrid.innerHTML='<div class="empty-cards">Klicka på + vid ett lag i tabellen, eller välj <strong>Visa alla</strong>.</div>';return}
+  cardsGrid.innerHTML='';
+  ordered.forEach(ref=>{
+    const opponents=tableRows.filter(r=>r.team_id!==ref.team_id).map(r=>({id:r.team_id,diff:matchupDiff(ref.team_id,r.team_id)}));
+    const levels=new Map(); opponents.forEach(o=>{if(!levels.has(o.diff))levels.set(o.diff,[]);levels.get(o.diff).push(o)});
+    if(!levels.has(0))levels.set(0,[]);
+    const values=[...levels.keys()].sort((a,b)=>b-a);
+    const card=document.createElement('article');card.className='matchup-card';
+    const refTeam=tm.get(ref.team_id)||{name:ref.team_id};
+    card.innerHTML=`<div class="matchup-card__head"><div class="matchup-card__title">${esc(refTeam.name)}</div><div class="matchup-card__meta">${state.matchFirst&&state.matchSecond?'4 möten':state.matchFirst||state.matchSecond?'2 möten':'0 möten'}</div></div><div class="levels"></div>`;
+    const levelsEl=card.querySelector('.levels');
+    values.forEach(v=>{
+      const row=document.createElement('div');row.className='level-row';
+      const label=document.createElement('div');label.className='level-label';label.textContent=v>0?`+${v}`:String(v);
+      const chips=document.createElement('div');chips.className='level-teams';
+      if(v===0){const focus=document.createElement('span');focus.className='team-chip focus';focus.textContent=refTeam.name;chips.appendChild(focus);const d=document.createElement('span');d.className='zero-divider';chips.appendChild(d)}
+      (levels.get(v)||[]).sort((a,b)=>(tm.get(a.id)?.abbr||a.id).localeCompare(tm.get(b.id)?.abbr||b.id,'sv')).forEach(o=>{
+        const t=tm.get(o.id)||{abbr:abbrFromId(o.id),name:o.id}; const chip=document.createElement('span');chip.className=`team-chip ${comparisonClass(ref.team_id,o.id,o.diff,rank)}`.trim();chip.textContent=t.abbr||abbrFromId(o.id);chip.title=t.name;chips.appendChild(chip)
+      });
+      row.append(label,chips);levelsEl.appendChild(row);
+    });
+    cardsGrid.appendChild(card);
+  });
+}
+
+function renderSeasonOptions(){
+  const combos=[...new Set(state.data.games.filter(g=>g.league===state.league).map(g=>g.season_id))].sort().reverse();
+  if(!combos.length)return;
+  if(!combos.includes(state.season))state.season=combos[0];
+  seasonSelect.innerHTML=combos.map(s=>`<option value="${esc(s)}" ${s===state.season?'selected':''}>${esc(s.replace('-', '/'))}</option>`).join('');
+}
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+async function loadLive(){
+  dataStatus.textContent='Laddar live-data…';
+  const r=await fetch(LIVE_GAMES_TSV_URL);if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const rows=parseTSV(await r.text());
+  state.data=normalizeData({games:rows}); state.source='live';
+  localBadge.classList.add('hidden');useLive.classList.add('hidden');
+  dataStatus.textContent='Live-data från games'; render();
+}
+
+async function loadLocalFile(file){
+  const raw=JSON.parse(await file.text());state.data=normalizeData(raw);state.source='local';
+  localBadge.classList.remove('hidden');useLive.classList.toggle('hidden',location.protocol==='file:');
+  dataStatus.textContent=`Lokal fil: ${file.name}`;render();
+}
+
+seasonSelect.addEventListener('change',()=>{state.season=seasonSelect.value;state.openTeams.clear();render()});
+matchFirst.addEventListener('change',()=>{state.matchFirst=matchFirst.checked;render()});
+matchSecond.addEventListener('change',()=>{state.matchSecond=matchSecond.checked;render()});
+document.querySelectorAll('input[name="tableScope"]').forEach(r=>r.addEventListener('change',()=>{if(r.checked){state.tableScope=r.value;render()}}));
+document.getElementById('showAll').addEventListener('click',()=>{standings(state.tableScope).forEach(r=>state.openTeams.add(r.team_id));render()});
+document.getElementById('hideAll').addEventListener('click',()=>{state.openTeams.clear();render()});
+localFile.addEventListener('change',()=>{const f=localFile.files?.[0];if(f)loadLocalFile(f).catch(e=>{console.error(e);dataStatus.textContent='Kunde inte läsa JSON-filen.'})});
+useLive.addEventListener('click',()=>loadLive().catch(e=>{console.error(e);dataStatus.textContent='Kunde inte ladda live-data.'}));
+
+(async function init(){
+  // På file:/// försöker sidan medvetet inte fetch:a nätet.
+  if(location.protocol==='file:'){
+    localBadge.classList.remove('hidden');dataStatus.textContent='Välj den lokala JSON-testfilen för att börja.';tableStatus.textContent='Ingen data inläst ännu.';return;
+  }
+  try{await loadLive()}catch(e){console.error(e);dataStatus.textContent='Live-data kunde inte laddas. Du kan läsa in lokal JSON.';tableStatus.textContent='Ingen data inläst.'}
+})();
+</script>
+</body>
+</html>
