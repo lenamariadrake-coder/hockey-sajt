@@ -5561,7 +5561,7 @@ Lag 14</pre>
             const controller = new AbortController();
             const timeoutId = setTimeout(() => {
                 controller.abort(new DOMException('Hämtningen tog för lång tid.', 'TimeoutError'));
-            }, 30000);
+            }, 10000);
 
             refreshGamesBtn.disabled = true;
             refreshGamesBtn.setAttribute('aria-busy', 'true');
