@@ -4115,8 +4115,8 @@ Lag 14</pre>
         let TEAM_ID_BY_LONGNAME = new Map();     // team_name_long -> team_id (för att koppla standings -> team_id)
 
 
-        async function loadAndPrepareStandingsFromTSV(url) {
-            const tsv = await fetch(url).then(r => {
+        async function loadAndPrepareStandingsFromTSV(url, { signal } = {}) {
+            const tsv = await fetch(url, { signal }).then(r => {
                 if (!r.ok) throw new Error(`Matchdata: HTTP ${r.status}`);
                 return r.text();
             });
@@ -5543,13 +5543,29 @@ Lag 14</pre>
 
 
         async function refreshGamesOnly() {
-            if (!refreshGamesBtn) return;
+            if (!refreshGamesBtn || refreshGamesBtn.disabled) return;
 
             const previousTitle = refreshGamesBtn.title;
+            const previousIcon = refreshGamesBtn.textContent;
             const wantedRound = Number(timelineSlider?.value || 0);
+
+            // Spara fungerande ställningsdata. En misslyckad manuell hämtning
+            // får aldrig förstöra det som redan visas.
+            const previousStandings = {
+                snapshots: new Map(STANDING_SNAPSHOTS),
+                roundsAvailable: new Set(state.roundsAvailable || []),
+                latestRound: state.latestRound,
+                allTeamsLong: ALL_TEAMS_LONG.slice()
+            };
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                controller.abort(new DOMException('Hämtningen tog för lång tid.', 'TimeoutError'));
+            }, 30000);
 
             refreshGamesBtn.disabled = true;
             refreshGamesBtn.setAttribute('aria-busy', 'true');
+            refreshGamesBtn.textContent = '⏳';
             refreshGamesBtn.title = 'Hämtar färska matchdata…';
             stopPlayback?.('refresh games');
 
@@ -5557,7 +5573,7 @@ Lag 14</pre>
                 // Cache-bust bara games-URL:en. Tips, eget tips, färger, filter,
                 // omgång, rankinginställningar och övrigt state lämnas orörda.
                 const freshGamesUrl = TSV_URL + (TSV_URL.includes('?') ? '&' : '?') + '_=' + Date.now();
-                await loadAndPrepareStandingsFromTSV(freshGamesUrl);
+                await loadAndPrepareStandingsFromTSV(freshGamesUrl, { signal: controller.signal });
                 writeShlStandingsCache();
 
                 const maxRound = Number(state.latestRound || 0);
@@ -5568,25 +5584,41 @@ Lag 14</pre>
 
                 buildRoundButtons();
                 applyRoundFromSliderValue();
-
-                // Säkerställ en direkt omrendering från de nybyggda snapshotsen.
-                // Detta är avsiktligt även om vald omgång inte har ändrats.
                 renderTableForRound(state.currentRound);
                 loadingDone();
 
                 refreshGamesBtn.title = 'Matchdata uppdaterad';
-                setTimeout(() => {
-                    if (refreshGamesBtn) refreshGamesBtn.title = previousTitle;
-                }, 1800);
             } catch (error) {
-                console.error('[games][refresh] misslyckades', error);
-                refreshGamesBtn.title = 'Kunde inte uppdatera matchdata';
-                setTimeout(() => {
-                    if (refreshGamesBtn) refreshGamesBtn.title = previousTitle;
-                }, 2500);
+                // Återställ exakt den ställning som fungerade före klicket.
+                STANDING_SNAPSHOTS = previousStandings.snapshots;
+                state.roundsAvailable = previousStandings.roundsAvailable;
+                state.latestRound = previousStandings.latestRound;
+                ALL_TEAMS_LONG = previousStandings.allTeamsLong;
+
+                const isTimeout = error?.name === 'TimeoutError' || controller.signal.reason?.name === 'TimeoutError';
+                const isAbort = error?.name === 'AbortError' || controller.signal.aborted;
+                console.warn('[games][refresh] misslyckades – behåller befintlig data', error);
+
+                refreshGamesBtn.title = (isTimeout || isAbort)
+                    ? 'Kunde inte hämta matchdata i tid – befintlig data visas'
+                    : 'Kunde inte hämta matchdata – befintlig data visas';
+
+                // Säkerställ att den gamla tabellen fortfarande är synlig.
+                if (timelineSlider) {
+                    const oldMax = Number(previousStandings.latestRound || 0);
+                    timelineSlider.max = String(oldMax);
+                    timelineSlider.value = String(Math.max(0, Math.min(oldMax, wantedRound)));
+                }
+                renderTableForRound(state.currentRound);
+                loadingDone();
             } finally {
+                clearTimeout(timeoutId);
                 refreshGamesBtn.disabled = false;
                 refreshGamesBtn.removeAttribute('aria-busy');
+                refreshGamesBtn.textContent = previousIcon || '🔄';
+                setTimeout(() => {
+                    if (refreshGamesBtn && !refreshGamesBtn.disabled) refreshGamesBtn.title = previousTitle;
+                }, 2500);
             }
         }
 
