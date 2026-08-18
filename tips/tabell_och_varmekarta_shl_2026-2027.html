@@ -1910,6 +1910,8 @@ Lag 14</pre>
         const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2026_2027.v1';
         const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2026_2027.v1";
         const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2026_2027";
+        const SHL_STANDINGS_CACHE_KEY = "SHL_STANDINGS_DATA_2026_2027";
+        const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
 
 
         // TSV-källor för SHL-tipset (Google Sheets → public TSV)
@@ -3889,21 +3891,24 @@ Lag 14</pre>
             return m;
         }
 
-        function readSharedShlTipsCache() {
+        function isShlCacheFresh(payload) {
+            const savedAtMs = Date.parse(payload?.savedAt || '');
+            return Number.isFinite(savedAtMs) && (Date.now() - savedAtMs) >= 0 && (Date.now() - savedAtMs) < SHL_CACHE_MAX_AGE_MS;
+        }
+
+        function readSharedShlTipsCache({ allowStale = false } = {}) {
             try {
                 const raw = localStorage.getItem(SHL_TIPS_CACHE_KEY);
                 if (!raw) return null;
 
                 const parsed = JSON.parse(raw);
                 if (!parsed || typeof parsed !== "object") return null;
-
-                // Cache från annan säsong/äldre format får aldrig användas.
-                if (parsed.version !== 2 || parsed.season !== "2026_2027") return null;
+                if (parsed.version !== 2 || parsed.season !== "2026_2027" || parsed.league !== "shl") return null;
 
                 const hasMatrices = !!(parsed.TIPS_MATRIX_HOBBY && parsed.TIPS_MATRIX_EXPERT);
                 const hasTeams = !!(parsed.TEAM_BY_ID && parsed.TEAM_ID_BY_LONGNAME);
-
                 if (!hasMatrices || !hasTeams) return null;
+                if (!allowStale && !isShlCacheFresh(parsed)) return null;
 
                 return parsed;
             } catch (e) {
@@ -3915,150 +3920,161 @@ Lag 14</pre>
         function writeSharedShlTipsCache(payload) {
             try {
                 localStorage.setItem(SHL_TIPS_CACHE_KEY, JSON.stringify(payload));
-                console.log("[shl][cache] WROTE ->", SHL_TIPS_CACHE_KEY, {
-                    version: payload?.version,
-                    savedAt: payload?.savedAt,
-                    hasMatrices: !!(payload?.TIPS_MATRIX_HOBBY && payload?.TIPS_MATRIX_EXPERT),
-                    teamCount: payload?.TEAM_BY_ID ? Object.keys(payload.TEAM_BY_ID).length : null,
-                    tipperCount: payload?.TIPPER_BY_ID ? Object.keys(payload.TIPPER_BY_ID).length : null
-                });
+                console.log("[shl][cache] WROTE ->", SHL_TIPS_CACHE_KEY, { savedAt: payload?.savedAt });
             } catch (e) {
                 console.warn("[shl][cache] kunde inte skriva", SHL_TIPS_CACHE_KEY, e);
             }
         }
 
         function hydrateFromSharedCache(payload) {
-            // TEAM_BY_ID
             TEAM_BY_ID.clear();
             objToMap(payload.TEAM_BY_ID).forEach((v, k) => TEAM_BY_ID.set(k, v));
             rebuildTeamNameIndexes();
             SEASON_TEAM_IDS = new Set(TEAM_BY_ID.keys());
 
-            // TIPPER_BY_ID (om appen har detta globalt; om inte, kommentera bort de tre raderna)
-            if (typeof TIPPER_BY_ID !== "undefined" && TIPPER_BY_ID && TIPPER_BY_ID.clear) {
+            if (typeof TIPPER_BY_ID !== "undefined" && TIPPER_BY_ID?.clear) {
                 TIPPER_BY_ID.clear();
                 objToMap(payload.TIPPER_BY_ID).forEach((v, k) => TIPPER_BY_ID.set(k, v));
             }
-
-            // TIPS_BY_TIPPER (om appen har dessa globalt; om inte, kommentera bort blocket)
-            if (typeof TIPS_BY_TIPPER_HOBBY !== "undefined" && TIPS_BY_TIPPER_HOBBY && TIPS_BY_TIPPER_HOBBY.clear) {
+            if (typeof TIPS_BY_TIPPER_HOBBY !== "undefined" && TIPS_BY_TIPPER_HOBBY?.clear) {
                 TIPS_BY_TIPPER_HOBBY.clear();
                 tipsByTipperObjToMap(payload.TIPS_BY_TIPPER_HOBBY).forEach((v, k) => TIPS_BY_TIPPER_HOBBY.set(k, v));
             }
-            if (typeof TIPS_BY_TIPPER_EXPERT !== "undefined" && TIPS_BY_TIPPER_EXPERT && TIPS_BY_TIPPER_EXPERT.clear) {
+            if (typeof TIPS_BY_TIPPER_EXPERT !== "undefined" && TIPS_BY_TIPPER_EXPERT?.clear) {
                 TIPS_BY_TIPPER_EXPERT.clear();
                 tipsByTipperObjToMap(payload.TIPS_BY_TIPPER_EXPERT).forEach((v, k) => TIPS_BY_TIPPER_EXPERT.set(k, v));
             }
 
-            // Matriser (det som denna app faktiskt behöver)
             window.TIPS_MATRIX_HOBBY = payload.TIPS_MATRIX_HOBBY;
             window.TIPS_MATRIX_EXPERT = payload.TIPS_MATRIX_EXPERT;
+            console.log("[shl][cache] tips HIT", { savedAt: payload.savedAt, fresh: isShlCacheFresh(payload) });
+        }
 
-            console.log("[shl][cache] HIT -> hydraterade från", SHL_TIPS_CACHE_KEY, {
-                savedAt: payload.savedAt,
-                teams: TEAM_BY_ID.size,
-                hobbyTeams: Object.keys(window.TIPS_MATRIX_HOBBY || {}).length,
-                expertTeams: Object.keys(window.TIPS_MATRIX_EXPERT || {}).length,
-                hasTeamIdByLongname: !!payload.TEAM_ID_BY_LONGNAME
+        async function refreshTipsFromSheets() {
+            await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
+            await loadClassicTipsFromTSV(TIPS_SHL_TSV_URL);
+
+            window.TIPS_MATRIX_HOBBY = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_HOBBY);
+            window.TIPS_MATRIX_EXPERT = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_EXPERT);
+
+            writeSharedShlTipsCache({
+                version: 2,
+                savedAt: new Date().toISOString(),
+                season: "2026_2027",
+                league: "shl",
+                TIPS_MATRIX_HOBBY: window.TIPS_MATRIX_HOBBY,
+                TIPS_MATRIX_EXPERT: window.TIPS_MATRIX_EXPERT,
+                TEAM_BY_ID: mapToObj(TEAM_BY_ID),
+                TEAM_ID_BY_LONGNAME: (() => {
+                    const o = {};
+                    TEAM_BY_ID.forEach((team, teamId) => {
+                        const longName = team?.team_name_long;
+                        if (longName) o[longName] = teamId;
+                    });
+                    return o;
+                })(),
+                TIPPER_BY_ID: mapToObj(TIPPER_BY_ID),
+                TIPS_BY_TIPPER_HOBBY: tipsByTipperMapToObj(TIPS_BY_TIPPER_HOBBY),
+                TIPS_BY_TIPPER_EXPERT: tipsByTipperMapToObj(TIPS_BY_TIPPER_EXPERT)
             });
         }
 
-
-
         async function loadTipsMatricesFromSheets() {
-            console.log("[TIPS] START loadTipsMatricesFromSheets");
+            const fresh = readSharedShlTipsCache();
+            if (fresh) {
+                hydrateFromSharedCache(fresh);
+                return { source: 'cache', fresh: true };
+            }
 
-            // NÄTVERK FÖRST:
-            // Tipsen är levande data. Varje sidladdning försöker därför läsa den
-            // publicerade TSV:n på nytt, så att godkända/indragna tips syns direkt.
-            // Cachen används bara som reserv om Google Sheets tillfälligt inte går att nå.
-            const cached = readSharedShlTipsCache();
-
+            const stale = readSharedShlTipsCache({ allowStale: true });
             try {
-                console.log("[TIPS] nätverk först – läser Google Sheets");
-
-                console.log("[TIPS] >>> loadTeamsFromTSV START", TEAMS_SHL_TSV_URL);
-                await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
-                console.log("[TIPS] <<< loadTeamsFromTSV KLAR", {
-                    teams: TEAM_BY_ID.size,
-                    teamIds: Array.from(TEAM_BY_ID.keys())
-                });
-
-                console.log("[TIPS] >>> loadClassicTipsFromTSV START", TIPS_SHL_TSV_URL);
-                await loadClassicTipsFromTSV(TIPS_SHL_TSV_URL);
-                console.log("[TIPS] <<< loadClassicTipsFromTSV KLAR", {
-                    hobbyTippers: TIPS_BY_TIPPER_HOBBY.size,
-                    expertTippers: TIPS_BY_TIPPER_EXPERT.size
-                });
-
-                console.log("[TIPS] >>> bygger matriser");
-
-                // 0 classic-tips är ett giltigt läge: dessa funktioner bygger då
-                // fullständiga 14x14-nollmatriser i stället för att behandla det som fel.
-                const hobbyMatrix = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_HOBBY);
-                const expertMatrix = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_EXPERT);
-
-                window.TIPS_MATRIX_HOBBY = hobbyMatrix;
-                window.TIPS_MATRIX_EXPERT = expertMatrix;
-
-                console.log("[TIPS] <<< matriser KLARA", {
-                    hobbyTeams: Object.keys(hobbyMatrix || {}).length,
-                    expertTeams: Object.keys(expertMatrix || {}).length,
-                    hobbyTippers: TIPS_BY_TIPPER_HOBBY.size,
-                    expertTippers: TIPS_BY_TIPPER_EXPERT.size
-                });
-
-                dlog(DEBUG.tsv, "[tips][TSV] Sheets -> matrices OK", {
-                    hobbyTeams: Object.keys(window.TIPS_MATRIX_HOBBY || {}).length,
-                    expertTeams: Object.keys(window.TIPS_MATRIX_EXPERT || {}).length
-                });
-
-                // Skriv en färsk cache som reserv för framtida nätverksfel.
-                const payload = {
-                    version: 2,
-                    savedAt: new Date().toISOString(),
-                    season: "2026_2027",
-                    league: "shl",
-
-                    TIPS_MATRIX_HOBBY: window.TIPS_MATRIX_HOBBY,
-                    TIPS_MATRIX_EXPERT: window.TIPS_MATRIX_EXPERT,
-
-                    TEAM_BY_ID: mapToObj(TEAM_BY_ID),
-                    TEAM_ID_BY_LONGNAME: (() => {
-                        const o = {};
-                        TEAM_BY_ID.forEach((team, teamId) => {
-                            const longName = team?.team_name_long;
-                            if (longName) o[longName] = teamId;
-                        });
-                        return o;
-                    })(),
-
-                    TIPPER_BY_ID: mapToObj(TIPPER_BY_ID),
-                    TIPS_BY_TIPPER_HOBBY: tipsByTipperMapToObj(TIPS_BY_TIPPER_HOBBY),
-                    TIPS_BY_TIPPER_EXPERT: tipsByTipperMapToObj(TIPS_BY_TIPPER_EXPERT),
-                };
-
-                writeSharedShlTipsCache(payload);
-                console.log("[TIPS] nätverksdata KLAR + cache uppdaterad");
-                return;
-
+                console.log("[TIPS] cache miss/expired -> läser Google Sheets");
+                await refreshTipsFromSheets();
+                return { source: 'network', fresh: true };
             } catch (networkError) {
-                // Google Sheets nere / nätverksfel: använd senast fungerande cache.
-                console.warn("[TIPS] nätverksläsning misslyckades", networkError);
-
-                if (cached) {
-                    console.warn("[TIPS] använder senast fungerande cache som reserv", {
-                        savedAt: cached.savedAt
-                    });
-                    hydrateFromSharedCache(cached);
-                    return;
+                if (stale) {
+                    console.warn("[TIPS] nätverksfel -> använder utgången cache som reserv", networkError);
+                    hydrateFromSharedCache(stale);
+                    return { source: 'stale-cache', fresh: false };
                 }
-
-                // Ingen nätverksdata och ingen cache = riktigt datafel.
-                console.error("[TIPS] FEL: varken nätverk eller cache kunde ge tipsdata", networkError);
                 window.TIPS_MATRIX_HOBBY = null;
                 window.TIPS_MATRIX_EXPERT = null;
                 throw networkError;
+            }
+        }
+
+        function snapshotsMapToObject(map) {
+            const out = {};
+            map.forEach((rows, round) => { out[String(round)] = rows; });
+            return out;
+        }
+
+        function snapshotsObjectToMap(obj) {
+            const map = new Map();
+            if (!obj || typeof obj !== 'object') return map;
+            Object.entries(obj).forEach(([round, rows]) => map.set(Number(round), Array.isArray(rows) ? rows : []));
+            return map;
+        }
+
+        function readSharedShlStandingsCache({ allowStale = false } = {}) {
+            try {
+                const raw = localStorage.getItem(SHL_STANDINGS_CACHE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || parsed.version !== 1 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
+                if (!parsed.snapshots || !Array.isArray(parsed.roundsAvailable)) return null;
+                if (!allowStale && !isShlCacheFresh(parsed)) return null;
+                return parsed;
+            } catch (e) {
+                console.warn('[shl][standings-cache] kunde inte läsa', e);
+                return null;
+            }
+        }
+
+        function hydrateStandingsFromSharedCache(payload) {
+            STANDING_SNAPSHOTS = snapshotsObjectToMap(payload.snapshots);
+            state.roundsAvailable = new Set((payload.roundsAvailable || []).map(Number));
+            state.latestRound = Number.isFinite(Number(payload.latestRound)) ? Number(payload.latestRound) : 0;
+            ALL_TEAMS_LONG = Array.isArray(payload.allTeamsLong) ? payload.allTeamsLong.slice() : [];
+            console.log('[shl][standings-cache] HIT', { savedAt: payload.savedAt, latestRound: state.latestRound });
+        }
+
+        function writeSharedShlStandingsCache() {
+            const payload = {
+                version: 1,
+                savedAt: new Date().toISOString(),
+                season: '2026_2027',
+                league: 'shl',
+                latestRound: state.latestRound ?? 0,
+                roundsAvailable: Array.from(state.roundsAvailable || []),
+                allTeamsLong: ALL_TEAMS_LONG.slice(),
+                snapshots: snapshotsMapToObject(STANDING_SNAPSHOTS)
+            };
+            try { localStorage.setItem(SHL_STANDINGS_CACHE_KEY, JSON.stringify(payload)); }
+            catch (e) { console.warn('[shl][standings-cache] kunde inte skriva', e); }
+            return payload;
+        }
+
+        async function loadStandingsCacheFirst() {
+            const fresh = readSharedShlStandingsCache();
+            if (fresh) {
+                hydrateStandingsFromSharedCache(fresh);
+                return { source: 'cache', fresh: true };
+            }
+
+            const stale = readSharedShlStandingsCache({ allowStale: true });
+            try {
+                await loadMatchTeamsFromTSV(MATCH_TEAMS_TSV_URL);
+                await loadAndPrepareStandingsFromTSV(TSV_URL);
+                writeSharedShlStandingsCache();
+                return { source: 'network', fresh: true };
+            } catch (err) {
+                if (stale) {
+                    console.warn('[shl][standings-cache] nätverksfel -> använder utgången cache som reserv', err);
+                    hydrateStandingsFromSharedCache(stale);
+                    return { source: 'stale-cache', fresh: false };
+                }
+                throw err;
             }
         }
 
@@ -5086,15 +5102,9 @@ Lag 14</pre>
                     throw new Error('Tipsdata: matriser saknas efter inläsning.');
                 }
 
-                console.log("[INIT] >>> match teams", MATCH_TEAMS_TSV_URL);
-                await loadMatchTeamsFromTSV(MATCH_TEAMS_TSV_URL);
-                console.log("[INIT] <<< match teams KLART", {
-                    teams: MATCH_TEAM_BY_ID.size
-                });
-
-                console.log("[INIT] >>> games/ställning", TSV_URL);
-                await loadAndPrepareStandingsFromTSV(TSV_URL);
-                console.log("[INIT] <<< games/ställning KLART", {
+                console.log("[INIT] >>> ställning (cache-first)");
+                await loadStandingsCacheFirst();
+                console.log("[INIT] <<< ställning KLART", {
                     snapshots: STANDING_SNAPSHOTS.size,
                     latestRound: state.latestRound
                 });
@@ -5436,34 +5446,30 @@ Lag 14</pre>
         else init();
 
         // ------------------------------------------------------------
-        // Storage-lyssnare (passiv): reagerar bara om annan flik skriver
-        // SHL_TIPS_DATA_2026_2027 och denna flik saknar data
+        // Delad cache-synk mellan redan öppna systerflikar.
+        // Ny färsk data hydreras direkt och aktiv vy renderas om.
         // ------------------------------------------------------------
         window.addEventListener("storage", (e) => {
-            if (e.key !== SHL_TIPS_CACHE_KEY) return;
-            if (!e.newValue) return;
-
-            // Har vi redan data? Stör inte.
-            if (window.TIPS_MATRIX_HOBBY && window.TIPS_MATRIX_EXPERT) {
-                console.log("[shl][storage] cache uppdaterad i annan flik – ignoreras (data finns redan)");
-                return;
-            }
-
             try {
-                const parsed = JSON.parse(e.newValue);
+                if (e.key === SHL_TIPS_CACHE_KEY && e.newValue) {
+                    const cache = readSharedShlTipsCache();
+                    if (!cache) return;
+                    hydrateFromSharedCache(cache);
+                    if (state.activeView === 'table') renderTableForRound(state.currentRound);
+                    else if (state.currentRound === null) renderHeatmapForRound(null, 'tippad');
+                    else renderHeatmapForRound(state.currentRound, state.heatSortMode);
+                    return;
+                }
 
-                if (parsed?.TIPS_MATRIX_HOBBY && parsed?.TIPS_MATRIX_EXPERT) {
-                    console.log("[shl][storage] cache dök upp i annan flik – använder den");
-
-                    window.TIPS_MATRIX_HOBBY = parsed.TIPS_MATRIX_HOBBY;
-                    window.TIPS_MATRIX_EXPERT = parsed.TIPS_MATRIX_EXPERT;
-
-                    if (typeof render === "function") {
-                        render();
-                    }
+                if (e.key === SHL_STANDINGS_CACHE_KEY && e.newValue) {
+                    const cache = readSharedShlStandingsCache();
+                    if (!cache) return;
+                    hydrateStandingsFromSharedCache(cache);
+                    if (timelineSlider) timelineSlider.max = String(state.latestRound || 0);
+                    applyRoundFromSliderValue();
                 }
             } catch (err) {
-                console.warn("[shl][storage] kunde inte läsa cache från annan flik", err);
+                console.warn('[shl][storage] kunde inte applicera delad cache', err);
             }
         });
 

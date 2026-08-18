@@ -2029,6 +2029,9 @@ Lag 14</pre>
         // LocalStorage-nycklar. Dessa matchar tabell/värmekarta-sidan för 2026/2027.
         const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
         const RANKCFG_STORAGE_KEY = 'rankcfg_shl_2026_2027';
+        const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2026_2027";
+        const SHL_STANDINGS_CACHE_KEY = "SHL_STANDINGS_DATA_2026_2027";
+        const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
 
         // Säsongens 14 lag.
         const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1243346866&single=true&output=tsv';
@@ -4183,7 +4186,7 @@ Lag 14</pre>
             for (let m=0; m<=minTotalGames; m++) {
                 const arr = ALL_TEAMS_LONG.map(team => {
                     const x = hist.get(team)[m];
-                    return {team,g:x.g,points:x.points,gf:x.gf,ga:x.ga,gd:x.gd};
+                    return {team_id: TEAM_ID_BY_LONGNAME.get(team) || '', team,g:x.g,points:x.points,gf:x.gf,ga:x.ga,gd:x.gd};
                 }).sort(standingsComparator);
                 STANDING_SNAPSHOTS.set(m,arr);
                 if (m>0) state.roundsAvailable.add(m);
@@ -5360,8 +5363,6 @@ Lag 14</pre>
          * Delad tips-cache 2026/2027
          * Samma format som tabell/värmekarta. Nätverk först; cache är reserv.
          *********************************************************/
-        const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2026_2027";
-
         function _mapToObject(map) {
             const obj = {};
             if (!map || typeof map.forEach !== 'function') return obj;
@@ -5374,19 +5375,26 @@ Lag 14</pre>
             Object.keys(obj).forEach(k => m.set(k,obj[k]));
             return m;
         }
-        function readShlTipsCache() {
+        function isShlCacheFresh(payload) {
+            const savedAtMs = Date.parse(payload?.savedAt || '');
+            return Number.isFinite(savedAtMs) && (Date.now() - savedAtMs) >= 0 && (Date.now() - savedAtMs) < SHL_CACHE_MAX_AGE_MS;
+        }
+
+        function readShlTipsCache({ allowStale = false } = {}) {
             try {
                 const raw = localStorage.getItem(SHL_TIPS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
                 if (!data || data.version !== 2 || data.season !== '2026_2027' || data.league !== 'shl') return null;
                 if (!data.TEAM_BY_ID || !data.TIPS_BY_TIPPER_HOBBY || !data.TIPS_BY_TIPPER_EXPERT) return null;
+                if (!allowStale && !isShlCacheFresh(data)) return null;
                 return data;
             } catch (e) {
                 console.warn('[cache] kunde inte läsa', e);
                 return null;
             }
         }
+
         function hydrateFromShlTipsCache(cache) {
             TEAM_BY_ID = _objectToMap(cache.TEAM_BY_ID);
             TEAM_ID_BY_LONGNAME = _objectToMap(cache.TEAM_ID_BY_LONGNAME);
@@ -5396,7 +5404,9 @@ Lag 14</pre>
             TIPS_MATRIX_HOBBY = cache.TIPS_MATRIX_HOBBY || {};
             TIPS_MATRIX_EXPERT = cache.TIPS_MATRIX_EXPERT || {};
             rebuildTeamNameIndexes();
+            console.log('[cache] tips HIT', { savedAt: cache.savedAt, fresh: isShlCacheFresh(cache) });
         }
+
         function writeShlTipsCache() {
             const payload = {
                 version: 2,
@@ -5414,25 +5424,116 @@ Lag 14</pre>
             localStorage.setItem(SHL_TIPS_CACHE_KEY, JSON.stringify(payload));
             return payload;
         }
-        async function loadTipsDataNetworkFirst() {
-            const cached = readShlTipsCache();
+
+        async function loadTipsDataCacheFirst() {
+            const fresh = readShlTipsCache();
+            if (fresh) {
+                hydrateFromShlTipsCache(fresh);
+                return { source: 'cache', fresh: true };
+            }
+
+            const stale = readShlTipsCache({ allowStale: true });
             try {
                 await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
                 await loadClassicTipsFromTSV(TIPS_SHL_TSV_URL);
                 rebuildStaticTipMatricesFromTSV();
                 writeShlTipsCache();
-                console.log('[cache] nätverk OK -> cache uppdaterad', SHL_TIPS_CACHE_KEY);
+                console.log('[cache] tips miss/expired -> nätverk OK');
+                return { source: 'network', fresh: true };
             } catch (err) {
-                if (!cached) throw err;
-                console.warn('[cache] nätverksfel -> använder delad cache', err);
-                hydrateFromShlTipsCache(cached);
+                if (!stale) throw err;
+                console.warn('[cache] tips nätverksfel -> använder utgången cache som reserv', err);
+                hydrateFromShlTipsCache(stale);
+                return { source: 'stale-cache', fresh: false };
             }
         }
+
+        function snapshotsMapToObject(map) {
+            const out = {};
+            map.forEach((rows, round) => { out[String(round)] = rows; });
+            return out;
+        }
+
+        function snapshotsObjectToMap(obj) {
+            const map = new Map();
+            if (!obj || typeof obj !== 'object') return map;
+            Object.entries(obj).forEach(([round, rows]) => map.set(Number(round), Array.isArray(rows) ? rows : []));
+            return map;
+        }
+
+        function readShlStandingsCache({ allowStale = false } = {}) {
+            try {
+                const raw = localStorage.getItem(SHL_STANDINGS_CACHE_KEY);
+                if (!raw) return null;
+                const data = JSON.parse(raw);
+                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
+                if (!data.snapshots || !Array.isArray(data.roundsAvailable)) return null;
+                if (!allowStale && !isShlCacheFresh(data)) return null;
+                return data;
+            } catch (e) {
+                console.warn('[cache] kunde inte läsa ställningscache', e);
+                return null;
+            }
+        }
+
+        function hydrateFromShlStandingsCache(cache) {
+            STANDING_SNAPSHOTS = snapshotsObjectToMap(cache.snapshots);
+            state.roundsAvailable = new Set((cache.roundsAvailable || []).map(Number));
+            state.latestRound = Number.isFinite(Number(cache.latestRound)) ? Number(cache.latestRound) : 0;
+            ALL_TEAMS_LONG = Array.isArray(cache.allTeamsLong) ? cache.allTeamsLong.slice() : [];
+            console.log('[cache] ställning HIT', { savedAt: cache.savedAt, latestRound: state.latestRound });
+        }
+
+        function writeShlStandingsCache() {
+            const payload = {
+                version: 1,
+                savedAt: new Date().toISOString(),
+                season: '2026_2027',
+                league: 'shl',
+                latestRound: state.latestRound ?? 0,
+                roundsAvailable: Array.from(state.roundsAvailable || []),
+                allTeamsLong: ALL_TEAMS_LONG.slice(),
+                snapshots: snapshotsMapToObject(STANDING_SNAPSHOTS)
+            };
+            localStorage.setItem(SHL_STANDINGS_CACHE_KEY, JSON.stringify(payload));
+            return payload;
+        }
+
+        async function loadStandingsDataCacheFirst() {
+            const fresh = readShlStandingsCache();
+            if (fresh) {
+                hydrateFromShlStandingsCache(fresh);
+                return { source: 'cache', fresh: true };
+            }
+
+            const stale = readShlStandingsCache({ allowStale: true });
+            try {
+                await loadAndPrepareStandingsFromTSV(TSV_URL);
+                writeShlStandingsCache();
+                console.log('[cache] ställning miss/expired -> nätverk OK');
+                return { source: 'network', fresh: true };
+            } catch (err) {
+                if (!stale) throw err;
+                console.warn('[cache] ställning nätverksfel -> använder utgången cache som reserv', err);
+                hydrateFromShlStandingsCache(stale);
+                return { source: 'stale-cache', fresh: false };
+            }
+        }
+
         function onShlTipsCacheStorageEvent(e) {
             if (!e || e.key !== SHL_TIPS_CACHE_KEY || !e.newValue) return;
             const cache = readShlTipsCache();
             if (!cache) return;
             hydrateFromShlTipsCache(cache);
+            renderTableForRound(state.currentRound);
+        }
+
+        function onShlStandingsCacheStorageEvent(e) {
+            if (!e || e.key !== SHL_STANDINGS_CACHE_KEY || !e.newValue) return;
+            const cache = readShlStandingsCache();
+            if (!cache) return;
+            hydrateFromShlStandingsCache(cache);
+            if (timelineSlider) timelineSlider.max = String(state.latestRound || 0);
             renderTableForRound(state.currentRound);
         }
 
@@ -5462,12 +5563,12 @@ Lag 14</pre>
 
 
             try {
-                // 1/4: Tipsdata – gemensam 2026/2027-källa, nätverk först med delad cache som reserv.
-                await loadTipsDataNetworkFirst();
+                // 1/4: Tipsdata – gemensam 2026/2027-cache, giltig i en timme och cache-first.
+                await loadTipsDataCacheFirst();
                 loadingAdvance("Tipsdata klar");
 
                 // 2/4: Ställning (nu finns TEAM_ID_BY_LONGNAME på plats)
-                await loadAndPrepareStandingsFromTSV(TSV_URL);
+                await loadStandingsDataCacheFirst();
                 loadingAdvance("Ställning laddad");
 
                 if (timelineSlider && Number.isFinite(state.latestRound)) {
@@ -5565,6 +5666,7 @@ Lag 14</pre>
                     // console.log("[storage] event", e.key);
 
                     if (typeof onShlTipsCacheStorageEvent === "function") onShlTipsCacheStorageEvent(e);
+                    if (typeof onShlStandingsCacheStorageEvent === "function") onShlStandingsCacheStorageEvent(e);
                     if (typeof onCustomStorageEvent === "function") onCustomStorageEvent(e);
                     if (typeof onTipsSourcesStorageEvent === "function") onTipsSourcesStorageEvent(e);
                     if (typeof onRoundStorageEvent === "function") onRoundStorageEvent(e);
