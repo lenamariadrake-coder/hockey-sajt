@@ -682,6 +682,9 @@
                     title="Spara aktiv vy som bild">
                     📸
                 </button>
+
+                <button id="refreshTipsBtn" class="btn btn-icon" type="button"
+                    aria-label="Hämta färska tipsdata" title="Hämta färska tipsdata">🔄</button>
             </div>
 
             <div class="nav-right tabs" aria-label="Vyval">
@@ -838,6 +841,7 @@ Lag 14</pre>
                 title: document.getElementById('page-title'),
                 tbody: document.getElementById('summary-tbody'),
                 exportBtn: document.getElementById('exportBtn'),
+                refreshTipsBtn: document.getElementById('refreshTipsBtn'),
                 exportArea: document.getElementById('summary-export-area'),
                 addCustomBtn: document.getElementById('btn-add-custom'),
                 editCustomBtn: document.getElementById('btn-edit-custom'),
@@ -1390,6 +1394,29 @@ Lag 14</pre>
                 });
 
                 els.exportBtn.addEventListener('click', exportTableAsImage);
+
+                els.refreshTipsBtn?.addEventListener('click', async () => {
+                    if (els.refreshTipsBtn.disabled) return;
+
+                    const oldTitle = els.refreshTipsBtn.title;
+                    els.refreshTipsBtn.disabled = true;
+                    els.refreshTipsBtn.title = 'Uppdaterar tipsdata…';
+                    els.refreshTipsBtn.setAttribute('aria-label', 'Uppdaterar tipsdata');
+
+                    try {
+                        await refreshTipsFromSheets();
+                        hideLoadError();
+                        loadCustom({ fillTextarea: false });
+                        render();
+                    } catch (err) {
+                        console.error('[snitt][refresh]', err);
+                        showLoadError('Tipsdata kunde inte uppdateras. Den senast inlästa datan ligger kvar.');
+                    } finally {
+                        els.refreshTipsBtn.disabled = false;
+                        els.refreshTipsBtn.title = oldTitle || 'Hämta färska tipsdata';
+                        els.refreshTipsBtn.setAttribute('aria-label', 'Hämta färska tipsdata');
+                    }
+                });
                 els.addCustomBtn.addEventListener('click', () => toggleCustomPanel(true, 'add'));
                 els.editCustomBtn.addEventListener('click', () => toggleCustomPanel(true, 'edit'));
                 els.cancelCustomBtn.addEventListener('click', () => toggleCustomPanel(false, 'cancel'));
