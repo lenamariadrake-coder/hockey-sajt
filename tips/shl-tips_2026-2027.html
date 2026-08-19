@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="sv">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SHL-tips – snitt på tipsen</title>
+
+    <style>
+        :root {
+            --border: #e6e8ee;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --bg: #ffffff;
+
+            --colTop: #e9f9ee;
+            --colBottom: #fdecee;
+            --headerBg: #f7f8fb;
+
+            --link: #0b63ce;
+            --danger: #b91c1c;
+            /* --ok: #065f46; */
+            --ok: #007c30;
+
+            /* grå yta runt “kortet” */
+            --outer-bg: #f4f4f9;
+            /* själva “kortet” */
+            --page-card: #ffffff;
+
+            --btn-gray-bg: #f7f8fb;
+            --btn-gray-hover: #eef2f7;
+            --accent: var(--ok);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            background: var(--outer-bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            line-height: 1.45;
+            padding: 0;
+            /* inga grå “kanter” uppe/nere */
+        }
+
+        /* lite snällare padding på mobil */
+        @media (max-width: 700px) {
+            body {
+                padding: 12px;
+            }
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--page-card);
+            padding: 1rem 1rem 2rem;
+            min-height: 100vh;
+            /* ingen grå yta längst ner på korta sidor */
+        }
+
+        h1 {
+            font-size: 22px;
+            margin: 0 0 8px 0;
+            font-weight: 800;
+        }
+
+        .sub {
+            margin: 0 0 18px 0;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        a {
+            color: var(--link);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .topbar {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin: 14px 0 12px 0;
+        }
+
+        /* =========================================================
+   Laddningsfel-banner (synlig för användaren)
+   ========================================================= */
+        .load-error {
+            margin: 10px 0 14px 0;
+            padding: 10px 12px;
+            border: 1px solid var(--danger);
+            background: #fff5f5;
+            color: var(--danger);
+            border-radius: 10px;
+            font-weight: 800;
+        }
+
+        .filters {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        label {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            user-select: none;
+            font-weight: 600;
+        }
+
+        .mini-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            padding: 8px 10px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: .95rem;
+        }
+
+        .mini-btn:hover {
+            background: #f9fafb;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .btn:hover {
+            background: #f9fafb;
+        }
+
+        .btn:disabled,
+        .mini-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+        /* =========================================================
+     NAV: 🏠 + 📸 + (Snitt/Tabell) BREDVID KAMERAN
+     ========================================================= */
+
+        .nav {
+            display: flex;
+            align-items: center;
+            margin: 0 0 14px 0;
+            flex-wrap: wrap;
+
+            /* NYCKELN: tabs ligger efter kameran, inte längst åt höger */
+            justify-content: flex-start;
+            gap: 14px;
+        }
+
+        .nav-left,
+        .nav-right {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        /* Tabs får wrap:a snyggt om det blir trångt */
+        .nav-right {
+            flex-wrap: wrap;
+            gap: .6rem;
+        }
+
+
+        /* Grund-ghost-link (om du använder på andra ställen) */
+        .ghost-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .35rem .8rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            text-decoration: none;
+            color: var(--text);
+            background: #fff;
+            font-weight: 700;
+        }
+
+        .ghost-link:hover {
+            background: #f9fafb;
+            text-decoration: none;
+        }
+
+        /* Kompakt ikon-variant */
+        .icon-link {
+            width: 42px;
+            height: 42px;
+            justify-content: center;
+            padding: 0;
+        }
+
+        /* Kamera-knappen storlek */
+        .btn.btn-icon {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            justify-content: center;
+            border-radius: 10px;
+        }
+
+        /* HEADER-IKONER I NAV – utan konturer (bara hover-platta) */
+        .nav .ghost-link.icon-link,
+        .nav #exportBtn {
+            width: 42px;
+            height: 42px;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            padding: 0;
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            text-decoration: none;
+
+            border-radius: 12px;
+            /* mjuk hover-yta */
+            line-height: 1;
+            font-size: 1.15rem;
+        }
+
+        .nav #exportBtn {
+            cursor: pointer;
+        }
+
+        .nav .ghost-link.icon-link:hover,
+        .nav #exportBtn:hover {
+            background: rgba(15, 23, 42, 0.06) !important;
+        }
+
+        .nav .ghost-link.icon-link:active,
+        .nav #exportBtn:active {
+            background: rgba(15, 23, 42, 0.10) !important;
+        }
+
+        .nav .ghost-link.icon-link:focus-visible,
+        .nav #exportBtn:focus-visible {
+            outline: 2px solid rgba(15, 23, 42, 0.35);
+            outline-offset: 3px;
+        }
+
+        /* FEJK-TABS (Snitt/Tabell) */
+        .nav .tab-btn {
+            padding: .5rem .9rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--btn-gray-bg);
+            cursor: pointer;
+            font-weight: 700;
+
+            font: inherit;
+            line-height: 1;
+            box-sizing: border-box;
+            white-space: nowrap;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .nav .tab-btn:hover:not([aria-selected="true"]) {
+            background: var(--btn-gray-hover);
+        }
+
+        .nav .tab-btn[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            cursor: default;
+        }
+
+        /* =========================================================
+     TABELL
+     ========================================================= */
+
+        .table-wrap {
+            display: block;
+            width: fit-content;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: max-content;
+            margin: 0 auto;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        th,
+        td {
+            padding: .6rem .8rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        th {
+            background: var(--headerBg);
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: .85rem;
+            letter-spacing: .02em;
+            text-align: right;
+        }
+
+        th.col-team,
+        td.col-team {
+            text-align: left;
+            font-weight: 800;
+        }
+
+        tr:last-child td {
+            border-bottom: 0;
+        }
+
+        th.col-top,
+        td.col-top {
+            background: var(--colTop);
+        }
+
+        th.col-bottom,
+        td.col-bottom {
+            background: var(--colBottom);
+        }
+
+        .exporting a {
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        /* =========================================================
+   14) EGET TIPS (CUSTOM)
+   ========================================================= */
+
+        /* Själva panelen – full bredd, logikstyrd */
+        .custom-panel {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0 14px 0;
+            background: #fff;
+            display: none;
+            /* styrs av JS */
+            width: 100%;
+        }
+
+        .custom-panel.open {
+            display: block;
+        }
+
+        /* ✅ Detta är hela magin: centrerad inner-box */
+        .custom-content-centered {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            /* vänsterjusterat innehåll */
+            margin: 0 auto;
+            /* centrerar boxen */
+            width: 100%;
+            max-width: 600px;
+            /* samma som tippartopplistan */
+        }
+
+        /* Textrutan */
+        #custom-input {
+            width: 100%;
+            height: 280px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.35;
+            resize: vertical;
+            display: block;
+            margin-bottom: 15px;
+        }
+
+        /* Knapprad */
+        .custom-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        /* Meddelanden */
+        .custom-panel .msg {
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .custom-panel .msg.ok {
+            color: #065f46;
+        }
+
+        .custom-panel .msg.err {
+            color: #b91c1c;
+        }
+
+                /* Hjälptext (infällbar) */
+        .custom-help {
+            width: 100%;
+            color: var(--muted);
+            font-size: .95rem;
+            line-height: 1.35;
+            text-align: left;
+        }
+
+        .custom-help summary {
+            cursor: pointer;
+            user-select: none;
+            font-weight: 700;
+        }
+
+        .custom-help[open] summary {
+            margin-bottom: 6px;
+        }
+
+        .custom-help__body p {
+            margin: 6px 0;
+        }
+
+        .custom-help__body ul {
+            margin: 6px 0 10px 18px;
+        }
+
+        .custom-help__ex {
+            margin: 6px 0 10px 0;
+            padding: 8px 10px;
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            background: #fafafa;
+            overflow: auto;
+        }
+
+        /* Växla summary-text */
+        .custom-help .when-open {
+            display: none;
+        }
+
+        .custom-help[open] .when-open {
+            display: inline;
+        }
+
+        .custom-help[open] .when-closed {
+            display: none;
+        }
+
+
+        /* =========================================================
+   Mobil-only: informations-ikoner (tooltips)
+   ========================================================= */
+
+        /* Default: göm tooltips (desktop) */
+        .m-tip {
+            display: none;
+        }
+
+        /* =========================================================
+   MOBIL-TOOLTIPS (details.m-tip) + ikonknappar
+   ========================================================= */
+
+        .m-tip {
+            position: relative;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .m-tip__summary {
+            list-style: none;
+            cursor: pointer;
+            user-select: none;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 34px;
+            height: 34px;
+
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #fff;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .m-tip__summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .m-tip__summary:hover {
+            background: #f9fafb;
+        }
+
+        /* Tooltip-boxen */
+        .m-tip__box {
+            position: absolute;
+            z-index: 50;
+
+            left: 0;
+            top: calc(100% + 8px);
+
+            min-width: 220px;
+            max-width: min(320px, calc(100vw - 24px));
+
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, .12);
+
+            padding: 10px 12px;
+            color: var(--text);
+            font-weight: 600;
+            font-size: .95rem;
+            line-height: 1.35;
+        }
+
+        /* Liten "pil" */
+        .m-tip__box::before {
+            content: "";
+            position: absolute;
+            top: -6px;
+            left: 14px;
+
+            width: 10px;
+            height: 10px;
+
+            background: #fff;
+            border-left: 1px solid var(--border);
+            border-top: 1px solid var(--border);
+            transform: rotate(45deg);
+        }
+
+        /* Ikonknappar: plus/penna (samma look som mini-btn men kompakt) */
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 42px;
+            height: 42px;
+
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+
+            font-size: 1.05rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .icon-btn:hover {
+            background: #f9fafb;
+        }
+
+        .icon-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+
+        /* Mobil: visa info-ikoner tydligare */
+        @media (max-width: 700px) {
+            .m-tip__summary {
+                width: 36px;
+                height: 36px;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .m-tip {
+                display: inline-flex;
+            }
+        }
+
+        /* =========================================================
+   Ikoner utan konturer: ℹ️ och ✏️
+   ========================================================= */
+
+        /* Info-ikon (ℹ️) */
+        .m-tip__summary {
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+
+            width: auto;
+            height: auto;
+            padding: 0 2px;
+
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        /* Hover-yta, subtil */
+        .m-tip__summary:hover {
+            background: rgba(15, 23, 42, 0.06);
+            border-radius: 6px;
+        }
+
+        /* Plus & penna */
+        .icon-btn {
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+
+            width: auto;
+            height: auto;
+            padding: 0 4px;
+
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        /* Samma hover-känsla */
+        .icon-btn:hover {
+            background: rgba(15, 23, 42, 0.06);
+            border-radius: 6px;
+        }
+    </style>
+
+
+    <!-- Enda externa beroendet: behövs för “Spara som bild” -->
+    <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="nav" aria-label="Snabblänkar">
+            <div class="nav-left">
+                <a class="ghost-link icon-link" href="../index.html" aria-label="Till startsidan"
+                    title="Till startsidan">🏠</a>
+
+                <button id="exportBtn" class="btn btn-icon" type="button" aria-label="Spara aktiv vy som bild"
+                    title="Spara aktiv vy som bild">
+                    📸
+                </button>
+            </div>
+
+            <div class="nav-right tabs" aria-label="Vyval">
+                <a class="tab-btn tab-btn-link" href="shl-tips_2026-2027.html" aria-selected="true">Snitt</a>
+                <a class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html">Topplista</a>
+                <a class="tab-btn tab-btn-link" href="tabell_och_varmekarta_shl_2026-2027.html#table">Tabell</a>
+                <a class="tab-btn tab-btn-link" href="tabell_och_varmekarta_shl_2026-2027.html#heat">Värmekarta</a>
+            </div>
+        </div>
+
+        <h1 id="page-title">Snittplacering baserat på 0 tabelltips</h1>
+        <div id="load-error" class="load-error" role="alert" aria-live="polite" hidden></div>
+
+        <p class="sub">
+            <a href="tabell_och_varmekarta_shl_2026-2027.html">Klicka här</a>
+            för att se spridningen som en värmekarta och kolla hur tabellplaceringarna utvecklar sig under säsongen i
+            förhållande till hur folk tippat.
+        </p>
+
+        <div class="topbar">
+            <div class="filters" aria-label="Vilka tips som ska räknas med">
+                <!-- Amatörer -->
+                <label
+                    title="Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen)">
+                    <input type="checkbox" id="cb-hobby" checked>
+                    Amatörer
+                </label>
+
+                <details class="m-tip" data-tip="hobby">
+                    <summary class="m-tip__summary" aria-label="Info: Amatörer" title="Info">ℹ️</summary>
+                    <div class="m-tip__box" role="tooltip">
+                        Amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen).
+                    </div>
+                </details>
+
+                <!-- Experter -->
+                <label
+                    title="Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister offentliggjort sina tips)">
+                    <input type="checkbox" id="cb-expert" checked>
+                    Experter
+                </label>
+
+                <details class="m-tip" data-tip="expert">
+                    <summary class="m-tip__summary" aria-label="Info: Experter" title="Info">ℹ️</summary>
+                    <div class="m-tip__box" role="tooltip">
+                        Experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister
+                        offentliggjort sina tips).
+                    </div>
+                </details>
+
+                <!-- Eget tips -->
+                <label title="Visa/dölj eget tips">
+                    <input type="checkbox" id="cb-custom">
+                    Eget tips
+                </label>
+
+                <details class="m-tip" data-tip="custom">
+                    <summary class="m-tip__summary" aria-label="Info: Eget tips" title="Info">ℹ️</summary>
+                    <div class="m-tip__box" role="tooltip">
+                        Visa/dölj eget tips
+                    </div>
+                </details>
+
+                <!-- Ikoner: + och ✏️ -->
+                <button class="icon-btn" id="btn-add-custom" type="button" aria-label="Lägg till eget tips"
+                    title="Lägg till eget tips">＋</button>
+                <button class="icon-btn" id="btn-edit-custom" type="button" aria-label="Redigera eget tips"
+                    title="Redigera eget tips">✎</button>
+            </div>
+        </div>
+
+        <div class="custom-panel" id="custom-panel" aria-label="Inmatning av eget tips">
+            <div class="custom-content-centered">
+
+                <div class="custom-row">
+                    <button class="mini-btn" id="btn-save-custom" type="button">Spara</button>
+                    <button class="mini-btn" id="btn-clear-custom" type="button">Rensa</button>
+                    <button class="mini-btn" id="btn-cancel-custom" type="button">Avbryt</button>
+                </div>
+
+                <textarea id="custom-input" spellcheck="false" placeholder="Klistra in rader här..."></textarea>
+
+                <div id="custom-msg" class="msg"></div>
+                <details class="hint custom-help">
+                    <summary>
+                        <span class="when-closed">Format-hjälp (klicka för att visa)</span>
+                        <span class="when-open">Format-hjälp (klicka för att dölja)</span>
+                    </summary>
+
+                    <div class="custom-help__body">
+                        <p><strong>Klistra in ett eller flera tips som block.</strong></p>
+                        <ul>
+                            <li>Varje block är antingen <strong>14 rader</strong> (lag i ordning 1–14) eller <strong>15
+                                    rader</strong> (första raden är en valfri rubrik/namnrad).</li>
+                            <li>Lämna <strong>en tom rad</strong> mellan block.</li>
+                            <li>Du får blanda 14- och 15-radersblock i samma inklistring.</li>
+                            <li>Lagnamnen måste totalt bli <strong>alla 14 lagen exakt en gång</strong> per block.</li>
+                        </ul>
+                        <p><strong>Exempel (15 rader):</strong></p>
+                        <pre class="custom-help__ex">Tipparens namn
+Lag 1
+Lag 2
+...
+Lag 14</pre>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div class="table-wrap" id="summary-export-area">
+            <table aria-label="Snittplacering baserat på tabelltips">
+                <thead>
+                    <tr>
+                        <th class="col-team">Lag</th>
+                        <th>Snitt</th>
+                        <th class="col-top">Topp-3</th>
+                        <th class="col-top">Topp-5</th>
+                        <th class="col-bottom">Botten-3</th>
+                        <th class="col-bottom">Botten-5</th>
+                    </tr>
+                </thead>
+                <tbody id="summary-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        (async function () {
+            "use strict";
+
+            // =========================================================
+            // SHL 2026/2027 – gemensam tipsdata + localStorage
+            // Samma cacheformat och nycklar som Tabell/Värmekarta.
+            // =========================================================
+            const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1243346866&single=true&output=tsv';
+            const TIPS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv';
+
+            const SHL_TIPS_CACHE_KEY = 'SHL_TIPS_DATA_2026_2027';
+            const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
+            const LS_TIPS_SOURCES_KEY = 'shlTips.sources.shl_2026_2027.v1';
+            const LS_CUSTOM_TIPS_KEY = 'shlTopplista.customTippers.shl_2026_2027.v1';
+            const LS_CUSTOM_PANEL_OPEN_KEY = 'shlTips.ui.customPanelOpen.shl_2026_2027.v1';
+
+            const CUSTOM_TAB_ID = (() => {
+                try { if (window.crypto?.randomUUID) return window.crypto.randomUUID(); } catch { }
+                return 'tab_' + Math.random().toString(16).slice(2) + '_' + Date.now();
+            })();
+            let suppressPanelStateWrite = false;
+
+            const els = {
+                cbHobby: document.getElementById('cb-hobby'),
+                cbExpert: document.getElementById('cb-expert'),
+                cbCustom: document.getElementById('cb-custom'),
+                title: document.getElementById('page-title'),
+                tbody: document.getElementById('summary-tbody'),
+                exportBtn: document.getElementById('exportBtn'),
+                exportArea: document.getElementById('summary-export-area'),
+                addCustomBtn: document.getElementById('btn-add-custom'),
+                editCustomBtn: document.getElementById('btn-edit-custom'),
+                customPanel: document.getElementById('custom-panel'),
+                customInput: document.getElementById('custom-input'),
+                customMsg: document.getElementById('custom-msg'),
+                saveCustomBtn: document.getElementById('btn-save-custom'),
+                clearCustomBtn: document.getElementById('btn-clear-custom'),
+                cancelCustomBtn: document.getElementById('btn-cancel-custom'),
+                loadError: document.getElementById('load-error')
+            };
+
+            let TEAM_BY_ID = new Map();
+            let SHORT_TEAMS = [];
+            let TIPS_MATRIX_HOBBY = null;
+            let TIPS_MATRIX_EXPERT = null;
+            let TIPS_MATRIX_CUSTOM = null;
+            let TIPS_CUSTOM_TEXT = '';
+
+            function showLoadError(message) {
+                els.loadError.textContent = message;
+                els.loadError.hidden = false;
+            }
+            function hideLoadError() {
+                els.loadError.textContent = '';
+                els.loadError.hidden = true;
+            }
+
+            function parseTSV(text) {
+                return String(text || '')
+                    .split(/\r?\n/)
+                    .filter(line => line.trim().length > 0)
+                    .map(line => line.split('\t').map(cell => cell.trim()));
+            }
+            function idxOf(header, name) {
+                return header.findIndex(h => String(h).toLowerCase() === String(name).toLowerCase());
+            }
+            function isExpertDisplayName(displayName) {
+                return /^SHL-exp\b/i.test(String(displayName || '').trim());
+            }
+            function mapToObject(map) {
+                return Object.fromEntries(map.entries());
+            }
+            function tipsMapToObject(map) {
+                const out = {};
+                map.forEach((rows, id) => { out[id] = rows; });
+                return out;
+            }
+
+            function rebuildTeamIndexes() {
+                const teams = Array.from(TEAM_BY_ID.values());
+                if (teams.length !== 14) throw new Error(`Lagdata: förväntade 14 SHL-lag men fick ${teams.length}.`);
+
+                const seenShort = new Set();
+                SHORT_TEAMS = teams.map(team => {
+                    const shortName = String(team?.team_name_short || '').trim();
+                    const longName = String(team?.team_name_long || '').trim();
+                    if (!shortName || !longName) throw new Error('Lagdata: team_name_short/team_name_long saknas.');
+                    if (seenShort.has(shortName)) throw new Error(`Lagdata: dubblerat kortnamn ${shortName}.`);
+                    seenShort.add(shortName);
+                    return shortName;
+                }).sort((a, b) => a.localeCompare(b, 'sv'));
+            }
+
+            function createEmptyMatrix() {
+                const matrix = {};
+                SHORT_TEAMS.forEach(team => { matrix[team] = Array(14).fill(0); });
+                return matrix;
+            }
+
+            function validateMatrix(matrix) {
+                if (!matrix || typeof matrix !== 'object') return { ok: false, error: 'Matris saknas.' };
+                const keys = Object.keys(matrix);
+                if (keys.length !== SHORT_TEAMS.length) return { ok: false, error: 'Matrisen har fel antal lag.' };
+                for (const team of SHORT_TEAMS) {
+                    const arr = matrix[team];
+                    if (!Array.isArray(arr) || arr.length !== 14) return { ok: false, error: `Fel matrisrad för ${team}.` };
+                    if (arr.some(v => !Number.isInteger(v) || v < 0)) return { ok: false, error: `Ogiltiga matrisvärden för ${team}.` };
+                }
+                return { ok: true };
+            }
+
+            function isCacheFresh(payload) {
+                const ms = Date.parse(payload?.savedAt || '');
+                return Number.isFinite(ms) && (Date.now() - ms) >= 0 && (Date.now() - ms) < SHL_CACHE_MAX_AGE_MS;
+            }
+
+            function readSharedCache({ allowStale = false } = {}) {
+                try {
+                    const raw = localStorage.getItem(SHL_TIPS_CACHE_KEY);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    if (!parsed || parsed.version !== 2 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
+                    if (!parsed.TEAM_BY_ID || !parsed.TIPS_MATRIX_HOBBY || !parsed.TIPS_MATRIX_EXPERT) return null;
+                    if (!allowStale && !isCacheFresh(parsed)) return null;
+                    return parsed;
+                } catch (e) {
+                    console.warn('[snitt][cache] kunde inte läsa cache', e);
+                    return null;
+                }
+            }
+
+            function hydrateFromCache(payload) {
+                TEAM_BY_ID = new Map(Object.entries(payload.TEAM_BY_ID || {}));
+                rebuildTeamIndexes();
+                TIPS_MATRIX_HOBBY = payload.TIPS_MATRIX_HOBBY;
+                TIPS_MATRIX_EXPERT = payload.TIPS_MATRIX_EXPERT;
+                if (!validateMatrix(TIPS_MATRIX_HOBBY).ok || !validateMatrix(TIPS_MATRIX_EXPERT).ok) {
+                    throw new Error('Tipsdata: cache innehåller ogiltiga matriser.');
+                }
+            }
+
+            async function refreshTipsFromSheets() {
+                const [teamsText, tipsText] = await Promise.all([
+                    fetch(TEAMS_SHL_TSV_URL).then(r => {
+                        if (!r.ok) throw new Error(`Lagdata: HTTP ${r.status}`);
+                        return r.text();
+                    }),
+                    fetch(TIPS_SHL_TSV_URL).then(r => {
+                        if (!r.ok) throw new Error(`Tipsdata: HTTP ${r.status}`);
+                        return r.text();
+                    })
+                ]);
+
+                // Lagregister
+                const teamRows = parseTSV(teamsText);
+                if (!teamRows.length) throw new Error('Lagdata: inga rader hittades.');
+                const th = teamRows[0];
+                const iId = idxOf(th, 'team_id');
+                const iAbbr = idxOf(th, 'team_name_abbr');
+                const iShort = idxOf(th, 'team_name_short');
+                const iLong = idxOf(th, 'team_name_long');
+                if ([iId, iShort, iLong].some(i => i === -1)) {
+                    throw new Error('Lagdata: team_id, team_name_short eller team_name_long saknas.');
+                }
+
+                TEAM_BY_ID = new Map();
+                for (const r of teamRows.slice(1)) {
+                    const teamId = String(r[iId] || '').trim();
+                    if (!teamId) throw new Error('Lagdata: tomt team_id.');
+                    TEAM_BY_ID.set(teamId, {
+                        team_id: teamId,
+                        team_name_abbr: iAbbr !== -1 ? String(r[iAbbr] || '').trim() : '',
+                        team_name_short: String(r[iShort] || '').trim(),
+                        team_name_long: String(r[iLong] || '').trim()
+                    });
+                }
+                rebuildTeamIndexes();
+
+                // Publicerad tipsdata: participant_id | display_name | tip_type | team_id | pick_rank | ...
+                const tipsRows = parseTSV(tipsText);
+                if (!tipsRows.length) throw new Error('Tipsdata: inga rader hittades.');
+                const hdr = tipsRows[0];
+                const iParticipant = idxOf(hdr, 'participant_id');
+                const iDisplay = idxOf(hdr, 'display_name');
+                const iType = idxOf(hdr, 'tip_type');
+                const iTeam = idxOf(hdr, 'team_id');
+                const iRank = idxOf(hdr, 'pick_rank');
+                const missing = [
+                    ['participant_id', iParticipant], ['display_name', iDisplay], ['tip_type', iType],
+                    ['team_id', iTeam], ['pick_rank', iRank]
+                ].filter(([, i]) => i === -1).map(([name]) => name);
+                if (missing.length) throw new Error(`Tipsdata: saknar kolumn(er): ${missing.join(', ')}.`);
+
+                const TIPPER_BY_ID = new Map();
+                const TIPS_BY_TIPPER_HOBBY = new Map();
+                const TIPS_BY_TIPPER_EXPERT = new Map();
+
+                for (const r of tipsRows.slice(1)) {
+                    if (String(r[iType] || '').trim().toLowerCase() !== 'classic') continue;
+
+                    const participantId = String(r[iParticipant] || '').trim();
+                    const displayName = String(r[iDisplay] || '').trim();
+                    const teamId = String(r[iTeam] || '').trim();
+                    const pickRank = Number(r[iRank]);
+
+                    if (!participantId || !displayName || !teamId || !Number.isInteger(pickRank)) {
+                        throw new Error('Tipsdata: en classic-rad saknar obligatoriskt värde.');
+                    }
+                    if (!TEAM_BY_ID.has(teamId)) throw new Error(`Tipsdata: okänt team_id "${teamId}".`);
+                    if (pickRank < 1 || pickRank > 14) throw new Error(`Tipsdata: pick_rank ${pickRank} ligger utanför 1–14.`);
+
+                    TIPPER_BY_ID.set(participantId, {
+                        tipper_id: participantId,
+                        tipper_name_short: displayName,
+                        tipper_name_long: displayName
+                    });
+                    const target = isExpertDisplayName(displayName) ? TIPS_BY_TIPPER_EXPERT : TIPS_BY_TIPPER_HOBBY;
+                    if (!target.has(participantId)) target.set(participantId, []);
+                    target.get(participantId).push({ team_id: teamId, pick_rank: pickRank });
+                }
+
+                for (const target of [TIPS_BY_TIPPER_HOBBY, TIPS_BY_TIPPER_EXPERT]) {
+                    target.forEach((rows, participantId) => {
+                        rows.sort((a, b) => a.pick_rank - b.pick_rank);
+                        if (rows.length !== 14) throw new Error(`Tipsdata: ${participantId} har ${rows.length} classic-rader, förväntat 14.`);
+                        const teamIds = new Set(rows.map(x => x.team_id));
+                        const ranks = new Set(rows.map(x => x.pick_rank));
+                        if (teamIds.size !== 14 || ranks.size !== 14) throw new Error(`Tipsdata: ${participantId} har dubbletter/saknade lag eller placeringar.`);
+                    });
+                }
+
+                function buildMatrix(tipsByTipper) {
+                    const matrix = createEmptyMatrix();
+                    tipsByTipper.forEach(rows => {
+                        rows.forEach(({ team_id, pick_rank }) => {
+                            const shortName = TEAM_BY_ID.get(team_id)?.team_name_short;
+                            if (!shortName || !matrix[shortName]) throw new Error(`Tipsdata: kunde inte mappa ${team_id} till kortnamn.`);
+                            matrix[shortName][pick_rank - 1] += 1;
+                        });
+                    });
+                    return matrix;
+                }
+
+                TIPS_MATRIX_HOBBY = buildMatrix(TIPS_BY_TIPPER_HOBBY);
+                TIPS_MATRIX_EXPERT = buildMatrix(TIPS_BY_TIPPER_EXPERT);
+
+                const TEAM_ID_BY_LONGNAME = {};
+                TEAM_BY_ID.forEach((team, id) => {
+                    if (team.team_name_long) TEAM_ID_BY_LONGNAME[team.team_name_long] = id;
+                });
+
+                const payload = {
+                    version: 2,
+                    savedAt: new Date().toISOString(),
+                    season: '2026_2027',
+                    league: 'shl',
+                    TIPS_MATRIX_HOBBY,
+                    TIPS_MATRIX_EXPERT,
+                    TEAM_BY_ID: mapToObject(TEAM_BY_ID),
+                    TEAM_ID_BY_LONGNAME,
+                    TIPPER_BY_ID: mapToObject(TIPPER_BY_ID),
+                    TIPS_BY_TIPPER_HOBBY: tipsMapToObject(TIPS_BY_TIPPER_HOBBY),
+                    TIPS_BY_TIPPER_EXPERT: tipsMapToObject(TIPS_BY_TIPPER_EXPERT)
+                };
+                localStorage.setItem(SHL_TIPS_CACHE_KEY, JSON.stringify(payload));
+            }
+
+            async function loadSharedTips() {
+                const fresh = readSharedCache();
+                if (fresh) {
+                    hydrateFromCache(fresh);
+                    return;
+                }
+                const stale = readSharedCache({ allowStale: true });
+                try {
+                    await refreshTipsFromSheets();
+                } catch (err) {
+                    if (!stale) throw err;
+                    console.warn('[snitt] nätverksfel – använder utgången gemensam cache', err);
+                    hydrateFromCache(stale);
+                }
+            }
+
+            function saveTipsSources() {
+                localStorage.setItem(LS_TIPS_SOURCES_KEY, JSON.stringify({
+                    hobby: !!els.cbHobby.checked,
+                    expert: !!els.cbExpert.checked,
+                    custom: !!els.cbCustom.checked
+                }));
+            }
+            function loadTipsSources() {
+                try {
+                    const parsed = JSON.parse(localStorage.getItem(LS_TIPS_SOURCES_KEY) || 'null');
+                    if (!parsed || typeof parsed !== 'object') return null;
+                    return { hobby: !!parsed.hobby, expert: !!parsed.expert, custom: !!parsed.custom };
+                } catch { return null; }
+            }
+
+            function totalTips(counts) {
+                return counts.reduce((sum, n) => sum + (Number(n) || 0), 0);
+            }
+
+            function findShortTeamFromLine(line) {
+                const input = String(line || '').trim();
+                if (!input) return null;
+                const lower = input.toLocaleLowerCase('sv-SE');
+                const candidates = [];
+
+                TEAM_BY_ID.forEach((team, teamId) => {
+                    const shortName = String(team.team_name_short || '').trim();
+                    const aliases = Array.from(new Set([
+                        team.team_name_long, team.team_name_short, team.team_name_abbr
+                    ].map(v => String(v || '').trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
+
+                    for (const alias of aliases) {
+                        const al = alias.toLocaleLowerCase('sv-SE');
+                        if (lower === al) candidates.push({ score: 10000 + alias.length, teamId, shortName });
+                        else if (alias.length >= 3 && lower.includes(al)) candidates.push({ score: 1000 + alias.length, teamId, shortName });
+                    }
+                });
+
+                if (!candidates.length) return null;
+                candidates.sort((a, b) => b.score - a.score);
+                const best = candidates[0];
+                const tied = candidates.filter(c => c.score === best.score);
+                if (new Set(tied.map(c => c.teamId)).size > 1) return null;
+                return best.shortName;
+            }
+
+            function parseCustomText(rawText) {
+                const raw = String(rawText || '').replace(/\r\n/g, '\n');
+                if (!raw.trim()) return { ok: true, matrix: null, tipsN: 0, empty: true };
+
+                const blocks = raw.split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
+                const matrix = createEmptyMatrix();
+
+                for (let bi = 0; bi < blocks.length; bi++) {
+                    const lines = blocks[bi].split('\n').map(l => l.trim()).filter(Boolean);
+                    if (lines.length !== 14 && lines.length !== 15) {
+                        return { ok: false, error: `Block ${bi + 1}: fel antal rader (${lines.length}). Måste vara 14 lagrader, eller 15 där första raden är en namnrad.` };
+                    }
+                    const teamLines = lines.length === 15 ? lines.slice(1) : lines;
+                    const ordered = [];
+                    for (let li = 0; li < teamLines.length; li++) {
+                        const team = findShortTeamFromLine(teamLines[li]);
+                        if (!team) return { ok: false, error: `Block ${bi + 1}, lagrad ${li + 1}: okänt eller tvetydigt lag "${teamLines[li]}".` };
+                        ordered.push(team);
+                    }
+                    const uniq = new Set(ordered);
+                    if (uniq.size !== 14) return { ok: false, error: `Block ${bi + 1}: varje lag måste förekomma exakt en gång.` };
+                    const missing = SHORT_TEAMS.filter(t => !uniq.has(t));
+                    if (missing.length) return { ok: false, error: `Block ${bi + 1}: saknar ${missing.join(', ')}.` };
+                    ordered.forEach((team, pos) => { matrix[team][pos] += 1; });
+                }
+                return { ok: true, matrix, tipsN: blocks.length };
+            }
+
+            function loadCustom({ fillTextarea = false } = {}) {
+                const raw = localStorage.getItem(LS_CUSTOM_TIPS_KEY);
+                if (!raw) {
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = '';
+                    return false;
+                }
+                try {
+                    const payload = JSON.parse(raw);
+                    if (payload?.version !== 1 || typeof payload?.tips !== 'string') throw new Error('fel payload');
+                    const check = validateMatrix(payload.matrix);
+                    if (!check.ok) throw new Error(check.error);
+                    TIPS_MATRIX_CUSTOM = payload.matrix;
+                    TIPS_CUSTOM_TEXT = payload.tips;
+                    if (fillTextarea) els.customInput.value = payload.tips;
+                    return true;
+                } catch (e) {
+                    console.warn('[snitt][custom] ogiltigt localStorage-payload', e);
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = '';
+                    return false;
+                }
+            }
+
+            function setCustomMsg(type, text) {
+                els.customMsg.className = 'msg ' + (type === 'ok' ? 'ok' : 'err');
+                els.customMsg.textContent = text || '';
+            }
+
+            function toggleCustomPanel(forceOpen, reason = 'local') {
+                const open = typeof forceOpen === 'boolean' ? forceOpen : !els.customPanel.classList.contains('open');
+                els.customPanel.classList.toggle('open', open);
+
+                if (!suppressPanelStateWrite) {
+                    localStorage.setItem(LS_CUSTOM_PANEL_OPEN_KEY, JSON.stringify({
+                        open, ts: new Date().toISOString(), by: CUSTOM_TAB_ID, reason
+                    }));
+                }
+                if (open) {
+                    loadCustom({ fillTextarea: true });
+                    if (!TIPS_MATRIX_CUSTOM) els.customInput.value = '';
+                    setCustomMsg('err', '');
+                    requestAnimationFrame(() => els.customInput.focus());
+                } else {
+                    setCustomMsg('err', '');
+                }
+            }
+
+            function saveCustom() {
+                const raw = String(els.customInput.value || '').trim();
+                if (!raw) {
+                    localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = '';
+                    els.cbCustom.checked = false;
+                    saveTipsSources();
+                    toggleCustomPanel(false, 'custom-delete');
+                    render();
+                    return;
+                }
+
+                const parsed = parseCustomText(raw);
+                if (!parsed.ok || !parsed.matrix) {
+                    setCustomMsg('err', parsed.error || 'Kunde inte tolka tipset.');
+                    return;
+                }
+                const check = validateMatrix(parsed.matrix);
+                if (!check.ok) {
+                    setCustomMsg('err', check.error);
+                    return;
+                }
+
+                localStorage.setItem(LS_CUSTOM_TIPS_KEY, JSON.stringify({
+                    version: 1,
+                    savedAt: new Date().toISOString(),
+                    tips: raw,
+                    matrix: parsed.matrix
+                }));
+                TIPS_MATRIX_CUSTOM = parsed.matrix;
+                TIPS_CUSTOM_TEXT = raw;
+                els.cbCustom.checked = true;
+                saveTipsSources();
+                toggleCustomPanel(false, 'custom-save');
+                render();
+            }
+
+            function selectedMatrices() {
+                const out = [];
+                if (els.cbHobby.checked) out.push(TIPS_MATRIX_HOBBY);
+                if (els.cbExpert.checked) out.push(TIPS_MATRIX_EXPERT);
+                if (els.cbCustom.checked && TIPS_MATRIX_CUSTOM) out.push(TIPS_MATRIX_CUSTOM);
+                return out;
+            }
+
+            function countsForTeam(team) {
+                const counts = Array(14).fill(0);
+                selectedMatrices().forEach(matrix => {
+                    const row = matrix?.[team];
+                    if (!Array.isArray(row) || row.length !== 14) throw new Error(`Tipsdata: saknar korrekt matrisrad för ${team}.`);
+                    for (let i = 0; i < 14; i++) counts[i] += Number(row[i]) || 0;
+                });
+                return counts;
+            }
+
+            function computeRows() {
+                return SHORT_TEAMS.map(team => {
+                    const counts = countsForTeam(team);
+                    const total = totalTips(counts);
+                    let avg = null;
+                    if (total) {
+                        avg = counts.reduce((sum, count, i) => sum + count * (i + 1), 0) / total;
+                    }
+                    return {
+                        team,
+                        total,
+                        avg,
+                        top3: counts.slice(0, 3).reduce((a, b) => a + b, 0),
+                        top5: counts.slice(0, 5).reduce((a, b) => a + b, 0),
+                        bottom3: counts.slice(11).reduce((a, b) => a + b, 0),
+                        bottom5: counts.slice(9).reduce((a, b) => a + b, 0)
+                    };
+                }).sort((a, b) => {
+                    const aa = a.avg == null ? Infinity : a.avg;
+                    const bb = b.avg == null ? Infinity : b.avg;
+                    return aa - bb || a.team.localeCompare(b.team, 'sv');
+                });
+            }
+
+            function escapeHtml(str) {
+                return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+            }
+            function formatAvg(avg) {
+                return avg == null ? '–' : avg.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            function syncCustomButtons() {
+                const hasCustom = !!TIPS_MATRIX_CUSTOM;
+                els.addCustomBtn.style.display = hasCustom ? 'none' : 'inline-flex';
+                els.editCustomBtn.style.display = hasCustom ? 'inline-flex' : 'none';
+            }
+            function render() {
+                const rows = computeRows();
+                const candidate = rows.find(r => r.total > 0);
+                const numTips = candidate?.total || 0;
+                els.title.textContent = `Snittplacering baserat på ${numTips} tabelltips`;
+                els.tbody.innerHTML = rows.map(r => `
+                    <tr>
+                        <td class="col-team">${escapeHtml(r.team)}</td>
+                        <td>${formatAvg(r.avg)}</td>
+                        <td class="col-top">${r.top3}</td>
+                        <td class="col-top">${r.top5}</td>
+                        <td class="col-bottom">${r.bottom3}</td>
+                        <td class="col-bottom">${r.bottom5}</td>
+                    </tr>`).join('');
+                syncCustomButtons();
+            }
+
+            async function exportTableAsImage() {
+                if (!window.html2canvas) {
+                    alert('html2canvas kunde inte laddas. (Offline?)');
+                    return;
+                }
+                const rows = computeRows();
+                const numTips = rows.find(r => r.total > 0)?.total || 0;
+                document.body.classList.add('exporting');
+                try {
+                    const canvas = await html2canvas(els.exportArea, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+                    canvas.toBlob(blob => {
+                        if (!blob) return;
+                        const a = document.createElement('a');
+                        a.download = `shl-tips-sammanfattning-${String(numTips).padStart(2, '0')}-tips.png`;
+                        a.href = URL.createObjectURL(blob);
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(a.href);
+                    }, 'image/png');
+                } finally {
+                    document.body.classList.remove('exporting');
+                }
+            }
+
+            function applySourcesFromStorage() {
+                const saved = loadTipsSources();
+                if (saved) {
+                    els.cbHobby.checked = saved.hobby;
+                    els.cbExpert.checked = saved.expert;
+                    els.cbCustom.checked = saved.custom;
+                }
+                loadCustom({ fillTextarea: false });
+                if (!TIPS_MATRIX_CUSTOM && els.cbCustom.checked) {
+                    els.cbCustom.checked = false;
+                    saveTipsSources();
+                }
+            }
+
+            function applyPanelStateFromStorage() {
+                try {
+                    const incoming = JSON.parse(localStorage.getItem(LS_CUSTOM_PANEL_OPEN_KEY) || 'null');
+                    suppressPanelStateWrite = true;
+                    toggleCustomPanel(!!incoming?.open, 'init:storage');
+                } catch { /* inget sparat */ }
+                finally { suppressPanelStateWrite = false; }
+            }
+
+            function bindEvents() {
+                [els.cbHobby, els.cbExpert].forEach(cb => cb.addEventListener('change', () => {
+                    saveTipsSources();
+                    render();
+                }));
+
+                els.cbCustom.addEventListener('change', () => {
+                    if (els.cbCustom.checked && !loadCustom({ fillTextarea: false })) {
+                        els.cbCustom.checked = false;
+                        saveTipsSources();
+                        toggleCustomPanel(true, 'custom-checkbox-empty');
+                        render();
+                        return;
+                    }
+                    saveTipsSources();
+                    render();
+                });
+
+                els.exportBtn.addEventListener('click', exportTableAsImage);
+                els.addCustomBtn.addEventListener('click', () => toggleCustomPanel(true, 'add'));
+                els.editCustomBtn.addEventListener('click', () => toggleCustomPanel(true, 'edit'));
+                els.cancelCustomBtn.addEventListener('click', () => toggleCustomPanel(false, 'cancel'));
+                els.saveCustomBtn.addEventListener('click', saveCustom);
+                els.clearCustomBtn.addEventListener('click', () => {
+                    els.customInput.value = '';
+                    setCustomMsg('err', '');
+                    els.customInput.focus();
+                });
+                els.customInput.addEventListener('input', () => setCustomMsg('err', ''));
+
+                document.querySelectorAll('details.m-tip').forEach(d => {
+                    d.addEventListener('toggle', () => {
+                        if (!d.open) return;
+                        document.querySelectorAll('details.m-tip[open]').forEach(other => {
+                            if (other !== d) other.removeAttribute('open');
+                        });
+                    });
+                });
+                document.addEventListener('click', e => {
+                    if (e.target?.closest?.('details.m-tip')) return;
+                    document.querySelectorAll('details.m-tip[open]').forEach(d => d.removeAttribute('open'));
+                });
+
+                window.addEventListener('storage', e => {
+                    if (!e) return;
+                    if (e.key === LS_TIPS_SOURCES_KEY) {
+                        const saved = loadTipsSources();
+                        if (saved) {
+                            els.cbHobby.checked = saved.hobby;
+                            els.cbExpert.checked = saved.expert;
+                            els.cbCustom.checked = saved.custom;
+                            if (saved.custom) loadCustom({ fillTextarea: false });
+                            render();
+                        }
+                        return;
+                    }
+                    if (e.key === LS_CUSTOM_TIPS_KEY) {
+                        loadCustom({ fillTextarea: false });
+                        if (!TIPS_MATRIX_CUSTOM) els.cbCustom.checked = false;
+                        render();
+                        return;
+                    }
+                    if (e.key === LS_CUSTOM_PANEL_OPEN_KEY) {
+                        let incoming = null;
+                        try { incoming = e.newValue ? JSON.parse(e.newValue) : null; } catch { }
+                        suppressPanelStateWrite = true;
+                        try { toggleCustomPanel(!!incoming?.open, 'storage'); }
+                        finally { suppressPanelStateWrite = false; }
+                        return;
+                    }
+                    if (e.key === SHL_TIPS_CACHE_KEY && e.newValue) {
+                        const fresh = readSharedCache({ allowStale: true });
+                        if (fresh) {
+                            hydrateFromCache(fresh);
+                            loadCustom({ fillTextarea: false });
+                            render();
+                        }
+                    }
+                });
+            }
+
+            try {
+                await loadSharedTips();
+                hideLoadError();
+                applySourcesFromStorage();
+                bindEvents();
+                applyPanelStateFromStorage();
+                render();
+            } catch (err) {
+                console.error('[snitt][FATAL]', err);
+                showLoadError('Tabellerna kunde inte laddas. Prova att ladda om sidan. Om problemet kvarstår: kontrollera uppkopplingen och datakällorna.');
+            }
+        })();
+    </script>
+
+</body>
+
+</html>
