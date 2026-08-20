@@ -3341,6 +3341,7 @@ Lag 14</pre>
 
                 resetX.addEventListener('click', () => {
                     state.rowColors?.clear?.();
+                    saveRowColorsToLocalStorage();
                     renderTableForRound(state.currentRound);
                     closeRowColorPalette();
                     updateRowColorControlsVisibility();
@@ -3918,8 +3919,53 @@ Lag 14</pre>
         // Radfärg-state: lag (long name) -> färg
         state.rowColorMode = false;                 // kryssrutan
         state.rowColorScope = 'row';                // Låst till 'row' (”Bara lag” avstängt – kan återaktiveras senare)
-        state.rowColors = new Map();                // teamLong -> color
+        state.rowColors = new Map();                // rowKey -> color
         state._rowColorActiveTeam = null;           // vilken rad paletten gäller just nu
+
+        // Sparade radfärger per liga/säsong. Detta är UI-state och hålls separat
+        // från tips-/matchcachen, så en datauppdatering aldrig rensar användarens färger.
+        const LS_ROW_COLORS_KEY = 'shlTopplista.rowColors.shl_2026_2027.v1';
+
+        function loadRowColorsFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem(LS_ROW_COLORS_KEY);
+                if (!raw) {
+                    state.rowColors = new Map();
+                    return;
+                }
+
+                const obj = JSON.parse(raw);
+                if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+                    state.rowColors = new Map();
+                    return;
+                }
+
+                // Acceptera bara färger som finns i den aktuella paletten.
+                // Då följer gamla/trasiga värden inte med om formatet ändras.
+                state.rowColors = new Map(
+                    Object.entries(obj).filter(([, color]) => ROWCOLOR_PALETTE.includes(color))
+                );
+                console.log('[rowcolor][LS] loaded', { size: state.rowColors.size });
+            } catch (e) {
+                console.warn('[rowcolor][LS] kunde inte läsa sparade färger:', e);
+                state.rowColors = new Map();
+            }
+        }
+
+        function saveRowColorsToLocalStorage() {
+            try {
+                if (!state.rowColors || state.rowColors.size === 0) {
+                    localStorage.removeItem(LS_ROW_COLORS_KEY);
+                    return;
+                }
+                localStorage.setItem(
+                    LS_ROW_COLORS_KEY,
+                    JSON.stringify(Object.fromEntries(state.rowColors))
+                );
+            } catch (e) {
+                console.warn('[rowcolor][LS] kunde inte spara färger:', e);
+            }
+        }
 
         function rowColorHasAny() {
             return state.rowColors && state.rowColors.size > 0;
@@ -5757,6 +5803,12 @@ Lag 14</pre>
                     if (typeof onCustomStorageEvent === "function") onCustomStorageEvent(e);
                     if (typeof onTipsSourcesStorageEvent === "function") onTipsSourcesStorageEvent(e);
                     if (typeof onRoundStorageEvent === "function") onRoundStorageEvent(e);
+
+                    if (e.key === LS_ROW_COLORS_KEY) {
+                        loadRowColorsFromLocalStorage();
+                        if (state.activeView === 'table') renderTableForRound(state.currentRound);
+                        updateRowColorResetXVisibility();
+                    }
                 });
 
 
@@ -5766,8 +5818,10 @@ Lag 14</pre>
                 bindCustomControls();
 
                 // ==============================
-                // ROWCOLOR: bind toggle + bygg palett (en gång)
+                // ROWCOLOR: ladda sparade färger + bind toggle + bygg palett (en gång)
                 // ==============================
+                loadRowColorsFromLocalStorage();
+
                 (function bindRowColorUIOnce() {
                     // Bygg swatches i mini-paletten (om den finns och är tom)
                     if (rowColorSwatchesWrap && rowColorSwatchesWrap.childElementCount === 0) {
@@ -5783,6 +5837,7 @@ Lag 14</pre>
                                 if (!key) return;
 
                                 state.rowColors.set(key, hex);
+                                saveRowColorsToLocalStorage();
                                 console.log("[rowcolor] set", { key, hex, size: state.rowColors.size });
                                 closeRowColorPalette();
 
@@ -5801,6 +5856,7 @@ Lag 14</pre>
                         if (!key) return;
 
                         state.rowColors.delete(key);
+                        saveRowColorsToLocalStorage();
                         closeRowColorPalette();
 
                         if (state.activeView === 'table') renderTableForRound(state.currentRound);
