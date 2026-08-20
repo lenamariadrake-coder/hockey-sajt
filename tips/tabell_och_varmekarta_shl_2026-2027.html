@@ -390,10 +390,12 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
             align-items: start;
             width: 100%;
+            margin-top: 1rem;
         }
 
         .standings-results-layout > table {
             justify-self: center;
+            margin-top: 0;
             margin-left: 0;
             margin-right: 0;
         }
@@ -403,7 +405,7 @@
             width: max-content;
             max-width: 100%;
             min-width: 0;
-            padding-top: .15rem;
+            padding-top: 0;
             font-size: .95rem;
             line-height: 1.55;
         }
@@ -436,11 +438,15 @@
             .standings-results-layout {
                 grid-template-columns: 1fr;
                 row-gap: 1.25rem;
+                width: max-content;
+                max-width: 100%;
+                margin-left: auto;
+                margin-right: auto;
             }
 
             .standings-results-layout > table,
             .round-results {
-                justify-self: center;
+                justify-self: start;
             }
         }
 
