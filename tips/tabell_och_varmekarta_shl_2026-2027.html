@@ -382,6 +382,27 @@
             font-size: .765rem;
         }
 
+        /* Kortare tabellrubriker visas endast på mobil. */
+        .th-short {
+            display: none;
+        }
+
+        @media (max-width: 560px) {
+            #tableStandings .th-long {
+                display: none;
+            }
+
+            #tableStandings .th-short {
+                display: inline;
+            }
+
+            #tableStandings th,
+            #tableStandings td {
+                padding-left: .42rem;
+                padding-right: .42rem;
+            }
+        }
+
         /* Tabell + omgångens resultat.
            På bred skärm får varje del exakt en halva. Tabellen centreras i sin halva,
            medan resultatblocket börjar vid högerspaltens vänsterkant.
@@ -1786,11 +1807,23 @@ Lag 14</pre>
                     <table id="tableStandings" class="aktuell_tabell hidden">
                         <thead>
                             <tr id="tableStandingsHeadRow">
-                                <th>Plats</th>
+                                <th>
+                                    <span class="th-long">Plats</span>
+                                    <span class="th-short">#</span>
+                                </th>
                                 <th class="col-team">Lag</th>
-                                <th class="num">Matcher</th>
-                                <th class="num">Poäng</th>
-                                <th class="num">Målskillnad</th>
+                                <th class="num">
+                                    <span class="th-long">Matcher</span>
+                                    <span class="th-short">M</span>
+                                </th>
+                                <th class="num">
+                                    <span class="th-long">Poäng</span>
+                                    <span class="th-short">P</span>
+                                </th>
+                                <th class="num">
+                                    <span class="th-long">Målskillnad</span>
+                                    <span class="th-short">MS</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody><!-- fylls i JS --></tbody>
