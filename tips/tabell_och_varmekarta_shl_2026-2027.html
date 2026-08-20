@@ -435,7 +435,9 @@
             color: var(--text-muted);
         }
 
-        @media (max-width: 760px) {
+        /* Tabellen behöver mer än en halv kolumn redan på mellanstora skärmar.
+           Stapla därför tidigare, innan tabell och resultat börjar kollidera. */
+        @media (max-width: 980px) {
             .standings-results-layout {
                 grid-template-columns: 1fr;
                 row-gap: 1.25rem;
@@ -448,6 +450,21 @@
             .standings-results-layout > table,
             .round-results {
                 justify-self: start;
+            }
+        }
+
+        /* På riktigt smala skärmar får layouten använda hela tillgängliga bredden.
+           Tabellen kan då scrollas horisontellt utan att skjuta hela sidan åt sidan. */
+        @media (max-width: 560px) {
+            .standings-results-layout {
+                width: 100%;
+                overflow-x: auto;
+                justify-items: start;
+            }
+
+            .standings-results-layout > table {
+                margin-left: 0;
+                margin-right: 0;
             }
         }
 
