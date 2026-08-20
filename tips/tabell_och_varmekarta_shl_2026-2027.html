@@ -4164,7 +4164,7 @@ Lag 14</pre>
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
                 if (!parsed || parsed.version !== 2 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
-                if (!parsed.snapshots || !Array.isArray(parsed.roundsAvailable)) return null;
+                if (!parsed.snapshots || !parsed.matchesByRound || !Array.isArray(parsed.roundsAvailable)) return null;
                 if (!allowStale && !isShlCacheFresh(parsed)) return null;
                 return parsed;
             } catch (e) {
@@ -4184,7 +4184,7 @@ Lag 14</pre>
 
         function writeSharedShlStandingsCache() {
             const payload = {
-                version: 1,
+                version: 2,
                 savedAt: new Date().toISOString(),
                 season: '2026_2027',
                 league: 'shl',
