@@ -383,8 +383,9 @@
         }
 
         /* Tabell + omgångens resultat.
-           På bred skärm får varje del exakt en halva och centreras i sin halva.
-           På smal skärm staplas delarna och fortsätter vara centrerade. */
+           På bred skärm får varje del exakt en halva. Tabellen centreras i sin halva,
+           medan resultatblocket börjar vid högerspaltens vänsterkant.
+           På smal skärm staplas delarna med samma vänsterkant. */
         .standings-results-layout {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -401,7 +402,7 @@
         }
 
         .round-results {
-            justify-self: center;
+            justify-self: start;
             width: max-content;
             max-width: 100%;
             min-width: 0;
