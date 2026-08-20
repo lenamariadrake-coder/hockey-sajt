@@ -89,14 +89,14 @@
             text-decoration: underline;
         }
 
-        .topbar {
+        /*         .topbar {
             display: flex;
             gap: 16px;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
             margin: 14px 0 12px 0;
-        }
+        } */
 
         /* =========================================================
    Laddningsfel-banner (synlig för användaren)
@@ -111,20 +111,20 @@
             font-weight: 800;
         }
 
-        .filters {
+        /*         .filters {
             display: flex;
             gap: 14px;
             flex-wrap: wrap;
             align-items: center;
-        }
+        } */
 
-        label {
+        /*         label {
             display: inline-flex;
             gap: 8px;
             align-items: center;
             user-select: none;
             font-weight: 600;
-        }
+        } */
 
         .mini-btn {
             display: inline-flex;
@@ -143,7 +143,7 @@
             background: #f9fafb;
         }
 
-        .btn {
+        /*         .btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
@@ -164,146 +164,7 @@
             opacity: .55;
             cursor: not-allowed;
         }
-
-        /* =========================================================
-     NAV: 🏠 + 📸 + (Snitt/Tabell) BREDVID KAMERAN
-     ========================================================= */
-
-        .nav {
-            display: flex;
-            align-items: center;
-            margin: 0 0 14px 0;
-            flex-wrap: wrap;
-
-            /* NYCKELN: tabs ligger efter kameran, inte längst åt höger */
-            justify-content: flex-start;
-            gap: 14px;
-        }
-
-        .nav-left,
-        .nav-right {
-            display: inline-flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        /* Tabs får wrap:a snyggt om det blir trångt */
-        .nav-right {
-            flex-wrap: wrap;
-            gap: .6rem;
-        }
-
-
-        /* Grund-ghost-link (om du använder på andra ställen) */
-        .ghost-link {
-            display: inline-flex;
-            align-items: center;
-            gap: .5rem;
-            padding: .35rem .8rem;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            text-decoration: none;
-            color: var(--text);
-            background: #fff;
-            font-weight: 700;
-        }
-
-        .ghost-link:hover {
-            background: #f9fafb;
-            text-decoration: none;
-        }
-
-        /* Kompakt ikon-variant */
-        .icon-link {
-            width: 42px;
-            height: 42px;
-            justify-content: center;
-            padding: 0;
-        }
-
-        /* Kamera-knappen storlek */
-        .btn.btn-icon {
-            width: 42px;
-            height: 42px;
-            padding: 0;
-            justify-content: center;
-            border-radius: 10px;
-        }
-
-        /* HEADER-IKONER I NAV – utan konturer (bara hover-platta) */
-        .nav .ghost-link.icon-link,
-        .nav #exportBtn {
-            width: 42px;
-            height: 42px;
-
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-
-            padding: 0;
-            border: 0 !important;
-            background: transparent !important;
-            box-shadow: none !important;
-            text-decoration: none;
-
-            border-radius: 12px;
-            /* mjuk hover-yta */
-            line-height: 1;
-            font-size: 1.15rem;
-        }
-
-        .nav #exportBtn {
-            cursor: pointer;
-        }
-
-        .nav .ghost-link.icon-link:hover,
-        .nav #exportBtn:hover {
-            background: rgba(15, 23, 42, 0.06) !important;
-        }
-
-        .nav .ghost-link.icon-link:active,
-        .nav #exportBtn:active {
-            background: rgba(15, 23, 42, 0.10) !important;
-        }
-
-        .nav .ghost-link.icon-link:focus-visible,
-        .nav #exportBtn:focus-visible {
-            outline: 2px solid rgba(15, 23, 42, 0.35);
-            outline-offset: 3px;
-        }
-
-        /* FEJK-TABS (Snitt/Tabell) */
-        .nav .tab-btn {
-            padding: .5rem .9rem;
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            background: var(--btn-gray-bg);
-            cursor: pointer;
-            font-weight: 700;
-
-            font: inherit;
-            line-height: 1;
-            box-sizing: border-box;
-            white-space: nowrap;
-
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .nav .tab-btn:hover:not([aria-selected="true"]) {
-            background: var(--btn-gray-hover);
-        }
-
-        .nav .tab-btn[aria-selected="true"] {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #fff;
-            cursor: default;
-        }
+ */
 
         /* =========================================================
      TABELL
@@ -442,7 +303,7 @@
             color: #b91c1c;
         }
 
-                /* Hjälptext (infällbar) */
+        /* Hjälptext (infällbar) */
         .custom-help {
             width: 100%;
             color: var(--muted);
@@ -664,11 +525,10 @@
             background: rgba(15, 23, 42, 0.06);
             border-radius: 6px;
         }
-    
+
 
         /* =========================================================
-           SYSTERSIDE-SYNK 2026/2027 – topbar/layout
-           Visuellt speglad från tippartopplistan.
+           SYSTERSIDE-SYNK 2026/2027 – topbar/layout (EXAKT MATCH)
            ========================================================= */
         :root {
             --bg: #f4f4f9;
@@ -685,7 +545,8 @@
             --ui-row-h: 42px;
         }
 
-        html, body {
+        html,
+        body {
             margin: 0;
             background: var(--bg);
             color: var(--text);
@@ -693,7 +554,9 @@
             line-height: 1.45;
         }
 
-        body { padding: 0; }
+        body {
+            padding: 0;
+        }
 
         .wrap {
             width: 100%;
@@ -704,7 +567,7 @@
             min-height: 100vh;
         }
 
-        /* Topbar: samma ryggrad som systersidan */
+        /* Topbar Header */
         .topbar-shell {
             display: grid;
             grid-template-rows: var(--ui-row-h) var(--ui-row-h);
@@ -799,16 +662,22 @@
             cursor: default;
         }
 
-        .topbar-controls {
+        .topbar-row--controls {
             min-height: var(--ui-row-h);
             display: flex;
             align-items: center;
         }
 
+        .view-controls-stack {
+            display: grid;
+            grid-template-columns: 1fr;
+            width: 100%;
+        }
+
         #sourceFilter {
             display: inline-flex;
             align-items: center;
-            gap: .8rem;
+            gap: 8px 12px;
             min-height: var(--ui-row-h);
             flex-wrap: wrap;
             max-width: 100%;
@@ -831,16 +700,16 @@
             position: relative;
         }
 
-        .source-options label {
+        #sourceFilter .source-options label {
             display: inline-flex;
             align-items: center;
-            gap: .35rem;
+            gap: .35rem !important;
             white-space: nowrap;
             line-height: 1;
             font-weight: 600;
         }
 
-        .source-options input[type="checkbox"] {
+        #sourceFilter .source-options input[type="checkbox"] {
             margin: 0;
             transform: translateY(1px);
         }
@@ -866,16 +735,31 @@
             background: rgba(15, 23, 42, 0.06);
         }
 
-        /* Den gamla separata topbar-layouten används inte längre */
-        .topbar { margin: 0; }
-
-        @media (max-width: 700px) {
-            body { padding: 0; }
-            .source-options { width: 100%; }
-            .topbar-shell { grid-template-rows: auto auto; }
-            .topbar-controls { min-height: auto; }
+        /* Tooltip-justering för mobilen exakt som topplistan */
+        .m-tip {
+            display: none;
         }
 
+        @media (max-width: 700px) {
+            .m-tip {
+                display: inline-block;
+            }
+
+            .m-tip>summary {
+                list-style: none;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                line-height: 1;
+                user-select: none;
+                padding: .15rem .35rem;
+                border-radius: 999px;
+            }
+
+            .m-tip>summary::-webkit-details-marker {
+                display: none;
+            }
+        }
     </style>
 
 
@@ -886,6 +770,7 @@
 <body>
     <div class="wrap">
         <header class="topbar-shell" aria-label="Kontroller">
+            <!-- Rad 1: Navigering + Flikar -->
             <div class="topbar-nav">
                 <a class="ghost-link icon-link" href="../index.html" aria-label="Till startsidan"
                     title="Till startsidan">🏠</a>
@@ -893,58 +778,76 @@
                 <button id="exportBtn" class="btn btn-icon" type="button" aria-label="Spara aktiv vy som bild"
                     title="Spara aktiv vy som bild">📸</button>
 
-                <button id="refreshTipsBtn" class="btn btn-icon-plain" type="button"
-                    aria-label="Hämta färska tipsdata" title="Hämta färska tipsdata">🔄</button>
+                <button id="refreshTipsBtn" class="btn btn-icon-plain" type="button" aria-label="Hämta färska tipsdata"
+                    title="Hämta färska tipsdata">🔄</button>
 
                 <div class="topbar-tabs tabs" aria-label="Vyval">
-                    <a class="tab-btn tab-btn-link" href="shl-tips_2026-2027.html" aria-selected="true">Snitt</a>
-                    <a class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html">Topplista</a>
-                    <a class="tab-btn tab-btn-link" href="tabell_och_varmekarta_shl_2026-2027.html#table">Tabell</a>
-                    <a class="tab-btn tab-btn-link" href="tabell_och_varmekarta_shl_2026-2027.html#heat">Värmekarta</a>
+                    <a id="tabSnitt" class="tab-btn" href="shl-tips_2026-2027.html" aria-selected="true"
+                        aria-label="Snitt" title="Snitt">Snitt</a>
+                    <a id="tabTable" class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html"
+                        aria-label="Topplista" title="Topplista">Topplista</a>
+                    <a id="tabTabell" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2026-2027.html#tabell" aria-label="Tabell"
+                        title="Tabell">Tabell</a>
+                    <a id="tabVarmekarta" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2026-2027.html#varmekarta" aria-label="Värmekarta"
+                        title="Värmekarta">Värmekarta</a>
                 </div>
             </div>
 
-            <div class="topbar-controls" aria-label="Vilka tips som ska räknas med">
-                <div id="sourceFilter" aria-label="Filter för tipskällor">
-                    <span class="source-options" aria-label="Vilka tips som visas">
-                        <span class="source-item">
-                            <label title="Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen)">
-                                <input type="checkbox" id="cb-hobby" checked>
-                                Amatörer
-                            </label>
-                            <details class="m-tip" data-tip="hobby">
-                                <summary class="m-tip__summary" aria-label="Info: Amatörer" title="Info">ℹ️</summary>
-                                <div class="m-tip__box" role="tooltip">Amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen).</div>
-                            </details>
-                        </span>
+            <!-- Rad 2: Filter och kontroller -->
+            <div class="topbar-row topbar-row--controls" aria-label="Vilka tips som ska räknas med">
+                <div class="view-controls-stack">
+                    <div id="sourceFilter" aria-label="Filter för tipskällor">
+                        <span class="source-options" aria-label="Vilka tips som visas">
+                            <span class="source-item">
+                                <label
+                                    title="Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen)">
+                                    <input type="checkbox" id="cb-hobby" checked>
+                                    Amatörer
+                                </label>
+                                <details class="m-tip" data-tip="hobby">
+                                    <summary class="m-tip__summary" aria-label="Info: Amatörer" title="Info">ℹ️
+                                    </summary>
+                                    <div class="m-tip__box" role="tooltip">Amatörtips (ihopsamlade från ett antal
+                                        tippare på HockeySnacks forum inför säsongen).</div>
+                                </details>
+                            </span>
 
-                        <span class="source-item">
-                            <label title="Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister offentliggjort sina tips)">
-                                <input type="checkbox" id="cb-expert" checked>
-                                Experter
-                            </label>
-                            <details class="m-tip" data-tip="expert">
-                                <summary class="m-tip__summary" aria-label="Info: Experter" title="Info">ℹ️</summary>
-                                <div class="m-tip__box" role="tooltip">Experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister offentliggjort sina tips).</div>
-                            </details>
-                        </span>
+                            <span class="source-item">
+                                <label
+                                    title="Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister offentliggjort sina tips)">
+                                    <input type="checkbox" id="cb-expert" checked>
+                                    Experter
+                                </label>
+                                <details class="m-tip" data-tip="expert">
+                                    <summary class="m-tip__summary" aria-label="Info: Experter" title="Info">ℹ️
+                                    </summary>
+                                    <div class="m-tip__box" role="tooltip">Experttips (ihopsamlade från TV4,
+                                        kvällspress, officiella hockeysidor där journalister offentliggjort sina tips).
+                                    </div>
+                                </details>
+                            </span>
 
-                        <span class="source-item">
-                            <label title="Visa/dölj eget tips">
-                                <input type="checkbox" id="cb-custom">
-                                Eget tips
-                            </label>
-                            <details class="m-tip" data-tip="custom">
-                                <summary class="m-tip__summary" aria-label="Info: Eget tips" title="Info">ℹ️</summary>
-                                <div class="m-tip__box" role="tooltip">Visa/dölj eget tips</div>
-                            </details>
-                        </span>
+                            <span class="source-item">
+                                <label title="Visa/dölj eget tips">
+                                    <input type="checkbox" id="cb-custom">
+                                    Eget tips
+                                </label>
+                                <details class="m-tip" data-tip="custom">
+                                    <summary class="m-tip__summary" aria-label="Info: Eget tips" title="Info">ℹ️
+                                    </summary>
+                                    <div class="m-tip__box" role="tooltip">Visa/dölj eget tips</div>
+                                </details>
+                            </span>
 
-                        <button class="btn-icon-plain" id="btn-open-custom" type="button"
-                            aria-label="Lägg till eget tips" title="Lägg till eget tips">
-                            <span class="custom-open-icon" aria-hidden="true">＋</span>
-                        </button>
-                    </span>
+                            <button class="btn-icon-plain" id="btn-open-custom" type="button"
+                                aria-label="Lägg till eget tips" title="Lägg till eget tips">
+                                <span class="custom-open-icon" aria-hidden="true">＋</span>
+                                <span class="sr-only">Eget tips</span>
+                            </button>
+                        </span>
+                    </div>
                 </div>
             </div>
         </header>
