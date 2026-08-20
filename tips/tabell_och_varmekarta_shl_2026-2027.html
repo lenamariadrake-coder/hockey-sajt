@@ -480,12 +480,20 @@
             .standings-results-layout {
                 width: 100%;
                 overflow-x: auto;
-                justify-items: start;
+                justify-items: stretch;
             }
 
             .standings-results-layout > table {
+                width: 100%;
+                min-width: 100%;
                 margin-left: 0;
                 margin-right: 0;
+                justify-self: stretch;
+            }
+
+            #tableStandings th.col-team,
+            #tableStandings td:nth-child(2) {
+                width: 100%;
             }
         }
 
