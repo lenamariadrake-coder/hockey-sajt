@@ -707,7 +707,7 @@
         /* Topbar: samma ryggrad som systersidan */
         .topbar-shell {
             display: grid;
-            grid-template-rows: var(--ui-row-h) calc(var(--ui-row-h) * 2);
+            grid-template-rows: var(--ui-row-h) var(--ui-row-h);
             gap: var(--ui-gap);
             margin-bottom: .75rem;
         }
@@ -800,25 +800,27 @@
         }
 
         .topbar-controls {
-            min-height: calc(var(--ui-row-h) * 2);
+            min-height: var(--ui-row-h);
             display: flex;
             align-items: center;
         }
 
-        .source-filter {
+        #sourceFilter {
             display: inline-flex;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 8px 12px;
+            gap: .8rem;
             min-height: var(--ui-row-h);
+            flex-wrap: wrap;
             max-width: 100%;
         }
 
-        .source-options {
-            display: flex;
-            flex-wrap: wrap;
+        #sourceFilter .source-options {
+            display: inline-flex;
             align-items: center;
-            gap: 8px 12px;
+            gap: .75rem;
+            margin-left: 0;
+            padding-left: 0;
+            border-left: 0;
             max-width: 100%;
         }
 
@@ -832,7 +834,7 @@
         .source-options label {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: .35rem;
             white-space: nowrap;
             line-height: 1;
             font-weight: 600;
@@ -843,23 +845,25 @@
             transform: translateY(1px);
         }
 
-        .source-filter .icon-btn {
+        #sourceFilter #btn-open-custom {
             width: 42px;
             height: 42px;
             padding: 0;
-            border: 0 !important;
-            background: transparent !important;
-            box-shadow: none !important;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             border-radius: 12px;
             line-height: 1;
             font-size: 1.15rem;
+            cursor: pointer;
+            flex: 0 0 auto;
         }
 
-        .source-filter .icon-btn:hover {
-            background: rgba(15, 23, 42, 0.06) !important;
+        #sourceFilter #btn-open-custom:hover {
+            background: rgba(15, 23, 42, 0.06);
         }
 
         /* Den gamla separata topbar-layouten används inte längre */
@@ -901,8 +905,8 @@
             </div>
 
             <div class="topbar-controls" aria-label="Vilka tips som ska räknas med">
-                <div class="source-filter">
-                    <span class="source-options">
+                <div id="sourceFilter" aria-label="Filter för tipskällor">
+                    <span class="source-options" aria-label="Vilka tips som visas">
                         <span class="source-item">
                             <label title="Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen)">
                                 <input type="checkbox" id="cb-hobby" checked>
@@ -936,8 +940,10 @@
                             </details>
                         </span>
 
-                        <button class="icon-btn" id="btn-add-custom" type="button" aria-label="Lägg till eget tips" title="Lägg till eget tips">＋</button>
-                        <button class="icon-btn" id="btn-edit-custom" type="button" aria-label="Redigera eget tips" title="Redigera eget tips">✎</button>
+                        <button class="btn-icon-plain" id="btn-open-custom" type="button"
+                            aria-label="Lägg till eget tips" title="Lägg till eget tips">
+                            <span class="custom-open-icon" aria-hidden="true">＋</span>
+                        </button>
                     </span>
                 </div>
             </div>
@@ -1039,8 +1045,7 @@ Lag 14</pre>
                 exportBtn: document.getElementById('exportBtn'),
                 refreshTipsBtn: document.getElementById('refreshTipsBtn'),
                 exportArea: document.getElementById('summary-export-area'),
-                addCustomBtn: document.getElementById('btn-add-custom'),
-                editCustomBtn: document.getElementById('btn-edit-custom'),
+                openCustomBtn: document.getElementById('btn-open-custom'),
                 customPanel: document.getElementById('custom-panel'),
                 customInput: document.getElementById('custom-input'),
                 customMsg: document.getElementById('custom-msg'),
@@ -1503,8 +1508,13 @@ Lag 14</pre>
             }
             function syncCustomButtons() {
                 const hasCustom = !!TIPS_MATRIX_CUSTOM;
-                els.addCustomBtn.style.display = hasCustom ? 'none' : 'inline-flex';
-                els.editCustomBtn.style.display = hasCustom ? 'inline-flex' : 'none';
+                const icon = els.openCustomBtn?.querySelector('.custom-open-icon');
+                if (icon) icon.textContent = hasCustom ? '✎' : '＋';
+                if (els.openCustomBtn) {
+                    const label = hasCustom ? 'Redigera eget tips' : 'Lägg till eget tips';
+                    els.openCustomBtn.setAttribute('aria-label', label);
+                    els.openCustomBtn.setAttribute('title', label);
+                }
             }
             function render() {
                 const rows = computeRows();
@@ -1613,8 +1623,7 @@ Lag 14</pre>
                         els.refreshTipsBtn.setAttribute('aria-label', 'Hämta färska tipsdata');
                     }
                 });
-                els.addCustomBtn.addEventListener('click', () => toggleCustomPanel(true, 'add'));
-                els.editCustomBtn.addEventListener('click', () => toggleCustomPanel(true, 'edit'));
+                els.openCustomBtn.addEventListener('click', () => toggleCustomPanel(true, TIPS_MATRIX_CUSTOM ? 'edit' : 'add'));
                 els.cancelCustomBtn.addEventListener('click', () => toggleCustomPanel(false, 'cancel'));
                 els.saveCustomBtn.addEventListener('click', saveCustom);
                 els.clearCustomBtn.addEventListener('click', () => {
