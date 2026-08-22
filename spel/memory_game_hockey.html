@@ -482,6 +482,7 @@
 }
 
     </style>
+    <script src="../js/google-sheets-data.js"></script>
 </head>
 <body>
 
@@ -841,21 +842,41 @@
         // Sätt till 'false' för att ladda från Google Sheets (kräver internet)
         const USE_LOCAL_FILES = false;
         // -------------------------
+        // Google Sheets-källor.
+        // När USE_LOCAL_FILES = false används GViz/CSV först och publicerad TSV som fallback.
+        const DATA_SOURCES = {
+            players: {
+                key: 'players',
+                label: 'Spelardata',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '123605134',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=123605134&single=true&output=tsv',
+                requiredColumns: [
+                    'player_name',
+                    'number',
+                    'team_id'
+                ]
+            },
 
-        // Länkar till dina publicerade Google Sheets
-        const GOOGLE_PLAYERS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=123605134&single=true&output=tsv';
-        const GOOGLE_TEAMS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=365651820&single=true&output=tsv';
-        
+            teams: {
+                key: 'teams',
+                label: 'Lagdata',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '365651820',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=365651820&single=true&output=tsv',
+                requiredColumns: [
+                    'team_id',
+                    'team_name',
+                    'league'
+                ]
+            }
+        };
+
         // Länkar till lokala filer (måste köras via Live Server)
         const LOCAL_PLAYERS_URL = 'players.txt';
         const LOCAL_TEAMS_URL = 'teams.txt';
 
-        // Bestäm vilka länkar som ska användas
-        const PLAYERS_URL = USE_LOCAL_FILES ? LOCAL_PLAYERS_URL : GOOGLE_PLAYERS_URL;
-        const TEAMS_URL = USE_LOCAL_FILES ? LOCAL_TEAMS_URL : GOOGLE_TEAMS_URL;
-
-
-        /**
+/**
          * Omvandlar en TSV-textsträng...
          */
         function parseTSV(tsvText, columns) {
@@ -948,23 +969,49 @@
                 // Visa laddningsskärmen
                 showScreen(loadingScreen);
 
-                // Hämta båda filerna samtidigt
-                const [teamDataResponse, playerDataResponse] = await Promise.all([
-                    fetch(TEAMS_URL),
-                    fetch(PLAYERS_URL)
-                ]);
+                let teamsList;
+                let playersList;
 
-                if (!teamDataResponse.ok || !playerDataResponse.ok) {
-                    throw new Error('Kunde inte hämta data från Google Sheets.');
+                if (USE_LOCAL_FILES) {
+                    // Lokalt testläge: behåll exakt samma .txt-flöde som tidigare.
+                    const [teamDataResponse, playerDataResponse] = await Promise.all([
+                        fetch(LOCAL_TEAMS_URL),
+                        fetch(LOCAL_PLAYERS_URL)
+                    ]);
+
+                    if (!teamDataResponse.ok || !playerDataResponse.ok) {
+                        throw new Error('Kunde inte hämta lokala datafiler.');
+                    }
+
+                    const teamsTSV = await teamDataResponse.text();
+                    const playersTSV = await playerDataResponse.text();
+
+                    teamsList = parseTSV(teamsTSV, ['team_id', 'team_name', 'league']);
+                    playersList = parseTSV(playersTSV, ['player_name', 'number', 'team_id']);
+                } else {
+                    // Online-läge: GViz först, publicerad TSV som fallback.
+                    const [
+                        { rows: teamRows },
+                        { rows: playerRows }
+                    ] = await Promise.all([
+                        GoogleSheetsData.fetchRows(DATA_SOURCES.teams),
+                        GoogleSheetsData.fetchRows(DATA_SOURCES.players)
+                    ]);
+
+                    // Behåll exakt samma interna objektformat som buildTeamsObject() redan använder.
+                    teamsList = teamRows.slice(1).map(row => ({
+                        team_id: String(row[0] ?? '').trim(),
+                        team_name: String(row[1] ?? '').trim(),
+                        league: String(row[2] ?? '').trim()
+                    })).filter(row => row.team_id && row.team_name && row.league);
+
+                    playersList = playerRows.slice(1).map(row => ({
+                        player_name: String(row[0] ?? '').trim(),
+                        number: String(row[1] ?? '').trim(),
+                        team_id: String(row[2] ?? '').trim()
+                    })).filter(row => row.player_name && row.number && row.team_id);
                 }
 
-                const teamsTSV = await teamDataResponse.text();
-                const playersTSV = await playerDataResponse.text();
-
-                // Omvandla texten till listor med objekt
-                const teamsList = parseTSV(teamsTSV, ['team_id', 'team_name', 'league']);
-                const playersList = parseTSV(playersTSV, ['player_name', 'number', 'team_id']);
-                
                 // Bygg det slutgiltiga TEAMS-objektet
                 TEAMS = buildTeamsObject(teamsList, playersList);
 
