@@ -453,8 +453,14 @@
             border-radius: 4px;
         }
 
-        .round-result-team.winner {
+        .round-result-team.current-team {
             font-weight: 800;
+        }
+
+        .round-result-marker.winner-star {
+            color: #e6b800;
+            font-size: 1.02em;
+            line-height: 1;
         }
 
         .round-result-team.movement-up {
@@ -1666,7 +1672,7 @@
                             <option value="tabell_shl_2022-2023.html">2022/2023</option>
                             <option value="tabell_shl_2023-2024.html">2023/2024</option>
                             <option value="tabell_shl_2024-2025.html">2024/2025</option>
-                            <option value="tabell_och_varmekarta_shl_2026-2027.html">2025/2026</option>
+                            <option value="tabell_och_varmekarta_shl_2025-2026.html">2025/2026</option>
                             <option value="" selected>2026/2027</option>
                         </select>
                     </div>
@@ -1896,12 +1902,11 @@ Lag 14</pre>
                             <span>Visa tabellrörelser</span>
                         </label>
 
-                        <p class="round-results-explanation">Här visas de matcher som tar respektive lag till det aktuella antalet spelade matcher. Det lag vars aktuella match det är markeras med ●. Eftersom lagen kan ligga olika långt i spelschemat kan en match räknas för det ena laget men inte för det andra. Ett lag kan därför förekomma i mer än en match.</p>
+                        <p class="round-results-explanation">Här visas de matcher som tar respektive lag till det aktuella antalet spelade matcher. Det lag vars aktuella match det är markeras med fetstil. Eftersom lagen kan ligga olika långt i spelschemat kan en match räknas för det ena laget men inte för det andra. Ett lag kan därför förekomma i mer än en match. Vinnande lag markeras med en gul stjärna.</p>
                         <ul id="roundResultsList" class="round-results-list"></ul>
                     </aside>
                 </div>
 
-                <div class="source">Källa: Google Sheet</div>
             </section>
 
 
@@ -4915,19 +4920,21 @@ Lag 14</pre>
 
                 const homeMarker = document.createElement('span');
                 homeMarker.className = 'round-result-marker';
-                homeMarker.textContent = homeIsCurrent ? '●' : '';
+                homeMarker.textContent = '';
 
                 const homeSpan = document.createElement('span');
                 homeSpan.className = 'round-result-team home-team';
                 homeSpan.textContent = getTeamLongName(match.home_team_id);
+                if (homeIsCurrent) homeSpan.classList.add('current-team');
 
                 const awayMarker = document.createElement('span');
                 awayMarker.className = 'round-result-marker';
-                awayMarker.textContent = awayIsCurrent ? '●' : '';
+                awayMarker.textContent = '';
 
                 const awaySpan = document.createElement('span');
                 awaySpan.className = 'round-result-team away-team';
                 awaySpan.textContent = getTeamLongName(match.away_team_id);
+                if (awayIsCurrent) awaySpan.classList.add('current-team');
 
                 const homeMove = movementByTeam.get(match.home_team_id);
                 const awayMove = movementByTeam.get(match.away_team_id);
@@ -4944,8 +4951,13 @@ Lag 14</pre>
                 }
 
                 if (isNum(match.home_goals) && isNum(match.away_goals)) {
-                    if (match.home_goals > match.away_goals) homeSpan.classList.add('winner');
-                    else if (match.away_goals > match.home_goals) awaySpan.classList.add('winner');
+                    if (match.home_goals > match.away_goals) {
+                        homeMarker.textContent = '★';
+                        homeMarker.classList.add('winner-star');
+                    } else if (match.away_goals > match.home_goals) {
+                        awayMarker.textContent = '★';
+                        awayMarker.classList.add('winner-star');
+                    }
                 }
 
                 const extraTimeLabel = getExtraTimeLabel(match);
