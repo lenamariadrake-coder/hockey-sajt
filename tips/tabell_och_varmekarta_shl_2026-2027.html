@@ -433,6 +433,10 @@
             line-height: 1.55;
         }
 
+        .round-results-movement-toggle {
+            margin: 0 0 .65rem;
+        }
+
         .round-results-title {
             margin: 0 0 .45rem;
             font-size: .85rem;
@@ -440,6 +444,24 @@
             letter-spacing: .02em;
             text-transform: uppercase;
             color: var(--text);
+        }
+
+        .round-result-team {
+            display: inline-block;
+            padding: .02rem .18rem;
+            border-radius: 4px;
+        }
+
+        .round-result-team.winner {
+            font-weight: 800;
+        }
+
+        .round-result-team.movement-up {
+            background: #dcfce7;
+        }
+
+        .round-result-team.movement-down {
+            background: #fee2e2;
         }
 
         .round-results-list {
@@ -1607,12 +1629,6 @@
                         </select>
                     </div>
 
-                    <label id="movementToggleLabel" class="movement-toggle"
-                        title="Grönt = upp, rött = ner sedan föregående omgång">
-                        <input id="movementEnabled" type="checkbox" checked>
-                        <span>Visa tabellrörelser</span>
-                    </label>
-
                     <label id="rowColorToggleSummary" class="rowcolor-toggle rowcolor-toggle--icon"
                         title="Visa färgpaletter">
                         <input id="rowColorEnabled" type="checkbox" />
@@ -1834,6 +1850,12 @@ Lag 14</pre>
                     </table>
 
                     <aside id="roundResults" class="round-results hidden" aria-live="polite">
+                        <label id="movementToggleLabel" class="movement-toggle round-results-movement-toggle"
+                            title="Grönt = upp, rött = ner sedan föregående omgång">
+                            <input id="movementEnabled" type="checkbox" checked>
+                            <span>Visa tabellrörelser</span>
+                        </label>
+
                         <h3 class="round-results-title">Omgångens resultat</h3>
                         <ul id="roundResultsList" class="round-results-list"></ul>
                     </aside>
@@ -4804,7 +4826,7 @@ Lag 14</pre>
             return movement;
         }
 
-        function renderRoundResults(round) {
+        function renderRoundResults(round, movementByTeam = new Map()) {
             const box = document.getElementById('roundResults');
             const list = document.getElementById('roundResultsList');
             if (!box || !list) return;
@@ -4826,25 +4848,51 @@ Lag 14</pre>
 
             matches.forEach(match => {
                 const li = document.createElement('li');
-                const home = getTeamLongName(match.home_team_id);
-                const away = getTeamLongName(match.away_team_id);
-                const score = isNum(match.home_goals) && isNum(match.away_goals)
-                    ? `${match.home_goals}–${match.away_goals}`
-                    : '–';
-                li.textContent = `${home} – ${away} ${score}`;
+
+                const homeSpan = document.createElement('span');
+                homeSpan.className = 'round-result-team';
+                homeSpan.textContent = getTeamLongName(match.home_team_id);
+
+                const awaySpan = document.createElement('span');
+                awaySpan.className = 'round-result-team';
+                awaySpan.textContent = getTeamLongName(match.away_team_id);
+
+                const homeMove = movementByTeam.get(match.home_team_id);
+                const awayMove = movementByTeam.get(match.away_team_id);
+
+                if (homeMove === 'up') homeSpan.classList.add('movement-up');
+                else if (homeMove === 'down') homeSpan.classList.add('movement-down');
+
+                if (awayMove === 'up') awaySpan.classList.add('movement-up');
+                else if (awayMove === 'down') awaySpan.classList.add('movement-down');
+
+                if (isNum(match.home_goals) && isNum(match.away_goals)) {
+                    if (match.home_goals > match.away_goals) homeSpan.classList.add('winner');
+                    else if (match.away_goals > match.home_goals) awaySpan.classList.add('winner');
+                }
+
+                const separator = document.createTextNode(' – ');
+                const scoreText = document.createTextNode(
+                    isNum(match.home_goals) && isNum(match.away_goals)
+                        ? ` ${match.home_goals}–${match.away_goals}`
+                        : ' –'
+                );
+
+                li.append(homeSpan, separator, awaySpan, scoreText);
                 list.appendChild(li);
             });
         }
 
         function renderTableForRound(round) {
             syncStandingsHeaderForRowColors();
-            renderRoundResults(round);
 
             const data = buildStandingsForRound(round);
             const rows = [...data].sort(standingsComparator);
             const movementByTeam = state.showMovements
                 ? buildMovementByTeam(round, rows)
                 : new Map();
+
+            renderRoundResults(round, movementByTeam);
 
             const tbody = tableStand.querySelector('tbody');
             tbody.innerHTML = '';
