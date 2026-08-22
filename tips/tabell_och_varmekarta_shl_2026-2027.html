@@ -3742,6 +3742,7 @@ Lag 14</pre>
             const iAwayTeamId = idx('away_team_id');
             const iHomeGoals = idx('home_goals');
             const iAwayGoals = idx('away_goals');
+            const iResult = idx('result');
             const iHomePts = idx('home_points');
             const iAwayPts = idx('away_points');
             const iSeason = idx('season_id');
@@ -3842,7 +3843,8 @@ Lag 14</pre>
                         home_team_id: ht,
                         away_team_id: at,
                         home_goals: hg,
-                        away_goals: ag
+                        away_goals: ag,
+                        result: iResult !== -1 ? String(r[iResult] || '').trim() : ''
                     });
                 }
 
@@ -4826,6 +4828,17 @@ Lag 14</pre>
             return movement;
         }
 
+        function getExtraTimeLabel(match) {
+            const result = String(match?.result || '').trim().toUpperCase();
+
+            // Acceptera både de korta beteckningarna och några vanliga
+            // längre varianter om games-källan skulle ändras framöver.
+            if (/\bSO\b|SHOOTOUT|STRAFF/.test(result)) return 'SO';
+            if (/\bOT\b|OVERTIME|ÖVERTID/.test(result)) return 'OT';
+
+            return '';
+        }
+
         function renderRoundResults(round, movementByTeam = new Map()) {
             const box = document.getElementById('roundResults');
             const list = document.getElementById('roundResultsList');
@@ -4872,9 +4885,10 @@ Lag 14</pre>
                 }
 
                 const separator = document.createTextNode(' – ');
+                const extraTimeLabel = getExtraTimeLabel(match);
                 const scoreText = document.createTextNode(
                     isNum(match.home_goals) && isNum(match.away_goals)
-                        ? ` ${match.home_goals}–${match.away_goals}`
+                        ? ` ${match.home_goals}–${match.away_goals}${extraTimeLabel ? ` ${extraTimeLabel}` : ''}`
                         : ' –'
                 );
 
