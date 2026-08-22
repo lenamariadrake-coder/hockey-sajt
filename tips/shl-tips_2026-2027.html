@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SHL-tips – snitt på tipsen</title>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="../js/google-sheets-data.js"></script>
     <style>
         /* =========================================================
  0) DESIGN-TOKENS / VARIABLER
@@ -1915,11 +1916,52 @@ Lag 14</pre>
             // SHL 2026/2027 – gemensam tipsdata + localStorage
             // Samma cacheformat och nycklar som Tabell/Värmekarta.
             // =========================================================
-            const GAMES_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv';
-            const ALL_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv';
+            const DATA_SOURCES = {
+                games: {
+                    key: 'games',
+                    label: 'Matchdata',
+                    spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                    gid: '2012579108',
+                    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+                    requiredColumns: [
+                        'home_team_id',
+                        'away_team_id',
+                        'season_id',
+                        'league'
+                    ]
+                },
+
+                allTeams: {
+                    key: 'allTeams',
+                    label: 'Lagdata',
+                    spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                    gid: '257061153',
+                    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv',
+                    requiredColumns: [
+                        'team_id',
+                        'team_name_short',
+                        'team_name_long'
+                    ]
+                },
+
+                tips: {
+                    key: 'tips',
+                    label: 'Tipsdata',
+                    spreadsheetId: '1fsWVsiCnwFzge3xf5p0cReiTAkcpdLcuvmWSyDUmDhI',
+                    gid: '530439256',
+                    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv',
+                    requiredColumns: [
+                        'participant_id',
+                        'display_name',
+                        'tip_type',
+                        'team_id',
+                        'pick_rank'
+                    ]
+                }
+            };
+
             const MATCH_SEASON_ID = '2026-2027';
             const MATCH_LEAGUE = 'SHL';
-            const TIPS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv';
 
             const SHL_TIPS_CACHE_KEY = 'SHL_TIPS_DATA_2026_2027';
             const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
@@ -1968,12 +2010,6 @@ Lag 14</pre>
                 els.loadError.hidden = true;
             }
 
-            function parseTSV(text) {
-                return String(text || '')
-                    .split(/\r?\n/)
-                    .filter(line => line.trim().length > 0)
-                    .map(line => line.split('\t').map(cell => cell.trim()));
-            }
             function idxOf(header, name) {
                 return header.findIndex(h => String(h).toLowerCase() === String(name).toLowerCase());
             }
@@ -2053,23 +2089,14 @@ Lag 14</pre>
             }
 
             async function refreshTipsFromSheets() {
-                const [gamesText, allTeamsText, tipsText] = await Promise.all([
-                    fetch(GAMES_TSV_URL).then(r => {
-                        if (!r.ok) throw new Error(`Matchdata: HTTP ${r.status}`);
-                        return r.text();
-                    }),
-                    fetch(ALL_TEAMS_TSV_URL).then(r => {
-                        if (!r.ok) throw new Error(`Lagdata: HTTP ${r.status}`);
-                        return r.text();
-                    }),
-                    fetch(TIPS_SHL_TSV_URL).then(r => {
-                        if (!r.ok) throw new Error(`Tipsdata: HTTP ${r.status}`);
-                        return r.text();
-                    })
+                const [gamesResult, allTeamsResult, tipsResult] = await Promise.all([
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.games),
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.allTeams),
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.tips)
                 ]);
 
                 // 1) Games avgör exakt vilka lag som ingår i vald liga/säsong.
-                const gameRows = parseTSV(gamesText);
+                const gameRows = gamesResult.rows;
                 if (!gameRows.length) throw new Error('Matchdata: inga rader hittades.');
                 const gh = gameRows[0];
                 const iGameHome = idxOf(gh, 'home_team_id');
@@ -2096,7 +2123,7 @@ Lag 14</pre>
                 }
 
                 // 2) all_teams är enda namnregistret. Filtrera ner till säsongens 14 team_id.
-                const teamRows = parseTSV(allTeamsText);
+                const teamRows = allTeamsResult.rows;
                 if (!teamRows.length) throw new Error('Lagdata: inga rader hittades.');
                 const th = teamRows[0];
                 const iId = idxOf(th, 'team_id');
@@ -2128,7 +2155,7 @@ Lag 14</pre>
                 rebuildTeamIndexes();
 
                 // Publicerad tipsdata: participant_id | display_name | tip_type | team_id | pick_rank | ...
-                const tipsRows = parseTSV(tipsText);
+                const tipsRows = tipsResult.rows;
                 if (!tipsRows.length) throw new Error('Tipsdata: inga rader hittades.');
                 const hdr = tipsRows[0];
                 const iParticipant = idxOf(hdr, 'participant_id');
