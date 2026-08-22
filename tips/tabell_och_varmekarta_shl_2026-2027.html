@@ -437,13 +437,12 @@
             margin: 0 0 .65rem;
         }
 
-        .round-results-title {
-            margin: 0 0 .9rem;
+        .round-results-explanation {
+            margin: 0 0 1rem;
+            max-width: 48rem;
+            color: var(--text-muted);
             font-size: .85rem;
-            font-weight: 800;
-            letter-spacing: .02em;
-            text-transform: uppercase;
-            color: var(--text);
+            line-height: 1.45;
         }
 
         .round-result-team {
@@ -1747,9 +1746,7 @@
         <!-- Gemensam kontrollrad: sifferknappar + (endast i heatmap) sorteringsväxel -->
         <section class="controls">
             <div class="siffror-wrap" id="roundButtons" aria-label="Omgångar (antal matcher)"></div>
-            <p class="source" style="margin-top: 0.5rem; margin-bottom: 0.5rem; text-align: left;">Visar endast data i
-                den mån
-                lagen har spelat lika många matcher.</p>
+            <p class="source" style="margin-top: 0.5rem; margin-bottom: 0.5rem; text-align: left;">Jämförelsen utgår från varje lags första X matcher.</p>
             <!-- Radfärger (endast tabell-läget) – höjdstabil kontrollrad -->
 
             <!-- Flytande mini-palett -->
@@ -1875,7 +1872,7 @@ Lag 14</pre>
                             <span>Visa tabellrörelser</span>
                         </label>
 
-                        <h3 class="round-results-title">Omgångens resultat</h3>
+                        <p class="round-results-explanation">Här visas de matcher som tar respektive lag till det aktuella antalet spelade matcher. Det lag vars aktuella match det är markeras med ●. Eftersom lagen kan ligga olika långt i spelschemat kan en match räknas för det ena laget men inte för det andra. Ett lag kan därför förekomma i mer än en match.</p>
                         <ul id="roundResultsList" class="round-results-list"></ul>
                     </aside>
                 </div>
@@ -3855,17 +3852,25 @@ Lag 14</pre>
                 gamesPlayedByTeam.set(ht, homeRound);
                 gamesPlayedByTeam.set(at, awayRound);
 
-                if (homeRound === awayRound) {
-                    if (!MATCHES_BY_ROUND.has(homeRound)) MATCHES_BY_ROUND.set(homeRound, []);
-                    MATCHES_BY_ROUND.get(homeRound).push({
-                        date: String(r[iDate] || '').trim(),
-                        home_team_id: ht,
-                        away_team_id: at,
-                        home_goals: hg,
-                        away_goals: ag,
-                        result: iResult !== -1 ? String(r[iResult] || '').trim() : ''
-                    });
-                }
+                const roundMatch = {
+                    date: String(r[iDate] || '').trim(),
+                    home_team_id: ht,
+                    away_team_id: at,
+                    home_goals: hg,
+                    away_goals: ag,
+                    result: iResult !== -1 ? String(r[iResult] || '').trim() : '',
+                    home_round: homeRound,
+                    away_round: awayRound
+                };
+
+                // Matchen ska visas för varje steg där den är den aktuella matchen
+                // för minst ett av lagen. Om båda lagen har samma matchnummer
+                // läggs matchen bara in en gång i det steget.
+                const affectedRounds = new Set([homeRound, awayRound]);
+                affectedRounds.forEach(matchRound => {
+                    if (!MATCHES_BY_ROUND.has(matchRound)) MATCHES_BY_ROUND.set(matchRound, []);
+                    MATCHES_BY_ROUND.get(matchRound).push(roundMatch);
+                });
 
                 const hHist = hist.get(ht);
                 const aHist = hist.get(at);
@@ -4255,7 +4260,7 @@ Lag 14</pre>
                 const raw = localStorage.getItem(SHL_STANDINGS_CACHE_KEY);
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
-                if (!parsed || parsed.version !== 1 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
+                if (!parsed || parsed.version !== 2 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
                 if (!parsed.snapshots || !Array.isArray(parsed.roundsAvailable) || !Array.isArray(parsed.seasonTeamIds) || !parsed.teamById) return null;
                 if (!allowStale && !isShlCacheFresh(parsed)) return null;
                 return parsed;
@@ -4284,7 +4289,7 @@ Lag 14</pre>
             SEASON_TEAM_IDS.forEach(teamId => seasonTeams.set(teamId, TEAM_BY_ID.get(teamId)));
 
             const payload = {
-                version: 1,
+                version: 2,
                 savedAt: new Date().toISOString(),
                 season: '2026_2027',
                 league: 'shl',
@@ -4873,7 +4878,7 @@ Lag 14</pre>
             if (!matches.length) {
                 const li = document.createElement('li');
                 li.className = 'round-results-empty';
-                li.textContent = round > 0 ? 'Inga resultat för omgången ännu.' : 'Välj en omgång för att se resultaten.';
+                li.textContent = round > 0 ? 'Inga resultat för det här matchsteget ännu.' : 'Välj ett matchsteg för att se resultaten.';
                 list.appendChild(li);
                 return;
             }
@@ -4881,22 +4886,30 @@ Lag 14</pre>
             matches.forEach(match => {
                 const li = document.createElement('li');
 
+                const homeIsCurrent = match.home_round === round;
+                const awayIsCurrent = match.away_round === round;
+
                 const homeSpan = document.createElement('span');
                 homeSpan.className = 'round-result-team';
-                homeSpan.textContent = getTeamLongName(match.home_team_id);
+                homeSpan.textContent = `${homeIsCurrent ? '● ' : ''}${getTeamLongName(match.home_team_id)}`;
 
                 const awaySpan = document.createElement('span');
                 awaySpan.className = 'round-result-team';
-                awaySpan.textContent = getTeamLongName(match.away_team_id);
+                awaySpan.textContent = `${awayIsCurrent ? '● ' : ''}${getTeamLongName(match.away_team_id)}`;
 
                 const homeMove = movementByTeam.get(match.home_team_id);
                 const awayMove = movementByTeam.get(match.away_team_id);
 
-                if (homeMove === 'up') homeSpan.classList.add('movement-up');
-                else if (homeMove === 'down') homeSpan.classList.add('movement-down');
+                // Rörelsefärgen hör bara till det lag vars X:e match detta faktiskt är.
+                if (homeIsCurrent) {
+                    if (homeMove === 'up') homeSpan.classList.add('movement-up');
+                    else if (homeMove === 'down') homeSpan.classList.add('movement-down');
+                }
 
-                if (awayMove === 'up') awaySpan.classList.add('movement-up');
-                else if (awayMove === 'down') awaySpan.classList.add('movement-down');
+                if (awayIsCurrent) {
+                    if (awayMove === 'up') awaySpan.classList.add('movement-up');
+                    else if (awayMove === 'down') awaySpan.classList.add('movement-down');
+                }
 
                 if (isNum(match.home_goals) && isNum(match.away_goals)) {
                     if (match.home_goals > match.away_goals) homeSpan.classList.add('winner');
