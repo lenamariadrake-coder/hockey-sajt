@@ -2064,8 +2064,9 @@ Lag 14</pre>
         const MATCH_SEASON_ID = '2026-2027';
         const MATCH_LEAGUE = 'SHL';
 
-        // Masterregister för lagnamn till matchdelen (team_id -> visningsnamn).
-        const MATCH_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1991699389&single=true&output=tsv';
+        // Gemensamt masterregister för ALLA lag.
+        // games avgör vilka team_id som tillhör vald liga/säsong; all_teams avgör vad de heter.
+        const ALL_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv';
 
         // LocalStorage-nyckel för vald omgång (liga + säsong)
         // ⚠️ MÅSTE vara IDENTISK i systerappen
@@ -2077,10 +2078,8 @@ Lag 14</pre>
         const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
 
 
-        // TSV-källor för SHL-tipset (Google Sheets → public TSV)
-        // Säsongsspecifik laglista för 2026/2027. Den hålls separat från
-        // matchdelens masterregister så att rätt 14 SHL-lag används här.
-        const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1243346866&single=true&output=tsv';
+        // Laguppsättningen för vald säsong hämtas inte längre från en separat teams_shl-flik.
+        // Den här sidan härleder den från games och slår sedan upp namnen i all_teams.
 
         // Publicerad TSV för tips_shl_2026-2027.
         // Förväntade kolumner:
@@ -2096,11 +2095,15 @@ Lag 14</pre>
         let SHORT_TEAMS = [];
 
         function rebuildTeamNameIndexes() {
-            const teams = Array.from(TEAM_BY_ID.values());
-
-            if (teams.length !== 14) {
-                throw new Error(`Lagdata: förväntade 14 SHL-lag men fick ${teams.length}.`);
+            if (!(SEASON_TEAM_IDS instanceof Set) || SEASON_TEAM_IDS.size !== 14) {
+                throw new Error(`Säsongslag: förväntade 14 SHL-lag men har ${SEASON_TEAM_IDS?.size ?? 0}.`);
             }
+
+            const teams = Array.from(SEASON_TEAM_IDS).map(teamId => {
+                const team = TEAM_BY_ID.get(teamId);
+                if (!team) throw new Error(`Lagdata: team_id "${teamId}" saknas i all_teams.`);
+                return team;
+            });
 
             const nextNameMap = {};
             const seenShort = new Set();
@@ -2130,7 +2133,8 @@ Lag 14</pre>
             TEAM_ID_BY_SHORT = {};
             SHORT_BY_TEAM_ID = {};
 
-            TEAM_BY_ID.forEach((team, teamId) => {
+            SEASON_TEAM_IDS.forEach(teamId => {
+                const team = TEAM_BY_ID.get(teamId);
                 const shortName = String(team?.team_name_short || '').trim();
                 if (!shortName) {
                     throw new Error(`Lagdata: team_name_short saknas för ${teamId}.`);
@@ -3639,45 +3643,14 @@ Lag 14</pre>
         /* ===========================================================
            4) TSV-inläsning & snapshots per omgång (min games)
            =========================================================== */
-        let STANDING_SNAPSHOTS = new Map(); // round(int) -> [{team,g,points,gf,ga,gd}]
+        let STANDING_SNAPSHOTS = new Map(); // round(int) -> [{team_id,g,points,gf,ga,gd}]
         let MATCHES_BY_ROUND = new Map();     // round(int) -> matcher i datum-/games-ordning
-        let ALL_TEAMS_LONG = [];
-        let MATCH_TEAM_BY_ID = new Map();
-        let SEASON_TEAM_IDS = new Set(); // exakt de 14 lag som ingår i SHL 2026/2027
+        let SEASON_TEAM_IDS = new Set();      // härleds från games för vald liga/säsong
 
-        async function loadMatchTeamsFromTSV(url) {
-            const tsv = await fetch(url).then(r => {
-                if (!r.ok) throw new Error(`Lagdata: HTTP ${r.status}`);
-                return r.text();
-            });
-            const rows = parseTSV(tsv);
-            if (!rows.length) throw new Error('Lagdata: inga rader hittades.');
-
-            const hdr = rows[0].map(h => h.trim());
-            const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
-            const iId = idx('team_id');
-            const iShort = idx('team_name_short');
-            const iLong = idx('team_name_long');
-
-            if (iId === -1 || iLong === -1) {
-                throw new Error('Lagdata: team_id eller team_name_long saknas.');
-            }
-
-            MATCH_TEAM_BY_ID.clear();
-            rows.slice(1).forEach(r => {
-                const teamId = String(r[iId] || '').trim();
-                if (!teamId) return;
-                MATCH_TEAM_BY_ID.set(teamId, {
-                    team_id: teamId,
-                    team_name_short: iShort !== -1 ? String(r[iShort] || '').trim() : '',
-                    team_name_long: String(r[iLong] || '').trim()
-                });
-            });
-        }
-
-        function getMatchTeamLongName(teamId) {
-            const team = MATCH_TEAM_BY_ID.get(teamId);
-            return team?.team_name_long || team?.team_name_short || teamId;
+        function getTeamLongName(teamId) {
+            const id = String(teamId || '').trim();
+            const team = TEAM_BY_ID.get(id);
+            return team?.team_name_long || team?.team_name_short || id;
         }
 
         function getSeasonTeamShortName(teamId) {
@@ -3731,45 +3704,46 @@ Lag 14</pre>
                 String(r[iLeague] || '').trim().toUpperCase() === MATCH_LEAGUE.toUpperCase()
             );
 
-            // Inga matcher för vald säsong är ett giltigt försäsongsläge, inte ett fel.
-            // VIKTIGT: utgå från säsongens 14 lag, INTE från hela masterregistret.
-            // Masterregistret kan innehålla lag från andra säsonger (t.ex. Leksand).
-            if (!(SEASON_TEAM_IDS instanceof Set) || SEASON_TEAM_IDS.size !== 14) {
-                throw new Error(`Säsongslag: förväntade 14 SHL-lag men har ${SEASON_TEAM_IDS?.size ?? 0}.`);
-            }
-
-            const teamIds = new Set(SEASON_TEAM_IDS);
-
-            // Games får bara referera till lag som ingår i den valda säsongen.
+            // games är facit för vilka lag som ingår i vald liga/säsong.
+            // Även ospelade schemarader räknas här, så det räcker att början av
+            // spelschemat innehåller samtliga 14 lag.
+            const teamIds = new Set();
             dataRows.forEach(r => {
                 const homeTeamId = String(r[iHomeTeamId] || '').trim();
                 const awayTeamId = String(r[iAwayTeamId] || '').trim();
-
-                if (homeTeamId && !teamIds.has(homeTeamId)) {
-                    throw new Error(`Matchdata: hemmalag "${homeTeamId}" ingår inte i SHL ${MATCH_SEASON_ID}.`);
-                }
-                if (awayTeamId && !teamIds.has(awayTeamId)) {
-                    throw new Error(`Matchdata: bortalag "${awayTeamId}" ingår inte i SHL ${MATCH_SEASON_ID}.`);
-                }
+                if (homeTeamId) teamIds.add(homeTeamId);
+                if (awayTeamId) teamIds.add(awayTeamId);
             });
 
+            if (teamIds.size !== 14) {
+                throw new Error(`Matchdata: förväntade 14 SHL-lag i games för ${MATCH_SEASON_ID}, men hittade ${teamIds.size}.`);
+            }
 
+            for (const teamId of teamIds) {
+                if (!TEAM_BY_ID.has(teamId)) {
+                    throw new Error(`Lagdata: team_id "${teamId}" från games saknas i all_teams.`);
+                }
+            }
 
-
-
+            SEASON_TEAM_IDS = new Set(teamIds);
+            rebuildTeamNameIndexes();
 
             const ALL_TEAM_IDS = Array.from(teamIds).sort((a, b) =>
-                getMatchTeamLongName(a).localeCompare(getMatchTeamLongName(b), 'sv')
+                getTeamLongName(a).localeCompare(getTeamLongName(b), 'sv')
             );
-
-            ALL_TEAMS_LONG = ALL_TEAM_IDS.map(getMatchTeamLongName);
 
             const hist = new Map();
             ALL_TEAM_IDS.forEach(teamId => {
                 hist.set(teamId, [{ g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]);
             });
 
-            const orderedDataRows = dataRows
+            // Säsongslag härleds från hela schemat, men tabell/tidslinje ska bara
+            // använda matcher som faktiskt har ett resultat.
+            const playedDataRows = dataRows.filter(r =>
+                isNum(toInt(r[iHomeGoals])) && isNum(toInt(r[iAwayGoals]))
+            );
+
+            const orderedDataRows = playedDataRows
                 .map((row, sourceIndex) => ({ row, sourceIndex }))
                 .sort((a, b) => {
                     const dateDiff = new Date(a.row[iDate]) - new Date(b.row[iDate]);
@@ -3844,7 +3818,6 @@ Lag 14</pre>
                     const s = hist.get(teamId)[m];
                     return {
                         team_id: teamId,
-                        team: getMatchTeamLongName(teamId),
                         g: s.g,
                         points: s.points,
                         gf: s.gf,
@@ -3889,10 +3862,13 @@ Lag 14</pre>
         let TIPS_BY_TIPPER_HOBBY = new Map();
         let TIPS_BY_TIPPER_EXPERT = new Map();
 
-        async function loadTeamsFromTSV(url) {
-            const tsv = await fetch(url).then(r => r.text());
+        async function loadAllTeamsFromTSV(url, { signal } = {}) {
+            const tsv = await fetch(url, { signal }).then(r => {
+                if (!r.ok) throw new Error(`Lagdata: HTTP ${r.status}`);
+                return r.text();
+            });
             const rows = parseTSV(tsv);
-            if (!rows.length) return;
+            if (!rows.length) throw new Error('Lagdata: inga rader hittades i all_teams.');
 
             const hdr = rows[0].map(h => h.trim());
             const idx = (name) => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
@@ -3902,15 +3878,17 @@ Lag 14</pre>
             const iShort = idx('team_name_short');
             const iLong = idx('team_name_long');
 
-            TEAM_BY_ID.clear();
-
             if (iId === -1 || iShort === -1 || iLong === -1) {
-                throw new Error('Lagdata för tips: team_id, team_name_short eller team_name_long saknas.');
+                throw new Error('Lagdata: all_teams måste innehålla team_id, team_name_short och team_name_long.');
             }
 
+            TEAM_BY_ID.clear();
             rows.slice(1).forEach(r => {
                 const team_id = String(r[iId] || '').trim();
-                if (!team_id) throw new Error('Lagdata för tips: tomt team_id.');
+                if (!team_id) return;
+                if (TEAM_BY_ID.has(team_id)) {
+                    throw new Error(`Lagdata: dubblerat team_id "${team_id}" i all_teams.`);
+                }
 
                 TEAM_BY_ID.set(team_id, {
                     team_id,
@@ -3920,17 +3898,7 @@ Lag 14</pre>
                 });
             });
 
-            rebuildTeamNameIndexes();
-
-            // Samma säsongsspecifika lagkälla används som facit för vilka lag
-            // som faktiskt ska ingå i SHL-tabellen denna säsong.
-            SEASON_TEAM_IDS = new Set(TEAM_BY_ID.keys());
-
-            console.log("[TEAMS][season] säsongslag laddade", {
-                count: SEASON_TEAM_IDS.size,
-                teamIds: Array.from(SEASON_TEAM_IDS),
-                shortByTeamId: { ...SHORT_BY_TEAM_ID }
-            });
+            if (!TEAM_BY_ID.size) throw new Error('Lagdata: all_teams gav inga lag.');
         }
 
         function isExpertDisplayName(displayName) {
@@ -4101,8 +4069,7 @@ Lag 14</pre>
                 if (parsed.version !== 2 || parsed.season !== "2026_2027" || parsed.league !== "shl") return null;
 
                 const hasMatrices = !!(parsed.TIPS_MATRIX_HOBBY && parsed.TIPS_MATRIX_EXPERT);
-                const hasTeams = !!(parsed.TEAM_BY_ID && parsed.TEAM_ID_BY_LONGNAME);
-                if (!hasMatrices || !hasTeams) return null;
+                if (!hasMatrices) return null;
                 if (!allowStale && !isShlCacheFresh(parsed)) return null;
 
                 return parsed;
@@ -4122,11 +4089,8 @@ Lag 14</pre>
         }
 
         function hydrateFromSharedCache(payload) {
-            TEAM_BY_ID.clear();
-            objToMap(payload.TEAM_BY_ID).forEach((v, k) => TEAM_BY_ID.set(k, v));
-            rebuildTeamNameIndexes();
-            SEASON_TEAM_IDS = new Set(TEAM_BY_ID.keys());
-
+            // Lag/säsong kommer från standings-cachen eller games + all_teams.
+            // Tips-cachen får inte längre vara en konkurrerande källa för laguppsättningen.
             if (typeof TIPPER_BY_ID !== "undefined" && TIPPER_BY_ID?.clear) {
                 TIPPER_BY_ID.clear();
                 objToMap(payload.TIPPER_BY_ID).forEach((v, k) => TIPPER_BY_ID.set(k, v));
@@ -4146,7 +4110,10 @@ Lag 14</pre>
         }
 
         async function refreshTipsFromSheets() {
-            await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
+            if (!(SEASON_TEAM_IDS instanceof Set) || SEASON_TEAM_IDS.size !== 14) {
+                throw new Error('Tipsdata: säsongens lag måste först härledas från games.');
+            }
+            rebuildTeamNameIndexes();
             await loadClassicTipsFromTSV(TIPS_SHL_TSV_URL);
 
             window.TIPS_MATRIX_HOBBY = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_HOBBY);
@@ -4159,7 +4126,11 @@ Lag 14</pre>
                 league: "shl",
                 TIPS_MATRIX_HOBBY: window.TIPS_MATRIX_HOBBY,
                 TIPS_MATRIX_EXPERT: window.TIPS_MATRIX_EXPERT,
-                TEAM_BY_ID: mapToObj(TEAM_BY_ID),
+                TEAM_BY_ID: (() => {
+                    const m = new Map();
+                    SEASON_TEAM_IDS.forEach(teamId => m.set(teamId, TEAM_BY_ID.get(teamId)));
+                    return mapToObj(m);
+                })(),
                 TEAM_ID_BY_LONGNAME: (() => {
                     const o = {};
                     TEAM_BY_ID.forEach((team, teamId) => {
@@ -4217,7 +4188,7 @@ Lag 14</pre>
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
                 if (!parsed || parsed.version !== 1 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
-                if (!parsed.snapshots || !Array.isArray(parsed.roundsAvailable)) return null;
+                if (!parsed.snapshots || !Array.isArray(parsed.roundsAvailable) || !Array.isArray(parsed.seasonTeamIds) || !parsed.teamById) return null;
                 if (!allowStale && !isShlCacheFresh(parsed)) return null;
                 return parsed;
             } catch (e) {
@@ -4231,11 +4202,19 @@ Lag 14</pre>
             MATCHES_BY_ROUND = snapshotsObjectToMap(payload.matchesByRound);
             state.roundsAvailable = new Set((payload.roundsAvailable || []).map(Number));
             state.latestRound = Number.isFinite(Number(payload.latestRound)) ? Number(payload.latestRound) : 0;
-            ALL_TEAMS_LONG = Array.isArray(payload.allTeamsLong) ? payload.allTeamsLong.slice() : [];
+
+            TEAM_BY_ID.clear();
+            objToMap(payload.teamById).forEach((v, k) => TEAM_BY_ID.set(k, v));
+            SEASON_TEAM_IDS = new Set((payload.seasonTeamIds || []).map(v => String(v || '').trim()).filter(Boolean));
+            rebuildTeamNameIndexes();
+
             console.log('[shl][standings-cache] HIT', { savedAt: payload.savedAt, latestRound: state.latestRound });
         }
 
         function writeSharedShlStandingsCache() {
+            const seasonTeams = new Map();
+            SEASON_TEAM_IDS.forEach(teamId => seasonTeams.set(teamId, TEAM_BY_ID.get(teamId)));
+
             const payload = {
                 version: 1,
                 savedAt: new Date().toISOString(),
@@ -4243,7 +4222,8 @@ Lag 14</pre>
                 league: 'shl',
                 latestRound: state.latestRound ?? 0,
                 roundsAvailable: Array.from(state.roundsAvailable || []),
-                allTeamsLong: ALL_TEAMS_LONG.slice(),
+                seasonTeamIds: Array.from(SEASON_TEAM_IDS),
+                teamById: mapToObj(seasonTeams),
                 snapshots: snapshotsMapToObject(STANDING_SNAPSHOTS),
                 matchesByRound: snapshotsMapToObject(MATCHES_BY_ROUND)
             };
@@ -4261,7 +4241,7 @@ Lag 14</pre>
 
             const stale = readSharedShlStandingsCache({ allowStale: true });
             try {
-                await loadMatchTeamsFromTSV(MATCH_TEAMS_TSV_URL);
+                await loadAllTeamsFromTSV(ALL_TEAMS_TSV_URL);
                 await loadAndPrepareStandingsFromTSV(TSV_URL);
                 writeSharedShlStandingsCache();
                 return { source: 'network', fresh: true };
@@ -4283,7 +4263,7 @@ Lag 14</pre>
             if (b.points !== a.points) return b.points - a.points;
             if (b.gd !== a.gd) return b.gd - a.gd;
             if (b.gf !== a.gf) return b.gf - a.gf;
-            return a.team.localeCompare(b.team, 'sv');
+            return getTeamLongName(a.team_id).localeCompare(getTeamLongName(b.team_id), 'sv');
         }
 
         /* ===========================================================
@@ -4765,13 +4745,12 @@ Lag 14</pre>
             // Baseline (0 matcher) byggs från säsongens team_id.
             return Array.from(SEASON_TEAM_IDS).map(teamId => ({
                 team_id: teamId,
-                team: getMatchTeamLongName(teamId),
                 g: 0,
                 points: 0,
                 gf: 0,
                 ga: 0,
                 gd: 0
-            })).sort((a, b) => a.team.localeCompare(b.team, 'sv'));
+            })).sort((a, b) => getTeamLongName(a.team_id).localeCompare(getTeamLongName(b.team_id), 'sv'));
         }
 
         function buildMovementByTeam(round, standings) {
@@ -4822,8 +4801,8 @@ Lag 14</pre>
 
             matches.forEach(match => {
                 const li = document.createElement('li');
-                const home = getMatchTeamLongName(match.home_team_id);
-                const away = getMatchTeamLongName(match.away_team_id);
+                const home = getTeamLongName(match.home_team_id);
+                const away = getTeamLongName(match.away_team_id);
                 const score = isNum(match.home_goals) && isNum(match.away_goals)
                     ? `${match.home_goals}–${match.away_goals}`
                     : '–';
@@ -4855,8 +4834,9 @@ Lag 14</pre>
                 const tdPl = document.createElement('td');
                 tdPl.textContent = String(idx + 1);
 
+                const displayName = getTeamLongName(row.team_id);
                 const tdLag = document.createElement('td');
-                tdLag.textContent = row.team;
+                tdLag.textContent = displayName;
 
                 // Tooltip med snitt även i tabellen.
                 // Kopplingen går alltid via stabilt team_id, aldrig via textmatchning.
@@ -4879,7 +4859,7 @@ Lag 14</pre>
                 tdGD.textContent = String(row.gd);
 
                 // (1) Färg appliceras (om vald)
-                const chosen = state.rowColors.get(row.team);
+                const chosen = state.rowColors.get(displayName);
                 if (chosen) {
                     // Hela raden (”Bara lag” är avstängt just nu)
                     tr.style.backgroundColor = chosen;
@@ -4898,12 +4878,12 @@ Lag 14</pre>
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'rowcolor-icon-btn';
-                    btn.setAttribute('aria-label', `Välj radfärg för ${row.team}`);
+                    btn.setAttribute('aria-label', `Välj radfärg för ${displayName}`);
                     btn.textContent = '🎨';
 
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        openRowColorPaletteAt(e.clientX, e.clientY, row.team);
+                        openRowColorPaletteAt(e.clientX, e.clientY, displayName);
                     });
 
                     tdIcon.appendChild(btn);
@@ -5305,7 +5285,8 @@ Lag 14</pre>
                 matchesByRound: new Map(MATCHES_BY_ROUND),
                 roundsAvailable: new Set(state.roundsAvailable || []),
                 latestRound: state.latestRound,
-                allTeamsLong: ALL_TEAMS_LONG.slice()
+                seasonTeamIds: new Set(SEASON_TEAM_IDS),
+                teamById: new Map(TEAM_BY_ID)
             };
 
             const controller = new AbortController();
@@ -5320,19 +5301,6 @@ Lag 14</pre>
             stopPlayback?.('refresh games');
 
             try {
-                // Om ställningen kom från cache vid sidstart kan matchnamnsregistret vara tomt.
-                // Återanvänd då redan laddad säsongslagdata – ingen extra nätverkshämtning görs.
-                if (MATCH_TEAM_BY_ID.size === 0 && TEAM_BY_ID?.size) {
-                    MATCH_TEAM_BY_ID.clear();
-                    TEAM_BY_ID.forEach((team, teamId) => {
-                        MATCH_TEAM_BY_ID.set(teamId, {
-                            team_id: teamId,
-                            team_name_short: String(team?.team_name_short || '').trim(),
-                            team_name_long: String(team?.team_name_long || '').trim()
-                        });
-                    });
-                }
-
                 // Cache-bust bara games-URL:en. Tips, eget tips, färger, filter,
                 // omgång och övriga inställningar lämnas helt orörda.
                 const freshGamesUrl = TSV_URL + (TSV_URL.includes('?') ? '&' : '?') + '_=' + Date.now();
@@ -5361,7 +5329,9 @@ Lag 14</pre>
                 MATCHES_BY_ROUND = previousStandings.matchesByRound;
                 state.roundsAvailable = previousStandings.roundsAvailable;
                 state.latestRound = previousStandings.latestRound;
-                ALL_TEAMS_LONG = previousStandings.allTeamsLong;
+                SEASON_TEAM_IDS = new Set(previousStandings.seasonTeamIds);
+                TEAM_BY_ID = new Map(previousStandings.teamById);
+                rebuildTeamNameIndexes();
 
                 const isTimeout = error?.name === 'TimeoutError' || controller.signal.reason?.name === 'TimeoutError';
                 const isAbort = error?.name === 'AbortError' || controller.signal.aborted;
@@ -5428,6 +5398,17 @@ Lag 14</pre>
             try {
                 console.log("[INIT] START");
 
+                // Först games + all_teams: games härleder säsongens 14 team_id,
+                // all_teams ger deras namn. Därefter kan tipsmatriserna byggas mot samma laguppsättning.
+                console.log("[INIT] >>> ställning + lag (cache-first)");
+                await loadStandingsCacheFirst();
+                console.log("[INIT] <<< ställning + lag KLART", {
+                    snapshots: STANDING_SNAPSHOTS.size,
+                    latestRound: state.latestRound,
+                    seasonTeams: SEASON_TEAM_IDS.size
+                });
+                loadingAdvance('Ställning och lag laddade');
+
                 console.log("[INIT] >>> tips");
                 await loadTipsMatricesFromSheets();
                 console.log("[INIT] <<< tips KLART");
@@ -5436,15 +5417,6 @@ Lag 14</pre>
                 if (!window.TIPS_MATRIX_HOBBY || !window.TIPS_MATRIX_EXPERT) {
                     throw new Error('Tipsdata: matriser saknas efter inläsning.');
                 }
-
-                console.log("[INIT] >>> ställning (cache-first)");
-                await loadStandingsCacheFirst();
-                console.log("[INIT] <<< ställning KLART", {
-                    snapshots: STANDING_SNAPSHOTS.size,
-                    latestRound: state.latestRound
-                });
-
-                loadingAdvance('Ställning laddad från games');
             } catch (error) {
                 showFatalDataError(error);
 
