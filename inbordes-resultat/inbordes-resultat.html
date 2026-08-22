@@ -1050,7 +1050,10 @@
 
     leagueSelect.addEventListener('change', () => {
       state.league = leagueSelect.value;
-      state.season = null;
+
+      // Behåll vald säsong när ligan byts om samma kompletta säsong finns
+      // för den nya ligan. renderSeasonOptions() faller annars automatiskt
+      // tillbaka till den senaste kompletta säsongen för den ligan.
       state.openTeams.clear();
       render();
     });
