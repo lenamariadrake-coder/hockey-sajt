@@ -8,6 +8,7 @@
 
     <!-- html2canvas för export av aktiv vy -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="../js/google-sheets-data.js"></script>
 
     <style>
         /* =========================================================
@@ -1862,15 +1863,105 @@ Lag 14</pre>
         function dwarn(flag, ...args) { if (flag) console.warn(...args); }
 
 
-        // Matchdata: gemensamma games-fliken (samma källa som inbördes-sidan använder).
-        const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv';
+        /* ===========================================================
+           DATAKÄLLOR
+           -----------------------------------------------------------
+           GViz/CSV är primär nätverkskälla. Publicerad TSV finns kvar
+           som fallback. Själva hämtmotorn ligger i google-sheets-data.js.
+
+           Den här äldre säsongen använder två Google Sheets:
+           - huvudarket för games + matchdelens lagregister
+           - det äldre tipsarket för lag, tippare och tipsrader
+
+           Cache/localStorage och all övrig sidlogik ligger fortsatt här.
+           =========================================================== */
+
+        const DATA_SOURCES = {
+            games: {
+                key: 'games',
+                label: 'Matchdata',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '2012579108',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+                requiredColumns: [
+                    'date',
+                    'home_team_id',
+                    'away_team_id',
+                    'home_goals',
+                    'away_goals',
+                    'home_points',
+                    'away_points',
+                    'season_id',
+                    'league'
+                ]
+            },
+
+            matchTeams: {
+                key: 'matchTeams',
+                label: 'Lagdata för matchtabell',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '491023463',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=491023463&single=true&output=tsv',
+                requiredColumns: [
+                    'team_id',
+                    'team_name_long'
+                ]
+            },
+
+            teams: {
+                key: 'teams',
+                label: 'Lagdata för tips',
+                spreadsheetId: '1AwIDgyfxEQYZcQ1tgpRTkFpwcGaCRszIapSkowjEh5o',
+                gid: '1219108197',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1219108197&single=true&output=tsv',
+                requiredColumns: [
+                    'team_id',
+                    'team_name_short',
+                    'team_name_long'
+                ]
+            },
+
+            tippers: {
+                key: 'tippers',
+                label: 'Tippare',
+                spreadsheetId: '1AwIDgyfxEQYZcQ1tgpRTkFpwcGaCRszIapSkowjEh5o',
+                gid: '1842187452',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1842187452&single=true&output=tsv',
+                requiredColumns: [
+                    'tipper_id'
+                ]
+            },
+
+            tipsHobby: {
+                key: 'tipsHobby',
+                label: 'Amatörtips',
+                spreadsheetId: '1AwIDgyfxEQYZcQ1tgpRTkFpwcGaCRszIapSkowjEh5o',
+                gid: '0',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=0&single=true&output=tsv',
+                requiredColumns: [
+                    'tipper_id',
+                    'team_id',
+                    'pick_rank'
+                ]
+            },
+
+            tipsExpert: {
+                key: 'tipsExpert',
+                label: 'Experttips',
+                spreadsheetId: '1AwIDgyfxEQYZcQ1tgpRTkFpwcGaCRszIapSkowjEh5o',
+                gid: '1639193732',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1639193732&single=true&output=tsv',
+                requiredColumns: [
+                    'tipper_id',
+                    'team_id',
+                    'pick_rank'
+                ]
+            }
+        };
 
         // Vilken del av games som just den här sidan ska använda.
         const MATCH_SEASON_ID = '2024-2025';
         const MATCH_LEAGUE = 'SHL';
-
-        // Masterregister för lagnamn till matchdelen (team_id -> visningsnamn).
-        const MATCH_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=491023463&single=true&output=tsv';
 
         // LocalStorage-nyckel för vald omgång (liga + säsong)
         // ⚠️ MÅSTE vara IDENTISK i systerappen
@@ -1878,16 +1969,6 @@ Lag 14</pre>
         const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2024_2025.v1';
         const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2024_2025.v1";
         const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2024_2025";
-
-
-        // TSV-källor för SHL-tipset (Google Sheets → public TSV)
-        // OBS: Ingen hårdkodad fallback. Om TSV inte kan laddas ska vi senare stoppa vyn.
-        const TIPPERS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1842187452&single=true&output=tsv';
-        const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1219108197&single=true&output=tsv';
-
-        // Tipsrader per tipper (tipper_id, team_id, pick_rank)
-        const TIPS_SHL_TSV_URL_HOBBY = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=0&single=true&output=tsv';
-        const TIPS_SHL_TSV_URL_EXPERT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1h9aP4fYdNAZ5GO0M1wOzs657roYItrt9KRwfnZ5jgnQSvpFgLMpJMRhefNCcIf_PoWNhEJAUmozl/pub?gid=1639193732&single=true&output=tsv';
 
 
         // Lagnamn: kort ? lång (kort i spridningstabellen/heatmap; långt i tabell)
@@ -3342,12 +3423,8 @@ Lag 14</pre>
         let ALL_TEAMS_LONG = [];
         let MATCH_TEAM_BY_ID = new Map();
 
-        async function loadMatchTeamsFromTSV(url) {
-            const tsv = await fetch(url).then(r => {
-                if (!r.ok) throw new Error(`Lagdata: HTTP ${r.status}`);
-                return r.text();
-            });
-            const rows = parseTSV(tsv);
+        async function loadMatchTeams(source) {
+            const { rows } = await GoogleSheetsData.fetchRows(source);
             if (!rows.length) throw new Error('Lagdata: inga rader hittades.');
 
             const hdr = rows[0].map(h => h.trim());
@@ -3377,12 +3454,8 @@ Lag 14</pre>
             return team?.team_name_long || team?.team_name_short || teamId;
         }
 
-        async function loadAndPrepareStandingsFromTSV(url) {
-            const tsv = await fetch(url).then(r => {
-                if (!r.ok) throw new Error(`Matchdata: HTTP ${r.status}`);
-                return r.text();
-            });
-            const rows = parseTSV(tsv);
+        async function loadAndPrepareStandings(source) {
+            const { rows } = await GoogleSheetsData.fetchRows(source);
             if (!rows.length) throw new Error('Matchdata: inga rader hittades.');
 
             const hdr = rows[0].map(h => h.trim());
@@ -3537,9 +3610,8 @@ Lag 14</pre>
         let TIPS_BY_TIPPER_HOBBY = new Map();
         let TIPS_BY_TIPPER_EXPERT = new Map();
 
-        async function loadTeamsFromTSV(url) {
-            const tsv = await fetch(url).then(r => r.text());
-            const rows = parseTSV(tsv);
+        async function loadTeams(source) {
+            const { rows } = await GoogleSheetsData.fetchRows(source);
             if (!rows.length) return;
 
             const hdr = rows[0].map(h => h.trim());
@@ -3565,9 +3637,8 @@ Lag 14</pre>
             });
         }
 
-        async function loadTippersFromTSV(url) {
-            const tsv = await fetch(url).then(r => r.text());
-            const rows = parseTSV(tsv);
+        async function loadTippers(source) {
+            const { rows } = await GoogleSheetsData.fetchRows(source);
             if (!rows.length) return;
 
             const hdr = rows[0].map(h => h.trim());
@@ -3591,9 +3662,8 @@ Lag 14</pre>
             });
         }
 
-        async function loadTipsFromTSVInto(url, targetMap) {
-            const tsv = await fetch(url).then(r => r.text());
-            const rows = parseTSV(tsv);
+        async function loadTipsInto(source, targetMap) {
+            const { rows } = await GoogleSheetsData.fetchRows(source);
             if (!rows.length) return;
 
             const hdr = rows[0].map(h => h.trim());
@@ -3760,14 +3830,14 @@ Lag 14</pre>
                 return;
             }
 
-            console.log("[shl][cache] MISS ->", SHL_TIPS_CACHE_KEY, "(hämtar TSV)");
+            console.log("[shl][cache] MISS ->", SHL_TIPS_CACHE_KEY, "(hämtar Google Sheets-data)");
 
             // 2) Nätverk (TSV) -> bygg allt vi vill dela
             try {
-                await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
-                await loadTippersFromTSV(TIPPERS_SHL_TSV_URL);
-                await loadTipsFromTSVInto(TIPS_SHL_TSV_URL_HOBBY, TIPS_BY_TIPPER_HOBBY);
-                await loadTipsFromTSVInto(TIPS_SHL_TSV_URL_EXPERT, TIPS_BY_TIPPER_EXPERT);
+                await loadTeams(DATA_SOURCES.teams);
+                await loadTippers(DATA_SOURCES.tippers);
+                await loadTipsInto(DATA_SOURCES.tipsHobby, TIPS_BY_TIPPER_HOBBY);
+                await loadTipsInto(DATA_SOURCES.tipsExpert, TIPS_BY_TIPPER_EXPERT);
 
                 const hobbyMatrix = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_HOBBY);
                 const expertMatrix = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_EXPERT);
@@ -3776,7 +3846,7 @@ Lag 14</pre>
                 window.TIPS_MATRIX_HOBBY = hobbyMatrix;
                 window.TIPS_MATRIX_EXPERT = expertMatrix;
 
-                dlog(DEBUG.tsv, "[tips][TSV] Sheets -> matrices OK", {
+                dlog(DEBUG.tsv, "[tips][data] Sheets -> matrices OK", {
                     hobbyTeams: Object.keys(window.TIPS_MATRIX_HOBBY || {}).length,
                     expertTeams: Object.keys(window.TIPS_MATRIX_EXPERT || {}).length
                 });
@@ -3810,7 +3880,7 @@ Lag 14</pre>
                 writeSharedShlTipsCache(payload);
 
             } catch (e) {
-                console.error("[tips] FAILED to load tips matrices from TSV:", e);
+                console.error("[tips] FAILED to load tips matrices from Sheets:", e);
 
                 // Hårt stopp: inga matriser = ingen render
                 window.TIPS_MATRIX_HOBBY = null;
@@ -4798,13 +4868,13 @@ Lag 14</pre>
             loadingAdvance('Tipsmatriser laddade');
 
             if (!window.TIPS_MATRIX_HOBBY || !window.TIPS_MATRIX_EXPERT) {
-                console.error("[tips][TSV] STOP: tips matrices missing -> will not render");
+                console.error("[tips][data] STOP: tips matrices missing -> will not render");
                 loadingDone();
                 return;
             }
 
-            await loadMatchTeamsFromTSV(MATCH_TEAMS_TSV_URL);
-            await loadAndPrepareStandingsFromTSV(TSV_URL);
+            await loadMatchTeams(DATA_SOURCES.matchTeams);
+            await loadAndPrepareStandings(DATA_SOURCES.games);
             loadingAdvance('Ställning laddad från games');
 
             // ---------------------------------------------------------
@@ -4813,7 +4883,7 @@ Lag 14</pre>
             // ---------------------------------------------------------
             let rounds = [];
             try {
-                // STANDINGS_BY_ROUND finns i den här filen (byggs i loadAndPrepareStandingsFromTSV)
+                // STANDINGS_BY_ROUND finns i den här filen (byggs i loadAndPrepareStandings)
                 if (typeof STANDINGS_BY_ROUND !== "undefined" && STANDINGS_BY_ROUND) {
                     rounds = Array.from(STANDINGS_BY_ROUND.keys())
                         .map(x => Number(x))
