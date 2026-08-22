@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poängutveckling: Avancerat (Hockeyallsvenskan + SHL)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../js/google-sheets-data.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -1502,8 +1503,59 @@
         // console.log('[FILE VERSION] ONCLICK-TEST 2025-12-13 18:xx');
 
         // --- DATA OCH KONSTANTER ---
-        const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv'; // games-fliken (HA+SHL)
-        const seasonSummaryUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2044886949&single=true&output=tsv'; // season_summary-fliken
+
+        /* ===========================================================
+           DATAKÄLLOR
+           -----------------------------------------------------------
+           GViz/CSV är primär nätverkskälla. Publicerad TSV finns kvar
+           som fallback via google-sheets-data.js.
+
+           VIKTIGT:
+           Den här filens befintliga datastruktur ändras INTE.
+           - games fortsätter använda home_team / away_team.
+           - season_summary fortsätter använda team / team_label.
+           - inga team_id införs i denna fil.
+           =========================================================== */
+        const DATA_SOURCES = {
+            games: {
+                key: 'games',
+                label: 'Matchdata',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '2012579108',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+                requiredColumns: [
+                    'date',
+                    'home_team',
+                    'away_team',
+                    'home_goals',
+                    'away_goals',
+                    'home_points',
+                    'away_points',
+                    'season_id',
+                    'league'
+                ]
+            },
+
+            seasonSummary: {
+                key: 'seasonSummary',
+                label: 'Säsongssammanfattning',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '2044886949',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2044886949&single=true&output=tsv',
+                requiredColumns: [
+                    'league',
+                    'season_id',
+                    'team',
+                    'team_label',
+                    'regular_season_rank',
+                    'regular_season_points',
+                    'goal_difference',
+                    'playoff_result',
+                    'playoff_round_numeric',
+                    'row_id'
+                ]
+            }
+        };
 
         const CURRENT_SEASON_ID = '2024-2025'; // just nu kör vi HA 2024-2025
         const CURRENT_LEAGUE = 'HA';
@@ -2168,6 +2220,16 @@ function updateManualSortLabelsForNarrowScreen() {
             // }
         }
 
+        // Adapter för den här äldre, komplexa filen:
+        // GoogleSheetsData returnerar rows[], men resten av loadAndProcessData()
+        // förväntar sig fortfarande TSV-text och fasta kolumnpositioner.
+        // Genom att återskapa TSV-formatet här behöver vi inte röra datamodellen.
+        function rowsToLegacyTsv(rows) {
+            return (rows || [])
+                .map(row => (row || []).map(cell => String(cell ?? '')).join('\t'))
+                .join('\n');
+        }
+
         // --- // --- FUNKTION FÖR ATT LADDA OCH BEARBETA DATA ---
         async function loadAndProcessData() {
             try {
@@ -2180,20 +2242,20 @@ function updateManualSortLabelsForNarrowScreen() {
                     chartCanvas.classList.add('hidden');
                 }
 
-                // 1. Hämta data från Google Sheet
-                const response = await fetch(sheetUrl);
-                if (!response.ok) {
-                    throw new Error(`Kunde inte hämta data: ${response.statusText}`);
-                }
-                const rawDataString = await response.text();
+                // 1. Hämta samma två tabeller som tidigare.
+                // GViz används primärt; den gamla publicerade TSV-länken är fallback.
+                const [
+                    { rows: gameRows },
+                    { rows: seasonSummaryRowsRaw }
+                ] = await Promise.all([
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.games),
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.seasonSummary)
+                ]);
 
-
-                // 1b. Hämta season_summary (meta-data per lag+säsong)
-                const summaryResponse = await fetch(seasonSummaryUrl);
-                if (!summaryResponse.ok) {
-                    throw new Error(`Kunde inte hämta season_summary: ${summaryResponse.statusText}`);
-                }
-                const rawSummaryString = await summaryResponse.text();
+                // Behåll den befintliga datamodellen och den efterföljande parsningen
+                // helt orörda genom att mata in samma TSV-form som koden väntar sig.
+                const rawDataString = rowsToLegacyTsv(gameRows);
+                const rawSummaryString = rowsToLegacyTsv(seasonSummaryRowsRaw);
 
 
                 // 2. Parsa rådatan (TSV)
