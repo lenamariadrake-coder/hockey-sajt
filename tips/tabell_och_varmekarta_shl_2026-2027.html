@@ -438,7 +438,7 @@
         }
 
         .round-results-title {
-            margin: 0 0 .45rem;
+            margin: 0 0 .9rem;
             font-size: .85rem;
             font-weight: 800;
             letter-spacing: .02em;
@@ -448,6 +448,8 @@
 
         .round-result-team {
             display: inline-block;
+            width: max-content;
+            max-width: 100%;
             padding: .02rem .18rem;
             border-radius: 4px;
         }
@@ -468,11 +470,28 @@
             list-style: none;
             margin: 0;
             padding: 0;
+            display: grid;
+            row-gap: .42rem;
         }
 
         .round-results-list li {
-            padding: .16rem 0;
+            display: grid;
+            grid-template-columns: minmax(9.6rem, max-content) minmax(9.6rem, max-content) max-content;
+            column-gap: 1.15rem;
+            align-items: baseline;
+            padding: 0;
             white-space: nowrap;
+        }
+
+        .round-result-score {
+            font-variant-numeric: tabular-nums;
+        }
+
+        @media (max-width: 700px) {
+            .round-results-list li {
+                grid-template-columns: minmax(8.5rem, max-content) minmax(8.5rem, max-content) max-content;
+                column-gap: .75rem;
+            }
         }
 
         .round-results-empty {
@@ -4884,15 +4903,15 @@ Lag 14</pre>
                     else if (match.away_goals > match.home_goals) awaySpan.classList.add('winner');
                 }
 
-                const separator = document.createTextNode(' – ');
                 const extraTimeLabel = getExtraTimeLabel(match);
-                const scoreText = document.createTextNode(
-                    isNum(match.home_goals) && isNum(match.away_goals)
-                        ? ` ${match.home_goals}–${match.away_goals}${extraTimeLabel ? ` ${extraTimeLabel}` : ''}`
-                        : ' –'
-                );
 
-                li.append(homeSpan, separator, awaySpan, scoreText);
+                const scoreSpan = document.createElement('span');
+                scoreSpan.className = 'round-result-score';
+                scoreSpan.textContent = isNum(match.home_goals) && isNum(match.away_goals)
+                    ? `${match.home_goals}–${match.away_goals}${extraTimeLabel ? ` ${extraTimeLabel}` : ''}`
+                    : '–';
+
+                li.append(homeSpan, awaySpan, scoreSpan);
                 list.appendChild(li);
             });
         }
