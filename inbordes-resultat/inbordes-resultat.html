@@ -9,7 +9,7 @@
   --bg:#f4f4f9; --card:#fff; --text:#0f172a; --text-muted:#6b7280;
   --accent:#007C30; --border:#e2e8f0; --row-hover:#f8faff;
   --header-bg:#f8fafc; --btn-gray-bg:#f7f8fb; --btn-gray-hover:#eef2f7;
-  --win:#dcfce7; --loss:#fee2e2; --level:#f8fafc;
+  --win:#5ff564; --loss:#f84646; --level:#f8fafc;
 }
 *{box-sizing:border-box}
 html,body{min-height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.45}
@@ -64,6 +64,26 @@ thead th{background:var(--header-bg);font-weight:800;color:var(--text);text-tran
 #tableStandings thead th.col-team{text-align:left}
 tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover)}
 .num{text-align:center;font-variant-numeric:tabular-nums}.team-cell{display:flex;align-items:center;gap:.45rem}
+
+/* =========================================================
+   KOMPAKTARE TABELL
+   Gör endast serietabellen 90 % av originalstorleken.
+   Lagkort och övriga delar av sidan påverkas inte.
+   ========================================================= */
+#tableStandings{
+  font-size:90%;
+}
+#tableStandings th,
+#tableStandings td{
+  padding:.54rem .72rem; /* 90 % av .6rem / .8rem */
+}
+#tableStandings .card-toggle{
+  width:22px;
+  height:22px;
+  font-size:.9em;
+}
+
+.table-head-mobile{display:none}
 .card-toggle{display:inline-grid;place-items:center;width:24px;height:24px;padding:0;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text-muted);cursor:pointer;font-weight:900;line-height:1}
 .card-toggle:hover{background:var(--btn-gray-hover);color:var(--text)}
 .card-toggle[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -73,17 +93,35 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover
 .matchup-card__head{padding:.55rem .7rem;border-bottom:1px solid var(--border);background:var(--header-bg);display:flex;align-items:baseline;justify-content:space-between;gap:.6rem}
 .matchup-card__title{font-size:.9rem;font-weight:900}.matchup-card__meta{font-size:.72rem;color:var(--text-muted);font-weight:700}
 .levels{padding:.55rem .55rem .65rem;display:flex;flex-direction:column;gap:.22rem}
-.level-row{display:grid;grid-template-columns:30px minmax(0,1fr);gap:.35rem;align-items:center;min-height:25px}
-.level-label{text-align:right;color:var(--text-muted);font-size:.72rem;font-weight:800;font-variant-numeric:tabular-nums}
-.level-teams{display:flex;gap:.28rem;flex-wrap:wrap;align-items:center;min-height:24px}
+.level-row{display:grid;grid-template-columns:38px minmax(0,1fr);gap:.45rem;align-items:center;min-height:25px}
+.level-label{text-align:right;color:var(--text-muted);font-size:.72rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.level-teams{display:flex;gap:.34rem;flex-wrap:wrap;align-items:center;min-height:24px}
 .team-chip{display:inline-flex;align-items:center;justify-content:center;min-height:23px;padding:.16rem .4rem;border-radius:6px;border:1px solid var(--border);background:var(--level);font-size:.72rem;font-weight:800;white-space:nowrap}
-.team-chip.good{background:var(--win);border-color:#bbf7d0}.team-chip.bad{background:var(--loss);border-color:#fecaca}
+.team-chip.good{background:var(--win);border-color:#9fd3aa}.team-chip.bad{background:var(--loss);border-color:#dfa5a5}
 .team-chip.focus{background:#fff;border:2px solid var(--accent);color:var(--text);font-size:.74rem;padding:.12rem .45rem}
 .zero-divider{width:1px;height:18px;background:var(--border);margin:0 .05rem}
 .status{padding:1rem;border:1px solid var(--border);border-radius:10px;background:var(--header-bg);color:var(--text-muted);font-weight:700;text-align:center}
 
 @media(max-width:900px){.intro-controls{flex-direction:column}.control-groups{justify-content:flex-start}.main-layout{grid-template-columns:1fr}.standings-pane{justify-content:center;padding:0}.cards-toolbar{margin-top:.3rem}}
-@media(max-width:560px){.season-select-label,.league-select-label{display:none}.season-select,.league-select{max-width:122px;padding-left:.65rem}.intro-controls{padding:.75rem}.control-groups{gap:.8rem}.standings-pane{overflow-x:auto;justify-content:flex-start}.cards-grid{display:block}.matchup-card{max-width:none;min-width:0;width:100%;margin-bottom:.75rem}}
+@media(max-width:560px){
+  .season-select-label,.league-select-label{display:none}
+  .season-select,.league-select{max-width:122px;padding-left:.65rem}
+  .intro-controls{padding:.75rem}
+  .control-groups{gap:.8rem}
+
+  /* Ingen intern scroll för tabellen på smala skärmar. */
+  .standings-pane{
+    overflow:visible;
+    justify-content:center;
+  }
+
+  /* Kortare tabellrubriker på mobil. */
+  .table-head-desktop{display:none}
+  .table-head-mobile{display:inline}
+
+  .cards-grid{display:block}
+  .matchup-card{max-width:none;min-width:0;width:100%;margin-bottom:.75rem}
+}
 </style>
 </head>
 <body>
@@ -99,7 +137,7 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover
     <div id="seasonSelectWrap" class="season-select-wrap">
       <span class="season-select-label">Säsong</span>
       <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
-        <option value="2025-2026">2025/2026</option>
+        <option value="">Laddar…</option>
       </select>
     </div>
 
@@ -142,7 +180,13 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover
       <div>
         <div id="tableStatus" class="status">Laddar tabell…</div>
         <table id="tableStandings" class="hidden">
-          <thead><tr><th>Plats</th><th class="col-team">Lag</th><th class="num">Matcher</th><th class="num">Poäng</th><th class="num">Målskillnad</th></tr></thead>
+          <thead><tr>
+            <th><span class="table-head-desktop">Plats</span><span class="table-head-mobile">#</span></th>
+            <th class="col-team">Lag</th>
+            <th class="num"><span class="table-head-desktop">Matcher</span><span class="table-head-mobile">M</span></th>
+            <th class="num"><span class="table-head-desktop">Poäng</span><span class="table-head-mobile">P</span></th>
+            <th class="num"><span class="table-head-desktop">Målskillnad</span><span class="table-head-mobile">MS</span></th>
+          </tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -169,7 +213,7 @@ const state = {
   data: { teams: [], games: [] },
   source: null,
   league: 'SHL',
-  season: '2025-2026',
+  season: null,
   tableScope: 'all',
   matchFirst: true,
   matchSecond: true,
@@ -208,7 +252,10 @@ function normalizeData(raw){
     home_team:String(g.home_team||'').trim(),
     away_team:String(g.away_team||'').trim(),
     home_goals:num(g.home_goals), away_goals:num(g.away_goals),
-    home_points:num(g.home_points), away_points:num(g.away_points)
+    home_points:num(g.home_points), away_points:num(g.away_points),
+    played:String(g.result||'').trim()!=='' &&
+           String(g.home_goals??'').trim()!=='' &&
+           String(g.away_goals??'').trim()!==''
   })).filter(g=>g.date&&g.home_team_id&&g.away_team_id&&g.league&&g.season_id);
 
   const suppliedTeams=Array.isArray(raw?.teams)?raw.teams:[];
@@ -226,7 +273,39 @@ function normalizeData(raw){
 function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
 function abbrFromId(id){return String(id||'').replace(/^team_/,'').toUpperCase()}
 function teamMap(){return new Map(state.data.teams.map(t=>[t.team_id,t]))}
-function currentGames(){return state.data.games.filter(g=>g.league===state.league&&g.season_id===state.season)}
+function currentGames(){return state.data.games.filter(g=>g.league===state.league&&g.season_id===state.season&&g.played)}
+
+function isCompleteSeason(league,season){
+  const seasonGames=state.data.games.filter(g=>g.league===league&&g.season_id===season);
+  if(!seasonGames.length) return false;
+
+  const teamIds=new Set();
+  seasonGames.forEach(g=>{
+    teamIds.add(g.home_team_id);
+    teamIds.add(g.away_team_id);
+  });
+
+  const playedCount=new Map([...teamIds].map(id=>[id,0]));
+
+  seasonGames.forEach(g=>{
+    if(!g.played) return;
+    playedCount.set(g.home_team_id,(playedCount.get(g.home_team_id)||0)+1);
+    playedCount.set(g.away_team_id,(playedCount.get(g.away_team_id)||0)+1);
+  });
+
+  return teamIds.size>0 && [...playedCount.values()].every(count=>count===HARD_CODED_ROUND);
+}
+
+function completeSeasonsForLeague(league){
+  return [...new Set(
+    state.data.games
+      .filter(g=>g.league===league)
+      .map(g=>g.season_id)
+  )]
+    .filter(season=>isCompleteSeason(league,season))
+    .sort()
+    .reverse();
+}
 
 function annotateMeetingHalves(games){
   const directional=new Map();
@@ -374,6 +453,7 @@ function renderCards(tableRows){
 
 function renderLeagueOptions(){
   const leagues=[...new Set(state.data.games.map(g=>g.league).filter(Boolean))]
+    .filter(league=>completeSeasonsForLeague(league).length>0)
     .sort((a,b)=>a.localeCompare(b,'sv'));
 
   if(!leagues.length){
@@ -389,10 +469,19 @@ function renderLeagueOptions(){
 }
 
 function renderSeasonOptions(){
-  const combos=[...new Set(state.data.games.filter(g=>g.league===state.league).map(g=>g.season_id))].sort().reverse();
-  if(!combos.length)return;
-  if(!combos.includes(state.season))state.season=combos[0];
-  seasonSelect.innerHTML=combos.map(s=>`<option value="${esc(s)}" ${s===state.season?'selected':''}>${esc(s.replace('-', '/'))}</option>`).join('');
+  const combos=completeSeasonsForLeague(state.league);
+
+  if(!combos.length){
+    seasonSelect.innerHTML='';
+    state.season=null;
+    return;
+  }
+
+  if(!combos.includes(state.season)) state.season=combos[0];
+
+  seasonSelect.innerHTML=combos
+    .map(s=>`<option value="${esc(s)}" ${s===state.season?'selected':''}>${esc(s.replace('-', '/'))}</option>`)
+    .join('');
 }
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -414,6 +503,7 @@ async function loadLocalFile(file){
 
 leagueSelect.addEventListener('change',()=>{
   state.league=leagueSelect.value;
+  state.season=null;
   state.openTeams.clear();
   render();
 });
