@@ -4260,7 +4260,7 @@ Lag 14</pre>
                 const raw = localStorage.getItem(SHL_STANDINGS_CACHE_KEY);
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
-                if (!parsed || parsed.version !== 2 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
+                if (!parsed || parsed.version !== 1 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
                 if (!parsed.snapshots || !Array.isArray(parsed.roundsAvailable) || !Array.isArray(parsed.seasonTeamIds) || !parsed.teamById) return null;
                 if (!allowStale && !isShlCacheFresh(parsed)) return null;
                 return parsed;
@@ -4289,7 +4289,7 @@ Lag 14</pre>
             SEASON_TEAM_IDS.forEach(teamId => seasonTeams.set(teamId, TEAM_BY_ID.get(teamId)));
 
             const payload = {
-                version: 2,
+                version: 1,
                 savedAt: new Date().toISOString(),
                 season: '2026_2027',
                 league: 'shl',
