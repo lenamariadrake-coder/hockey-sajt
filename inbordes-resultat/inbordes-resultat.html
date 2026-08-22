@@ -183,7 +183,7 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover
     </div>
   </section>
 
-  <div id="localBox" class="local-box">
+  <div id="localBox" class="local-box hidden">
     <span id="localBadge" class="local-badge hidden">LOKALT TESTLÄGE</span>
     <span id="dataStatus">Laddar data…</span>
     <label class="btn small" for="localFile">Läs lokal JSON</label>
@@ -260,6 +260,7 @@ const state = {
 
 const leagueSelect = document.getElementById('leagueSelect');
 const seasonSelect = document.getElementById('seasonSelect');
+const localBox = document.getElementById('localBox');
 const localFile = document.getElementById('localFile');
 const localBadge = document.getElementById('localBadge');
 const useLive = document.getElementById('useLive');
@@ -540,13 +541,17 @@ async function loadLive(){
   });
 
   state.data=normalizeData({games}); state.source='live';
-  localBadge.classList.add('hidden');useLive.classList.add('hidden');
-  dataStatus.textContent='Live-data från games'; render();
+  localBox.classList.add('hidden');
+  localBadge.classList.add('hidden');
+  useLive.classList.add('hidden');
+  render();
 }
 
 async function loadLocalFile(file){
   const raw=JSON.parse(await file.text());state.data=normalizeData(raw);state.source='local';
-  localBadge.classList.remove('hidden');useLive.classList.toggle('hidden',location.protocol==='file:');
+  localBox.classList.remove('hidden');
+  localBadge.classList.remove('hidden');
+  useLive.classList.toggle('hidden',location.protocol==='file:');
   dataStatus.textContent=`Lokal fil: ${file.name}`;render();
 }
 
@@ -568,9 +573,22 @@ useLive.addEventListener('click',()=>loadLive().catch(e=>{console.error(e);dataS
 (async function init(){
   // På file:/// försöker sidan medvetet inte fetch:a nätet.
   if(location.protocol==='file:'){
-    localBadge.classList.remove('hidden');dataStatus.textContent='Välj den lokala JSON-testfilen för att börja.';tableStatus.textContent='Ingen data inläst ännu.';return;
+    localBox.classList.remove('hidden');
+    localBadge.classList.remove('hidden');
+    dataStatus.textContent='Välj den lokala JSON-testfilen för att börja.';
+    tableStatus.textContent='Ingen data inläst ännu.';
+    return;
   }
-  try{await loadLive()}catch(e){console.error(e);dataStatus.textContent='Live-data kunde inte laddas. Du kan läsa in lokal JSON.';tableStatus.textContent='Ingen data inläst.'}
+  try{
+    await loadLive();
+  }catch(e){
+    console.error(e);
+    localBox.classList.remove('hidden');
+    localBadge.classList.add('hidden');
+    useLive.classList.add('hidden');
+    dataStatus.textContent='Live-data kunde inte laddas. Du kan läsa in lokal JSON.';
+    tableStatus.textContent='Ingen data inläst.';
+  }
 })();
 </script>
 </body>
