@@ -2152,27 +2152,48 @@
 
         /* ===========================================================
            DATAKÄLLOR
+           -----------------------------------------------------------
+           PILOTMODELL:
+
+           1) GViz/CSV är PRIMÄR nätverkskälla.
+           2) Den gamla publicerade TSV-länken är FALLBACK.
+           3) CSV och TSV parsas separat eftersom formaten skiljer sig.
+
+           Konsolen visar tydligt vilken källa som faktiskt användes:
+           [data][games] GViz OK
+           [data][games] GViz misslyckades -> testar TSV
+           [data][games] TSV OK
+
+           På så sätt går det att verifiera att sidan verkligen använder
+           GViz primärt och inte råkar fortsätta läsa den gamla TSV-länken.
            =========================================================== */
 
-        // Publicerad TSV-adress för fliken "games".
-        // OBS: byt URL:en nedan till den publicerade TSV-adressen för games-fliken.
-        const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv';
+        const DATA_SOURCES = {
+            games: {
+                label: 'Matchdata',
+                gviz: 'https://docs.google.com/spreadsheets/d/1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM/gviz/tq?tqx=out:csv&gid=2012579108',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv'
+            },
+            allTeams: {
+                label: 'Lagdata',
+                gviz: 'https://docs.google.com/spreadsheets/d/1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM/gviz/tq?tqx=out:csv&gid=257061153',
+                // Den gamla publicerade TSV-länken behålls som reserv.
+                // Normalt används GViz ovan. TSV anropas bara om GViz-hämtningen misslyckas.
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv'
+            },
+            h2hTips: {
+                label: 'H2H-tips',
+                gviz: 'https://docs.google.com/spreadsheets/d/1fsWVsiCnwFzge3xf5p0cReiTAkcpdLcuvmWSyDUmDhI/gviz/tq?tqx=out:csv&gid=530439256',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv'
+            }
+        };
 
         // Matchfiltret. Ändra säsongen här när sidan ska användas "på riktigt".
         const MATCH_SEASON_ID = '2026-2027';
         const MATCH_LEAGUE = 'SHL';
 
-        // Gemensamt lagregister för visningsnamn.
-        // Matchlogiken identifierar lag via team_id i games; all_teams översätter bara ID till namn.
-        const ALL_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv';
-
-        // Publicerad TSV-adress för H2H-tips.
-        // Filen heter inbordes-ordning och fliken heter tips_shl_2026-2027.
-        // Lämna som tom sträng ('') för historikläge utan tips. Då visas bara
-        // Aktuell ordning + den faktiska ligatabellen (även på mobil).
-        // Förväntade kolumner när en tipskälla används:
-        // participant_id | display_name | tip_type | team_id | pick_rank | h2h_point_spread_tip
-        const H2H_TIPS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv';
+        // Historikläge: sätt hela H2H-källan till null om tips inte ska läsas.
+        const H2H_TIPS_SOURCE = DATA_SOURCES.h2hTips;
 
         const ROUND_STORAGE_KEY = 'round_shl_h2h_2026_2027';
 
@@ -2205,6 +2226,53 @@
                 .map(line => line.split('\t').map(cell => cell.trim()));
         }
 
+        function parseCSV(text) {
+            const rows = [];
+            let row = [];
+            let cell = '';
+            let inQuotes = false;
+
+            const input = String(text || '');
+
+            for (let i = 0; i < input.length; i++) {
+                const ch = input[i];
+                const next = input[i + 1];
+
+                if (ch === '"') {
+                    if (inQuotes && next === '"') {
+                        cell += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (ch === ',' && !inQuotes) {
+                    row.push(cell.trim());
+                    cell = '';
+                } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+                    if (ch === '\r' && next === '\n') i++;
+
+                    row.push(cell.trim());
+                    cell = '';
+
+                    if (row.some(value => value !== '')) {
+                        rows.push(row);
+                    }
+
+                    row = [];
+                } else {
+                    cell += ch;
+                }
+            }
+
+            row.push(cell.trim());
+
+            if (row.some(value => value !== '')) {
+                rows.push(row);
+            }
+
+            return rows;
+        }
+
         function toInt(v) {
             const n = parseInt(v, 10);
             return Number.isFinite(n) ? n : null;
@@ -2223,13 +2291,67 @@
 
         async function fetchText(url, label) {
             if (!url) throw new Error(`${label}: URL saknas.`);
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`${label}: HTTP ${response.status}.`);
-            return response.text();
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                controller.abort(new DOMException(`${label}: hämtningen tog för lång tid.`, 'TimeoutError'));
+            }, 10000);
+
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                if (!response.ok) throw new Error(`${label}: HTTP ${response.status}.`);
+                return await response.text();
+            } catch (error) {
+                if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+                    throw new Error(`${label}: hämtningen tog längre än 10 sekunder.`);
+                }
+                throw error;
+            } finally {
+                clearTimeout(timeoutId);
+            }
         }
 
-        async function loadTeamsFromTSV(url) {
-            const rows = parseTSV(await fetchText(url, 'Lagdata'));
+        // Kontrollerar att det vi fick faktiskt är RÄTT tabell, inte bara ett HTTP 200-svar.
+        // GViz kan nämligen i vissa felsituationer returnera annan CSV-data trots att anropet
+        // tekniskt lyckas. Då ska det räknas som ett GViz-fel och TSV-fallbacken användas.
+        function assertRequiredColumns(rows, requiredColumns, label) {
+            if (!rows.length) throw new Error(`${label}: inga rader hittades.`);
+
+            const headers = rows[0].map(h => String(h || '').trim().toLowerCase());
+            const missing = requiredColumns.filter(name => !headers.includes(name.toLowerCase()));
+
+            if (missing.length) {
+                throw new Error(`${label}: fel datainnehåll; saknar kolumn(er): ${missing.join(', ')}.`);
+            }
+        }
+
+        async function fetchRowsWithFallback(source, key, requiredColumns = []) {
+            if (!source?.gviz) throw new Error(`${source?.label || key}: GViz-URL saknas.`);
+
+            try {
+                console.info(`[data][${key}] Försöker GViz först...`, source.gviz);
+                const text = await fetchText(source.gviz, `${source.label} via GViz`);
+                const rows = parseCSV(text);
+                assertRequiredColumns(rows, requiredColumns, `${source.label} via GViz`);
+                console.info(`[data][${key}] GViz OK (${rows.length} rader, rätt kolumner).`);
+                return { rows, source: 'gviz' };
+            } catch (gvizError) {
+                console.warn(`[data][${key}] GViz misslyckades/ogiltig data -> testar TSV.`, gvizError);
+
+                if (!source.tsv) {
+                    throw new Error(`${source.label}: GViz misslyckades och TSV-fallback saknas. ${gvizError.message || gvizError}`);
+                }
+
+                const text = await fetchText(source.tsv, `${source.label} via TSV-fallback`);
+                const rows = parseTSV(text);
+                assertRequiredColumns(rows, requiredColumns, `${source.label} via TSV-fallback`);
+                console.info(`[data][${key}] TSV OK (${rows.length} rader, rätt kolumner).`);
+                return { rows, source: 'tsv' };
+            }
+        }
+
+        async function loadTeams(source) {
+            const { rows } = await fetchRowsWithFallback(source, 'allTeams', ['team_id', 'team_name_long']);
             if (!rows.length) throw new Error('Lagdata: inga rader hittades.');
 
             const hdr = rows[0].map(h => h.trim());
@@ -2261,8 +2383,8 @@
             });
         }
 
-        async function loadH2HTipsFromTSV(url) {
-            const rows = parseTSV(await fetchText(url, 'H2H-tips'));
+        async function loadH2HTips(source) {
+            const { rows } = await fetchRowsWithFallback(source, 'h2hTips', ['participant_id', 'display_name', 'tip_type', 'team_id', 'pick_rank', 'h2h_point_spread_tip']);
             if (!rows.length) throw new Error('H2H-tips: inga rader hittades.');
 
             const hdr = rows[0].map(h => h.trim());
@@ -2330,8 +2452,8 @@
             }
         }
 
-        async function loadAndPrepareStandingsFromTSV(url) {
-            const rows = parseTSV(await fetchText(url, 'Matchdata'));
+        async function loadAndPrepareStandings(source) {
+            const { rows } = await fetchRowsWithFallback(source, 'games', ['date', 'home_team_id', 'away_team_id', 'home_goals', 'away_goals', 'home_points', 'away_points', 'season_id', 'league']);
             if (!rows.length) throw new Error('Matchdata: inga rader hittades.');
 
             const hdr = rows[0].map(h => h.trim());
@@ -2396,10 +2518,11 @@
             const playedRows = dataRows.filter(r => {
                 const hg = toInt(r[iHomeGoals]);
                 const ag = toInt(r[iAwayGoals]);
-                const hp = toInt(r[iHomePts]);
-                const ap = toInt(r[iAwayPts]);
 
-                return isNum(hg) && isNum(ag) && (isNum(hp) || isNum(ap));
+                // En match räknas som spelad när båda målkolumnerna har värden.
+                // Poängkolumnerna får vara tomma; den befintliga fallback-logiken
+                // räknar då ut 3/0 utifrån resultatet.
+                return isNum(hg) && isNum(ag);
             });
 
             const hist = new Map();
@@ -3325,7 +3448,7 @@
 
         async function init() {
             try {
-                const historicalMode = !H2H_TIPS_TSV_URL.trim();
+                const historicalMode = !H2H_TIPS_SOURCE;
 
                 if (historicalMode) {
                     h2hTablesLayout?.classList.add('historical-mode');
@@ -3333,11 +3456,11 @@
                     if (loadingText) loadingText.textContent = 'Laddar tabell…';
                 }
 
-                await loadTeamsFromTSV(ALL_TEAMS_TSV_URL);
-                await loadAndPrepareStandingsFromTSV(TSV_URL);
+                await loadTeams(DATA_SOURCES.allTeams);
+                await loadAndPrepareStandings(DATA_SOURCES.games);
 
                 if (!historicalMode) {
-                    await loadH2HTipsFromTSV(H2H_TIPS_TSV_URL);
+                    await loadH2HTips(H2H_TIPS_SOURCE);
                 } else {
                     H2H_TIPS_BY_PARTICIPANT.clear();
                 }
