@@ -8,6 +8,7 @@
 
     <!-- html2canvas för export av aktiv vy -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="../js/google-sheets-data.js"></script>
 
     <style>
         /* =========================================================
@@ -2057,16 +2058,68 @@ Lag 14</pre>
         function dwarn(flag, ...args) { if (flag) console.warn(...args); }
 
 
-        // Matchdata: gemensamma games-fliken (samma källa som inbördes-sidan använder).
-        const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv';
+        /* ===========================================================
+           DATAKÄLLOR
+           -----------------------------------------------------------
+           GViz/CSV är primär nätverkskälla. Publicerad TSV finns kvar
+           som fallback. Själva hämtmotorn ligger i google-sheets-data.js.
+
+           Cache/localStorage och all tabell-/värmekarts-/säsongslogik
+           ligger fortsatt i den här sidan.
+           =========================================================== */
+
+        const DATA_SOURCES = {
+            games: {
+                key: 'games',
+                label: 'Matchdata',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '2012579108',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+                requiredColumns: [
+                    'date',
+                    'home_team_id',
+                    'away_team_id',
+                    'home_goals',
+                    'away_goals',
+                    'home_points',
+                    'away_points',
+                    'season_id',
+                    'league'
+                ]
+            },
+
+            allTeams: {
+                key: 'allTeams',
+                label: 'Lagdata',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '257061153',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv',
+                requiredColumns: [
+                    'team_id',
+                    'team_name_short',
+                    'team_name_long'
+                ]
+            },
+
+            tips: {
+                key: 'tips',
+                label: 'Tipsdata',
+                spreadsheetId: '1fsWVsiCnwFzge3xf5p0cReiTAkcpdLcuvmWSyDUmDhI',
+                gid: '530439256',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv',
+                requiredColumns: [
+                    'participant_id',
+                    'display_name',
+                    'tip_type',
+                    'team_id',
+                    'pick_rank'
+                ]
+            }
+        };
 
         // Vilken del av games som just den här sidan ska använda.
         const MATCH_SEASON_ID = '2026-2027';
         const MATCH_LEAGUE = 'SHL';
-
-        // Gemensamt masterregister för ALLA lag.
-        // games avgör vilka team_id som tillhör vald liga/säsong; all_teams avgör vad de heter.
-        const ALL_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv';
 
         // LocalStorage-nyckel för vald omgång (liga + säsong)
         // ⚠️ MÅSTE vara IDENTISK i systerappen
@@ -2077,14 +2130,8 @@ Lag 14</pre>
         const SHL_STANDINGS_CACHE_KEY = "SHL_STANDINGS_DATA_2026_2027";
         const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
 
-
         // Laguppsättningen för vald säsong hämtas inte längre från en separat teams_shl-flik.
         // Den här sidan härleder den från games och slår sedan upp namnen i all_teams.
-
-        // Publicerad TSV för tips_shl_2026-2027.
-        // Förväntade kolumner:
-        // participant_id | display_name | tip_type | team_id | pick_rank | h2h_point_spread_tip
-        const TIPS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv';
 
         // Lagnamn och heatmap-radordning byggs från teams_shl_2026-2027.
         // Ingen säsongs laguppsättning hårdkodas längre i HTML-filen.
@@ -3661,12 +3708,8 @@ Lag 14</pre>
             return shortName;
         }
 
-        async function loadAndPrepareStandingsFromTSV(url, { signal } = {}) {
-            const tsv = await fetch(url, { signal }).then(r => {
-                if (!r.ok) throw new Error(`Matchdata: HTTP ${r.status}`);
-                return r.text();
-            });
-            const rows = parseTSV(tsv);
+        async function loadAndPrepareStandings(source) {
+            const { rows } = await GoogleSheetsData.fetchRows(source);
             if (!rows.length) throw new Error('Matchdata: inga rader hittades.');
 
             const hdr = rows[0].map(h => h.trim());
@@ -3862,12 +3905,8 @@ Lag 14</pre>
         let TIPS_BY_TIPPER_HOBBY = new Map();
         let TIPS_BY_TIPPER_EXPERT = new Map();
 
-        async function loadAllTeamsFromTSV(url, { signal } = {}) {
-            const tsv = await fetch(url, { signal }).then(r => {
-                if (!r.ok) throw new Error(`Lagdata: HTTP ${r.status}`);
-                return r.text();
-            });
-            const rows = parseTSV(tsv);
+        async function loadAllTeams(source) {
+            const { rows } = await GoogleSheetsData.fetchRows(source);
             if (!rows.length) throw new Error('Lagdata: inga rader hittades i all_teams.');
 
             const hdr = rows[0].map(h => h.trim());
@@ -3905,27 +3944,13 @@ Lag 14</pre>
             return /^SHL-exp\b/i.test(String(displayName || '').trim());
         }
 
-        async function loadClassicTipsFromTSV(url) {
-            console.log("[TIPS][classic] fetch START", url);
+        async function loadClassicTips(source) {
+            console.log("[TIPS][classic] datahämtning START", source?.key || 'tips');
 
-            const tsv = await fetch(url).then(r => {
-                console.log("[TIPS][classic] fetch response", {
-                    ok: r.ok,
-                    status: r.status,
-                    statusText: r.statusText
-                });
+            const { rows, source: usedSource } = await GoogleSheetsData.fetchRows(source);
 
-                if (!r.ok) throw new Error(`Tipsdata: HTTP ${r.status}`);
-                return r.text();
-            });
-
-            console.log("[TIPS][classic] TSV mottagen", {
-                chars: tsv.length,
-                preview: tsv.slice(0, 250)
-            });
-
-            const rows = parseTSV(tsv);
-            console.log("[TIPS][classic] parseTSV klar", {
+            console.log("[TIPS][classic] datahämtning klar", {
+                source: usedSource,
                 rows: rows.length
             });
 
@@ -4114,7 +4139,7 @@ Lag 14</pre>
                 throw new Error('Tipsdata: säsongens lag måste först härledas från games.');
             }
             rebuildTeamNameIndexes();
-            await loadClassicTipsFromTSV(TIPS_SHL_TSV_URL);
+            await loadClassicTips(DATA_SOURCES.tips);
 
             window.TIPS_MATRIX_HOBBY = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_HOBBY);
             window.TIPS_MATRIX_EXPERT = buildTipsMatrixFromTipsByTipper(TIPS_BY_TIPPER_EXPERT);
@@ -4241,8 +4266,8 @@ Lag 14</pre>
 
             const stale = readSharedShlStandingsCache({ allowStale: true });
             try {
-                await loadAllTeamsFromTSV(ALL_TEAMS_TSV_URL);
-                await loadAndPrepareStandingsFromTSV(TSV_URL);
+                await loadAllTeams(DATA_SOURCES.allTeams);
+                await loadAndPrepareStandings(DATA_SOURCES.games);
                 writeSharedShlStandingsCache();
                 return { source: 'network', fresh: true };
             } catch (err) {
@@ -5289,11 +5314,6 @@ Lag 14</pre>
                 teamById: new Map(TEAM_BY_ID)
             };
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => {
-                controller.abort(new DOMException('Hämtningen tog för lång tid.', 'TimeoutError'));
-            }, 10000);
-
             refreshGamesBtn.disabled = true;
             refreshGamesBtn.setAttribute('aria-busy', 'true');
             refreshGamesBtn.textContent = '⏳';
@@ -5301,10 +5321,9 @@ Lag 14</pre>
             stopPlayback?.('refresh games');
 
             try {
-                // Cache-bust bara games-URL:en. Tips, eget tips, färger, filter,
-                // omgång och övriga inställningar lämnas helt orörda.
-                const freshGamesUrl = TSV_URL + (TSV_URL.includes('?') ? '&' : '?') + '_=' + Date.now();
-                await loadAndPrepareStandingsFromTSV(freshGamesUrl, { signal: controller.signal });
+                // Manuell uppdatering går direkt till nätverket via samma GViz -> TSV-fallback.
+                // Tips, eget tips, färger, filter, omgång och övriga inställningar lämnas helt orörda.
+                await loadAndPrepareStandings(DATA_SOURCES.games);
                 writeSharedShlStandingsCache();
 
                 const maxRound = Number(state.latestRound || 0);
@@ -5333,8 +5352,8 @@ Lag 14</pre>
                 TEAM_BY_ID = new Map(previousStandings.teamById);
                 rebuildTeamNameIndexes();
 
-                const isTimeout = error?.name === 'TimeoutError' || controller.signal.reason?.name === 'TimeoutError';
-                const isAbort = error?.name === 'AbortError' || controller.signal.aborted;
+                const isTimeout = /längre än 10 sekunder|tog för lång tid/i.test(String(error?.message || error));
+                const isAbort = false;
                 console.warn('[games][refresh] misslyckades – behåller befintlig data', error);
 
                 refreshGamesBtn.title = (isTimeout || isAbort)
@@ -5352,7 +5371,6 @@ Lag 14</pre>
                 state._lastAppliedRoundValue = undefined;
                 applyRoundFromSliderValue('refresh-games-failed');
             } finally {
-                clearTimeout(timeoutId);
                 refreshGamesBtn.disabled = false;
                 refreshGamesBtn.removeAttribute('aria-busy');
                 refreshGamesBtn.textContent = previousIcon || '🔄';
@@ -5431,7 +5449,7 @@ Lag 14</pre>
             // ---------------------------------------------------------
             let rounds = [];
             try {
-                // STANDINGS_BY_ROUND finns i den här filen (byggs i loadAndPrepareStandingsFromTSV)
+                // STANDINGS_BY_ROUND finns i den här filen (byggs i loadAndPrepareStandings)
                 if (typeof STANDINGS_BY_ROUND !== "undefined" && STANDINGS_BY_ROUND) {
                     rounds = Array.from(STANDINGS_BY_ROUND.keys())
                         .map(x => Number(x))
