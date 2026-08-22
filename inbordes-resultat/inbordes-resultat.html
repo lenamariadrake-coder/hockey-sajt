@@ -123,6 +123,7 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover
   .matchup-card{max-width:none;min-width:0;width:100%;margin-bottom:.75rem}
 }
 </style>
+  <script src="../js/google-sheets-data.js"></script>
 </head>
 <body>
 <div class="container">
@@ -206,7 +207,29 @@ tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--row-hover
 </div>
 
 <script>
-const LIVE_GAMES_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv';
+const DATA_SOURCES = {
+  games: {
+    key: 'games',
+    label: 'Matchdata',
+    spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+    gid: '2012579108',
+    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+    requiredColumns: [
+      'date',
+      'home_team',
+      'away_team',
+      'result',
+      'home_goals',
+      'away_goals',
+      'home_points',
+      'away_points',
+      'season_id',
+      'league',
+      'home_team_id',
+      'away_team_id'
+    ]
+  }
+};
 const HARD_CODED_ROUND = 52; // avsiktligt osynligt i UI
 
 const state = {
@@ -488,9 +511,20 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 
 async function loadLive(){
   dataStatus.textContent='Laddar live-data…';
-  const r=await fetch(LIVE_GAMES_TSV_URL);if(!r.ok)throw new Error(`HTTP ${r.status}`);
-  const rows=parseTSV(await r.text());
-  state.data=normalizeData({games:rows}); state.source='live';
+  const { rows } = await GoogleSheetsData.fetchRows(DATA_SOURCES.games);
+
+  // GoogleSheetsData returnerar rader inklusive rubrikrad.
+  // Bygg samma objektstruktur som parseTSV() tidigare gav normalizeData().
+  const headers = rows[0] || [];
+  const games = rows.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((key, i) => {
+      obj[String(key ?? '').trim()] = String(row[i] ?? '').trim();
+    });
+    return obj;
+  });
+
+  state.data=normalizeData({games}); state.source='live';
   localBadge.classList.add('hidden');useLive.classList.add('hidden');
   dataStatus.textContent='Live-data från games'; render();
 }
