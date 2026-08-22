@@ -475,11 +475,27 @@
 
         .round-results-list li {
             display: grid;
-            grid-template-columns: minmax(9.6rem, max-content) minmax(9.6rem, max-content) max-content;
-            column-gap: 1.15rem;
+            grid-template-columns:
+                .72rem minmax(9.6rem, max-content)
+                .72rem minmax(9.6rem, max-content)
+                max-content;
+            column-gap: .22rem;
             align-items: baseline;
             padding: 0;
             white-space: nowrap;
+        }
+
+        .round-result-marker {
+            width: .72rem;
+            text-align: center;
+        }
+
+        .round-result-team.home-team {
+            margin-right: .93rem;
+        }
+
+        .round-result-team.away-team {
+            margin-right: .93rem;
         }
 
         .round-result-score {
@@ -488,8 +504,16 @@
 
         @media (max-width: 700px) {
             .round-results-list li {
-                grid-template-columns: minmax(8.5rem, max-content) minmax(8.5rem, max-content) max-content;
-                column-gap: .75rem;
+                grid-template-columns:
+                    .72rem minmax(8.5rem, max-content)
+                    .72rem minmax(8.5rem, max-content)
+                    max-content;
+                column-gap: .18rem;
+            }
+
+            .round-result-team.home-team,
+            .round-result-team.away-team {
+                margin-right: .57rem;
             }
         }
 
@@ -4889,13 +4913,21 @@ Lag 14</pre>
                 const homeIsCurrent = match.home_round === round;
                 const awayIsCurrent = match.away_round === round;
 
+                const homeMarker = document.createElement('span');
+                homeMarker.className = 'round-result-marker';
+                homeMarker.textContent = homeIsCurrent ? '●' : '';
+
                 const homeSpan = document.createElement('span');
-                homeSpan.className = 'round-result-team';
-                homeSpan.textContent = `${homeIsCurrent ? '● ' : ''}${getTeamLongName(match.home_team_id)}`;
+                homeSpan.className = 'round-result-team home-team';
+                homeSpan.textContent = getTeamLongName(match.home_team_id);
+
+                const awayMarker = document.createElement('span');
+                awayMarker.className = 'round-result-marker';
+                awayMarker.textContent = awayIsCurrent ? '●' : '';
 
                 const awaySpan = document.createElement('span');
-                awaySpan.className = 'round-result-team';
-                awaySpan.textContent = `${awayIsCurrent ? '● ' : ''}${getTeamLongName(match.away_team_id)}`;
+                awaySpan.className = 'round-result-team away-team';
+                awaySpan.textContent = getTeamLongName(match.away_team_id);
 
                 const homeMove = movementByTeam.get(match.home_team_id);
                 const awayMove = movementByTeam.get(match.away_team_id);
@@ -4924,7 +4956,7 @@ Lag 14</pre>
                     ? `${match.home_goals}–${match.away_goals}${extraTimeLabel ? ` ${extraTimeLabel}` : ''}`
                     : '–';
 
-                li.append(homeSpan, awaySpan, scoreSpan);
+                li.append(homeMarker, homeSpan, awayMarker, awaySpan, scoreSpan);
                 list.appendChild(li);
             });
         }
