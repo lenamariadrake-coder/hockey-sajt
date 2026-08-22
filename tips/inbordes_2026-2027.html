@@ -2159,12 +2159,12 @@
         const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv';
 
         // Matchfiltret. Ändra säsongen här när sidan ska användas "på riktigt".
-        const MATCH_SEASON_ID = '2025-2026';
+        const MATCH_SEASON_ID = '2026-2027';
         const MATCH_LEAGUE = 'SHL';
 
-        // Lagkälla för visningsnamn. Matchlogiken använder inte denna för att identifiera lag.
-        // Byt denna URL till den publicerade all_teams-fliken när dess TSV-adress är på plats.
-        const TEAMS_SHL_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1991699389&single=true&output=tsv';
+        // Gemensamt lagregister för visningsnamn.
+        // Matchlogiken identifierar lag via team_id i games; all_teams översätter bara ID till namn.
+        const ALL_TEAMS_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv';
 
         // Publicerad TSV-adress för H2H-tips.
         // Filen heter inbordes-ordning och fliken heter tips_shl_2026-2027.
@@ -2391,14 +2391,25 @@
                 getDisplayTeamName(a).localeCompare(getDisplayTeamName(b), 'sv')
             );
 
+            // Alla schemarader ovan används för att identifiera säsongens lag.
+            // Själva tabellen ska däremot bara byggas av matcher som faktiskt är spelade.
+            const playedRows = dataRows.filter(r => {
+                const hg = toInt(r[iHomeGoals]);
+                const ag = toInt(r[iAwayGoals]);
+                const hp = toInt(r[iHomePts]);
+                const ap = toInt(r[iAwayPts]);
+
+                return isNum(hg) && isNum(ag) && (isNum(hp) || isNum(ap));
+            });
+
             const hist = new Map();
             ALL_TEAM_IDS.forEach(teamId => {
                 hist.set(teamId, [{ g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]);
             });
 
-            dataRows.sort((a, b) => new Date(a[iDate]) - new Date(b[iDate]));
+            playedRows.sort((a, b) => new Date(a[iDate]) - new Date(b[iDate]));
 
-            for (const r of dataRows) {
+            for (const r of playedRows) {
                 const ht = String(r[iHomeTeamId] || '').trim();
                 const at = String(r[iAwayTeamId] || '').trim();
                 if (!ht || !at || !hist.has(ht) || !hist.has(at)) continue;
@@ -3322,7 +3333,7 @@
                     if (loadingText) loadingText.textContent = 'Laddar tabell…';
                 }
 
-                await loadTeamsFromTSV(TEAMS_SHL_TSV_URL);
+                await loadTeamsFromTSV(ALL_TEAMS_TSV_URL);
                 await loadAndPrepareStandingsFromTSV(TSV_URL);
 
                 if (!historicalMode) {
