@@ -5238,7 +5238,9 @@ Lag 14</pre>
                 const canvas = await html2canvas(activePanel, {
                     scale: 2,
                     useCORS: true,
-                    backgroundColor: null,
+                    // Exporten ska spegla sidans ljusa utseende.
+                    // null gav transparent bakgrund, som kan visas mörk i t.ex. bildvisare/delningsappar.
+                    backgroundColor: '#ffffff',
                     width,
                     height,
                     windowWidth: width,
