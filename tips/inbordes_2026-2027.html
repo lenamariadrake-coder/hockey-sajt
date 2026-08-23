@@ -2172,6 +2172,13 @@
                             <option value="" selected>2026/2027</option>
                         </select>
                     </div>
+
+                    <label id="rowColorToggleSummary" class="rowcolor-toggle rowcolor-toggle--icon"
+                        title="Visa färgpaletter">
+                        <input id="rowColorEnabled" type="checkbox" />
+                        <span class="toggle-icon" aria-hidden="true">🎨</span>
+                        <span class="sr-only" id="rowColorToggleSrText">Visa färgpaletter</span>
+                    </label>
                 </div>
             </div>
 
@@ -2233,6 +2240,11 @@
             </div>
         </section>
 
+        <div id="rowColorPalette" class="rowcolor-palette" role="menu" aria-label="Välj färg för rad" hidden>
+            <div class="rowcolor-swatches" role="group" aria-label="Färger"></div>
+            <button id="rowColorClearOne" class="rowcolor-clear" type="button">Återställ rad</button>
+        </div>
+
         <section class="slider-wrapper" aria-label="Tidslinje">
             <div class="slider-display">
                 <div class="slider-info">
@@ -2274,7 +2286,7 @@
                     <div class="h2h-table-panel h2h-league-panel" aria-label="Aktuell SHL-tabell">
                         <table id="leagueStandings" class="aktuell_tabell hidden">
                             <thead>
-                                <tr>
+                                <tr id="leagueStandingsHeadRow">
                                     <th>Plats</th>
                                     <th class="col-team">Lag</th>
                                     <th class="num" title="Matcher">M</th>
@@ -2351,6 +2363,10 @@
         const timelineModeDate = document.getElementById('timelineModeDate');
         const timelineModeHelp = document.getElementById('timelineModeHelp');
         const movementEnabled = document.getElementById('movementEnabled');
+        const rowColorEnabled = document.getElementById('rowColorEnabled');
+        const rowColorPalette = document.getElementById('rowColorPalette');
+        const rowColorSwatchesWrap = rowColorPalette?.querySelector('.rowcolor-swatches');
+        const rowColorClearOne = document.getElementById('rowColorClearOne');
 
         /* ===========================================================
            DATAKÄLLOR
@@ -2427,6 +2443,7 @@
         const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
         const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
         const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2026_2027.v1';
+        const ROWCOLOR_STORAGE_KEY = 'shlTable.rowColors.shl_2026_2027.v1';
         const LS_TIPS_SOURCES_KEY = 'shlTips.sources.shl_2026_2027.v1';
         const SHL_STANDINGS_CACHE_KEY = 'SHL_STANDINGS_DATA_2026_2027';
         const SHL_H2H_TIPS_CACHE_KEY = 'SHL_H2H_TIPS_DATA_2026_2027';
@@ -2444,7 +2461,10 @@
             currentDateIndex: 0,
             _matchTimelineValue: 0,
             showMovements: true,
-            tipsSources: { hobby: true, expert: true }
+            tipsSources: { hobby: true, expert: true },
+            rowColorMode: false,
+            rowColors: new Map(),
+            _rowColorActiveTeam: null
         };
 
         let STANDING_SNAPSHOTS = new Map();
@@ -3199,6 +3219,9 @@
 
                 const tdTeam = document.createElement('td');
                 tdTeam.textContent = getDisplayTeamName(teamId);
+                const displayName = getDisplayTeamName(teamId);
+                const chosen = state.rowColors.get(displayName);
+                if (chosen && !state.showMovements) tr.style.backgroundColor = chosen;
 
                 const tdPoints = document.createElement('td');
                 tdPoints.className = 'num';
@@ -3269,6 +3292,79 @@
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape') closeAllTipperPopups();
         });
+
+        /* ===========================================================
+           RADFÄRGER – delad med Tabell/Värmekarta
+           =========================================================== */
+        const ROWCOLOR_PALETTE = ['#BFE1FF','#BFEFF2','#FFF1A8','#FFE0B8','#D9C8FF','#D5DAE1'];
+
+        function saveRowColorPreference() {
+            try {
+                localStorage.setItem(ROWCOLOR_STORAGE_KEY, JSON.stringify({
+                    enabled: !!state.rowColorMode,
+                    colors: Object.fromEntries(state.rowColors || [])
+                }));
+            } catch (error) { console.warn('[rowcolor][LS] kunde inte spara:', error); }
+        }
+
+        function loadRowColorPreference() {
+            try {
+                const raw = localStorage.getItem(ROWCOLOR_STORAGE_KEY);
+                if (raw) {
+                    const saved = JSON.parse(raw);
+                    state.rowColorMode = saved?.enabled === true;
+                    state.rowColors = new Map(Object.entries(saved?.colors || {}));
+                }
+            } catch (error) { console.warn('[rowcolor][LS] kunde inte läsa:', error); }
+            if (rowColorEnabled) rowColorEnabled.checked = !!state.rowColorMode;
+            updateRowColorToggleTexts();
+        }
+
+        function updateRowColorToggleTexts() {
+            const label = document.getElementById('rowColorToggleSummary');
+            const sr = document.getElementById('rowColorToggleSrText');
+            const text = state.rowColorMode ? 'Dölj färgpaletter' : 'Visa färgpaletter';
+            if (label) label.title = text;
+            if (sr) sr.textContent = text;
+        }
+
+        function rowColorHasAny() { return state.rowColors?.size > 0; }
+        function closeRowColorPalette() { if (rowColorPalette) rowColorPalette.hidden = true; state._rowColorActiveTeam = null; }
+        function openRowColorPaletteAt(x,y,team) {
+            if (!rowColorPalette) return;
+            state._rowColorActiveTeam = team;
+            rowColorPalette.hidden = false;
+            rowColorPalette.style.left = `${x + window.scrollX + 8}px`;
+            rowColorPalette.style.top = `${y + window.scrollY + 8}px`;
+        }
+        function updateRowColorResetXVisibility() {
+            const x=document.getElementById('rowColorResetX');
+            if (x) x.style.display = state.rowColorMode && rowColorHasAny() ? '' : 'none';
+        }
+        function syncLeagueHeaderForRowColors() {
+            const head=document.getElementById('leagueStandingsHeadRow'); if(!head) return;
+            const existing=head.querySelector('th[data-rowcolor]');
+            if(state.rowColorMode && !existing){
+                const th=document.createElement('th'); th.setAttribute('data-rowcolor','true');
+                const b=document.createElement('button'); b.type='button'; b.id='rowColorResetX'; b.title='Återställ radfärger'; b.setAttribute('aria-label','Återställ radfärger'); b.textContent='✖';
+                b.addEventListener('click',()=>{ state.rowColors.clear(); saveRowColorPreference(); closeRowColorPalette(); renderTableForRound(state.timelineMode==='date'?state.currentDateIndex:state.currentRound); });
+                th.appendChild(b); head.insertBefore(th,head.firstChild);
+            } else if(!state.rowColorMode && existing) existing.remove();
+            updateRowColorResetXVisibility();
+        }
+        function initRowColorsUI(){
+            if(rowColorSwatchesWrap && !rowColorSwatchesWrap.childElementCount){
+                ROWCOLOR_PALETTE.forEach(color=>{ const b=document.createElement('button'); b.type='button'; b.className='rowcolor-swatch'; b.style.backgroundColor=color; b.setAttribute('aria-label',`Välj färg ${color}`); b.addEventListener('click',e=>{e.stopPropagation(); const team=state._rowColorActiveTeam; if(!team)return; state.rowColors.set(team,color); saveRowColorPreference(); closeRowColorPalette(); renderTableForRound(state.timelineMode==='date'?state.currentDateIndex:state.currentRound);}); rowColorSwatchesWrap.appendChild(b); });
+            }
+            rowColorClearOne?.addEventListener('click',e=>{e.stopPropagation(); const team=state._rowColorActiveTeam; if(!team)return; state.rowColors.delete(team); saveRowColorPreference(); closeRowColorPalette(); renderTableForRound(state.timelineMode==='date'?state.currentDateIndex:state.currentRound);});
+            rowColorEnabled?.addEventListener('change',()=>{
+                state.rowColorMode=!!rowColorEnabled.checked;
+                if(state.rowColorMode){ state.showMovements=false; if(movementEnabled) movementEnabled.checked=false; saveMovementPreference(); }
+                saveRowColorPreference(); syncLeagueHeaderForRowColors(); closeRowColorPalette(); updateRowColorToggleTexts(); renderTableForRound(state.timelineMode==='date'?state.currentDateIndex:state.currentRound);
+            });
+            document.addEventListener('click',e=>{ if(!rowColorPalette||rowColorPalette.hidden)return; if(rowColorPalette.contains(e.target)||e.target?.closest?.('.rowcolor-icon-btn'))return; closeRowColorPalette(); });
+            window.addEventListener('scroll',closeRowColorPalette,{passive:true}); window.addEventListener('resize',closeRowColorPalette);
+        }
 
         /* ===========================================================
            TOPPLISTA
@@ -3347,6 +3443,7 @@
 
         function renderLeagueStandings(standings, isStartMode, movementByTeam) {
             if (!leagueStand) return;
+            syncLeagueHeaderForRowColors();
 
             const tbody = leagueStand.querySelector('tbody');
             if (!tbody) return;
@@ -3357,8 +3454,10 @@
                 const teamId = standingRow.team_id;
                 const move = movementByTeam?.get(teamId);
 
-                if (move === 'up') tr.classList.add('movement-up');
-                else if (move === 'down') tr.classList.add('movement-down');
+                if (!state.rowColorMode) {
+                    if (move === 'up') tr.classList.add('movement-up');
+                    else if (move === 'down') tr.classList.add('movement-down');
+                }
 
                 const tdRank = document.createElement('td');
                 tdRank.className = 'num';
@@ -3385,6 +3484,11 @@
                 tdGoalsFor.className = 'num';
                 tdGoalsFor.textContent = isStartMode ? '—' : String(standingRow.gf);
 
+                if (state.rowColorMode) {
+                    const tdIcon=document.createElement('td'); tdIcon.className='rowcolor-cell';
+                    const btn=document.createElement('button'); btn.type='button'; btn.className='rowcolor-icon-btn'; btn.textContent='🎨'; btn.setAttribute('aria-label',`Välj radfärg för ${displayName}`);
+                    btn.addEventListener('click',e=>{e.stopPropagation(); openRowColorPaletteAt(e.clientX,e.clientY,displayName);}); tdIcon.appendChild(btn); tr.appendChild(tdIcon);
+                }
                 tr.append(tdRank, tdTeam, tdGames, tdPoints, tdGoalDiff, tdGoalsFor);
                 tbody.appendChild(tr);
             });
@@ -3862,11 +3966,22 @@
                 restoreTimelineStateFromLocalStorage();
                 restoreTipsSourcesFromLocalStorage();
                 loadMovementPreference();
+                loadRowColorPreference();
+                initRowColorsUI();
+                syncLeagueHeaderForRowColors();
                 buildRoundButtons();
                 bindTimelineControls();
 
                 movementEnabled?.addEventListener('change', () => {
                     state.showMovements = !!movementEnabled.checked;
+                    if (state.showMovements && state.rowColorMode) {
+                        state.rowColorMode = false;
+                        if (rowColorEnabled) rowColorEnabled.checked = false;
+                        closeRowColorPalette();
+                        saveRowColorPreference();
+                        syncLeagueHeaderForRowColors();
+                        updateRowColorToggleTexts();
+                    }
                     saveMovementPreference();
                     renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
                 });
@@ -3892,6 +4007,7 @@
                 });
 
                 window.addEventListener('storage', event => {
+                    if (event.key === ROWCOLOR_STORAGE_KEY) { loadRowColorPreference(); syncLeagueHeaderForRowColors(); renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound); return; }
                     if (event.key === LS_TIPS_SOURCES_KEY) {
                         restoreTipsSourcesFromLocalStorage();
                         renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);

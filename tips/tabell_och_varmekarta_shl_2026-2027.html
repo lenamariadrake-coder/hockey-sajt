@@ -2309,6 +2309,7 @@ Lag 14</pre>
         const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
         const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
         const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2026_2027.v1';
+        const ROWCOLOR_STORAGE_KEY = 'shlTable.rowColors.shl_2026_2027.v1';
         const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2026_2027.v1";
         const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2026_2027";
         const SHL_STANDINGS_CACHE_KEY = "SHL_STANDINGS_DATA_2026_2027";
@@ -3291,6 +3292,7 @@ Lag 14</pre>
 
                 resetBtn.addEventListener('click', () => {
                     state.rowColors?.clear?.();
+                    saveRowColorPreference();
                     renderTableForRound(state.currentRound);
                     closeRowColorPalette();
                     updateRowColorControlsVisibility();
@@ -3467,6 +3469,30 @@ Lag 14</pre>
         state.rowColors = new Map();                // teamLong -> color
         state._rowColorActiveTeam = null;           // vilken rad paletten gäller just nu
 
+        function saveRowColorPreference() {
+            try {
+                localStorage.setItem(ROWCOLOR_STORAGE_KEY, JSON.stringify({
+                    enabled: !!state.rowColorMode,
+                    colors: Object.fromEntries(state.rowColors || [])
+                }));
+            } catch (error) {
+                console.warn('[rowcolor][LS] kunde inte spara:', error);
+            }
+        }
+
+        function loadRowColorPreference() {
+            try {
+                const raw = localStorage.getItem(ROWCOLOR_STORAGE_KEY);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                state.rowColorMode = saved?.enabled === true;
+                state.rowColors = new Map(Object.entries(saved?.colors || {}));
+                if (rowColorEnabled) rowColorEnabled.checked = state.rowColorMode;
+            } catch (error) {
+                console.warn('[rowcolor][LS] kunde inte läsa:', error);
+            }
+        }
+
         state.showMovements = true;
 
         function saveMovementPreference() {
@@ -3562,6 +3588,7 @@ Lag 14</pre>
                         if (!team) return;
 
                         state.rowColors.set(team, color);
+                        saveRowColorPreference();
 
                         console.log("[rowcolor] set", { team, color, count: state.rowColors.size });
 
@@ -3589,6 +3616,7 @@ Lag 14</pre>
 
                     const had = state.rowColors.has(team);
                     state.rowColors.delete(team);
+                    saveRowColorPreference();
 
                     console.log("[rowcolor] clear one", { team, had, count: state.rowColors.size });
 
@@ -3630,6 +3658,7 @@ Lag 14</pre>
 
                 rowColorEnabled.addEventListener('change', () => {
                     state.rowColorMode = !!rowColorEnabled.checked;
+                    saveRowColorPreference();
 
                     if (state.rowColorMode) {
                         // Manuella färger tar över: avmarkera rörelser utan att gömma kontrollen.
@@ -6311,6 +6340,7 @@ Lag 14</pre>
 
             // 4.5) Radfärger (toggle + palett)
             loadMovementPreference();
+            loadRowColorPreference();
             initRowColorsUI();
 
 
