@@ -781,14 +781,6 @@
             font-size: .85rem;
         }
 
-        .standings-results-layout.date-mode {
-            grid-template-columns: 1fr;
-        }
-
-        .standings-results-layout.date-mode > table {
-            justify-self: center;
-        }
-
         @media (max-width: 700px) {
             .timeline-mode-row {
                 align-items: flex-start;
@@ -1992,7 +1984,7 @@ Lag 14</pre>
                     </thead>
                     <tbody><!-- fylls i JS --></tbody>
                 </table>
-                <div class="source">Tips-spridning. Neutralt läge = enbart tipsfärger; vid vald omgång markeras verklig
+                <div class="source">Tips-spridning. Neutralt läge = enbart tipsfärger; vid vald tidpunkt markeras verklig
                     placering med röd skala + diskret cirkel.</div>
             </section>
         </div>
@@ -3302,7 +3294,9 @@ Lag 14</pre>
         function updateHeatSortDisabledByRound() {
             if (!heatSortWrap || !heatSortPlacement) return;
 
-            const isNeutral = (Number(timelineSlider?.value || 0) === 0) || (state.currentRound === null);
+            const isNeutral = state.timelineMode === 'date'
+                ? Number(state.currentDateIndex || 0) === 0
+                : ((Number(timelineSlider?.value || 0) === 0) || (state.currentRound === null));
 
             heatSortPlacement.disabled = isNeutral;
             heatSortWrap.classList.toggle('is-disabled-placement', isNeutral);
@@ -3310,7 +3304,9 @@ Lag 14</pre>
             // Tooltip bara när "Placering" är låst (0 matcher / neutralt)
             if (heatSortPlacementLabel) {
                 heatSortPlacementLabel.title = isNeutral
-                    ? '0 matcher: kan inte sortera på placering'
+                    ? (state.timelineMode === 'date'
+                        ? 'Före säsongsstart: kan inte sortera på placering'
+                        : '0 matcher: kan inte sortera på placering')
                     : '';
             }
 
@@ -3843,6 +3839,7 @@ Lag 14</pre>
         // Separat datumaxel. Den befintliga omgångs-/matchlogiken ovan lämnas orörd.
         let DATE_STANDING_SNAPSHOTS = new Map(); // YYYY-MM-DD -> faktisk haltande tabell efter dagens matcher
         let DATE_TIMELINE_KEYS = [];              // kronologiska speldatum med minst en spelad match
+        let DATE_MATCHES_BY_DATE = new Map();     // YYYY-MM-DD -> matcher som spelades det datumet
 
         let SEASON_TEAM_IDS = new Set();      // härleds från games för vald liga/säsong
 
@@ -3873,6 +3870,35 @@ Lag 14</pre>
             const m = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             return `${y}-${m}-${day}`;
+        }
+
+        function rebuildDateMatchesFromRoundMatches() {
+            DATE_MATCHES_BY_DATE = new Map();
+            const seen = new Set();
+
+            MATCHES_BY_ROUND.forEach(matches => {
+                (matches || []).forEach(match => {
+                    const dateKey = normalizeGameDateKey(match?.date);
+                    if (!dateKey) return;
+
+                    const identity = [
+                        dateKey,
+                        match?.home_team_id,
+                        match?.away_team_id,
+                        match?.home_round,
+                        match?.away_round,
+                        match?.home_goals,
+                        match?.away_goals,
+                        match?.result
+                    ].join('|');
+
+                    if (seen.has(identity)) return;
+                    seen.add(identity);
+
+                    if (!DATE_MATCHES_BY_DATE.has(dateKey)) DATE_MATCHES_BY_DATE.set(dateKey, []);
+                    DATE_MATCHES_BY_DATE.get(dateKey).push(match);
+                });
+            });
         }
 
         function formatTimelineDate(dateKey) {
@@ -4068,6 +4094,7 @@ Lag 14</pre>
             // ---------------------------------------------------------
             DATE_STANDING_SNAPSHOTS = new Map();
             DATE_TIMELINE_KEYS = [];
+            DATE_MATCHES_BY_DATE = new Map();
 
             const dateStats = new Map(ALL_TEAM_IDS.map(teamId => [teamId, {
                 g: 0, points: 0, gf: 0, ga: 0, gd: 0
@@ -4110,6 +4137,16 @@ Lag 14</pre>
                 const ag = toInt(r[iAwayGoals]);
                 const hp = toInt(r[iHomePts]);
                 const ap = toInt(r[iAwayPts]);
+
+                if (!DATE_MATCHES_BY_DATE.has(dateKey)) DATE_MATCHES_BY_DATE.set(dateKey, []);
+                DATE_MATCHES_BY_DATE.get(dateKey).push({
+                    date: String(r[iDate] || '').trim(),
+                    home_team_id: ht,
+                    away_team_id: at,
+                    home_goals: hg,
+                    away_goals: ag,
+                    result: iResult !== -1 ? String(r[iResult] || '').trim() : ''
+                });
 
                 const home = dateStats.get(ht);
                 const away = dateStats.get(at);
@@ -4489,6 +4526,7 @@ Lag 14</pre>
                 Object.entries(payload.dateSnapshots || {}).map(([dateKey, rows]) => [dateKey, Array.isArray(rows) ? rows : []])
             );
             DATE_TIMELINE_KEYS = Array.isArray(payload.dateTimelineKeys) ? payload.dateTimelineKeys.slice() : [];
+            rebuildDateMatchesFromRoundMatches();
             state.roundsAvailable = new Set((payload.roundsAvailable || []).map(Number));
             state.latestRound = Number.isFinite(Number(payload.latestRound)) ? Number(payload.latestRound) : 0;
 
@@ -4879,8 +4917,12 @@ Lag 14</pre>
         function setHeatSortMode(mode /* 'placement' | 'tippad' */) {
             if (mode !== 'placement' && mode !== 'tippad') return;
 
-            // I neutralt läge får man inte sortera – lås till "tippad"
-            if (state.currentRound === null) {
+            // I neutralt läge får man inte sortera – lås till "tippad".
+            // Datumläget är neutralt endast före säsongsstart.
+            const isNeutral = state.timelineMode === 'date'
+                ? Number(state.currentDateIndex || 0) === 0
+                : state.currentRound === null;
+            if (isNeutral) {
                 if (heatSortTippad) heatSortTippad.checked = true;
                 if (heatSortPlacement) heatSortPlacement.checked = false;
                 return;
@@ -4930,8 +4972,10 @@ Lag 14</pre>
             }
 
             if (movementToggleLabel) {
-                movementToggleLabel.style.display =
-                    (view === 'table' && state.timelineMode === 'matches') ? '' : 'none';
+                movementToggleLabel.style.display = (view === 'table') ? '' : 'none';
+                movementToggleLabel.title = state.timelineMode === 'date'
+                    ? 'Grönt = upp, rött = ner sedan föregående speldatum'
+                    : 'Grönt = upp, rött = ner sedan föregående omgång';
             }
 
             if (seasonSelectWrap) {
@@ -4968,22 +5012,21 @@ Lag 14</pre>
                 // heatSortWrap.style.display = 'none';
                 renderTableForRound(state.currentRound);
             } else {
-                // VÄRMEKARTA
-                if (state.currentRound === null) {
+                // VÄRMEKARTA – samma vy fungerar med båda tidsaxlarna.
+                const isNeutral = state.timelineMode === 'date'
+                    ? Number(state.currentDateIndex || 0) === 0
+                    : state.currentRound === null;
 
-                    // neutralt läge: inga sorteringsval + alltid tippad ordning
-                    // heatSortWrap.style.display = 'none';
-                    // säkerställ att “tippad” är markerad i UI (för när man senare väljer en runda)
+                if (isNeutral) {
                     if (heatSortTippad) heatSortTippad.checked = true;
                     if (heatSortPlacement) heatSortPlacement.checked = false;
+                    state.heatSortMode = 'tippad';
                     renderHeatmapForRound(null, 'tippad');
                     console.log('[SLIDER WIDTH] cachedHeatTableWidth:', cachedHeatTableWidth);
-
                 } else {
-                    // runda vald: sorteringsval får synas
-                    // heatSortWrap.style.display = '';
                     renderHeatmapForRound(state.currentRound, state.heatSortMode);
                 }
+                updateHeatSortDisabledByRound();
             }
 
             // VIKTIGT: Flikbyte ska ALDRIG stoppa uppspelningen.
@@ -5095,6 +5138,35 @@ Lag 14</pre>
             return movement;
         }
 
+        function buildMovementByTeamForDateIndex(dateIndex, standings) {
+            const movement = new Map();
+            const index = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, Number(dateIndex) || 0));
+
+            // Före säsongsstart och första speldatumet saknar ett tidigare speldatum
+            // med en spelad tabell att jämföra med.
+            if (index <= 1) return movement;
+
+            const previousDateKey = DATE_TIMELINE_KEYS[index - 2];
+            const previousStandings = DATE_STANDING_SNAPSHOTS.get(previousDateKey);
+            if (!previousStandings) return movement;
+
+            const previousRows = [...previousStandings].sort(standingsComparator);
+            const previousRankByTeamId = new Map(
+                previousRows.map((row, rankIndex) => [row.team_id, rankIndex + 1])
+            );
+
+            standings.forEach((row, rankIndex) => {
+                const currentRank = rankIndex + 1;
+                const previousRank = previousRankByTeamId.get(row.team_id);
+                if (!Number.isFinite(previousRank)) return;
+
+                if (currentRank < previousRank) movement.set(row.team_id, 'up');
+                else if (currentRank > previousRank) movement.set(row.team_id, 'down');
+            });
+
+            return movement;
+        }
+
         function getExtraTimeLabel(match) {
             const result = String(match?.result || '').trim().toUpperCase();
 
@@ -5187,16 +5259,117 @@ Lag 14</pre>
             });
         }
 
+        function renderDateResults(dateIndex, movementByTeam = new Map()) {
+            const box = document.getElementById('roundResults');
+            const list = document.getElementById('roundResultsList');
+            const explanation = box?.querySelector('.round-results-explanation');
+            const movementLabel = document.getElementById('movementToggleLabel');
+            if (!box || !list) return;
+
+            list.innerHTML = '';
+            box.classList.remove('hidden');
+
+            if (movementLabel) {
+                movementLabel.style.display = state.activeView === 'table' ? '' : 'none';
+                movementLabel.title = 'Grönt = upp, rött = ner sedan föregående speldatum';
+            }
+            if (explanation) {
+                explanation.textContent = 'Här visas de matcher som spelades det valda datumet. Vinnande lag markeras med en gul stjärna.';
+            }
+
+            const index = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, Number(dateIndex) || 0));
+            if (index === 0) {
+                const li = document.createElement('li');
+                li.className = 'round-results-empty';
+                li.textContent = 'Säsongen har inte börjat ännu.';
+                list.appendChild(li);
+                return;
+            }
+
+            const dateKey = DATE_TIMELINE_KEYS[index - 1];
+            const matches = DATE_MATCHES_BY_DATE.get(dateKey) || [];
+
+            if (!matches.length) {
+                const li = document.createElement('li');
+                li.className = 'round-results-empty';
+                li.textContent = 'Inga resultat för det här datumet.';
+                list.appendChild(li);
+                return;
+            }
+
+            matches.forEach(match => {
+                const li = document.createElement('li');
+
+                const homeMarker = document.createElement('span');
+                homeMarker.className = 'round-result-marker';
+                homeMarker.textContent = '';
+
+                const homeSpan = document.createElement('span');
+                homeSpan.className = 'round-result-team home-team';
+                homeSpan.textContent = getTeamLongName(match.home_team_id);
+
+                const awayMarker = document.createElement('span');
+                awayMarker.className = 'round-result-marker';
+                awayMarker.textContent = '';
+
+                const awaySpan = document.createElement('span');
+                awaySpan.className = 'round-result-team away-team';
+                awaySpan.textContent = getTeamLongName(match.away_team_id);
+
+                const homeMove = movementByTeam.get(match.home_team_id);
+                const awayMove = movementByTeam.get(match.away_team_id);
+
+                if (homeMove === 'up') homeSpan.classList.add('movement-up');
+                else if (homeMove === 'down') homeSpan.classList.add('movement-down');
+
+                if (awayMove === 'up') awaySpan.classList.add('movement-up');
+                else if (awayMove === 'down') awaySpan.classList.add('movement-down');
+
+                if (isNum(match.home_goals) && isNum(match.away_goals)) {
+                    if (match.home_goals > match.away_goals) {
+                        homeMarker.textContent = '★';
+                        homeMarker.classList.add('winner-star');
+                    } else if (match.away_goals > match.home_goals) {
+                        awayMarker.textContent = '★';
+                        awayMarker.classList.add('winner-star');
+                    }
+                }
+
+                const extraTimeLabel = getExtraTimeLabel(match);
+                const scoreSpan = document.createElement('span');
+                scoreSpan.className = 'round-result-score';
+                scoreSpan.textContent = isNum(match.home_goals) && isNum(match.away_goals)
+                    ? `${match.home_goals}–${match.away_goals}${extraTimeLabel ? ` ${extraTimeLabel}` : ''}`
+                    : '–';
+
+                li.append(homeMarker, homeSpan, awayMarker, awaySpan, scoreSpan);
+                list.appendChild(li);
+            });
+        }
+
         function renderTableForRound(round, overrideData = null) {
             syncStandingsHeaderForRowColors();
 
-            const data = Array.isArray(overrideData) ? overrideData : buildStandingsForRound(round);
+            const isDateMode = state.timelineMode === 'date';
+            const dateIndex = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, Number(state.currentDateIndex) || 0));
+            const data = isDateMode
+                ? (Array.isArray(overrideData) ? overrideData : buildStandingsForDateIndex(dateIndex))
+                : (Array.isArray(overrideData) ? overrideData : buildStandingsForRound(round));
             const rows = [...data].sort(standingsComparator);
             const movementByTeam = state.showMovements
-                ? buildMovementByTeam(round, rows)
+                ? (isDateMode
+                    ? buildMovementByTeamForDateIndex(dateIndex, rows)
+                    : buildMovementByTeam(round, rows))
                 : new Map();
 
-            renderRoundResults(round, movementByTeam);
+            if (isDateMode) renderDateResults(dateIndex, movementByTeam);
+            else {
+                const explanation = document.querySelector('#roundResults .round-results-explanation');
+                const movementLabel = document.getElementById('movementToggleLabel');
+                if (movementLabel) movementLabel.title = 'Grönt = upp, rött = ner sedan föregående omgång';
+                if (explanation) explanation.textContent = 'Här visas de matcher som tar respektive lag till det aktuella antalet spelade matcher. Det lag vars aktuella match det är markeras med fetstil. Eftersom lagen kan ligga olika långt i spelschemat kan en match räknas för det ena laget men inte för det andra. Ett lag kan därför förekomma i mer än en match. Vinnande lag markeras med en gul stjärna.';
+                renderRoundResults(round, movementByTeam);
+            }
 
             const tbody = tableStand.querySelector('tbody');
             tbody.innerHTML = '';
@@ -5311,6 +5484,11 @@ Lag 14</pre>
             }
 
 
+            const dateIndex = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, Number(state.currentDateIndex) || 0));
+            const placementSnapshot = state.timelineMode === 'date'
+                ? (dateIndex > 0 ? buildStandingsForDateIndex(dateIndex) : null)
+                : (round !== null && STANDING_SNAPSHOTS.has(round) ? STANDING_SNAPSHOTS.get(round) : null);
+
             // Bygg rader: {short,long,counts[14],avg}
             const rows = SHORT_TEAMS.map(shortN => ({
                 team_id: TEAM_ID_BY_SHORT[shortN],
@@ -5329,10 +5507,9 @@ Lag 14</pre>
                     return a.long.localeCompare(b.long, 'sv');
                 });
             } else {
-                if (round !== null && STANDING_SNAPSHOTS.has(round)) {
-                    const snap = STANDING_SNAPSHOTS.get(round);
+                if (placementSnapshot) {
                     const rankByTeamId = new Map();
-                    snap.forEach((r, i) => rankByTeamId.set(r.team_id, i + 1));
+                    placementSnapshot.forEach((r, i) => rankByTeamId.set(r.team_id, i + 1));
                     rows.sort((a, b) => {
                         const ra = rankByTeamId.get(a.team_id) ?? 999;
                         const rb = rankByTeamId.get(b.team_id) ?? 999;
@@ -5359,11 +5536,11 @@ Lag 14</pre>
             }
             thead.appendChild(trh);
 
-            // “Verkliga placeringar” (om vald omgång)
+            // “Verkliga placeringar” för aktiv tidsaxel.
             let realPlacementByTeamId = null;
-            if (round !== null && STANDING_SNAPSHOTS.has(round)) {
+            if (placementSnapshot) {
                 realPlacementByTeamId = new Map();
-                STANDING_SNAPSHOTS.get(round).forEach((row, idx) => {
+                placementSnapshot.forEach((row, idx) => {
                     realPlacementByTeamId.set(row.team_id, idx + 1);
                 });
             }
@@ -5391,8 +5568,8 @@ Lag 14</pre>
                     let paletteBase = HEAT_GRAY_BASE;
                     let isPlacement = false;
 
-                    // Vid vald omgång: röd (top-priority) + ring
-                    if (round !== null && realPlacementByTeamId && realPlacementByTeamId.get(r.team_id) === pos) {
+                    // Vid vald punkt på tidsaxeln: röd (top-priority) + ring
+                    if (realPlacementByTeamId && realPlacementByTeamId.get(r.team_id) === pos) {
                         paletteBase = PLACE_RED_BASE;
                         isPlacement = true;
                     }
@@ -5548,11 +5725,12 @@ Lag 14</pre>
 
             if (state.activeView === 'table') {
                 renderTableForRound(null, buildStandingsForDateIndex(index));
-                document.getElementById('roundResults')?.classList.add('hidden');
+            } else if (state.activeView === 'heat') {
+                renderHeatmapForRound(null, state.heatSortMode);
             }
 
-            document.querySelector('.standings-results-layout')?.classList.add('date-mode');
             renderCurrentStepLabel();
+            updateHeatSortDisabledByRound();
         }
 
         function setTimelineMode(mode) {
@@ -5580,15 +5758,14 @@ Lag 14</pre>
             const movementLabel = document.getElementById('movementToggleLabel');
 
             if (mode === 'date') {
-                // Steg 1+2 omfattar tabellen. Värmekartan kopplas till datum i nästa steg.
-                // Om Datum väljs från värmekartan går vi därför tydligt till tabellvyn.
-                if (state.activeView !== 'table') setActiveView('table');
-
                 timelineSlider.min = '0';
                 timelineSlider.max = String(DATE_TIMELINE_KEYS.length);
                 timelineSlider.value = String(Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, state.currentDateIndex || 0)));
                 layout?.classList.add('date-mode');
-                if (movementLabel) movementLabel.style.display = 'none';
+                if (movementLabel) {
+                    movementLabel.style.display = state.activeView === 'table' ? '' : 'none';
+                    movementLabel.title = 'Grönt = upp, rött = ner sedan föregående speldatum';
+                }
                 renderDateTimelineStep();
             } else {
                 timelineSlider.min = '0';
@@ -5596,7 +5773,10 @@ Lag 14</pre>
                 const wanted = state._matchTimelineValue ?? readRoundFromLS();
                 timelineSlider.value = String(clampRound(Number(wanted)));
                 layout?.classList.remove('date-mode');
-                if (movementLabel) movementLabel.style.display = state.activeView === 'table' ? '' : 'none';
+                if (movementLabel) {
+                    movementLabel.style.display = state.activeView === 'table' ? '' : 'none';
+                    movementLabel.title = 'Grönt = upp, rött = ner sedan föregående omgång';
+                }
 
                 // Tvinga en riktig render även om samma matchsteg renderades före datumläget.
                 state._lastAppliedRoundValue = undefined;
@@ -5757,6 +5937,7 @@ Lag 14</pre>
                 latestRound: state.latestRound,
                 dateSnapshots: new Map(DATE_STANDING_SNAPSHOTS),
                 dateTimelineKeys: DATE_TIMELINE_KEYS.slice(),
+                dateMatchesByDate: new Map(Array.from(DATE_MATCHES_BY_DATE, ([key, matches]) => [key, (matches || []).slice()])),
                 seasonTeamIds: new Set(SEASON_TEAM_IDS),
                 teamById: new Map(TEAM_BY_ID)
             };
@@ -5802,6 +5983,7 @@ Lag 14</pre>
                 state.latestRound = previousStandings.latestRound;
                 DATE_STANDING_SNAPSHOTS = new Map(previousStandings.dateSnapshots);
                 DATE_TIMELINE_KEYS = previousStandings.dateTimelineKeys.slice();
+                DATE_MATCHES_BY_DATE = new Map(previousStandings.dateMatchesByDate);
                 SEASON_TEAM_IDS = new Set(previousStandings.seasonTeamIds);
                 TEAM_BY_ID = new Map(previousStandings.teamById);
                 rebuildTeamNameIndexes();
@@ -5855,10 +6037,6 @@ Lag 14</pre>
             });
 
             btnHeat?.addEventListener('click', () => {
-                // Datumstöd för värmekartan hör till nästa etapp. För att aldrig
-                // visa en missvisande blandning återgår tidslinjen först till
-                // beprövade "Spelade matcher".
-                if (state.timelineMode === 'date') setTimelineMode('matches');
                 location.hash = '#heat';
                 setActiveView('heat');
             });
