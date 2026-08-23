@@ -3219,9 +3219,6 @@
 
                 const tdTeam = document.createElement('td');
                 tdTeam.textContent = getDisplayTeamName(teamId);
-                const displayName = getDisplayTeamName(teamId);
-                const chosen = state.rowColors.get(displayName);
-                if (chosen && !state.showMovements) tr.style.backgroundColor = chosen;
 
                 const tdPoints = document.createElement('td');
                 tdPoints.className = 'num';
@@ -3463,8 +3460,14 @@
                 tdRank.className = 'num';
                 tdRank.textContent = isStartMode ? '—' : String(index + 1);
 
+                const displayName = getDisplayTeamName(teamId);
                 const tdTeam = document.createElement('td');
-                tdTeam.textContent = getDisplayTeamName(teamId);
+                tdTeam.textContent = displayName;
+
+                const chosen = state.rowColors.get(displayName);
+                if (chosen && !state.showMovements) {
+                    tr.style.backgroundColor = chosen;
+                }
 
                 const tdGames = document.createElement('td');
                 tdGames.className = 'num';
