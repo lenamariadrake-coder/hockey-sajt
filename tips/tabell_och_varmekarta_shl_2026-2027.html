@@ -3448,10 +3448,10 @@ Lag 14</pre>
             if (movementEnabled) movementEnabled.checked = state.showMovements;
 
             if (state.showMovements) {
-                // Manuella färgval ska bevaras när rörelseläget visas.
-                // De döljs tillfälligt och kommer tillbaka när palettläget slås på igen.
-                // clearManual-parametern behålls tills vidare för kompatibilitet med befintliga anrop,
-                // men får inte längre radera användarens färgval.
+                // Manuella färgval ligger kvar i state.rowColors. Rörelseläget
+                // tar bara över den visuella presentationen tills användaren
+                // stänger av rörelserna eller aktiverar 🎨 igen.
+                // clearManual-parametern behålls för befintliga anrop men används inte.
 
                 // Automatisk rörelsemarkering och manuellt palettläge används aldrig samtidigt.
                 state.rowColorMode = false;
@@ -3564,7 +3564,6 @@ Lag 14</pre>
 
                     if (enabled) {
                         // När rörelser slås på döljs egna färger tillfälligt och palettläget stängs.
-                        // Färgvalen ligger kvar och visas igen när 🎨 aktiveras.
                         setMovementMode(true, { clearManual: true });
                     } else {
                         state.showMovements = false;
@@ -5419,10 +5418,9 @@ Lag 14</pre>
                 tdGD.className = 'num';
                 tdGD.textContent = String(row.gd);
 
-                // (1) Manuell färg appliceras bara när palettläget är aktivt.
-                // Valen ligger kvar i state.rowColors även medan tabellrörelser visas.
+                // (1) Färg appliceras (om vald)
                 const chosen = state.rowColors.get(displayName);
-                if (state.rowColorMode && chosen) {
+                if (chosen) {
                     // Hela raden (”Bara lag” är avstängt just nu)
                     tr.style.backgroundColor = chosen;
 
