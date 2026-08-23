@@ -1034,7 +1034,30 @@
         }
 
         td.rowcolor-cell {
-            padding: .45rem .45rem;
+            padding: .2rem .18rem;
+            width: 32px;
+            min-width: 32px;
+            max-width: 32px;
+            text-align: center;
+        }
+
+        th[data-rowcolor] {
+            width: 32px;
+            min-width: 32px;
+            max-width: 32px;
+            padding-left: .18rem;
+            padding-right: .18rem;
+        }
+
+        /* När palettkolumnen visas tar den plats utan att hela tabellen sväller.
+           På desktop kompenseras den extra kolumnen genom något mindre sidpadding
+           i de ordinarie cellerna. Själva 90 %-typografin ändras inte. */
+        @media (min-width: 561px) {
+            #tableStandings:has(th[data-rowcolor]) th:not([data-rowcolor]),
+            #tableStandings:has(th[data-rowcolor]) td:not(.rowcolor-cell) {
+                padding-left: .5rem;
+                padding-right: .5rem;
+            }
         }
 
         th[data-rowcolor] {
@@ -1044,8 +1067,15 @@
         th[data-rowcolor] #rowColorResetX {
             position: absolute;
             top: 50%;
-            right: 8px;
-            transform: translateY(-50%);
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            line-height: 1;
+            cursor: pointer;
         }
 
         .summary-actions {
@@ -5418,9 +5448,11 @@ Lag 14</pre>
                 tdGD.className = 'num';
                 tdGD.textContent = String(row.gd);
 
-                // (1) Färg appliceras (om vald)
+                // (1) Manuell färg appliceras bara när tabellrörelser INTE visas.
+                // Färgvalen ligger alltid kvar i state.rowColors, så de kommer tillbaka
+                // när rörelseläget stängs av eller 🎨 aktiveras igen.
                 const chosen = state.rowColors.get(displayName);
-                if (chosen) {
+                if (chosen && !state.showMovements) {
                     // Hela raden (”Bara lag” är avstängt just nu)
                     tr.style.backgroundColor = chosen;
 
