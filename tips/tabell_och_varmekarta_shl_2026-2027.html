@@ -1033,31 +1033,24 @@
             background: var(--header-bg);
         }
 
+        /* Palettkolumnen är ett rent tillägg till vänster om tabellen.
+           Viktigt: när den visas får INGA ordinarie tabellceller ändra
+           fontstorlek, padding, höjd eller bredd. Tabellen ska se exakt
+           likadan ut som utan palettkolumnen och bara bli bredare med
+           den plats som själva palettkolumnen behöver. */
         td.rowcolor-cell {
-            padding: .2rem .18rem;
-            width: 32px;
-            min-width: 32px;
-            max-width: 32px;
+            padding: .45rem .55rem;
+            width: 46px;
+            min-width: 46px;
+            max-width: 46px;
             text-align: center;
         }
 
         th[data-rowcolor] {
-            width: 32px;
-            min-width: 32px;
-            max-width: 32px;
-            padding-left: .18rem;
-            padding-right: .18rem;
-        }
-
-        /* När palettkolumnen visas tar den plats utan att hela tabellen sväller.
-           På desktop kompenseras den extra kolumnen genom något mindre sidpadding
-           i de ordinarie cellerna. Själva 90 %-typografin ändras inte. */
-        @media (min-width: 561px) {
-            #tableStandings:has(th[data-rowcolor]) th:not([data-rowcolor]),
-            #tableStandings:has(th[data-rowcolor]) td:not(.rowcolor-cell) {
-                padding-left: .5rem;
-                padding-right: .5rem;
-            }
+            width: 46px;
+            min-width: 46px;
+            max-width: 46px;
+            padding: .45rem .55rem;
         }
 
         th[data-rowcolor] {
