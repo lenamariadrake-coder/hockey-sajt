@@ -3463,10 +3463,10 @@ Lag 14</pre>
         //   '#9EABB8', // grå
         // ];
 
-        // Radfärg-state: lag (long name) -> färg
+        // Radfärg-state: stabilt team_id -> färg (äldre namnnycklar migreras automatiskt)
         state.rowColorMode = false;                 // kryssrutan
         state.rowColorScope = 'row';                // Låst till 'row' (”Bara lag” avstängt – kan återaktiveras senare)
-        state.rowColors = new Map();                // teamLong -> color
+        state.rowColors = new Map();                // team_id -> color
         state._rowColorActiveTeam = null;           // vilken rad paletten gäller just nu
 
         function saveRowColorPreference() {
@@ -3538,6 +3538,66 @@ Lag 14</pre>
             return state.rowColors && state.rowColors.size > 0;
         }
 
+        // Gemensam identitet mellan systersidorna: radfärger lagras alltid på team_id.
+        // Äldre versioner använde visningsnamn; de migreras här utan att färgen tappas.
+        function getRowColorAliases(teamId, displayName = '') {
+            const aliases = new Set();
+            if (displayName) aliases.add(String(displayName).trim());
+
+            const team = TEAM_BY_ID?.get?.(teamId);
+            [team?.team_name_short, team?.team_name_long, team?.team_name_abbr]
+                .map(v => String(v || '').trim())
+                .filter(Boolean)
+                .forEach(v => aliases.add(v));
+
+            try {
+                const longName = getTeamLongName?.(teamId);
+                if (longName) aliases.add(String(longName).trim());
+            } catch { }
+            try {
+                const shortName = getSeasonTeamShortName?.(teamId);
+                if (shortName) aliases.add(String(shortName).trim());
+            } catch { }
+
+            aliases.delete(String(teamId));
+            aliases.delete('');
+            return [...aliases];
+        }
+
+        function getRowColorForTeam(teamId, displayName = '') {
+            const stableKey = String(teamId || '').trim();
+            if (!stableKey) return null;
+            if (state.rowColors.has(stableKey)) return state.rowColors.get(stableKey);
+
+            for (const alias of getRowColorAliases(stableKey, displayName)) {
+                if (!state.rowColors.has(alias)) continue;
+                const color = state.rowColors.get(alias);
+                // Migrera till team_id och städa samtliga gamla namn för samma lag.
+                state.rowColors.set(stableKey, color);
+                getRowColorAliases(stableKey, displayName).forEach(a => state.rowColors.delete(a));
+                saveRowColorPreference();
+                return color;
+            }
+            return null;
+        }
+
+        function setRowColorForTeam(teamId, color, displayName = '') {
+            const stableKey = String(teamId || '').trim();
+            if (!stableKey) return;
+            getRowColorAliases(stableKey, displayName).forEach(a => state.rowColors.delete(a));
+            state.rowColors.set(stableKey, color);
+        }
+
+        function clearRowColorForTeam(teamId, displayName = '') {
+            const stableKey = String(teamId || '').trim();
+            if (!stableKey) return false;
+            let had = state.rowColors.delete(stableKey);
+            for (const alias of getRowColorAliases(stableKey, displayName)) {
+                had = state.rowColors.delete(alias) || had;
+            }
+            return had;
+        }
+
         function updateRowColorControlsVisibility() {
             if (!rowColorControls) return;
 
@@ -3560,9 +3620,9 @@ Lag 14</pre>
             state._rowColorActiveTeam = null;
         }
 
-        function openRowColorPaletteAt(clientX, clientY, teamLong) {
+        function openRowColorPaletteAt(clientX, clientY, teamId) {
             if (!rowColorPalette) return;
-            state._rowColorActiveTeam = teamLong;
+            state._rowColorActiveTeam = String(teamId || '').trim();
 
             rowColorPalette.hidden = false;
             rowColorPalette.style.left = `${clientX + window.scrollX + 8}px`;
@@ -3587,7 +3647,7 @@ Lag 14</pre>
                         const team = state._rowColorActiveTeam;
                         if (!team) return;
 
-                        state.rowColors.set(team, color);
+                        setRowColorForTeam(team, color);
                         saveRowColorPreference();
 
                         console.log("[rowcolor] set", { team, color, count: state.rowColors.size });
@@ -3614,8 +3674,7 @@ Lag 14</pre>
                     const team = state._rowColorActiveTeam;
                     if (!team) return;
 
-                    const had = state.rowColors.has(team);
-                    state.rowColors.delete(team);
+                    const had = clearRowColorForTeam(team);
                     saveRowColorPreference();
 
                     console.log("[rowcolor] clear one", { team, had, count: state.rowColors.size });
@@ -5493,7 +5552,7 @@ Lag 14</pre>
                 // (1) Manuell färg appliceras bara när tabellrörelser INTE visas.
                 // Färgvalen ligger alltid kvar i state.rowColors, så de kommer tillbaka
                 // när rörelseläget stängs av eller 🎨 aktiveras igen.
-                const chosen = state.rowColors.get(displayName);
+                const chosen = getRowColorForTeam(row.team_id, displayName);
                 if (chosen && !state.showMovements) {
                     // Hela raden (”Bara lag” är avstängt just nu)
                     tr.style.backgroundColor = chosen;
@@ -5517,7 +5576,7 @@ Lag 14</pre>
 
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        openRowColorPaletteAt(e.clientX, e.clientY, displayName);
+                        openRowColorPaletteAt(e.clientX, e.clientY, row.team_id);
                     });
 
                     tdIcon.appendChild(btn);

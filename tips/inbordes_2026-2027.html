@@ -3326,6 +3326,54 @@
         }
 
         function rowColorHasAny() { return state.rowColors?.size > 0; }
+
+        // Gemensam identitet mellan systersidorna: radfärger lagras alltid på team_id.
+        // Äldre namnnycklar migreras automatiskt första gången laget läses.
+        function getRowColorAliases(teamId, displayName = '') {
+            const aliases = new Set();
+            if (displayName) aliases.add(String(displayName).trim());
+            const team = TEAM_BY_ID?.get?.(teamId);
+            [team?.team_name_short, team?.team_name_long, team?.team_name_abbr]
+                .map(v => String(v || '').trim())
+                .filter(Boolean)
+                .forEach(v => aliases.add(v));
+            aliases.delete(String(teamId));
+            aliases.delete('');
+            return [...aliases];
+        }
+
+        function getRowColorForTeam(teamId, displayName = '') {
+            const stableKey = String(teamId || '').trim();
+            if (!stableKey) return null;
+            if (state.rowColors.has(stableKey)) return state.rowColors.get(stableKey);
+
+            for (const alias of getRowColorAliases(stableKey, displayName)) {
+                if (!state.rowColors.has(alias)) continue;
+                const color = state.rowColors.get(alias);
+                state.rowColors.set(stableKey, color);
+                getRowColorAliases(stableKey, displayName).forEach(a => state.rowColors.delete(a));
+                saveRowColorPreference();
+                return color;
+            }
+            return null;
+        }
+
+        function setRowColorForTeam(teamId, color, displayName = '') {
+            const stableKey = String(teamId || '').trim();
+            if (!stableKey) return;
+            getRowColorAliases(stableKey, displayName).forEach(a => state.rowColors.delete(a));
+            state.rowColors.set(stableKey, color);
+        }
+
+        function clearRowColorForTeam(teamId, displayName = '') {
+            const stableKey = String(teamId || '').trim();
+            if (!stableKey) return false;
+            let had = state.rowColors.delete(stableKey);
+            for (const alias of getRowColorAliases(stableKey, displayName)) {
+                had = state.rowColors.delete(alias) || had;
+            }
+            return had;
+        }
         function closeRowColorPalette() { if (rowColorPalette) rowColorPalette.hidden = true; state._rowColorActiveTeam = null; }
         function openRowColorPaletteAt(x,y,team) {
             if (!rowColorPalette) return;
@@ -3351,9 +3399,9 @@
         }
         function initRowColorsUI(){
             if(rowColorSwatchesWrap && !rowColorSwatchesWrap.childElementCount){
-                ROWCOLOR_PALETTE.forEach(color=>{ const b=document.createElement('button'); b.type='button'; b.className='rowcolor-swatch'; b.style.backgroundColor=color; b.setAttribute('aria-label',`Välj färg ${color}`); b.addEventListener('click',e=>{e.stopPropagation(); const team=state._rowColorActiveTeam; if(!team)return; state.rowColors.set(team,color); saveRowColorPreference(); closeRowColorPalette(); renderTableForRound(state.timelineMode==='date'?state.currentDateIndex:state.currentRound);}); rowColorSwatchesWrap.appendChild(b); });
+                ROWCOLOR_PALETTE.forEach(color=>{ const b=document.createElement('button'); b.type='button'; b.className='rowcolor-swatch'; b.style.backgroundColor=color; b.setAttribute('aria-label',`Välj färg ${color}`); b.addEventListener('click',e=>{e.stopPropagation(); const team=state._rowColorActiveTeam; if(!team)return; setRowColorForTeam(team,color); saveRowColorPreference(); closeRowColorPalette(); renderTableForRound(state.timelineMode==='date'?state.currentDateIndex:state.currentRound);}); rowColorSwatchesWrap.appendChild(b); });
             }
-            rowColorClearOne?.addEventListener('click',e=>{e.stopPropagation(); const team=state._rowColorActiveTeam; if(!team)return; state.rowColors.delete(team); saveRowColorPreference(); closeRowColorPalette(); renderTableForRound(state.timelineMode==='date'?state.currentDateIndex:state.currentRound);});
+            rowColorClearOne?.addEventListener('click',e=>{e.stopPropagation(); const team=state._rowColorActiveTeam; if(!team)return; clearRowColorForTeam(team); saveRowColorPreference(); closeRowColorPalette(); renderTableForRound(state.timelineMode==='date'?state.currentDateIndex:state.currentRound);});
             rowColorEnabled?.addEventListener('change',()=>{
                 state.rowColorMode=!!rowColorEnabled.checked;
                 if(state.rowColorMode){ state.showMovements=false; if(movementEnabled) movementEnabled.checked=false; saveMovementPreference(); }
@@ -3464,7 +3512,7 @@
                 const tdTeam = document.createElement('td');
                 tdTeam.textContent = displayName;
 
-                const chosen = state.rowColors.get(displayName);
+                const chosen = getRowColorForTeam(teamId, displayName);
                 if (chosen && !state.showMovements) {
                     tr.style.backgroundColor = chosen;
                 }
@@ -3490,7 +3538,7 @@
                 if (state.rowColorMode) {
                     const tdIcon=document.createElement('td'); tdIcon.className='rowcolor-cell';
                     const btn=document.createElement('button'); btn.type='button'; btn.className='rowcolor-icon-btn'; btn.textContent='🎨'; btn.setAttribute('aria-label',`Välj radfärg för ${displayName}`);
-                    btn.addEventListener('click',e=>{e.stopPropagation(); openRowColorPaletteAt(e.clientX,e.clientY,displayName);}); tdIcon.appendChild(btn); tr.appendChild(tdIcon);
+                    btn.addEventListener('click',e=>{e.stopPropagation(); openRowColorPaletteAt(e.clientX,e.clientY,teamId);}); tdIcon.appendChild(btn); tr.appendChild(tdIcon);
                 }
                 tr.append(tdRank, tdTeam, tdGames, tdPoints, tdGoalDiff, tdGoalsFor);
                 tbody.appendChild(tr);
