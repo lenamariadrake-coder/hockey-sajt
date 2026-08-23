@@ -5861,7 +5861,7 @@ Lag 14</pre>
             return best;
         }
 
-        function restoreTimelineStateFromLocalStorage() {
+        function restoreTimelineStateFromLocalStorage({ render = false } = {}) {
             if (!timelineSlider) return;
 
             let storedMode = 'matches';
@@ -5881,28 +5881,50 @@ Lag 14</pre>
             if (storedMode === 'date') {
                 timelineSlider.min = '0';
                 timelineSlider.max = String(DATE_TIMELINE_KEYS.length);
-                const index = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, getStoredDateTimelineIndex()));
+
+                const index = Math.max(
+                    0,
+                    Math.min(DATE_TIMELINE_KEYS.length, getStoredDateTimelineIndex())
+                );
+
                 timelineSlider.value = String(index);
                 state.currentDateIndex = index;
+                state.currentRound = null;
+
                 layout?.classList.add('date-mode');
                 if (movementLabel) {
                     movementLabel.style.display = state.activeView === 'table' ? '' : 'none';
                     movementLabel.title = 'Grönt = upp, rött = ner sedan föregående speldatum';
                 }
-                renderDateTimelineStep({ persist: false });
+
+                if (render) {
+                    renderDateTimelineStep({ persist: false });
+                }
             } else {
                 timelineSlider.min = '0';
                 timelineSlider.max = String(Number(state.latestRound || 0));
-                const wanted = readRoundFromLS();
-                timelineSlider.value = String(clampRound(Number(wanted)));
-                state._lastAppliedRoundValue = undefined;
+
+                const wanted = clampRound(Number(readRoundFromLS()));
+                timelineSlider.value = String(wanted);
+                state.currentRound = wanted === 0 ? null : wanted;
+                state._matchTimelineValue = wanted;
+                state._lastAppliedRoundValue = wanted;
+
                 layout?.classList.remove('date-mode');
                 if (movementLabel) {
                     movementLabel.style.display = state.activeView === 'table' ? '' : 'none';
                     movementLabel.title = 'Grönt = upp, rött = ner sedan föregående matchsteg';
                 }
-                applyRoundFromSliderValue('timeline-state-restore');
+
+                if (render) {
+                    // Tvinga endast den explicita cross-tab-uppdateringen att rendera.
+                    state._lastAppliedRoundValue = undefined;
+                    applyRoundFromSliderValue('timeline-state-restore');
+                }
             }
+
+            renderCurrentStepLabel();
+            updateHeatSortDisabledByRound();
         }
 
         function renderCurrentStepLabel() {
@@ -6517,11 +6539,6 @@ Lag 14</pre>
             console.log("[view][init] initial view", { initialView, hash: location.hash });
 
             setActiveView(initialView);
-            if (state.timelineMode === 'date') {
-                renderDateTimelineStep({ persist: false });
-            } else {
-                applyRoundFromSliderValue();
-            }
 
             loadingAdvance('Första render klar');
             loadingDone();
@@ -6539,7 +6556,7 @@ Lag 14</pre>
         window.addEventListener("storage", (e) => {
             try {
                 if (e.key === TIMELINE_MODE_STORAGE_KEY || e.key === DATE_SNAPSHOT_STORAGE_KEY) {
-                    restoreTimelineStateFromLocalStorage();
+                    restoreTimelineStateFromLocalStorage({ render: true });
                     return;
                 }
 
