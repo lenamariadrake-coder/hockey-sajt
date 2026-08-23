@@ -500,6 +500,17 @@
             font-size: .85rem;
         }
 
+
+        /* =========================================================
+           TIDSLINJELÄGE: spelade matcher / datum
+           ========================================================= */
+        .timeline-mode-row { display:flex; align-items:center; gap:.65rem 1.25rem; flex-wrap:wrap; width:100%; margin:.5rem 0; }
+        .timeline-mode-controls { display:inline-flex; align-items:center; gap:.9rem; flex-wrap:wrap; font-size:.9rem; font-weight:700; }
+        .timeline-mode-controls label { display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap; cursor:pointer; }
+        .timeline-mode-controls input { margin:0; }
+        .timeline-mode-help { margin:0; text-align:left; color:var(--text-muted); font-size:.85rem; }
+        @media (max-width:700px) { .timeline-mode-row { align-items:flex-start; } .timeline-mode-help { flex-basis:100%; } }
+
         /* =========================================================
  11) TIDSLINJE (SLIDER)
  ========================================================= */
@@ -2036,9 +2047,13 @@
 
         <section class="controls">
             <div class="siffror-wrap" id="roundButtons" aria-label="Omgångar (antal matcher)"></div>
-            <p class="source" style="margin-top: 0.5rem; margin-bottom: 0.5rem; text-align: left;">
-                Visar endast data i den mån lagen har spelat lika många matcher.
-            </p>
+            <div class="timeline-mode-row" aria-label="Välj hur tidslinjen ska visas">
+                <div class="timeline-mode-controls" role="radiogroup" aria-label="Tidslinjeläge">
+                    <label><input id="timelineModeMatches" type="radio" name="timelineMode" value="matches" checked> Spelade matcher</label>
+                    <label><input id="timelineModeDate" type="radio" name="timelineMode" value="date"> Datum</label>
+                </div>
+                <p id="timelineModeHelp" class="timeline-mode-help">Jämförelsen utgår från varje lags första X matcher.</p>
+            </div>
         </section>
 
         <section class="slider-wrapper" aria-label="Tidslinje">
@@ -2150,6 +2165,9 @@
         const dataError = document.getElementById('dataError');
         const h2hSummary = document.getElementById('h2hSummary');
         const h2hTablesLayout = document.querySelector('.h2h-tables-layout');
+        const timelineModeMatches = document.getElementById('timelineModeMatches');
+        const timelineModeDate = document.getElementById('timelineModeDate');
+        const timelineModeHelp = document.getElementById('timelineModeHelp');
 
         /* ===========================================================
            DATAKÄLLOR
@@ -2221,7 +2239,12 @@
         // Historikläge: sätt hela H2H-källan till null om tips inte ska läsas.
         const H2H_TIPS_SOURCE = DATA_SOURCES.h2hTips;
 
-        const ROUND_STORAGE_KEY = 'round_shl_h2h_2026_2027';
+        // Delas med Tabell/Värmekarta och Tippartopplistan.
+        const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
+        const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
+        const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
+        const SHL_STANDINGS_CACHE_KEY = 'SHL_STANDINGS_DATA_2026_2027';
+        const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 
         /* ===========================================================
            STATE / DATA
@@ -2230,10 +2253,15 @@
         const state = {
             currentRound: null,
             latestRound: null,
-            roundsAvailable: new Set()
+            roundsAvailable: new Set(),
+            timelineMode: 'matches',
+            currentDateIndex: 0,
+            _matchTimelineValue: 0
         };
 
         let STANDING_SNAPSHOTS = new Map();
+        let DATE_STANDING_SNAPSHOTS = new Map();
+        let DATE_TIMELINE_KEYS = [];
         let ALL_TEAM_IDS = [];
         let TEAM_BY_ID = new Map();
         let H2H_TIPS_BY_PARTICIPANT = new Map();
@@ -2364,6 +2392,76 @@
             if (!H2H_TIPS_BY_PARTICIPANT.size) {
                 throw new Error('H2H-tips: inga rader med tip_type = h2h hittades.');
             }
+        }
+
+        function normalizeGameDateKey(raw) {
+            const value = String(raw || '').trim();
+            if (!value) return '';
+            const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+            const d = new Date(value);
+            if (!Number.isFinite(d.getTime())) return '';
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+
+        function formatTimelineDate(dateKey) {
+            if (!dateKey) return 'Före säsongsstart';
+            const d = new Date(`${dateKey}T12:00:00`);
+            if (!Number.isFinite(d.getTime())) return dateKey;
+            return new Intl.DateTimeFormat('sv-SE', { day:'numeric', month:'long', year:'numeric' }).format(d);
+        }
+
+        function isShlCacheFresh(payload) {
+            const savedAtMs = Date.parse(payload?.savedAt || '');
+            return Number.isFinite(savedAtMs) && (Date.now() - savedAtMs) >= 0 && (Date.now() - savedAtMs) < SHL_CACHE_MAX_AGE_MS;
+        }
+
+        function snapshotsObjectToMap(obj) {
+            const map = new Map();
+            if (!obj || typeof obj !== 'object') return map;
+            Object.entries(obj).forEach(([key, value]) => map.set(Number(key), Array.isArray(value) ? value : []));
+            return map;
+        }
+
+        function readSharedShlStandingsCache() {
+            try {
+                const raw = localStorage.getItem(SHL_STANDINGS_CACHE_KEY);
+                if (!raw) return null;
+                const data = JSON.parse(raw);
+                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
+                if (!data.snapshots || !Array.isArray(data.roundsAvailable) || !Array.isArray(data.seasonTeamIds) || !data.teamById) return null;
+                // Datumläget kräver systersidornas utökade version-1-cache.
+                if (!data.dateSnapshots || !Array.isArray(data.dateTimelineKeys)) return null;
+                if (!isShlCacheFresh(data)) return null;
+                return data;
+            } catch (error) {
+                console.warn('[cache] kunde inte läsa gemensam ställningscache', error);
+                return null;
+            }
+        }
+
+        function hydrateFromSharedShlStandingsCache(cache) {
+            STANDING_SNAPSHOTS = snapshotsObjectToMap(cache.snapshots);
+            DATE_STANDING_SNAPSHOTS = new Map(Object.entries(cache.dateSnapshots || {}).map(([key, rows]) => [key, Array.isArray(rows) ? rows : []]));
+            DATE_TIMELINE_KEYS = Array.isArray(cache.dateTimelineKeys) ? cache.dateTimelineKeys.slice() : [];
+            state.roundsAvailable = new Set((cache.roundsAvailable || []).map(Number));
+            state.latestRound = Number.isFinite(Number(cache.latestRound)) ? Number(cache.latestRound) : 0;
+            TEAM_BY_ID = new Map(Object.entries(cache.teamById || {}));
+            ALL_TEAM_IDS = (cache.seasonTeamIds || []).map(v => String(v || '').trim()).filter(Boolean);
+            ALL_TEAM_IDS.sort((a,b) => getDisplayTeamName(a).localeCompare(getDisplayTeamName(b),'sv'));
+        }
+
+        async function loadStandingsCacheFirst() {
+            const cache = readSharedShlStandingsCache();
+            if (cache) {
+                hydrateFromSharedShlStandingsCache(cache);
+                return 'cache';
+            }
+            // Inbördes skriver inte en egen/fattigare variant till den delade cachen.
+            // Om cachen saknas eller är gammal läses games + all_teams direkt.
+            await loadTeams(DATA_SOURCES.allTeams);
+            await loadAndPrepareStandings(DATA_SOURCES.games);
+            return 'network';
         }
 
         async function loadAndPrepareStandings(source) {
@@ -2505,6 +2603,30 @@
                 if (m > 0) state.roundsAvailable.add(m);
             }
 
+            DATE_STANDING_SNAPSHOTS = new Map();
+            DATE_TIMELINE_KEYS = [];
+            const dateStats = new Map(ALL_TEAM_IDS.map(teamId => [teamId, { g:0, points:0, gf:0, ga:0, gd:0 }]));
+            let activeDateKey = '';
+            const saveDateSnapshot = dateKey => {
+                if (!dateKey) return;
+                const snapshot = ALL_TEAM_IDS.map(teamId => ({ team_id:teamId, ...dateStats.get(teamId) })).sort(standingsComparator);
+                DATE_STANDING_SNAPSHOTS.set(dateKey, snapshot);
+                DATE_TIMELINE_KEYS.push(dateKey);
+            };
+            for (const r of playedRows) {
+                const dateKey = normalizeGameDateKey(r[iDate]);
+                if (!dateKey) continue;
+                if (activeDateKey && dateKey !== activeDateKey) saveDateSnapshot(activeDateKey);
+                activeDateKey = dateKey;
+                const ht=String(r[iHomeTeamId]||'').trim(), at=String(r[iAwayTeamId]||'').trim();
+                if (!dateStats.has(ht) || !dateStats.has(at)) continue;
+                const hg=toInt(r[iHomeGoals]), ag=toInt(r[iAwayGoals]), hp=toInt(r[iHomePts]), ap=toInt(r[iAwayPts]);
+                const h=dateStats.get(ht), a=dateStats.get(at);
+                h.g++; h.points += hp ?? (hg>ag?3:0); h.gf+=hg; h.ga+=ag; h.gd=h.gf-h.ga;
+                a.g++; a.points += ap ?? (ag>hg?3:0); a.gf+=ag; a.ga+=hg; a.gd=a.gf-a.ga;
+            }
+            if (activeDateKey) saveDateSnapshot(activeDateKey);
+
             state.latestRound = minTotalGames || null;
         }
 
@@ -2520,6 +2642,12 @@
             return ALL_TEAM_IDS.map(team_id => ({
                 team_id, g: 0, points: 0, gf: 0, ga: 0, gd: 0
             })).sort(standingsComparator);
+        }
+
+        function buildStandingsForDateIndex(dateIndex) {
+            const index = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, Number(dateIndex) || 0));
+            if (index === 0) return ALL_TEAM_IDS.map(team_id => ({team_id,g:0,points:0,gf:0,ga:0,gd:0})).sort(standingsComparator);
+            return DATE_STANDING_SNAPSHOTS.get(DATE_TIMELINE_KEYS[index - 1]) || [];
         }
 
         function buildActualRankByTeamId(standings) {
@@ -2550,20 +2678,22 @@
             return team?.team_name_short || team?.team_name_long || teamId;
         }
 
-        function countCorrectRounds(picks, throughRound) {
-            if (!Number.isFinite(throughRound) || throughRound <= 0) return 0;
-
-            let correctRounds = 0;
-
-            for (let round = 1; round <= throughRound; round++) {
-                const snapshot = STANDING_SNAPSHOTS.get(round);
-                if (!snapshot) continue;
-
-                const rankMap = buildActualRankByTeamId(snapshot);
-                if (isH2HTipCorrect(picks, rankMap)) correctRounds += 1;
+        function countCorrectSnapshots(picks, throughValue) {
+            const max = Number(throughValue) || 0;
+            if (max <= 0) return 0;
+            let correct = 0;
+            if (state.timelineMode === 'date') {
+                for (let i=1; i<=max; i++) {
+                    const snapshot = buildStandingsForDateIndex(i);
+                    if (snapshot.length && isH2HTipCorrect(picks, buildActualRankByTeamId(snapshot))) correct++;
+                }
+            } else {
+                for (let round=1; round<=max; round++) {
+                    const snapshot = STANDING_SNAPSHOTS.get(round);
+                    if (snapshot && isH2HTipCorrect(picks, buildActualRankByTeamId(snapshot))) correct++;
+                }
             }
-
-            return correctRounds;
+            return correct;
         }
 
         function getFinalPointSpread(standings) {
@@ -2574,7 +2704,7 @@
         function buildParticipantRows(actualRankByTeamId, standings, isStartMode, currentRound) {
             const rows = [];
             const roundsPlayed = isStartMode ? 0 : (Number(currentRound) || 0);
-            const isFinalRound = roundsPlayed === 52;
+            const isFinalRound = !isStartMode && standings.length > 0 && standings.every(row => Number(row.g) === 52);
             const actualPointSpread = isFinalRound ? getFinalPointSpread(standings) : null;
 
             H2H_TIPS_BY_PARTICIPANT.forEach(participant => {
@@ -2591,7 +2721,7 @@
                         : null,
                     teamCount: picks.length,
                     correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId),
-                    correctRounds: isStartMode ? 0 : countCorrectRounds(picks, roundsPlayed),
+                    correctRounds: isStartMode ? 0 : countCorrectSnapshots(picks, roundsPlayed),
                     roundsPlayed
                 });
             });
@@ -2659,7 +2789,7 @@
         }
 
         function getFinalTiebreakInfo(rows, standings, round) {
-            if (Number(round) !== 52) return null;
+            if (!Array.isArray(standings) || !standings.length || !standings.every(row => Number(row.g) === 52)) return null;
 
             const correctRows = rows.filter(row => row.correct === true);
             if (correctRows.length < 2) return null;
@@ -2852,28 +2982,22 @@
 
         function buildMovementByTeam(round, standings) {
             const movement = new Map();
-
-            // Ingen rörelse visas i startläget eller efter omgång 1,
-            // eftersom det då saknas en föregående spelad omgång att jämföra med.
-            if (!Number.isFinite(round) || round <= 1) return movement;
-
-            const previousStandings = STANDING_SNAPSHOTS.get(round - 1);
-            if (!previousStandings) return movement;
-
-            const previousRankByTeam = new Map(
-                previousStandings.map((row, index) => [row.team_id, index + 1])
-            );
-
-            standings.forEach((row, index) => {
-                const currentRank = index + 1;
-                const previousRank = previousRankByTeam.get(row.team_id);
-
-                if (!Number.isFinite(previousRank)) return;
-
-                if (currentRank < previousRank) movement.set(row.team_id, 'up');
-                else if (currentRank > previousRank) movement.set(row.team_id, 'down');
+            let previousStandings = null;
+            if (state.timelineMode === 'date') {
+                const index = Number(round) || 0;
+                if (index <= 1) return movement;
+                previousStandings = buildStandingsForDateIndex(index - 1);
+            } else {
+                if (!Number.isFinite(round) || round <= 1) return movement;
+                previousStandings = STANDING_SNAPSHOTS.get(round - 1);
+            }
+            if (!previousStandings?.length) return movement;
+            const previousRankByTeam = new Map(previousStandings.map((row,index)=>[row.team_id,index+1]));
+            standings.forEach((row,index)=>{
+                const prev=previousRankByTeam.get(row.team_id), cur=index+1;
+                if (!Number.isFinite(prev)) return;
+                if (cur<prev) movement.set(row.team_id,'up'); else if (cur>prev) movement.set(row.team_id,'down');
             });
-
             return movement;
         }
 
@@ -2951,9 +3075,11 @@
         }
 
         function renderTableForRound(round) {
-            const isStartMode = round === null;
-            const standings = buildStandingsForRound(round);
-            const movementByTeam = buildMovementByTeam(round, standings);
+            const isDateMode = state.timelineMode === 'date';
+            const activeValue = isDateMode ? (Number(round) || 0) : round;
+            const isStartMode = isDateMode ? activeValue === 0 : round === null;
+            const standings = isDateMode ? buildStandingsForDateIndex(activeValue) : buildStandingsForRound(round);
+            const movementByTeam = buildMovementByTeam(activeValue, standings);
 
             renderLeagueStandings(standings, isStartMode, movementByTeam);
             const actualRankByTeamId = isStartMode
@@ -3012,7 +3138,7 @@
                     // Efter omgång 52 skiljer utslagsfrågan endast dem som låg
                     // på delad förstaplats efter Lag + Utfall. Lika avstånd ger
                     // fortsatt delad placering.
-                    if (Number(round) === 52 && Number.isFinite(row.pointSpreadDiff)) {
+                    if (standings.length && standings.every(r => Number(r.g) === 52) && Number.isFinite(row.pointSpreadDiff)) {
                         const firstCorrect = rows.find(r => r.correct === true);
                         const tiedForOrdinaryFirst = firstCorrect &&
                             row.teamCount === firstCorrect.teamCount &&
@@ -3128,46 +3254,80 @@
             });
         }
 
+        function updateTimelineModeHelp() {
+            if (!timelineModeHelp) return;
+            timelineModeHelp.textContent = state.timelineMode === 'date'
+                ? 'Tabellen visar läget efter samtliga matcher som spelats till och med valt datum.'
+                : 'Jämförelsen utgår från varje lags första X matcher.';
+        }
+
         function renderCurrentStepLabel() {
             if (!currentStepDisplay || !timelineSlider) return;
-
-            const value = Number(timelineSlider.value);
-
-            currentStepDisplay.textContent = value === 0
-                ? 'Startläge (0 matcher)'
-                : `Efter ${value} matcher`;
+            const value = Number(timelineSlider.value || 0);
+            if (state.timelineMode === 'date') {
+                currentStepDisplay.textContent = value === 0 ? 'Före säsongsstart' : formatTimelineDate(DATE_TIMELINE_KEYS[value-1] || '');
+            } else {
+                currentStepDisplay.textContent = value === 0 ? 'Startläge (0 matcher)' : `Efter ${value} matcher`;
+            }
         }
 
-        function applyRoundFromSliderValue() {
+        function getStoredDateTimelineIndex() {
+            let stored=''; try { stored=String(localStorage.getItem(DATE_SNAPSHOT_STORAGE_KEY)||'').trim(); } catch {}
+            if (!stored) return 0;
+            const exact=DATE_TIMELINE_KEYS.indexOf(stored); if (exact>=0) return exact+1;
+            let best=0; DATE_TIMELINE_KEYS.forEach((d,i)=>{ if (d<=stored) best=i+1; }); return best;
+        }
+
+        function applyRoundFromSliderValue({ persist = true } = {}) {
             if (!timelineSlider) return;
-
-            const value = Number(timelineSlider.value);
-
-            try {
-                localStorage.setItem(ROUND_STORAGE_KEY, String(value));
-            } catch { }
-
-            state.currentRound = value === 0 ? null : value;
-
-            highlightSelectedRound();
-            renderTableForRound(state.currentRound);
+            const value = Math.max(0, Math.min(Number(timelineSlider.max||0), Math.trunc(Number(timelineSlider.value)||0)));
+            timelineSlider.value=String(value);
+            if (state.timelineMode === 'date') {
+                state.currentDateIndex=value; state.currentRound=null;
+                if (persist) { const key=value>0?(DATE_TIMELINE_KEYS[value-1]||''):''; try{localStorage.setItem(DATE_SNAPSHOT_STORAGE_KEY,key);}catch{} }
+                renderTableForRound(value);
+            } else {
+                state.currentRound=value===0?null:value; state._matchTimelineValue=value;
+                if (persist) try{localStorage.setItem(ROUND_STORAGE_KEY,String(value));}catch{}
+                highlightSelectedRound(); renderTableForRound(state.currentRound);
+            }
             renderCurrentStepLabel();
         }
 
-        function restoreRoundFromLocalStorage() {
-            if (!timelineSlider) return;
+        function setTimelineMode(mode, { persist = true, render = true } = {}) {
+            if (!timelineSlider || !['matches','date'].includes(mode)) return;
+            stopPlayback();
+            if (state.timelineMode==='matches') state._matchTimelineValue=Number(timelineSlider.value||0);
+            else state.currentDateIndex=Number(timelineSlider.value||0);
+            state.timelineMode=mode;
+            if (persist) try{localStorage.setItem(TIMELINE_MODE_STORAGE_KEY,mode);}catch{}
+            if (timelineModeMatches) timelineModeMatches.checked=mode==='matches';
+            if (timelineModeDate) timelineModeDate.checked=mode==='date';
+            updateTimelineModeHelp();
+            timelineSlider.min='0';
+            if (mode==='date') {
+                timelineSlider.max=String(DATE_TIMELINE_KEYS.length);
+                timelineSlider.value=String(Math.max(0,Math.min(DATE_TIMELINE_KEYS.length,state.currentDateIndex||0)));
+            } else {
+                timelineSlider.max=String(Number(state.latestRound||0));
+                timelineSlider.value=String(Math.max(0,Math.min(Number(state.latestRound||0),state._matchTimelineValue||0)));
+            }
+            if (render) applyRoundFromSliderValue({ persist }); else renderCurrentStepLabel();
+        }
 
-            const raw = localStorage.getItem(ROUND_STORAGE_KEY);
-            const parsed = Number(raw);
-            const value = Number.isFinite(parsed) ? parsed : 0;
-            const max = Number(timelineSlider.max || '0');
-            const clamped = Math.max(0, Math.min(value, max));
-
-            timelineSlider.value = String(clamped);
-            state.currentRound = clamped === 0 ? null : clamped;
-
-            highlightSelectedRound();
-            renderCurrentStepLabel();
+        function restoreTimelineStateFromLocalStorage() {
+            let mode='matches'; try { const m=localStorage.getItem(TIMELINE_MODE_STORAGE_KEY); if(m==='date'||m==='matches') mode=m; } catch {}
+            let round=0; try { const n=Number(localStorage.getItem(ROUND_STORAGE_KEY)); if(Number.isFinite(n)) round=n; } catch {}
+            state._matchTimelineValue=Math.max(0,Math.min(Number(state.latestRound||0),round));
+            state.currentDateIndex=Math.max(0,Math.min(DATE_TIMELINE_KEYS.length,getStoredDateTimelineIndex()));
+            state.timelineMode=mode;
+            if (timelineModeMatches) timelineModeMatches.checked=mode==='matches';
+            if (timelineModeDate) timelineModeDate.checked=mode==='date';
+            updateTimelineModeHelp();
+            timelineSlider.min='0';
+            if (mode==='date') { timelineSlider.max=String(DATE_TIMELINE_KEYS.length); timelineSlider.value=String(state.currentDateIndex); state.currentRound=null; }
+            else { timelineSlider.max=String(Number(state.latestRound||0)); timelineSlider.value=String(state._matchTimelineValue); state.currentRound=state._matchTimelineValue===0?null:state._matchTimelineValue; }
+            highlightSelectedRound(); renderCurrentStepLabel();
         }
 
         function isPlaying() {
@@ -3284,6 +3444,8 @@
                 stopPlayback();
                 applyRoundFromSliderValue();
             });
+            timelineModeMatches?.addEventListener('change', () => { if (timelineModeMatches.checked) setTimelineMode('matches'); });
+            timelineModeDate?.addEventListener('change', () => { if (timelineModeDate.checked) setTimelineMode('date'); });
         }
 
         /* ===========================================================
@@ -3370,8 +3532,7 @@
                     if (loadingText) loadingText.textContent = 'Laddar tabell…';
                 }
 
-                await loadTeams(DATA_SOURCES.allTeams);
-                await loadAndPrepareStandings(DATA_SOURCES.games);
+                await loadStandingsCacheFirst();
 
                 if (!historicalMode) {
                     await loadH2HTips(H2H_TIPS_SOURCE);
@@ -3379,16 +3540,20 @@
                     H2H_TIPS_BY_PARTICIPANT.clear();
                 }
 
-                timelineSlider.min = '0';
-                timelineSlider.max = String(state.latestRound ?? 0);
-
-                restoreRoundFromLocalStorage();
+                // Läs delat timeline-state FÖRE första riktiga renderingen för att undvika blinkning.
+                restoreTimelineStateFromLocalStorage();
                 buildRoundButtons();
                 bindTimelineControls();
 
                 exportBtn?.addEventListener('click', exportActiveView);
 
-                renderTableForRound(state.currentRound);
+                window.addEventListener('storage', event => {
+                    if (![ROUND_STORAGE_KEY, TIMELINE_MODE_STORAGE_KEY, DATE_SNAPSHOT_STORAGE_KEY].includes(event.key)) return;
+                    restoreTimelineStateFromLocalStorage();
+                    renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                });
+
+                renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
 
                 loadingBox?.classList.add('hidden');
                 tableStand?.classList.toggle('hidden', historicalMode);
