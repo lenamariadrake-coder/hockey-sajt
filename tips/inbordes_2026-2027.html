@@ -3468,9 +3468,10 @@
                 const move = movementByTeam?.get(teamId);
                 const chosen = getRowColorForTeam(teamId, name);
 
-                // Samma prioritet som i ligatabellen:
-                // manuell radfärg när palettläget är aktivt, annars tabellrörelse.
-                if (state.rowColorMode && chosen) {
+                // Exakt samma prioritet som i ligatabellen:
+                // sparad egen färg visas när tabellrörelser är avstängda.
+                // När tabellrörelser är aktiva får grön/röd rörelsefärg företräde.
+                if (chosen && !state.showMovements) {
                     return `<span class="current-order-team" style="background-color:${chosen}">${name}</span>`;
                 }
 
