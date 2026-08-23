@@ -1039,11 +1039,22 @@
            likadan ut som utan palettkolumnen och bara bli bredare med
            den plats som själva palettkolumnen behöver. */
         td.rowcolor-cell {
+            position: relative;
             padding: .45rem .55rem;
             width: 46px;
             min-width: 46px;
             max-width: 46px;
             text-align: center;
+        }
+
+        /* Knappen får inte bestämma radhöjden.
+           Radhöjden ska fortfarande bestämmas helt av de ordinarie
+           tabellcellerna; palettknappen centreras bara ovanpå den höjden. */
+        td.rowcolor-cell > .rowcolor-icon-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
 
         th[data-rowcolor] {
