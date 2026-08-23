@@ -1775,6 +1775,20 @@
             color: var(--text);
         }
 
+        /* Behåll tydlig luft mellan raden med aktuell ordning och tabellerna. */
+        .h2h-tables-layout {
+            padding-top: .35rem;
+        }
+
+        /* Poängskillnaden ersätter den tidigare källraden under tabellerna. */
+        .point-spread-summary {
+            margin-top: 1.15rem;
+        }
+
+        .point-spread-summary strong {
+            color: var(--text);
+        }
+
         .h2h-divider td {
             border-top: 3px solid var(--border);
         }
@@ -2281,7 +2295,7 @@
                     </div>
                 </div>
 
-                <div class="source">Källa: Google Sheets</div>
+                <div id="pointSpreadSummary" class="source point-spread-summary" aria-live="polite"></div>
             </section>
         </div>
     </div>
@@ -2309,6 +2323,7 @@
         const loadingBox = document.getElementById('tableLoading');
         const dataError = document.getElementById('dataError');
         const h2hSummary = document.getElementById('h2hSummary');
+        const pointSpreadSummary = document.getElementById('pointSpreadSummary');
         const h2hTablesLayout = document.querySelector('.h2h-tables-layout');
         const timelineModeMatches = document.getElementById('timelineModeMatches');
         const timelineModeDate = document.getElementById('timelineModeDate');
@@ -3207,6 +3222,7 @@
 
             if (isStartMode || !standings.length) {
                 h2hSummary.textContent = 'Ingen aktuell tabell ännu.';
+                if (pointSpreadSummary) pointSpreadSummary.textContent = '';
                 return;
             }
 
@@ -3226,8 +3242,12 @@
             const spread = standings[0].points - standings[standings.length - 1].points;
 
             h2hSummary.innerHTML =
-                `<strong>Aktuell ordning:</strong> ${orderedNames.join(' → ')}<br>` +
-                `<strong>Poängskillnad första–sista:</strong> ${spread}`;
+                `<strong>Aktuell ordning:</strong> ${orderedNames.join(' → ')}`;
+
+            if (pointSpreadSummary) {
+                pointSpreadSummary.innerHTML =
+                    `<strong>Poängskillnad första–sista:</strong> ${spread}`;
+            }
         }
 
         function renderLeagueStandings(standings, isStartMode, movementByTeam) {
