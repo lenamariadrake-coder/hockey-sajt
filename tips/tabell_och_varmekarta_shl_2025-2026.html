@@ -5114,6 +5114,36 @@ Lag 14</pre>
             return null;
         }
 
+
+        function updateSeasonOptionsForView(view) {
+            if (!seasonSelect) return;
+
+            const tableSeasons = [
+                { label: '2021/2022', value: 'tabell_och_varmekarta_shl_2021-2022.html' },
+                { label: '2022/2023', value: 'tabell_och_varmekarta_shl_2022-2023.html' },
+                { label: '2023/2024', value: 'tabell_och_varmekarta_shl_2023-2024.html' },
+                { label: '2024/2025', value: 'tabell_och_varmekarta_shl_2024-2025.html' },
+                { label: '2025/2026', value: '' },
+                { label: '2026/2027', value: 'tabell_och_varmekarta_shl_2026-2027.html' }
+            ];
+
+            const heatSeasons = [
+                { label: '2025/2026', value: '' },
+                { label: '2026/2027', value: 'tabell_och_varmekarta_shl_2026-2027.html#heat' }
+            ];
+
+            const seasons = view === 'heat' ? heatSeasons : tableSeasons;
+
+            seasonSelect.innerHTML = '';
+            seasons.forEach(season => {
+                const option = document.createElement('option');
+                option.value = season.value;
+                option.textContent = season.label;
+                if (season.label === '2025/2026') option.selected = true;
+                seasonSelect.appendChild(option);
+            });
+        }
+
         function setActiveView(view) { // 'table' | 'heat'
             if (view !== 'table' && view !== 'heat') return;
             state.activeView = view;
@@ -5138,6 +5168,7 @@ Lag 14</pre>
             if (seasonSelectWrap) {
                 seasonSelectWrap.style.display = '';
             }
+            updateSeasonOptionsForView(view);
 
             updateRowColorControlsVisibility();
             updateHeatSortVisibility();
