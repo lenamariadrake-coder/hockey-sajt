@@ -171,14 +171,8 @@
 
         /* Snitt-länk */
         .tab-btn-link {
-            /* Om du vill trimma Snitt, ändra här (annars: låt vara tomt) */
-            /* font-size: .95rem; */
-            /* padding: .45rem .85rem; */
-            /* min-height: 2.2rem; */
-
-            /* din aktiva override */
-            padding: .6rem .9rem;
-            /* lite mer upp/ner, samma i sidled som tab-btn */
+            /* Håll EXAKT samma padding som .tab-btn för att undvika “hopp” mellan sidor */
+            padding: .5rem .9rem;
         }
 
         /* Fin hover på “inaktiva” tabs */
@@ -1393,6 +1387,65 @@
             position: relative;
         }
 
+        /* Reserverar samma 42 px som uppdateringsknappen på facitsidorna,
+           utan att lägga till ny funktionalitet på Inbördes. */
+        .header-icon-reserve {
+            width: 42px;
+            height: 42px;
+            flex: 0 0 42px;
+        }
+
+        /* =========================================================
+     SÄSONGSVÄLJARE
+     ========================================================= */
+        .season-select-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            margin-left: .1rem;
+            white-space: nowrap;
+        }
+
+        .season-select-label {
+            font-size: .9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .season-select {
+            height: 34px;
+            padding: 0 2rem 0 .75rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--btn-gray-bg);
+            color: var(--text);
+            font: inherit;
+            font-size: .9rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .season-select:hover {
+            background: var(--btn-gray-hover);
+        }
+
+        .season-select:focus-visible {
+            outline: 2px solid rgba(0, 124, 48, .35);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 700px) {
+            .season-select-label {
+                display: none;
+            }
+
+            .season-select {
+                max-width: 150px;
+                padding-left: .65rem;
+            }
+        }
+
         /* =========================================================
  22) RESPONSIVE VISIBILITY: .m-tip (ℹ️)
  ========================================================= */
@@ -2029,6 +2082,7 @@
     <div class="container">
 
         <header class="topbar" aria-label="Kontroller">
+            <!-- Rad 1: nav + actions -->
             <div class="topbar-nav">
                 <a class="ghost-link icon-link" href="../index.html" aria-label="Till startsidan"
                     title="Till startsidan">🏠</a>
@@ -2036,13 +2090,82 @@
                 <button id="exportBtn" class="btn btn-icon" aria-label="Spara aktiv vy som bild"
                     title="Spara aktiv vy som bild">📸</button>
 
-                <div class="topbar-tabs tabs" aria-label="Vy">
-                    <button class="tab-btn" type="button" aria-selected="true">Inbördes ordning</button>
+                <!-- Inbördes har ingen egen uppdateringskontroll i detta steg.
+                     Platsen reserveras så att följande gemensamma element inte flyttar sig. -->
+                <span class="header-icon-reserve" aria-hidden="true"></span>
+
+                <!-- Huvudnavigation: samma ordning och placering som på facitsidorna -->
+                <div class="topbar-tabs tabs" aria-label="Vyval">
+                    <a id="tabTabell" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2026-2027.html#tabell"
+                        aria-label="Tabell" title="Tabell">Tabell</a>
+
+                    <a id="tabVarmekarta" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2026-2027.html#varmekarta"
+                        aria-label="Värmekarta" title="Värmekarta">Värmekarta</a>
+
+                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="shl-tips_2026-2027.html"
+                        aria-label="Snitt" title="Snitt">Snitt</a>
+
+                    <a id="tabTopplista" class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html"
+                        aria-label="Topplista" title="Topplista">Topplista</a>
+
+                    <button id="tabInbordes" class="tab-btn" type="button" aria-selected="true">Inbördes</button>
+
+                    <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
+                        <span class="season-select-label">Säsong</span>
+                        <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
+                            <option value="inbordes_2021-2022.html">2021/2022</option>
+                            <option value="inbordes_2022-2023.html">2022/2023</option>
+                            <option value="inbordes_2023-2024.html">2023/2024</option>
+                            <option value="inbordes_2024-2025.html">2024/2025</option>
+                            <option value="inbordes_2025-2026.html">2025/2026</option>
+                            <option value="" selected>2026/2027</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <!-- Behåller originalsidans reserverade luft i topbaren. -->
-            <div class="topbar-row topbar-row--controls" aria-hidden="true"></div>
+            <!-- Reserverad kontrollrad: Amatörer / Experter, visuellt endast i detta steg -->
+            <div class="topbar-row topbar-row--controls" aria-label="Vy-specifika kontroller">
+                <div class="view-controls-stack">
+                    <div id="sourceFilter" aria-label="Filter för tipskällor">
+                        <span class="source-options" aria-label="Vilka tips som visas">
+                            <span class="source-item">
+                                <label
+                                    title="Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen)">
+                                    <input id="tipsSourceHobby" type="checkbox" checked>
+                                    Amatörer
+                                </label>
+
+                                <details class="m-tip" aria-label="Mer info om Amatörer">
+                                    <summary aria-label="Mer info">ℹ️</summary>
+                                    <div class="m-tip__box" role="tooltip">
+                                        Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum
+                                        inför säsongen)
+                                    </div>
+                                </details>
+                            </span>
+
+                            <span class="source-item">
+                                <label
+                                    title="Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister offentliggjort sina tips)">
+                                    <input id="tipsSourceExpert" type="checkbox" checked>
+                                    Experter
+                                </label>
+
+                                <details class="m-tip" aria-label="Mer info om Experter">
+                                    <summary aria-label="Mer info">ℹ️</summary>
+                                    <div class="m-tip__box" role="tooltip">
+                                        Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor
+                                        där journalister offentliggjort sina tips)
+                                    </div>
+                                </details>
+                            </span>
+                        </span>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <section class="controls">
@@ -2154,6 +2277,8 @@
         const leagueStand = document.getElementById('leagueStandings');
         const roundButtons = document.getElementById('roundButtons');
         const exportBtn = document.getElementById('exportBtn');
+        const seasonSelectWrap = document.getElementById('seasonSelectWrap');
+        const seasonSelect = document.getElementById('seasonSelect');
         const timelineSlider = document.getElementById('timeline-slider');
         const currentStepDisplay = document.getElementById('current-step-display');
         const btnPrev = document.getElementById('step-prev');
@@ -3546,6 +3671,12 @@
                 bindTimelineControls();
 
                 exportBtn?.addEventListener('click', exportActiveView);
+
+                seasonSelect?.addEventListener('change', () => {
+                    const target = seasonSelect.value;
+                    if (!target) return;
+                    location.href = target;
+                });
 
                 window.addEventListener('storage', event => {
                     if (![ROUND_STORAGE_KEY, TIMELINE_MODE_STORAGE_KEY, DATE_SNAPSHOT_STORAGE_KEY].includes(event.key)) return;
