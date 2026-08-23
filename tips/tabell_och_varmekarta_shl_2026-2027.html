@@ -1880,6 +1880,11 @@
                         <input id="timelineModeDate" type="radio" name="timelineMode" value="date">
                         Datum
                     </label>
+                    <label id="movementToggleLabel" class="movement-toggle"
+                        title="Grönt = upp, rött = ner sedan föregående matchsteg">
+                        <input id="movementEnabled" type="checkbox" checked>
+                        <span>Visa tabellrörelser</span>
+                    </label>
                 </div>
                 <p id="timelineModeHelp" class="timeline-mode-help">Jämförelsen utgår från varje lags första X matcher.</p>
             </div>
@@ -2002,12 +2007,6 @@ Lag 14</pre>
                     </table>
 
                     <aside id="roundResults" class="round-results hidden" aria-live="polite">
-                        <label id="movementToggleLabel" class="movement-toggle round-results-movement-toggle"
-                            title="Grönt = upp, rött = ner sedan föregående matchsteg">
-                            <input id="movementEnabled" type="checkbox" checked>
-                            <span>Visa tabellrörelser</span>
-                        </label>
-
                         <p class="round-results-explanation">Här visas de matcher som tar respektive lag till det aktuella antalet spelade matcher. Det lag vars aktuella match det är markeras med fetstil. Eftersom lagen kan ligga olika långt i spelschemat kan en match räknas för det ena laget men inte för det andra. Ett lag kan därför förekomma i mer än en match. Vinnande lag markeras med en gul stjärna.</p>
                         <ul id="roundResultsList" class="round-results-list"></ul>
                     </aside>
