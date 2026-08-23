@@ -167,14 +167,8 @@
 
         /* Snitt-länk */
         .tab-btn-link {
-            /* Om du vill trimma Snitt, ändra här (annars: låt vara tomt) */
-            /* font-size: .95rem; */
-            /* padding: .45rem .85rem; */
-            /* min-height: 2.2rem; */
-
-            /* din aktiva override */
-            padding: .6rem .9rem;
-            /* lite mer upp/ner, samma i sidled som tab-btn */
+            /* Samma padding som systersidorna – förhindrar höjdhopp mellan sidor. */
+            padding: .5rem .9rem;
         }
 
         /* Fin hover på “inaktiva” tabs */
@@ -1362,6 +1356,51 @@
         }
 
         /* =========================================================
+     SÄSONGSVÄLJARE
+     ========================================================= */
+        .season-select-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            margin-left: .1rem;
+            white-space: nowrap;
+        }
+
+        .season-select-label {
+            font-size: .9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .season-select {
+            height: 34px;
+            padding: 0 2rem 0 .75rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--btn-gray-bg);
+            color: var(--text);
+            font: inherit;
+            font-size: .9rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .season-select:hover { background: var(--btn-gray-hover); }
+        .season-select:focus-visible {
+            outline: 2px solid rgba(0, 124, 48, .35);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 700px) {
+            .season-select-label { display: none; }
+            .season-select {
+                max-width: 150px;
+                padding-left: .65rem;
+            }
+        }
+
+        /* =========================================================
  22) RESPONSIVE VISIBILITY: .m-tip (ℹ️)
  ========================================================= */
         .m-tip {
@@ -1773,20 +1812,40 @@
                 <button id="refreshTipsBtn" class="btn btn-icon-plain" type="button"
                     aria-label="Hämta färska tipsdata" title="Hämta färska tipsdata">🔄</button>
 
+                <!-- Huvudnavigation: samma ordning och placering som på systersidorna -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
+                    <a id="tabTabell" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2026-2027.html#tabell"
+                        aria-label="Tabell" title="Tabell">Tabell</a>
+
+                    <a id="tabVarmekarta" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2026-2027.html#varmekarta"
+                        aria-label="Värmekarta" title="Värmekarta">Värmekarta</a>
+
                     <button id="tabSnitt" class="tab-btn" type="button" aria-selected="true"
                         aria-label="Snitt" title="Snitt">Snitt</button>
+
                     <a id="tabTable" class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html"
                         aria-label="Topplista" title="Topplista">Topplista</a>
-                    <a id="tabTabell" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_shl_2026-2027.html#tabell" aria-label="Tabell"
-                        title="Tabell">Tabell</a>
-                    <a id="tabVarmekarta" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_shl_2026-2027.html#varmekarta" aria-label="Värmekarta"
-                        title="Värmekarta">Värmekarta</a>
+
+                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="inbordes_2026-2027.html"
+                        aria-label="Inbördes" title="Inbördes">Inbördes</a>
+
+                    <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
+                        <span class="season-select-label">Säsong</span>
+                        <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
+                            <option value="tabell_shl_2021-2022.html">2021/2022</option>
+                            <option value="tabell_shl_2022-2023.html">2022/2023</option>
+                            <option value="tabell_shl_2023-2024.html">2023/2024</option>
+                            <option value="tabell_shl_2024-2025.html">2024/2025</option>
+                            <option value="tabell_och_varmekarta_shl_2025-2026.html">2025/2026</option>
+                            <option value="" selected>2026/2027</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
+            <!-- Reserverad kontrollrad: samma headerhöjd som systersidorna, men Snitt har inget tidslinjereglage. -->
             <div class="topbar-row topbar-row--controls" aria-label="Vy-specifika kontroller">
                 <div class="view-controls-stack">
                     <div id="sourceFilter" aria-label="Filter för tipskällor">
@@ -1844,14 +1903,7 @@
             </div>
         </header>
 
-        <h1 id="page-title">Snittplacering baserat på 0 tabelltips</h1>
         <div id="load-error" class="load-error" role="alert" aria-live="polite" hidden></div>
-
-        <p class="sub">
-            <a href="tabell_och_varmekarta_shl_2026-2027.html">Klicka här</a>
-            för att se spridningen som en värmekarta och kolla hur tabellplaceringarna utvecklar sig under säsongen i
-            förhållande till hur folk tippat.
-        </p>
 
         <div class="custom-panel" id="custom-panel" aria-label="Inmatning av eget tips">
             <div class="custom-content-centered">
@@ -1979,10 +2031,10 @@ Lag 14</pre>
                 cbHobby: document.getElementById('cb-hobby'),
                 cbExpert: document.getElementById('cb-expert'),
                 cbCustom: document.getElementById('cb-custom'),
-                title: document.getElementById('page-title'),
                 tbody: document.getElementById('summary-tbody'),
                 exportBtn: document.getElementById('exportBtn'),
                 refreshTipsBtn: document.getElementById('refreshTipsBtn'),
+                seasonSelect: document.getElementById('seasonSelect'),
                 exportArea: document.getElementById('summary-export-area'),
                 openCustomBtn: document.getElementById('btn-open-custom'),
                 customPanel: document.getElementById('custom-panel'),
@@ -2260,17 +2312,32 @@ Lag 14</pre>
             }
 
             function saveTipsSources() {
-                localStorage.setItem(LS_TIPS_SOURCES_KEY, JSON.stringify({
-                    hobby: !!els.cbHobby.checked,
-                    expert: !!els.cbExpert.checked,
-                    custom: !!els.cbCustom.checked
-                }));
+                try {
+                    let existing = {};
+                    try {
+                        const parsed = JSON.parse(localStorage.getItem(LS_TIPS_SOURCES_KEY) || 'null');
+                        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) existing = parsed;
+                    } catch { /* behåll tomt objekt */ }
+
+                    localStorage.setItem(LS_TIPS_SOURCES_KEY, JSON.stringify({
+                        ...existing,
+                        hobby: !!els.cbHobby.checked,
+                        expert: !!els.cbExpert.checked,
+                        custom: !!els.cbCustom.checked
+                    }));
+                } catch (e) {
+                    console.warn('[snitt][tipsSources][LS] kunde inte spara:', e);
+                }
             }
             function loadTipsSources() {
                 try {
                     const parsed = JSON.parse(localStorage.getItem(LS_TIPS_SOURCES_KEY) || 'null');
                     if (!parsed || typeof parsed !== 'object') return null;
-                    return { hobby: !!parsed.hobby, expert: !!parsed.expert, custom: !!parsed.custom };
+                    return {
+                        hobby: parsed.hobby !== false,
+                        expert: parsed.expert !== false,
+                        custom: parsed.custom === true
+                    };
                 } catch { return null; }
             }
 
@@ -2482,7 +2549,6 @@ Lag 14</pre>
                 const rows = computeRows();
                 const candidate = rows.find(r => r.total > 0);
                 const numTips = candidate?.total || 0;
-                els.title.textContent = `Snittplacering baserat på ${numTips} tabelltips`;
                 els.tbody.innerHTML = rows.map(r => `
                     <tr>
                         <td class="col-team">${escapeHtml(r.team)}</td>
@@ -2562,6 +2628,12 @@ Lag 14</pre>
                 });
 
                 els.exportBtn.addEventListener('click', exportTableAsImage);
+
+                els.seasonSelect?.addEventListener('change', () => {
+                    const target = els.seasonSelect.value;
+                    if (!target) return;
+                    location.href = target;
+                });
 
                 els.refreshTipsBtn?.addEventListener('click', async () => {
                     if (els.refreshTipsBtn.disabled) return;
