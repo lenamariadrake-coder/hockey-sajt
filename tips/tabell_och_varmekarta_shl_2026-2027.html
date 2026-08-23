@@ -576,6 +576,12 @@
         /* =========================================================
      9) VÄRMEKARTA (SPRIDNINGSTABELL)
      ========================================================= */
+        /* Endast värmekartan: 90 % av sin normala storlek.
+           Påverkar inte ligatabellen eller andra tabeller på sidan. */
+        #tableHeat {
+            font-size: 90%;
+        }
+
         .spridningstabell th:first-child,
         .spridningstabell td:first-child {
             text-align: left;
@@ -1607,7 +1613,7 @@
             }
 
             .season-select {
-                max-width: 118px;
+                max-width: 150px;
                 padding-left: .65rem;
             }
         }
