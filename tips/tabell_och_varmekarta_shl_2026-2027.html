@@ -1742,18 +1742,21 @@
                 <button id="refreshGamesBtn" class="btn btn-icon-plain" type="button"
                     aria-label="Hämta färska matchdata" title="Hämta färska matchdata från games">🔄</button>
 
-                <!-- Tabs i egen grupp => jämn spacing mellan Snitt/Topplista/Tabell/Värmekarta -->
+                <!-- Huvudnavigation: samma ordning på systersidorna -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
+                    <button id="tabTable" class="tab-btn" role="tab" aria-selected="true"
+                        aria-controls="viewTable">Tabell</button>
+                    <button id="tabHeat" class="tab-btn" role="tab" aria-selected="false"
+                        aria-controls="viewHeat">Värmekarta</button>
+
                     <a id="tabSnitt" class="tab-btn tab-btn-link" href="shl-tips_2026-2027.html" aria-label="Snitt"
                         title="Snitt">Snitt</a>
 
                     <a id="tabTopplista" class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html"
                         aria-label="Topplista" title="Topplista">Topplista</a>
 
-                    <button id="tabTable" class="tab-btn" role="tab" aria-selected="true"
-                        aria-controls="viewTable">Tabell</button>
-                    <button id="tabHeat" class="tab-btn" role="tab" aria-selected="false"
-                        aria-controls="viewHeat">Värmekarta</button>
+                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="inbordes_2026-2027.html"
+                        aria-label="Inbördes" title="Inbördes">Inbördes</a>
 
                     <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
                         <span class="season-select-label">Säsong</span>
