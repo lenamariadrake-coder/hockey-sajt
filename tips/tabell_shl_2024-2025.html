@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SHL – Tabell & värmekarta 2025/2026 (tips + verklig placering)</title>
+    <title>SHL – Tabell 2024/2025</title>
 
     <!-- html2canvas för export av aktiv vy -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -1735,15 +1735,19 @@
            HISTORIK 2024/2025 – ren tabellvy
            Värmekarta och allt tipsrelaterat finns kvar i koden men visas inte.
            ========================================================= */
+        /* Behåll navigationsknapparnas exakta layoututrymme så att
+           säsongsväljaren ligger på samma plats som på systersidorna. */
         #tabHeat,
         #tabSnitt,
         #tabTopplista,
-        #tabInbordesPlaceholder,
-        #heatSort,
-        #custom-panel {
-            display: none !important;
+        #tabInbordesPlaceholder {
+            visibility: hidden !important;
+            pointer-events: none !important;
         }
 
+        /* Själva tips-/värmekartsfunktionerna ska däremot inte ta plats. */
+        #heatSort,
+        #custom-panel,
         #viewHeat {
             display: none !important;
         }
@@ -1790,8 +1794,8 @@
                             <option value="tabell_shl_2021-2022.html">2021/2022</option>
                             <option value="tabell_shl_2022-2023.html">2022/2023</option>
                             <option value="tabell_shl_2023-2024.html">2023/2024</option>
-                            <option value="tabell_shl_2024-2025.html">2024/2025</option>
-                            <option value="" selected>2025/2026</option>
+                            <option value="" selected>2024/2025</option>
+                            <option value="tabell_och_varmekarta_shl_2025-2026.html">2025/2026</option>
                             <option value="tabell_och_varmekarta_shl_2026-2027.html">2026/2027</option>
                         </select>
                     </div>
