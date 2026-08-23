@@ -1763,7 +1763,7 @@
            H2H – VERSION 1
            ========================================================= */
         .h2h-summary {
-            margin: 1rem auto 0;
+            margin: 1.35rem auto 0;
             width: fit-content;
             max-width: 100%;
             color: var(--text-muted);
@@ -1901,6 +1901,24 @@
             margin: 1rem 0 0;
         }
 
+        /* Endast de två Inbördes-tabellerna: 90 % av tidigare storlek. */
+        #leagueStandings,
+        #tableStandings {
+            font-size: 90%;
+        }
+
+        #leagueStandings th,
+        #leagueStandings td,
+        #tableStandings th,
+        #tableStandings td {
+            padding: .54rem .72rem;
+        }
+
+        #leagueStandings thead th,
+        #tableStandings thead th {
+            font-size: .765rem;
+        }
+
         #leagueStandings thead th.col-team {
             text-align: left;
         }
@@ -1984,17 +2002,16 @@
             #tableStandings {
                 margin-left: auto;
                 margin-right: auto;
-                font-size: .9rem;
+                font-size: .81rem;
             }
 
             #tableStandings th,
             #tableStandings td {
-                padding-left: .35rem;
-                padding-right: .35rem;
+                padding: .54rem .315rem;
             }
 
             #tableStandings thead th {
-                font-size: .78rem;
+                font-size: .702rem;
             }
         }
 
