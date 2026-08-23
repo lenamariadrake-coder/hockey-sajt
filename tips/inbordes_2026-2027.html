@@ -2031,8 +2031,23 @@
 
 
         /* =========================================================
-           TABELLRÖRELSE – jämfört med föregående omgång
+           TABELLRÖRELSE – val + jämförelse med föregående steg
            ========================================================= */
+        .movement-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            white-space: nowrap;
+            line-height: 1;
+            font-weight: 600;
+            font-size: .9rem;
+        }
+
+        .movement-toggle input {
+            margin: 0;
+            transform: translateY(1px);
+        }
+
         .movement-up {
             background: #dcfce7;
         }
@@ -2208,6 +2223,11 @@
                 <div class="timeline-mode-controls" role="radiogroup" aria-label="Tidslinjeläge">
                     <label><input id="timelineModeMatches" type="radio" name="timelineMode" value="matches" checked> Spelade matcher</label>
                     <label><input id="timelineModeDate" type="radio" name="timelineMode" value="date"> Datum</label>
+                    <label id="movementToggleLabel" class="movement-toggle"
+                        title="Grönt = upp, rött = ner sedan föregående steg">
+                        <input id="movementEnabled" type="checkbox" checked>
+                        <span>Visa tabellrörelser</span>
+                    </label>
                 </div>
                 <p id="timelineModeHelp" class="timeline-mode-help">Jämförelsen utgår från varje lags första X matcher.</p>
             </div>
@@ -2330,6 +2350,7 @@
         const timelineModeMatches = document.getElementById('timelineModeMatches');
         const timelineModeDate = document.getElementById('timelineModeDate');
         const timelineModeHelp = document.getElementById('timelineModeHelp');
+        const movementEnabled = document.getElementById('movementEnabled');
 
         /* ===========================================================
            DATAKÄLLOR
@@ -2405,6 +2426,7 @@
         const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
         const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
         const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
+        const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2026_2027.v1';
         const LS_TIPS_SOURCES_KEY = 'shlTips.sources.shl_2026_2027.v1';
         const SHL_STANDINGS_CACHE_KEY = 'SHL_STANDINGS_DATA_2026_2027';
         const SHL_H2H_TIPS_CACHE_KEY = 'SHL_H2H_TIPS_DATA_2026_2027';
@@ -2421,6 +2443,7 @@
             timelineMode: 'matches',
             currentDateIndex: 0,
             _matchTimelineValue: 0,
+            showMovements: true,
             tipsSources: { hobby: true, expert: true }
         };
 
@@ -3251,6 +3274,23 @@
            TOPPLISTA
            =========================================================== */
 
+        function saveMovementPreference() {
+            try {
+                localStorage.setItem(MOVEMENT_STORAGE_KEY, state.showMovements ? '1' : '0');
+            } catch { }
+        }
+
+        function loadMovementPreference() {
+            try {
+                const raw = localStorage.getItem(MOVEMENT_STORAGE_KEY);
+                state.showMovements = raw === null ? true : raw === '1';
+            } catch {
+                state.showMovements = true;
+            }
+
+            if (movementEnabled) movementEnabled.checked = state.showMovements;
+        }
+
         function buildMovementByTeam(round, standings) {
             const movement = new Map();
             let previousStandings = null;
@@ -3355,7 +3395,9 @@
             const activeValue = isDateMode ? (Number(round) || 0) : round;
             const isStartMode = isDateMode ? activeValue === 0 : round === null;
             const standings = isDateMode ? buildStandingsForDateIndex(activeValue) : buildStandingsForRound(round);
-            const movementByTeam = buildMovementByTeam(activeValue, standings);
+            const movementByTeam = state.showMovements
+                ? buildMovementByTeam(activeValue, standings)
+                : new Map();
 
             renderLeagueStandings(standings, isStartMode, movementByTeam);
             const actualRankByTeamId = isStartMode
@@ -3819,8 +3861,15 @@
                 // Läs delat state FÖRE första riktiga renderingen för att undvika blinkning.
                 restoreTimelineStateFromLocalStorage();
                 restoreTipsSourcesFromLocalStorage();
+                loadMovementPreference();
                 buildRoundButtons();
                 bindTimelineControls();
+
+                movementEnabled?.addEventListener('change', () => {
+                    state.showMovements = !!movementEnabled.checked;
+                    saveMovementPreference();
+                    renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                });
 
                 tipsSourceHobby?.addEventListener('change', () => {
                     state.tipsSources.hobby = !!tipsSourceHobby.checked;
@@ -3845,6 +3894,11 @@
                 window.addEventListener('storage', event => {
                     if (event.key === LS_TIPS_SOURCES_KEY) {
                         restoreTipsSourcesFromLocalStorage();
+                        renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                        return;
+                    }
+                    if (event.key === MOVEMENT_STORAGE_KEY) {
+                        loadMovementPreference();
                         renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
                         return;
                     }
