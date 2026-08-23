@@ -3043,9 +3043,19 @@
             }
 
             // I "Spelade matcher" är själva tabellen konstruerad. Dagarna räknas ändå
-            // bara från verkliga tabeller och visas fram till den dag då alla lag först
-            // hade hunnit spela minst X matcher.
-            return getRealDateForMatchSnapshot(activeValue);
+            // bara från verkliga tabeller. För ett avslutat slutläge (alla lag har spelat
+            // 52 matcher) ska den sista verkliga tabellställningen fortsätta gälla efter
+            // sista matchdagen, precis som i datumläget, i stället för att dagräkningen
+            // stanna på själva slutspelsdatumet.
+            const realDateKey = getRealDateForMatchSnapshot(activeValue);
+            if (!realDateKey) return '';
+
+            const finalSnapshot = STANDING_SNAPSHOTS.get(Number(activeValue) || 0);
+            const isCompletedSeason = Number(activeValue) === Number(state.latestRound) &&
+                finalSnapshot?.length > 0 &&
+                finalSnapshot.every(row => Number(row.g) === 52);
+
+            return isCompletedSeason ? todayDateKey() : realDateKey;
         }
 
         function getFinalPointSpread(standings) {
