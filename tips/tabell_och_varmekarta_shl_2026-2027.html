@@ -1825,7 +1825,7 @@
 
         <!-- Gemensam kontrollrad: sifferknappar + (endast i heatmap) sorteringsväxel -->
         <section class="controls">
-            <div class="siffror-wrap" id="roundButtons" aria-label="Omgångar (antal matcher)"></div>
+            <div class="siffror-wrap" id="roundButtons" aria-label="Matchsteg (antal spelade matcher)"></div>
 
             <div class="timeline-mode-row" aria-label="Välj hur tidslinjen ska visas">
                 <div class="timeline-mode-controls" role="radiogroup" aria-label="Tidslinjeläge">
@@ -1960,7 +1960,7 @@ Lag 14</pre>
 
                     <aside id="roundResults" class="round-results hidden" aria-live="polite">
                         <label id="movementToggleLabel" class="movement-toggle round-results-movement-toggle"
-                            title="Grönt = upp, rött = ner sedan föregående omgång">
+                            title="Grönt = upp, rött = ner sedan föregående matchsteg">
                             <input id="movementEnabled" type="checkbox" checked>
                             <span>Visa tabellrörelser</span>
                         </label>
@@ -2254,7 +2254,14 @@ Lag 14</pre>
         const MATCH_SEASON_ID = '2026-2027';
         const MATCH_LEAGUE = 'SHL';
 
-        // LocalStorage-nyckel för vald omgång (liga + säsong)
+        // TERMINOLOGI I KODEN:
+        // "round" / "omgång" betyder i den här filen normalt ett MATCHSTEG:
+        // varje lags första X spelade matcher. Det är alltså inte nödvändigtvis
+        // en officiell SHL-omgång. De etablerade interna namnen behålls för att
+        // undvika onödig ombyggnad av fungerande logik. Användarsynlig text ska
+        // däremot beskriva detta som "matchsteg" / "spelade matcher".
+        //
+        // LocalStorage-nyckel för valt matchsteg (liga + säsong)
         // ⚠️ MÅSTE vara IDENTISK i systerappen
         const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
         const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2026_2027.v1';
@@ -3441,7 +3448,10 @@ Lag 14</pre>
             if (movementEnabled) movementEnabled.checked = state.showMovements;
 
             if (state.showMovements) {
-                if (clearManual) state.rowColors?.clear?.();
+                // Manuella färgval ska bevaras när rörelseläget visas.
+                // De döljs tillfälligt och kommer tillbaka när palettläget slås på igen.
+                // clearManual-parametern behålls tills vidare för kompatibilitet med befintliga anrop,
+                // men får inte längre radera användarens färgval.
 
                 // Automatisk rörelsemarkering och manuellt palettläge används aldrig samtidigt.
                 state.rowColorMode = false;
@@ -3553,7 +3563,8 @@ Lag 14</pre>
                     const enabled = !!movementEnabled.checked;
 
                     if (enabled) {
-                        // När rörelser slås på igen försvinner egna färger och palettläget stängs.
+                        // När rörelser slås på döljs egna färger tillfälligt och palettläget stängs.
+                        // Färgvalen ligger kvar och visas igen när 🎨 aktiveras.
                         setMovementMode(true, { clearManual: true });
                     } else {
                         state.showMovements = false;
@@ -4975,7 +4986,7 @@ Lag 14</pre>
                 movementToggleLabel.style.display = (view === 'table') ? '' : 'none';
                 movementToggleLabel.title = state.timelineMode === 'date'
                     ? 'Grönt = upp, rött = ner sedan föregående speldatum'
-                    : 'Grönt = upp, rött = ner sedan föregående omgång';
+                    : 'Grönt = upp, rött = ner sedan föregående matchsteg';
             }
 
             if (seasonSelectWrap) {
@@ -5366,7 +5377,7 @@ Lag 14</pre>
             else {
                 const explanation = document.querySelector('#roundResults .round-results-explanation');
                 const movementLabel = document.getElementById('movementToggleLabel');
-                if (movementLabel) movementLabel.title = 'Grönt = upp, rött = ner sedan föregående omgång';
+                if (movementLabel) movementLabel.title = 'Grönt = upp, rött = ner sedan föregående matchsteg';
                 if (explanation) explanation.textContent = 'Här visas de matcher som tar respektive lag till det aktuella antalet spelade matcher. Det lag vars aktuella match det är markeras med fetstil. Eftersom lagen kan ligga olika långt i spelschemat kan en match räknas för det ena laget men inte för det andra. Ett lag kan därför förekomma i mer än en match. Vinnande lag markeras med en gul stjärna.';
                 renderRoundResults(round, movementByTeam);
             }
@@ -5408,9 +5419,10 @@ Lag 14</pre>
                 tdGD.className = 'num';
                 tdGD.textContent = String(row.gd);
 
-                // (1) Färg appliceras (om vald)
+                // (1) Manuell färg appliceras bara när palettläget är aktivt.
+                // Valen ligger kvar i state.rowColors även medan tabellrörelser visas.
                 const chosen = state.rowColors.get(displayName);
-                if (chosen) {
+                if (state.rowColorMode && chosen) {
                     // Hela raden (”Bara lag” är avstängt just nu)
                     tr.style.backgroundColor = chosen;
 
@@ -5775,7 +5787,7 @@ Lag 14</pre>
                 layout?.classList.remove('date-mode');
                 if (movementLabel) {
                     movementLabel.style.display = state.activeView === 'table' ? '' : 'none';
-                    movementLabel.title = 'Grönt = upp, rött = ner sedan föregående omgång';
+                    movementLabel.title = 'Grönt = upp, rött = ner sedan föregående matchsteg';
                 }
 
                 // Tvinga en riktig render även om samma matchsteg renderades före datumläget.
