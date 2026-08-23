@@ -1761,10 +1761,10 @@
                     <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
                         <span class="season-select-label">Säsong</span>
                         <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
-                            <option value="tabell_shl_2021-2022.html">2021/2022</option>
-                            <option value="tabell_shl_2022-2023.html">2022/2023</option>
-                            <option value="tabell_shl_2023-2024.html">2023/2024</option>
-                            <option value="tabell_shl_2024-2025.html">2024/2025</option>
+                            <option value="tabell_och_varmekarta_shl_2021-2022.html">2021/2022</option>
+                            <option value="tabell_och_varmekarta_shl_2022-2023.html">2022/2023</option>
+                            <option value="tabell_och_varmekarta_shl_2023-2024.html">2023/2024</option>
+                            <option value="tabell_och_varmekarta_shl_2024-2025.html">2024/2025</option>
                             <option value="tabell_och_varmekarta_shl_2025-2026.html">2025/2026</option>
                             <option value="" selected>2026/2027</option>
                         </select>
@@ -5099,6 +5099,41 @@ Lag 14</pre>
             return null;
         }
 
+
+        function updateSeasonOptionsForView(view) {
+            if (!seasonSelect) return;
+
+            const currentValue = seasonSelect.value;
+
+            const allSeasons = [
+                { label: '2021/2022', value: 'tabell_och_varmekarta_shl_2021-2022.html' },
+                { label: '2022/2023', value: 'tabell_och_varmekarta_shl_2022-2023.html' },
+                { label: '2023/2024', value: 'tabell_och_varmekarta_shl_2023-2024.html' },
+                { label: '2024/2025', value: 'tabell_och_varmekarta_shl_2024-2025.html' },
+                { label: '2025/2026', value: 'tabell_och_varmekarta_shl_2025-2026.html' },
+                { label: '2026/2027', value: '' }
+            ];
+
+            const heatSeasons = allSeasons.filter(s =>
+                s.label === '2025/2026' || s.label === '2026/2027'
+            );
+
+            const source = view === 'heat' ? heatSeasons : allSeasons;
+
+            seasonSelect.innerHTML = '';
+            source.forEach(season => {
+                const option = document.createElement('option');
+                option.value = season.value;
+                option.textContent = season.label;
+
+                if (season.label === '2026/2027') {
+                    option.selected = true;
+                }
+
+                seasonSelect.appendChild(option);
+            });
+        }
+
         function setActiveView(view) { // 'table' | 'heat'
             if (view !== 'table' && view !== 'heat') return;
             state.activeView = view;
@@ -5123,6 +5158,7 @@ Lag 14</pre>
             if (seasonSelectWrap) {
                 seasonSelectWrap.style.display = '';
             }
+            updateSeasonOptionsForView(view);
 
             updateRowColorControlsVisibility();
             updateHeatSortVisibility();
