@@ -1070,12 +1070,15 @@
  Synlighet styrs i sektion 9 (BAS) och kan tvingas i sektion 23 (OVERRIDE).
  ========================================================= */
         #sourceFilter {
-            min-height: var(--ui-row-h);
+            /* Tippartopplistan får 42 px kontrollhöjd av Eget tips-knappen.
+               Inbördes saknar den medvetet, så vi reserverar samma höjd här
+               för att Amatörer/Experter ska hamna på exakt samma nivå. */
+            min-height: var(--ui-row-h, 42px);
 
             /* Gör sourceFilter mer “mobilstabilt”: låt det wrappa men inte bli oändligt högt */
             flex-wrap: wrap;
             gap: 8px 12px;
-            max-height: calc(var(--ui-row-h) * 2);
+            max-height: calc(var(--ui-row-h, 42px) * 2);
             overflow: visible;
         }
 
