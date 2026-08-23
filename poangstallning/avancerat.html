@@ -17,6 +17,7 @@
         }
 
         .container {
+            position: relative;
             max-width: 1300px;
             margin: auto;
             background: #fff;
@@ -906,6 +907,9 @@
 
         /* Ikonerna till höger */
         .title-icons {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
             display: flex;
             gap: 12px;
         }
@@ -1821,8 +1825,8 @@
         // --- TOOLTIP HELPERS (NYTT) ---
         function clearChartTooltip(reason) {
             // if (!pointsChart || !pointsChart.tooltip) {
-                // console.log('[TOOLTIP][CLEAR] skip', { reason });
-                // return;
+            // console.log('[TOOLTIP][CLEAR] skip', { reason });
+            // return;
             // }
 
             // 1) Nollställ aktiva element
@@ -2135,49 +2139,49 @@
             // }
         }
 
-function updateManualSortLabelsForNarrowScreen() {
-    const width = window.innerWidth;
-    const isNarrow = width <= 720;
+        function updateManualSortLabelsForNarrowScreen() {
+            const width = window.innerWidth;
+            const isNarrow = width <= 720;
 
-    // Hitta radioknappen "manual" och dess label (din HTML saknar id/for)
-    const manualRadio = document.querySelector('input[name="sort-order"][value="manual"]');
-    const manualLabel = manualRadio ? manualRadio.closest('label') : null;
+            // Hitta radioknappen "manual" och dess label (din HTML saknar id/for)
+            const manualRadio = document.querySelector('input[name="sort-order"][value="manual"]');
+            const manualLabel = manualRadio ? manualRadio.closest('label') : null;
 
-    // Turkosa instruktionen
-    const manualHint = document.getElementById('manual-sort-hint');
+            // Turkosa instruktionen
+            const manualHint = document.getElementById('manual-sort-hint');
 
-    // console.log('[MANUAL SORT][NARROW]', {
-        // width,
-        // isNarrow,
-        // hasManualRadio: !!manualRadio,
-        // hasManualLabel: !!manualLabel,
-        // hasManualHint: !!manualHint,
-        // manualLabelTextBefore: manualLabel ? manualLabel.textContent.trim() : null,
-        // manualHintTextBefore: manualHint ? manualHint.textContent.trim() : null
-    // });
+            // console.log('[MANUAL SORT][NARROW]', {
+            // width,
+            // isNarrow,
+            // hasManualRadio: !!manualRadio,
+            // hasManualLabel: !!manualLabel,
+            // hasManualHint: !!manualHint,
+            // manualLabelTextBefore: manualLabel ? manualLabel.textContent.trim() : null,
+            // manualHintTextBefore: manualHint ? manualHint.textContent.trim() : null
+            // });
 
-    if (manualLabel) {
-        manualLabel.childNodes.forEach(node => {
-            // Vi vill inte råka skriva över input-elementet, bara textnoden
-            if (node.nodeType === Node.TEXT_NODE) {
-                node.textContent = isNarrow ? ' Manuell (kräver mus)' : ' Manuell';
+            if (manualLabel) {
+                manualLabel.childNodes.forEach(node => {
+                    // Vi vill inte råka skriva över input-elementet, bara textnoden
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        node.textContent = isNarrow ? ' Manuell (kräver mus)' : ' Manuell';
+                    }
+                });
             }
-        });
-    }
 
-    if (manualHint) {
-        manualHint.textContent = isNarrow
-            ? 'Manuell sortering: Dra lagknapparna för att ändra ordning (kräver mus).'
-            : 'Manuell sortering: Dra lagknapparna för att ändra ordning.';
-    }
+            if (manualHint) {
+                manualHint.textContent = isNarrow
+                    ? 'Manuell sortering: Dra lagknapparna för att ändra ordning (kräver mus).'
+                    : 'Manuell sortering: Dra lagknapparna för att ändra ordning.';
+            }
 
-    // console.log('[MANUAL SORT][NARROW] after', {
-        // manualLabelTextAfter: manualLabel ? manualLabel.textContent.trim() : null,
-        // manualHintTextAfter: manualHint ? manualHint.textContent.trim() : null
-    // });
-}
+            // console.log('[MANUAL SORT][NARROW] after', {
+            // manualLabelTextAfter: manualLabel ? manualLabel.textContent.trim() : null,
+            // manualHintTextAfter: manualHint ? manualHint.textContent.trim() : null
+            // });
+        }
 
-            
+
         function updateManualSortHints() {
             const sortOrder = document.querySelector('input[name="sort-order"]:checked')?.value || 'alpha';
             const isManual = (sortOrder === 'manual');
@@ -3373,11 +3377,11 @@ function updateManualSortLabelsForNarrowScreen() {
             colorPalette.dataset.teamSeasonKey = teamSeasonKey;
 
             // console.log('[BAR COLOR][OPEN] palette opened', {
-                // reason,
-                // teamSeasonKey,
-                // left: colorPalette.style.left,
-                // top: colorPalette.style.top,
-                // pointerType: chartLastPointerType
+            // reason,
+            // teamSeasonKey,
+            // left: colorPalette.style.left,
+            // top: colorPalette.style.top,
+            // pointerType: chartLastPointerType
             // });
         }
 
@@ -7626,15 +7630,15 @@ function updateManualSortLabelsForNarrowScreen() {
                 });
             }
         }
-// console.log('[DEBUG] typeof updateManualSortLabelsForNarrowScreen =', typeof updateManualSortLabelsForNarrowScreen);
+        // console.log('[DEBUG] typeof updateManualSortLabelsForNarrowScreen =', typeof updateManualSortLabelsForNarrowScreen);
 
         // UI-text beroende på smal skärm (manuell sortering)
         updateManualSortLabelsForNarrowScreen();
 
-// Global UI: uppdatera texter vid resize
-window.addEventListener('resize', () => {
-    updateManualSortLabelsForNarrowScreen();
-});
+        // Global UI: uppdatera texter vid resize
+        window.addEventListener('resize', () => {
+            updateManualSortLabelsForNarrowScreen();
+        });
 
 
         function setupEventListeners() {
