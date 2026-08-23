@@ -1745,12 +1745,9 @@
             pointer-events: none !important;
         }
 
-        /* Själva tips-/värmekartsfunktionerna ska däremot inte ta plats. */
-        #heatSort,
-        #custom-panel,
-        #viewHeat {
-            display: none !important;
-        }
+        /* Själva värmekarts- och tipskontrollerna behåller mallfilens
+           ordinarie tabellvys-beteende. #heatSort är då osynlig via
+           visibility men reserverar exakt samma höjd/utrymme som i mallen. */
     </style>
 
 </head>
