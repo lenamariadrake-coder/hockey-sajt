@@ -1168,6 +1168,11 @@
                                     -->
 
                                     <label>
+                                        <input type="checkbox" id="filter-season-2026-2027" value="2026-2027" checked>
+                                        2026-2027
+                                    </label>
+
+                                    <label>
                                         <input type="checkbox" id="filter-season-2025-2026" value="2025-2026" checked>
                                         2025-2026
                                     </label>
@@ -1561,7 +1566,7 @@
             }
         };
 
-        const CURRENT_SEASON_ID = '2026-2027'; // just nu kör vi 2026-2027
+        const CURRENT_SEASON_ID = '2024-2025'; // just nu kör vi HA 2024-2025
         const CURRENT_LEAGUE = 'HA';
 
         const SEASON_MAX_POINTS = 52 * 3; // Uppdatera detta manuellt om säsongens maxpoäng ändras
@@ -5157,6 +5162,7 @@
             // 1) Lägga till en checkbox i HTML-blocket "Säsonger"
             // 2) Lägga till motsvarande const här
             // 3) Lägga till den i hasSeasonFilters + activeSeasons.push(...)
+            const cbS2026_27 = document.getElementById('filter-season-2026-2027');
             const cbS2025_26 = document.getElementById('filter-season-2025-2026');
             const cbS2024_25 = document.getElementById('filter-season-2024-2025');
             const cbS2023_24 = document.getElementById('filter-season-2023-2024');
@@ -5164,10 +5170,11 @@
             const cbS2021_22 = document.getElementById('filter-season-2021-2022');
 
             const hasSeasonFilters =
-                cbS2025_26 && cbS2024_25 && cbS2023_24 && cbS2022_23 && cbS2021_22;
+                cbS2026_27 && cbS2025_26 && cbS2024_25 && cbS2023_24 && cbS2022_23 && cbS2021_22;
 
             const activeSeasons = [];
             if (hasSeasonFilters) {
+                if (cbS2026_27.checked) activeSeasons.push('2026-2027');
                 if (cbS2025_26.checked) activeSeasons.push('2025-2026');
                 if (cbS2024_25.checked) activeSeasons.push('2024-2025');
                 if (cbS2023_24.checked) activeSeasons.push('2023-2024');
@@ -5470,6 +5477,7 @@
             // --- SÄSONGER ---
             const allSeasonCB = document.getElementById('filter-season-all');
             const seasonCBs = [
+                document.getElementById('filter-season-2026-2027'),
                 document.getElementById('filter-season-2025-2026'),
                 document.getElementById('filter-season-2024-2025'),
                 document.getElementById('filter-season-2023-2024'),
@@ -6639,6 +6647,7 @@
                 // --- SÄSONGER ---
                 const cbSeasonAll = document.getElementById('filter-season-all');
                 const seasonIds = [
+                    'filter-season-2026-2027',
                     'filter-season-2025-2026',
                     'filter-season-2024-2025',
                     'filter-season-2023-2024',
