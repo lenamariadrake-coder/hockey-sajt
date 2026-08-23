@@ -2314,6 +2314,8 @@
         const seasonSelectWrap = document.getElementById('seasonSelectWrap');
         const seasonSelect = document.getElementById('seasonSelect');
         const timelineSlider = document.getElementById('timeline-slider');
+        const tipsSourceHobby = document.getElementById('tipsSourceHobby');
+        const tipsSourceExpert = document.getElementById('tipsSourceExpert');
         const currentStepDisplay = document.getElementById('current-step-display');
         const btnPrev = document.getElementById('step-prev');
         const btnNext = document.getElementById('step-next');
@@ -2403,6 +2405,7 @@
         const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
         const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
         const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
+        const LS_TIPS_SOURCES_KEY = 'shlTips.sources.shl_2026_2027.v1';
         const SHL_STANDINGS_CACHE_KEY = 'SHL_STANDINGS_DATA_2026_2027';
         const SHL_H2H_TIPS_CACHE_KEY = 'SHL_H2H_TIPS_DATA_2026_2027';
         const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
@@ -2417,7 +2420,8 @@
             roundsAvailable: new Set(),
             timelineMode: 'matches',
             currentDateIndex: 0,
-            _matchTimelineValue: 0
+            _matchTimelineValue: 0,
+            tipsSources: { hobby: true, expert: true }
         };
 
         let STANDING_SNAPSHOTS = new Map();
@@ -2917,6 +2921,53 @@
             return standings[0].points - standings[standings.length - 1].points;
         }
 
+        function isExpertDisplayName(displayName) {
+            return /^SHL-exp\b/i.test(String(displayName || '').trim());
+        }
+
+        function loadTipsSourcesFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem(LS_TIPS_SOURCES_KEY);
+                if (!raw) return null;
+                const obj = JSON.parse(raw);
+                return {
+                    hobby: obj.hobby !== false,
+                    expert: obj.expert !== false
+                };
+            } catch (error) {
+                console.warn('[tipsSources][LS] kunde inte läsa:', error);
+                return null;
+            }
+        }
+
+        function saveTipsSourcesToLocalStorage() {
+            try {
+                let custom = false;
+                const raw = localStorage.getItem(LS_TIPS_SOURCES_KEY);
+                if (raw) {
+                    const existing = JSON.parse(raw);
+                    custom = existing?.custom === true;
+                }
+                localStorage.setItem(LS_TIPS_SOURCES_KEY, JSON.stringify({
+                    hobby: !!state.tipsSources.hobby,
+                    expert: !!state.tipsSources.expert,
+                    custom
+                }));
+            } catch (error) {
+                console.warn('[tipsSources][LS] kunde inte spara:', error);
+            }
+        }
+
+        function restoreTipsSourcesFromLocalStorage() {
+            const saved = loadTipsSourcesFromLocalStorage();
+            if (saved) {
+                state.tipsSources.hobby = !!saved.hobby;
+                state.tipsSources.expert = !!saved.expert;
+            }
+            if (tipsSourceHobby) tipsSourceHobby.checked = !!state.tipsSources.hobby;
+            if (tipsSourceExpert) tipsSourceExpert.checked = !!state.tipsSources.expert;
+        }
+
         function buildParticipantRows(actualRankByTeamId, standings, isStartMode, currentRound) {
             const rows = [];
             const roundsPlayed = isStartMode ? 0 : (Number(currentRound) || 0);
@@ -2924,6 +2975,10 @@
             const actualPointSpread = isFinalRound ? getFinalPointSpread(standings) : null;
 
             H2H_TIPS_BY_PARTICIPANT.forEach(participant => {
+                const expert = isExpertDisplayName(participant.display_name);
+                if (expert && !state.tipsSources.expert) return;
+                if (!expert && !state.tipsSources.hobby) return;
+
                 const picks = participant.picks || [];
                 const pointSpreadTip = participant.h2h_point_spread_tip;
 
@@ -3761,10 +3816,23 @@
                     H2H_TIPS_BY_PARTICIPANT.clear();
                 }
 
-                // Läs delat timeline-state FÖRE första riktiga renderingen för att undvika blinkning.
+                // Läs delat state FÖRE första riktiga renderingen för att undvika blinkning.
                 restoreTimelineStateFromLocalStorage();
+                restoreTipsSourcesFromLocalStorage();
                 buildRoundButtons();
                 bindTimelineControls();
+
+                tipsSourceHobby?.addEventListener('change', () => {
+                    state.tipsSources.hobby = !!tipsSourceHobby.checked;
+                    saveTipsSourcesToLocalStorage();
+                    renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                });
+
+                tipsSourceExpert?.addEventListener('change', () => {
+                    state.tipsSources.expert = !!tipsSourceExpert.checked;
+                    saveTipsSourcesToLocalStorage();
+                    renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                });
 
                 exportBtn?.addEventListener('click', exportActiveView);
 
@@ -3775,6 +3843,11 @@
                 });
 
                 window.addEventListener('storage', event => {
+                    if (event.key === LS_TIPS_SOURCES_KEY) {
+                        restoreTipsSourcesFromLocalStorage();
+                        renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                        return;
+                    }
                     if (![ROUND_STORAGE_KEY, TIMELINE_MODE_STORAGE_KEY, DATE_SNAPSHOT_STORAGE_KEY].includes(event.key)) return;
                     restoreTimelineStateFromLocalStorage();
                     renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
