@@ -1797,12 +1797,11 @@
             font-weight: 800;
         }
 
-        .h2h-status.correct {
-            color: #08783e;
-        }
-
+        /* Rätt/Fel ska vara tydligt med fetstil, men utan färg.
+           Grönt/rött är reserverat för tabellrörelser. */
+        .h2h-status.correct,
         .h2h-status.incorrect {
-            color: #9f1239;
+            color: inherit;
         }
 
         .tipper-tooltip-wrap {
@@ -1858,8 +1857,10 @@
             font-weight: 900;
         }
 
+        /* Tippade lag är alltid feta. Om hela den tippade inbördes
+           ordningen är rätt markeras de dessutom med gult. */
         .tipper-tooltip .h2h-actual-table .selected-team.correct-pick {
-            background: #d9f7e5;
+            background: #FFF1A8;
         }
 
         .tipper-tooltip .h2h-pick-list {
@@ -2328,11 +2329,11 @@
                                     </th>
                                     <th class="num">Lag</th>
                                     <th class="num">
-                                        Utfall
+                                        Dagar
                                         <span class="th-info"
-                                            data-desktop-tip="Antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt."
-                                            data-mobile-tip="Antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt."
-                                            aria-label="Hjälp: antal omgångar då hela den tippade ordningen varit korrekt. Används som tiebreaker endast bland tippare som för närvarande har alla rätt.">ℹ️</span>
+                                            data-desktop-tip="Antal kalenderdagar som tipparens valda lag hittills legat i rätt inbördes ordning i den faktiska SHL-tabellen. Räknas endast från verkliga tabellställningar, inte från jämförelsen efter lika många spelade matcher."
+                                            data-mobile-tip="Antal kalenderdagar som tipparens valda lag hittills legat i rätt inbördes ordning i den faktiska SHL-tabellen. Räknas endast från verkliga tabellställningar, inte från jämförelsen efter lika många spelade matcher."
+                                            aria-label="Hjälp: antal kalenderdagar som tipparens valda lag legat i rätt inbördes ordning i den faktiska SHL-tabellen. Räknas endast från verkliga tabellställningar.">ℹ️</span>
                                     </th>
                                     <th class="num">Status</th>
                                 </tr>
@@ -2956,22 +2957,95 @@
             return team?.team_name_short || team?.team_name_long || teamId;
         }
 
-        function countCorrectSnapshots(picks, throughValue) {
-            const max = Number(throughValue) || 0;
-            if (max <= 0) return 0;
-            let correct = 0;
-            if (state.timelineMode === 'date') {
-                for (let i=1; i<=max; i++) {
-                    const snapshot = buildStandingsForDateIndex(i);
-                    if (snapshot.length && isH2HTipCorrect(picks, buildActualRankByTeamId(snapshot))) correct++;
+        function parseDateKeyLocal(dateKey) {
+            const match = String(dateKey || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (!match) return null;
+            const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0, 0);
+            return Number.isFinite(d.getTime()) ? d : null;
+        }
+
+        function daysInclusive(fromDateKey, throughDateKey) {
+            const from = parseDateKeyLocal(fromDateKey);
+            const through = parseDateKeyLocal(throughDateKey);
+            if (!from || !through || through < from) return 0;
+            return Math.floor((through - from) / 86400000) + 1;
+        }
+
+        function todayDateKey() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        // Tiebreakern bygger ENBART på den faktiska tabellen över kalendern.
+        // Ett tabelläge efter en matchdag gäller fram till dagen före nästa matchdag.
+        // Om vi står på den senaste verkliga matchdagen räknas den pågående perioden
+        // vidare till och med idag.
+        function countCorrectDaysThroughDate(picks, throughDateKey) {
+            if (!Array.isArray(picks) || picks.length < 2 || !throughDateKey || !DATE_TIMELINE_KEYS.length) return 0;
+
+            let correctDays = 0;
+
+            for (let i = 0; i < DATE_TIMELINE_KEYS.length; i++) {
+                const startKey = DATE_TIMELINE_KEYS[i];
+                if (startKey > throughDateKey) break;
+
+                const standings = DATE_STANDING_SNAPSHOTS.get(startKey);
+                if (!standings?.length) continue;
+
+                const nextKey = DATE_TIMELINE_KEYS[i + 1] || null;
+                let endKey = throughDateKey;
+
+                if (nextKey && nextKey <= throughDateKey) {
+                    const nextDate = parseDateKeyLocal(nextKey);
+                    if (nextDate) {
+                        nextDate.setDate(nextDate.getDate() - 1);
+                        endKey = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+                    }
                 }
-            } else {
-                for (let round=1; round<=max; round++) {
-                    const snapshot = STANDING_SNAPSHOTS.get(round);
-                    if (snapshot && isH2HTipCorrect(picks, buildActualRankByTeamId(snapshot))) correct++;
+
+                if (isH2HTipCorrect(picks, buildActualRankByTeamId(standings))) {
+                    correctDays += daysInclusive(startKey, endKey);
+                }
+
+                if (!nextKey || nextKey > throughDateKey) break;
+            }
+
+            return correctDays;
+        }
+
+        function getRealDateForMatchSnapshot(round) {
+            const target = Number(round) || 0;
+            if (target <= 0) return '';
+
+            for (const dateKey of DATE_TIMELINE_KEYS) {
+                const standings = DATE_STANDING_SNAPSHOTS.get(dateKey);
+                if (standings?.length && standings.every(row => Number(row.g) >= target)) {
+                    return dateKey;
                 }
             }
-            return correct;
+
+            return '';
+        }
+
+        function getTiebreakThroughDate(activeValue, isStartMode) {
+            if (isStartMode || !DATE_TIMELINE_KEYS.length) return '';
+
+            if (state.timelineMode === 'date') {
+                const index = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, Number(activeValue) || 0));
+                if (index <= 0) return '';
+
+                // På senaste verkliga tabelläget fortsätter dagräkningen genom pausen fram till idag.
+                if (index === DATE_TIMELINE_KEYS.length) {
+                    return todayDateKey();
+                }
+
+                return DATE_TIMELINE_KEYS[index - 1] || '';
+            }
+
+            // I "Spelade matcher" är själva tabellen konstruerad. Dagarna räknas ändå
+            // bara från verkliga tabeller och visas fram till den dag då alla lag först
+            // hade hunnit spela minst X matcher.
+            return getRealDateForMatchSnapshot(activeValue);
         }
 
         function getFinalPointSpread(standings) {
@@ -3028,7 +3102,8 @@
 
         function buildParticipantRows(actualRankByTeamId, standings, isStartMode, currentRound) {
             const rows = [];
-            const roundsPlayed = isStartMode ? 0 : (Number(currentRound) || 0);
+            const activeValue = isStartMode ? 0 : (Number(currentRound) || 0);
+            const tiebreakThroughDate = getTiebreakThroughDate(activeValue, isStartMode);
             const isFinalRound = !isStartMode && standings.length > 0 && standings.every(row => Number(row.g) === 52);
             const actualPointSpread = isFinalRound ? getFinalPointSpread(standings) : null;
 
@@ -3050,8 +3125,8 @@
                         : null,
                     teamCount: picks.length,
                     correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId),
-                    correctRounds: isStartMode ? 0 : countCorrectSnapshots(picks, roundsPlayed),
-                    roundsPlayed
+                    correctDays: isStartMode ? 0 : countCorrectDaysThroughDate(picks, tiebreakThroughDate),
+                    tiebreakThroughDate
                 });
             });
 
@@ -3065,24 +3140,24 @@
 
                 if (a.correct && b.correct) {
                     if (b.teamCount !== a.teamCount) return b.teamCount - a.teamCount;
-                    if (b.correctRounds !== a.correctRounds) return b.correctRounds - a.correctRounds;
+                    if (b.correctDays !== a.correctDays) return b.correctDays - a.correctDays;
                 }
 
                 return a.display_name.localeCompare(b.display_name, 'sv');
             });
 
             // Utslagsfrågan används endast efter omgång 52 och endast om
-            // förstaplatsen fortfarande är delad efter Lag + Utfall.
+            // förstaplatsen fortfarande är delad efter Lag + Dagar.
             if (isFinalRound) {
                 const correctRows = rows.filter(row => row.correct === true);
 
                 if (correctRows.length > 1) {
                     const bestTeamCount = correctRows[0].teamCount;
-                    const bestCorrectRounds = correctRows[0].correctRounds;
+                    const bestCorrectDays = correctRows[0].correctDays;
 
                     const tiedForFirst = correctRows.filter(row =>
                         row.teamCount === bestTeamCount &&
-                        row.correctRounds === bestCorrectRounds
+                        row.correctDays === bestCorrectDays
                     );
 
                     if (tiedForFirst.length > 1 && tiedForFirst.every(row => Number.isFinite(row.pointSpreadDiff))) {
@@ -3124,10 +3199,10 @@
             if (correctRows.length < 2) return null;
 
             const bestTeamCount = correctRows[0].teamCount;
-            const bestCorrectRounds = correctRows[0].correctRounds;
+            const bestCorrectDays = correctRows[0].correctDays;
             const finalists = correctRows.filter(row =>
                 row.teamCount === bestTeamCount &&
-                row.correctRounds === bestCorrectRounds
+                row.correctDays === bestCorrectDays
             );
 
             if (finalists.length < 2) return null;
@@ -3630,16 +3705,16 @@
                 } else {
                     correctSeen += 1;
 
-                    let rankKey = `${row.teamCount}|${row.correctRounds}`;
+                    let rankKey = `${row.teamCount}|${row.correctDays}`;
 
                     // Efter omgång 52 skiljer utslagsfrågan endast dem som låg
-                    // på delad förstaplats efter Lag + Utfall. Lika avstånd ger
+                    // på delad förstaplats efter Lag + Dagar. Lika avstånd ger
                     // fortsatt delad placering.
                     if (standings.length && standings.every(r => Number(r.g) === 52) && Number.isFinite(row.pointSpreadDiff)) {
                         const firstCorrect = rows.find(r => r.correct === true);
                         const tiedForOrdinaryFirst = firstCorrect &&
                             row.teamCount === firstCorrect.teamCount &&
-                            row.correctRounds === firstCorrect.correctRounds;
+                            row.correctDays === firstCorrect.correctDays;
 
                         if (tiedForOrdinaryFirst) {
                             rankKey += `|${row.pointSpreadDiff}`;
@@ -3679,9 +3754,9 @@
                 tdCount.className = 'num';
                 tdCount.textContent = String(row.teamCount);
 
-                const tdCorrectRounds = document.createElement('td');
-                tdCorrectRounds.className = 'num';
-                tdCorrectRounds.textContent = `${row.correctRounds}/${row.roundsPlayed}`;
+                const tdCorrectDays = document.createElement('td');
+                tdCorrectDays.className = 'num';
+                tdCorrectDays.textContent = String(row.correctDays);
 
                 const tdStatus = document.createElement('td');
                 tdStatus.className = 'num h2h-status';
@@ -3696,7 +3771,7 @@
                     tdStatus.classList.add('incorrect');
                 }
 
-                tr.append(tdRank, tdTipper, tdCount, tdCorrectRounds, tdStatus);
+                tr.append(tdRank, tdTipper, tdCount, tdCorrectDays, tdStatus);
                 tbody.appendChild(tr);
             });
 
