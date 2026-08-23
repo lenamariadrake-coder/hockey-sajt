@@ -2304,6 +2304,8 @@ Lag 14</pre>
         // LocalStorage-nyckel för valt matchsteg (liga + säsong)
         // ⚠️ MÅSTE vara IDENTISK i systerappen
         const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
+        const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
+        const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
         const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2026_2027.v1';
         const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2026_2027.v1";
         const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2026_2027";
@@ -5765,7 +5767,7 @@ Lag 14</pre>
                 : 'Jämförelsen utgår från varje lags första X matcher.';
         }
 
-        function renderDateTimelineStep() {
+        function renderDateTimelineStep({ persist = true } = {}) {
             if (!timelineSlider || state.timelineMode !== 'date') return;
 
             const max = DATE_TIMELINE_KEYS.length;
@@ -5774,6 +5776,12 @@ Lag 14</pre>
             index = Math.max(0, Math.min(max, Math.trunc(index)));
             timelineSlider.value = String(index);
             state.currentDateIndex = index;
+
+            // Dela det faktiska speldatumet med systersidan.
+            if (persist) {
+                const dateKey = index > 0 ? (DATE_TIMELINE_KEYS[index - 1] || '') : '';
+                try { localStorage.setItem(DATE_SNAPSHOT_STORAGE_KEY, dateKey); } catch (e) { }
+            }
 
             if (state.activeView === 'table') {
                 renderTableForRound(null, buildStandingsForDateIndex(index));
@@ -5802,6 +5810,7 @@ Lag 14</pre>
             }
 
             state.timelineMode = mode;
+            try { localStorage.setItem(TIMELINE_MODE_STORAGE_KEY, mode); } catch (e) { }
             if (timelineModeMatches) timelineModeMatches.checked = mode === 'matches';
             if (timelineModeDate) timelineModeDate.checked = mode === 'date';
             updateTimelineModeHelp();
@@ -5833,6 +5842,66 @@ Lag 14</pre>
                 // Tvinga en riktig render även om samma matchsteg renderades före datumläget.
                 state._lastAppliedRoundValue = undefined;
                 applyRoundFromSliderValue('timeline-mode-matches');
+            }
+        }
+
+        function getStoredDateTimelineIndex() {
+            let storedDate = '';
+            try { storedDate = String(localStorage.getItem(DATE_SNAPSHOT_STORAGE_KEY) || '').trim(); } catch (e) { }
+            if (!storedDate) return 0;
+
+            const exactIndex = DATE_TIMELINE_KEYS.indexOf(storedDate);
+            if (exactIndex >= 0) return exactIndex + 1;
+
+            let best = 0;
+            for (let i = 0; i < DATE_TIMELINE_KEYS.length; i++) {
+                if (DATE_TIMELINE_KEYS[i] <= storedDate) best = i + 1;
+                else break;
+            }
+            return best;
+        }
+
+        function restoreTimelineStateFromLocalStorage() {
+            if (!timelineSlider) return;
+
+            let storedMode = 'matches';
+            try {
+                const rawMode = localStorage.getItem(TIMELINE_MODE_STORAGE_KEY);
+                if (rawMode === 'date' || rawMode === 'matches') storedMode = rawMode;
+            } catch (e) { }
+
+            state.timelineMode = storedMode;
+            if (timelineModeMatches) timelineModeMatches.checked = storedMode === 'matches';
+            if (timelineModeDate) timelineModeDate.checked = storedMode === 'date';
+            updateTimelineModeHelp();
+
+            const layout = document.querySelector('.standings-results-layout');
+            const movementLabel = document.getElementById('movementToggleLabel');
+
+            if (storedMode === 'date') {
+                timelineSlider.min = '0';
+                timelineSlider.max = String(DATE_TIMELINE_KEYS.length);
+                const index = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, getStoredDateTimelineIndex()));
+                timelineSlider.value = String(index);
+                state.currentDateIndex = index;
+                layout?.classList.add('date-mode');
+                if (movementLabel) {
+                    movementLabel.style.display = state.activeView === 'table' ? '' : 'none';
+                    movementLabel.title = 'Grönt = upp, rött = ner sedan föregående speldatum';
+                }
+                renderDateTimelineStep({ persist: false });
+            } else {
+                timelineSlider.min = '0';
+                timelineSlider.max = String(Number(state.latestRound || 0));
+                const wanted = readRoundFromLS();
+                timelineSlider.value = String(clampRound(Number(wanted)));
+                state._lastAppliedRoundValue = undefined;
+                layout?.classList.remove('date-mode');
+                if (movementLabel) {
+                    movementLabel.style.display = state.activeView === 'table' ? '' : 'none';
+                    movementLabel.title = 'Grönt = upp, rött = ner sedan föregående matchsteg';
+                }
+                applyRoundFromSliderValue('timeline-state-restore');
             }
         }
 
@@ -6429,23 +6498,9 @@ Lag 14</pre>
             }
 
             // ---------------------------------------------------------
-            // 8) Boot round från LS (round_shl_2026_2027) + initial render
+            // 8) Boot tidslinje från delad localStorage-state
             // ---------------------------------------------------------
-            try {
-                const rawRound = localStorage.getItem(ROUND_STORAGE_KEY);
-                const n = Number(rawRound);
-                const wanted = Number.isFinite(n) ? Math.trunc(n) : 0;
-                const clamped = Math.max(0, Math.min(maxRound, wanted));
-
-                if (timelineSlider) timelineSlider.value = String(clamped);
-                state.currentRound = (clamped === 0) ? null : clamped;
-
-                dlog(DEBUG.ui, "[round][restore] from LS", { rawRound, clamped, maxRound });
-            } catch (e) {
-                console.warn("[round][restore] could not read", e);
-                if (timelineSlider) timelineSlider.value = "0";
-                state.currentRound = null;
-            }
+            restoreTimelineStateFromLocalStorage();
 
             // Export-knapp (📸) – ska bara ta snapshot, inte påverka state/UI
             if (exportBtn) {
@@ -6462,7 +6517,11 @@ Lag 14</pre>
             console.log("[view][init] initial view", { initialView, hash: location.hash });
 
             setActiveView(initialView);
-            applyRoundFromSliderValue();
+            if (state.timelineMode === 'date') {
+                renderDateTimelineStep({ persist: false });
+            } else {
+                applyRoundFromSliderValue();
+            }
 
             loadingAdvance('Första render klar');
             loadingDone();
@@ -6479,6 +6538,11 @@ Lag 14</pre>
         // ------------------------------------------------------------
         window.addEventListener("storage", (e) => {
             try {
+                if (e.key === TIMELINE_MODE_STORAGE_KEY || e.key === DATE_SNAPSHOT_STORAGE_KEY) {
+                    restoreTimelineStateFromLocalStorage();
+                    return;
+                }
+
                 if (e.key === SHL_TIPS_CACHE_KEY && e.newValue) {
                     const cache = readSharedShlTipsCache();
                     if (!cache) return;
