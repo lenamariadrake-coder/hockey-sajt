@@ -1756,6 +1756,17 @@
         }
         .mini-btn:hover { background: #f9fafb; }
 
+
+        /* Aktuellt underlag för Snitt – uppdateras direkt när filtren ändras. */
+        .tips-count-status {
+            margin: .15rem auto .55rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: .85rem;
+            font-weight: 600;
+            min-height: 1.25em;
+        }
+
         .table-wrap {
             display: block;
             width: fit-content;
@@ -1955,6 +1966,8 @@ Lag 14</pre>
             </div>
         </div>
 
+        <div id="tips-count-status" class="tips-count-status" aria-live="polite"></div>
+
         <div class="table-wrap" id="summary-export-area">
             <table aria-label="Snittplacering baserat på tabelltips">
                 <thead>
@@ -2044,6 +2057,7 @@ Lag 14</pre>
                 cbExpert: document.getElementById('cb-expert'),
                 cbCustom: document.getElementById('cb-custom'),
                 tbody: document.getElementById('summary-tbody'),
+                tipsCountStatus: document.getElementById('tips-count-status'),
                 exportBtn: document.getElementById('exportBtn'),
                 refreshTipsBtn: document.getElementById('refreshTipsBtn'),
                 seasonSelect: document.getElementById('seasonSelect'),
@@ -2574,6 +2588,40 @@ Lag 14</pre>
                     els.openCustomBtn.setAttribute('title', label);
                 }
             }
+            function matrixTipCount(matrix) {
+                if (!matrix || typeof matrix !== 'object') return 0;
+                const firstRow = Object.values(matrix).find(Array.isArray);
+                return Array.isArray(firstRow)
+                    ? firstRow.reduce((sum, value) => sum + (Number(value) || 0), 0)
+                    : 0;
+            }
+
+            function updateTipsCountStatus() {
+                const parts = [];
+                let total = 0;
+
+                if (els.cbHobby.checked) {
+                    const count = matrixTipCount(TIPS_MATRIX_HOBBY);
+                    total += count;
+                    parts.push(`${count} amatörer`);
+                }
+                if (els.cbExpert.checked) {
+                    const count = matrixTipCount(TIPS_MATRIX_EXPERT);
+                    total += count;
+                    parts.push(`${count} experter`);
+                }
+                if (els.cbCustom.checked && TIPS_MATRIX_CUSTOM) {
+                    const count = matrixTipCount(TIPS_MATRIX_CUSTOM);
+                    total += count;
+                    parts.push(count === 1 ? 'eget tips' : `${count} egna tips`);
+                }
+
+                if (!els.tipsCountStatus) return;
+                els.tipsCountStatus.textContent = total > 0
+                    ? `${total} tips ingår: ${parts.join(' + ')}`
+                    : 'Inga tips ingår i snittet';
+            }
+
             function render() {
                 const rows = computeRows();
                 const candidate = rows.find(r => r.total > 0);
@@ -2588,6 +2636,7 @@ Lag 14</pre>
                         <td class="col-bottom">${r.bottom5}</td>
                     </tr>`).join('');
                 syncCustomButtons();
+                updateTipsCountStatus();
             }
 
             async function exportTableAsImage() {
