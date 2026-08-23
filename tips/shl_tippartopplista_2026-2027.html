@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SHL – Tippartopplista 2026/2027</title>
+    <!-- Datum-cache-fix: sparar timeline mode + valt speldatum i localStorage -->
 
     <!-- html2canvas för export av aktiv vy -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -2167,6 +2168,8 @@ Lag 14</pre>
 
         // LocalStorage-nycklar. Dessa matchar tabell/värmekarta-sidan för 2026/2027.
         const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
+        const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
+        const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
         const RANKCFG_STORAGE_KEY = 'rankcfg_shl_2026_2027';
         const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2026_2027";
         const SHL_STANDINGS_CACHE_KEY = "SHL_STANDINGS_DATA_2026_2027";
@@ -3282,6 +3285,7 @@ Lag 14</pre>
         function onRoundStorageEvent(e) {
             if (!e) return;
             if (e.key !== ROUND_STORAGE_KEY) return;
+            if (state.timelineMode !== 'matches') return;
 
             if (!timelineSlider) {
                 console.warn("[round][storage] slider saknas, ignorerar");
@@ -3314,6 +3318,15 @@ Lag 14</pre>
             if (typeof renderTableForRound === "function") {
                 renderTableForRound(state.currentRound);
             }
+        }
+
+        function onTimelineStorageEvent(e) {
+            if (!e) return;
+            if (e.key !== TIMELINE_MODE_STORAGE_KEY && e.key !== DATE_SNAPSHOT_STORAGE_KEY) return;
+            if (!timelineSlider) return;
+
+            // Om en systerflik ändrar tidslinjeläge eller datum, följ samma val här.
+            restoreTimelineStateFromLocalStorage();
         }
 
         let _customControlsBound = false;
@@ -5509,7 +5522,7 @@ Lag 14</pre>
                 : 'Jämförelsen utgår från varje lags första X matcher.';
         }
 
-        function renderDateTimelineStep() {
+        function renderDateTimelineStep({ persist = true } = {}) {
             if (!timelineSlider || state.timelineMode !== 'date') return;
 
             const max = DATE_TIMELINE_KEYS.length;
@@ -5519,6 +5532,13 @@ Lag 14</pre>
 
             timelineSlider.value = String(index);
             state.currentDateIndex = index;
+
+            // Spara själva datumet, inte bara slider-indexet. Då fortsätter rätt datum
+            // att återställas även när nya speldatum senare läggs till i tidslinjen.
+            if (persist) {
+                const dateKey = index > 0 ? (DATE_TIMELINE_KEYS[index - 1] || '') : '';
+                try { localStorage.setItem(DATE_SNAPSHOT_STORAGE_KEY, dateKey); } catch (e) { }
+            }
 
             if (state.activeView === 'table') {
                 renderTableForRound(null);
@@ -5545,6 +5565,7 @@ Lag 14</pre>
             }
 
             state.timelineMode = mode;
+            try { localStorage.setItem(TIMELINE_MODE_STORAGE_KEY, mode); } catch (e) { }
             if (timelineModeMatches) timelineModeMatches.checked = mode === 'matches';
             if (timelineModeDate) timelineModeDate.checked = mode === 'date';
             updateTimelineModeHelp();
@@ -5570,6 +5591,53 @@ Lag 14</pre>
                 timelineSlider.value = String(clamped);
                 state.currentRound = clamped === 0 ? null : clamped;
                 applyRoundFromSliderValue();
+            }
+        }
+
+        function getStoredDateTimelineIndex() {
+            let storedDate = '';
+            try { storedDate = String(localStorage.getItem(DATE_SNAPSHOT_STORAGE_KEY) || '').trim(); } catch (e) { }
+            if (!storedDate) return 0;
+
+            const exactIndex = DATE_TIMELINE_KEYS.indexOf(storedDate);
+            if (exactIndex >= 0) return exactIndex + 1;
+
+            // Om ett tidigare sparat datum av någon anledning inte längre finns i datan,
+            // välj närmaste föregående speldatum i stället för att hoppa till startläget.
+            let best = 0;
+            for (let i = 0; i < DATE_TIMELINE_KEYS.length; i++) {
+                if (DATE_TIMELINE_KEYS[i] <= storedDate) best = i + 1;
+                else break;
+            }
+            return best;
+        }
+
+        function restoreTimelineStateFromLocalStorage() {
+            if (!timelineSlider) return;
+
+            let storedMode = 'matches';
+            try {
+                const rawMode = localStorage.getItem(TIMELINE_MODE_STORAGE_KEY);
+                if (rawMode === 'date' || rawMode === 'matches') storedMode = rawMode;
+            } catch (e) { }
+
+            state.timelineMode = storedMode;
+            if (timelineModeMatches) timelineModeMatches.checked = storedMode === 'matches';
+            if (timelineModeDate) timelineModeDate.checked = storedMode === 'date';
+            updateTimelineModeHelp();
+
+            if (storedMode === 'date') {
+                timelineSlider.min = '0';
+                timelineSlider.max = String(DATE_TIMELINE_KEYS.length);
+                const index = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, getStoredDateTimelineIndex()));
+                timelineSlider.value = String(index);
+                state.currentDateIndex = index;
+                renderDateTimelineStep({ persist: false });
+            } else {
+                timelineSlider.min = '0';
+                timelineSlider.max = String(Number(state.latestRound || 0));
+                restoreRoundFromLocalStorage();
+                if (state.activeView === 'table') renderTableForRound(state.currentRound);
             }
         }
 
@@ -6135,7 +6203,7 @@ refreshGamesBtn.disabled = true;
                     }
                     );
                 }
-                restoreRoundFromLocalStorage();
+                restoreTimelineStateFromLocalStorage();
 
                 timelineSlider?.addEventListener("input", () => {
                     stopPlayback("slider input");
@@ -6234,6 +6302,7 @@ refreshGamesBtn.disabled = true;
                     if (typeof onCustomStorageEvent === "function") onCustomStorageEvent(e);
                     if (typeof onTipsSourcesStorageEvent === "function") onTipsSourcesStorageEvent(e);
                     if (typeof onRoundStorageEvent === "function") onRoundStorageEvent(e);
+                    if (typeof onTimelineStorageEvent === "function") onTimelineStorageEvent(e);
 
                     if (e.key === LS_ROW_COLORS_KEY) {
                         loadRowColorsFromLocalStorage();
