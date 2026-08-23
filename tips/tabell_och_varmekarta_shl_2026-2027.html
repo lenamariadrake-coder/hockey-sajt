@@ -6312,7 +6312,15 @@ Lag 14</pre>
             seasonSelect?.addEventListener('change', () => {
                 const target = seasonSelect.value;
                 if (!target) return;
-                location.href = target;
+
+                // Behåll aktuell vy när man byter säsong:
+                // Tabell -> tabell, Värmekarta -> värmekarta.
+                if (state.activeView === 'heat') {
+                    const baseTarget = target.split('#')[0];
+                    location.href = `${baseTarget}#heat`;
+                } else {
+                    location.href = target.split('#')[0];
+                }
             });
 
             refreshGamesBtn?.addEventListener('click', () => {
