@@ -2369,6 +2369,7 @@
         const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
         const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
         const SHL_STANDINGS_CACHE_KEY = 'SHL_STANDINGS_DATA_2026_2027';
+        const SHL_H2H_TIPS_CACHE_KEY = 'SHL_H2H_TIPS_DATA_2026_2027';
         const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 
         /* ===========================================================
@@ -2450,7 +2451,59 @@
             });
         }
 
+        function readH2HTipsCache() {
+            try {
+                const raw = localStorage.getItem(SHL_H2H_TIPS_CACHE_KEY);
+                if (!raw) return null;
+                const data = JSON.parse(raw);
+                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
+                if (!isShlCacheFresh(data) || !Array.isArray(data.participants)) return null;
+                return data;
+            } catch (error) {
+                console.warn('[cache] kunde inte läsa H2H-tipscache', error);
+                return null;
+            }
+        }
+
+        function hydrateH2HTipsCache(cache) {
+            H2H_TIPS_BY_PARTICIPANT.clear();
+            (cache.participants || []).forEach(participant => {
+                if (!participant?.participant_id || !Array.isArray(participant.picks)) return;
+                H2H_TIPS_BY_PARTICIPANT.set(participant.participant_id, {
+                    participant_id: participant.participant_id,
+                    display_name: participant.display_name || participant.participant_id,
+                    h2h_point_spread_tip: Number.isFinite(Number(participant.h2h_point_spread_tip))
+                        ? Number(participant.h2h_point_spread_tip)
+                        : null,
+                    picks: participant.picks.map(pick => ({
+                        team_id: pick.team_id,
+                        pick_rank: Number(pick.pick_rank)
+                    })).filter(pick => pick.team_id && Number.isFinite(pick.pick_rank))
+                });
+            });
+        }
+
+        function writeH2HTipsCache() {
+            try {
+                localStorage.setItem(SHL_H2H_TIPS_CACHE_KEY, JSON.stringify({
+                    version: 1,
+                    savedAt: new Date().toISOString(),
+                    season: '2026_2027',
+                    league: 'shl',
+                    participants: Array.from(H2H_TIPS_BY_PARTICIPANT.values())
+                }));
+            } catch (error) {
+                console.warn('[cache] kunde inte skriva H2H-tipscache', error);
+            }
+        }
+
         async function loadH2HTips(source) {
+            const cached = readH2HTipsCache();
+            if (cached) {
+                hydrateH2HTipsCache(cached);
+                if (H2H_TIPS_BY_PARTICIPANT.size) return 'cache';
+            }
+
             const { rows } = await GoogleSheetsData.fetchRows(source);
             if (!rows.length) throw new Error('H2H-tips: inga rader hittades.');
 
@@ -2517,6 +2570,9 @@
             if (!H2H_TIPS_BY_PARTICIPANT.size) {
                 throw new Error('H2H-tips: inga rader med tip_type = h2h hittades.');
             }
+
+            writeH2HTipsCache();
+            return 'network';
         }
 
         function normalizeGameDateKey(raw) {
