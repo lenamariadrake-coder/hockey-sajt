@@ -1424,6 +1424,58 @@
             position: relative;
         }
 
+
+        /* =========================================================
+     SÄSONGSVÄLJARE
+     ========================================================= */
+        .season-select-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            margin-left: .1rem;
+            white-space: nowrap;
+        }
+
+        .season-select-label {
+            font-size: .9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .season-select {
+            height: 34px;
+            padding: 0 2rem 0 .75rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--btn-gray-bg);
+            color: var(--text);
+            font: inherit;
+            font-size: .9rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .season-select:hover {
+            background: var(--btn-gray-hover);
+        }
+
+        .season-select:focus-visible {
+            outline: 2px solid rgba(0, 124, 48, .35);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 700px) {
+            .season-select-label {
+                display: none;
+            }
+
+            .season-select {
+                max-width: 150px;
+                padding-left: .65rem;
+            }
+        }
+
         /* =========================================================
  22) RESPONSIVE VISIBILITY: .m-tip (ℹ️)
  ========================================================= */
@@ -1754,20 +1806,37 @@ title="Till sammanfattningen">📄</a> -->
                 <button id="refreshGamesBtn" class="btn btn-icon-plain" type="button"
                     aria-label="Hämta färska matchdata" title="Hämta färska matchdata från games">🔄</button>
 
-                <!-- Tabs i egen grupp => mindre spacing mellan Snitt/Topplista/Tabell och värmekarta/palett -->
+                <!-- Huvudnavigation: samma ordning och placering som på Tabell/Värmekarta -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
 
-                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="shl-tips_2026-2027.html" aria-label="Snitt"
-                        title="Snitt">Snitt</a>
+                    <a id="tabTabell" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2026-2027.html#tabell"
+                        aria-label="Tabell" title="Tabell">Tabell</a>
+
+                    <a id="tabVarmekarta" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2026-2027.html#varmekarta"
+                        aria-label="Värmekarta" title="Värmekarta">Värmekarta</a>
+
+                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="shl-tips_2026-2027.html"
+                        aria-label="Snitt" title="Snitt">Snitt</a>
 
                     <button id="tabTable" class="tab-btn" role="tab" aria-selected="true"
                         aria-controls="viewTable">Topplista</button>
 
-                    <a id="tabTabell" class="tab-btn tab-btn-link" href="tabell_och_varmekarta_shl_2026-2027.html#tabell"
-                        aria-label="Tabell" title="Tabell">Tabell</a>
+                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="inbordes_2026-2027.html"
+                        aria-label="Inbördes" title="Inbördes">Inbördes</a>
 
-                    <a id="tabVarmekarta" class="tab-btn tab-btn-link" href="tabell_och_varmekarta_shl_2026-2027.html#varmekarta"
-                        aria-label="Värmekarta" title="Värmekarta">Värmekarta</a>
+                    <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
+                        <span class="season-select-label">Säsong</span>
+                        <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
+                            <option value="tabell_shl_2021-2022.html">2021/2022</option>
+                            <option value="tabell_shl_2022-2023.html">2022/2023</option>
+                            <option value="tabell_shl_2023-2024.html">2023/2024</option>
+                            <option value="tabell_shl_2024-2025.html">2024/2025</option>
+                            <option value="tabell_och_varmekarta_shl_2025-2026.html">2025/2026</option>
+                            <option value="" selected>2026/2027</option>
+                        </select>
+                    </div>
 
                     <label id="rowColorToggleSummary" class="rowcolor-toggle rowcolor-toggle--icon"
                         title="Visa färgpaletter">
@@ -1775,6 +1844,7 @@ title="Till sammanfattningen">📄</a> -->
                         <span class="toggle-icon" aria-hidden="true">🎨</span>
                         <span class="sr-only" id="rowColorToggleSrText">Visa färgpaletter</span>
                     </label>
+
                     <button id="btnCustomizeRank" class="tab-btn tab-btn-customize" type="button" aria-expanded="false"
                         aria-controls="rankCustomizePanel"
                         title="Anpassa vilka kolumner som ingår i tabellen och deras prioritet">
@@ -2058,6 +2128,8 @@ Lag 14</pre>
            1) DOM-hakar (matchar HTML)
            =========================================================== */
         const btnTabell = document.getElementById('tabTable');       // flikknapp: Topplista
+        const seasonSelectWrap = document.getElementById('seasonSelectWrap');
+        const seasonSelect = document.getElementById('seasonSelect');
         const viewTable = document.getElementById('viewTable');     // panel: Topplista-vyn
         const tableStand = document.getElementById('tableStandings'); // HTML-tabellen i topplistan
 
@@ -6175,7 +6247,13 @@ refreshGamesBtn.disabled = true;
             // Steg 4: UI-skal för "Anpassa"
             bindRankCustomizePanelUI();
 
-            refreshGamesBtn?.addEventListener('click', () => {
+            seasonSelect?.addEventListener('change', () => {
+            const target = seasonSelect.value;
+            if (!target) return;
+            location.href = target;
+        });
+
+        refreshGamesBtn?.addEventListener('click', () => {
                 refreshGamesOnly();
             });
 
