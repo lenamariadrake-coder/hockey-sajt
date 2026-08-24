@@ -1225,6 +1225,11 @@
                                         Två sämsta (13-14)
                                     </label>
 
+                                    <label>
+                                        <input type="checkbox" id="filter-regular-unresolved" checked>
+                                        Ej avgjort
+                                    </label>
+
                                     <div class="filter-advanced">
                                         <label for="regular-interval-input">Intervall / sekvens:</label>
                                         <div class="interval-row">
@@ -1286,6 +1291,11 @@
                                     <label>
                                         <input type="checkbox" id="filter-playoff-relegated" value="relegated" checked>
                                         Åkte ur
+                                    </label>
+
+                                    <label>
+                                        <input type="checkbox" id="filter-playoff-unresolved" checked>
+                                        Ej avgjort
                                     </label>
 
                                 </div>
@@ -4631,6 +4641,9 @@
                     return 'åkte ur';    // benämning i tabellen
 
                 case 'none':
+                    return '-';
+                case '':
+                    return 'ej avgjort';
                 default:
                     return '-';
             }
@@ -5188,14 +5201,15 @@
             const cbRegTop6 = document.getElementById('filter-regular-top6');
             const cbRegMiddle = document.getElementById('filter-regular-middle');
             const cbRegBottom2 = document.getElementById('filter-regular-bottom2');
+            const cbRegUnresolved = document.getElementById('filter-regular-unresolved');
 
-            const hasRegularFilters = cbRegAll && cbRegTop6 && cbRegMiddle && cbRegBottom2;
+            const hasRegularFilters = cbRegAll && cbRegTop6 && cbRegMiddle && cbRegBottom2 && cbRegUnresolved;
 
             const useRegularAll = hasRegularFilters && cbRegAll.checked;
             const useSpecificRegular =
                 hasRegularFilters &&
                 !cbRegAll.checked &&
-                (cbRegTop6.checked || cbRegMiddle.checked || cbRegBottom2.checked);
+                (cbRegTop6.checked || cbRegMiddle.checked || cbRegBottom2.checked || cbRegUnresolved.checked);
 
             // --- INTERVALL-LOGIK FÖR GRUNDSERIE ---
             const MAX_RANK = GLOBAL_MAX_REGULAR_RANK || 14;
@@ -5256,6 +5270,7 @@
             const cbNone = document.getElementById('filter-playoff-none');
             const cbPlayOut = document.getElementById('filter-playoff-playout');
             const cbRelegated = document.getElementById('filter-playoff-relegated');
+            const cbUnresolved = document.getElementById('filter-playoff-unresolved');
 
             let playoffActive = false;    // true = vi begränsar på slutspel
             let playoffSet = null;        // Set med tillåtna playoffResult-värden
@@ -5268,7 +5283,8 @@
                 cbPlayIn,
                 cbNone,
                 cbPlayOut,
-                cbRelegated
+                cbRelegated,
+                cbUnresolved
             ];
 
             if (cbPOAll && playoffCbs.every(cb => !!cb)) {
@@ -5282,6 +5298,7 @@
                 if (cbNone.checked) activeResults.push('none');
                 if (cbPlayOut.checked) activeResults.push('play_out');
                 if (cbRelegated.checked) activeResults.push('relegated');
+                if (cbUnresolved.checked) activeResults.push('');
                 const totalSegments = playoffCbs.length;
 
                 if (activeResults.length === 0) {
@@ -5336,17 +5353,16 @@
                 // --- GRUNDSERIE: antingen intervall eller kryss-logik ---
                 let regularOk = true;
 
-                if (intervalActive) {
-                    // Intervall styr ? kryssen ignoreras
-
-                    if (!Number.isFinite(rank)) {
-                        // Har vi inget rank-värde och ett aktivt intervall? Dölj raden.
-                        regularOk = false;
-                    } else if (intervalSet && intervalSet.size > 0) {
-                        // Aktivt intervall med platser ? visa bara dessa
+                if (hasRegularFilters && !Number.isFinite(rank)) {
+                    // Tom grundserieplacering = säsongen är ännu inte avgjord.
+                    // Den hanteras som en egen filterkategori, även om ett numeriskt intervall används.
+                    regularOk = cbRegUnresolved.checked;
+                } else if (intervalActive) {
+                    // Intervall styr de numeriska placeringarna.
+                    if (intervalSet && intervalSet.size > 0) {
                         regularOk = intervalSet.has(rank);
                     } else {
-                        // Aktivt men tomt intervall (savedIntervalText === "") ? visa inga rader
+                        // Aktivt men tomt intervall (savedIntervalText === "") ? visa inga avgjorda rader
                         regularOk = false;
                     }
                 } else if (hasRegularFilters) {
@@ -5542,6 +5558,7 @@
             const cbRegTop6 = document.getElementById('filter-regular-top6');
             const cbRegMiddle = document.getElementById('filter-regular-middle');
             const cbRegBottom2 = document.getElementById('filter-regular-bottom2');
+            const cbRegUnresolved = document.getElementById('filter-regular-unresolved');
             const intervalInput = document.getElementById('regular-interval-input');
 
             // if (!cbRegAll || !cbRegTop6 || !cbRegMiddle || !cbRegBottom2 || !intervalInput) {
@@ -5558,6 +5575,7 @@
                 cbRegTop6.indeterminate = false;
                 cbRegMiddle.indeterminate = false;
                 cbRegBottom2.indeterminate = false;
+                cbRegUnresolved.indeterminate = false;
 
                 // Bygg unionen av alla valda segment
                 if (cbRegTop6.checked) {
@@ -5572,8 +5590,8 @@
                 }
 
                 // Bestäm "Alla"-rutans state utifrån segmenten
-                const anySegmentChecked = cbRegTop6.checked || cbRegMiddle.checked || cbRegBottom2.checked;
-                const allSegmentsChecked = cbRegTop6.checked && cbRegMiddle.checked && cbRegBottom2.checked;
+                const anySegmentChecked = cbRegTop6.checked || cbRegMiddle.checked || cbRegBottom2.checked || cbRegUnresolved.checked;
+                const allSegmentsChecked = cbRegTop6.checked && cbRegMiddle.checked && cbRegBottom2.checked && cbRegUnresolved.checked;
 
                 //                console.log('Grundserie: updateIntervalFromSegments - före All-state', {
                 //                    maxRank,
@@ -5655,11 +5673,13 @@
                     cbRegTop6.checked = true;
                     cbRegMiddle.checked = true;
                     cbRegBottom2.checked = true;
+                    cbRegUnresolved.checked = true;
                 } else {
                     // Klicka ur "Alla" -> slå AV alla segment
                     cbRegTop6.checked = false;
                     cbRegMiddle.checked = false;
                     cbRegBottom2.checked = false;
+                    cbRegUnresolved.checked = false;
                 }
 
                 updateIntervalFromSegments();
@@ -5667,7 +5687,7 @@
             });
 
             // Lyssnare för segment-kryssen
-            [cbRegTop6, cbRegMiddle, cbRegBottom2].forEach(cb => {
+            [cbRegTop6, cbRegMiddle, cbRegBottom2, cbRegUnresolved].forEach(cb => {
                 cb.addEventListener('change', () => {
                     //  console.log('Grundserie: segment ändrat:', cb.id, 'checked =', cb.checked);
                     updateIntervalFromSegments();
@@ -5693,6 +5713,7 @@
             const cbNone = document.getElementById('filter-playoff-none');
             const cbPlayOut = document.getElementById('filter-playoff-playout');
             const cbRelegated = document.getElementById('filter-playoff-relegated');
+            const cbUnresolved = document.getElementById('filter-playoff-unresolved');
 
             const segmentCbs = [
                 cbChampion,
@@ -5702,7 +5723,8 @@
                 cbPlayIn,
                 cbNone,
                 cbPlayOut,
-                cbRelegated
+                cbRelegated,
+                cbUnresolved
             ];
 
             // if (!cbAll || segmentCbs.some(cb => !cb)) {
@@ -5772,8 +5794,9 @@
             const cbRegTop6 = document.getElementById('filter-regular-top6');
             const cbRegMiddle = document.getElementById('filter-regular-middle');
             const cbRegBottom2 = document.getElementById('filter-regular-bottom2');
+            const cbRegUnresolved = document.getElementById('filter-regular-unresolved');
 
-            if (!cbRegAll || !cbRegTop6 || !cbRegMiddle || !cbRegBottom2) return;
+            if (!cbRegAll || !cbRegTop6 || !cbRegMiddle || !cbRegBottom2 || !cbRegUnresolved) return;
 
             // Nollställ
             [cbRegAll, cbRegTop6, cbRegMiddle, cbRegBottom2].forEach(cb => {
@@ -5856,8 +5879,8 @@
                 uniqueSorted[uniqueSorted.length - 1] === maxRank;
 
             if (isFullRange) {
-                cbRegAll.checked = true;
-                cbRegAll.indeterminate = false;
+                cbRegAll.checked = cbRegUnresolved.checked;
+                cbRegAll.indeterminate = !cbRegUnresolved.checked;
 
                 cbRegTop6.checked = true;
                 cbRegTop6.indeterminate = false;
@@ -5885,10 +5908,13 @@
             }
 
             // Annars: använd tri-state per segment
-            applyState(cbRegAll, allState);
             applyState(cbRegTop6, topState);
             applyState(cbRegMiddle, middleState);
             applyState(cbRegBottom2, bottomState);
+
+            const anyNumericSelected = uniqueSorted.length > 0;
+            cbRegAll.checked = false;
+            cbRegAll.indeterminate = anyNumericSelected || cbRegUnresolved.checked;
 
             //console.log('Grundserie (interval -> checkboxes): DELMÄNGD', {
             //    maxRank,
@@ -6678,8 +6704,9 @@
                 const cbRegTop6 = document.getElementById('filter-regular-top6');
                 const cbRegMiddle = document.getElementById('filter-regular-middle');
                 const cbRegBottom2 = document.getElementById('filter-regular-bottom2');
+                const cbRegUnresolved = document.getElementById('filter-regular-unresolved');
 
-                if (cbRegAll && cbRegTop6 && cbRegMiddle && cbRegBottom2) {
+                if (cbRegAll && cbRegTop6 && cbRegMiddle && cbRegBottom2 && cbRegUnresolved) {
                     // Default: alla segment + "Alla" ikryssade
                     cbRegAll.checked = true;
                     cbRegAll.indeterminate = false;
@@ -6692,6 +6719,9 @@
 
                     cbRegBottom2.checked = true;
                     cbRegBottom2.indeterminate = false;
+
+                    cbRegUnresolved.checked = true;
+                    cbRegUnresolved.indeterminate = false;
                 }
 
 
@@ -6716,6 +6746,7 @@
                 const cbPONone = document.getElementById('filter-playoff-none');
                 const cbPOPlayOut = document.getElementById('filter-playoff-playout');
                 const cbPORelegated = document.getElementById('filter-playoff-relegated');
+                const cbPOUnresolved = document.getElementById('filter-playoff-unresolved');
 
                 if (cbPOAll) cbPOAll.checked = true;
                 if (cbPOChampion) cbPOChampion.checked = true;
@@ -6726,6 +6757,7 @@
                 if (cbPONone) cbPONone.checked = true;
                 if (cbPOPlayOut) cbPOPlayOut.checked = true;
                 if (cbPORelegated) cbPORelegated.checked = true;
+                if (cbPOUnresolved) cbPOUnresolved.checked = true;
 
                 // NYTT: Default för "Visa ikryssade lag överst" baserat på lagchips
                 const checkedFirstToggle = document.getElementById('sort-checked-first');
