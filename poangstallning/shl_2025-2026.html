@@ -41,19 +41,21 @@
         .title-dropdown.active .dropdown-arrow { transform: rotate(180deg); }
         .dropdown-menu {
             display: none; position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
-            background-color: white; border: 1px solid #ddd; border-radius: 4px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 1000; min-width: 250px; padding: 0.5rem 0;
+            background-color: white; border: 1px solid #ddd; border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 1000; min-width: 225px; padding: 0.25rem 0;
+            max-height: 70vh; overflow-y: auto;
         }
         .dropdown-menu.active { display: block; }
         .dropdown-menu a {
-            display: block; padding: 0.45rem 1rem; color: #007bff; text-decoration: none; white-space: nowrap; font-size: 1.4rem;
+            display: block; padding: 0.28rem 0.8rem; color: #007bff; text-decoration: none; white-space: nowrap; font-size: 1rem;
+            line-height: 1.25;
         }
         .dropdown-menu a:hover { background-color: #f8f9fa; }
 
         .dropdown-menu hr {
             border: none; /* Ta bort standardramen */
             border-top: 1px solid #d0d0d0; /* Lägg till en tunn, ljusgrå linje */
-            margin: 0.7rem 0; /* Lite luft ovanför och under linjen */
+            margin: 0.35rem 0; /* Kompakt avstånd mellan ligorna */
         }
 
         /* Stil för den valda länken */
