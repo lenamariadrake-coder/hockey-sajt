@@ -1855,31 +1855,31 @@
                 <!-- Huvudnavigation: samma ordning och placering som på systersidorna -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
                     <a id="tabTabell" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_shl_2026-2027.html#tabell" aria-label="Tabell"
+                        href="tabell_och_varmekarta_ha_2026-2027.html#tabell" aria-label="Tabell"
                         title="Tabell">Tabell</a>
 
                     <a id="tabVarmekarta" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_shl_2026-2027.html#varmekarta" aria-label="Värmekarta"
+                        href="tabell_och_varmekarta_ha_2026-2027.html#varmekarta" aria-label="Värmekarta"
                         title="Värmekarta">Värmekarta</a>
 
                     <button id="tabSnitt" class="tab-btn" type="button" aria-selected="true" aria-label=""
                         title="">Snitt</button>
 
-                    <a id="tabTable" class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html"
+                    <a id="tabTable" class="tab-btn tab-btn-link" href="ha_tippartopplista_2026-2027.html"
                         aria-label="Klassiskt tips" title="Klassiskt tips">Klassiskt tips</a>
 
-                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="shl_h2h_2026-2027.html" aria-label="H2H"
+                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="ha_h2h_2026-2027.html" aria-label="H2H"
                         title="H2H">H2H</a>
 
                     <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
                         <span class="season-select-label">Säsong</span>
                         <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
-                            <!--                             <option value="shl-tips_2021-2022.html">2021/2022</option>
-                            <option value="shl-tips_2022-2023.html">2022/2023</option>
-                            <option value="shl-tips_2023-2024.html">2023/2024</option>
-                            <option value="shl-tips_2024-2025.html">2024/2025</option>
+                            <!--                             <option value="ha-tips_2021-2022.html">2021/2022</option>
+                            <option value="ha-tips_2022-2023.html">2022/2023</option>
+                            <option value="ha-tips_2023-2024.html">2023/2024</option>
+                            <option value="ha-tips_2024-2025.html">2024/2025</option>
  -->
-                            <option value="shl-tips_2025-2026.html">2025/2026</option>
+                            <option value="ha-tips_2025-2026.html">2025/2026</option>
                             <option value="" selected>2026/2027</option>
                         </select>
                     </div>
@@ -2068,9 +2068,9 @@ Lag 14</pre>
 
             const HA_TIPS_CACHE_KEY = 'HA_TIPS_DATA_2026_2027';
             const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
-            const LS_TIPS_SOURCES_KEY = 'shlTips.sources.shl_2026_2027.v1';
-            const LS_CUSTOM_TIPS_KEY = 'shlTopplista.customTippers.shl_2026_2027.v1';
-            const LS_CUSTOM_PANEL_OPEN_KEY = 'shlTips.ui.customPanelOpen.shl_2026_2027.v1';
+            const LS_TIPS_SOURCES_KEY = 'haTips.sources.ha_2026_2027.v1';
+            const LS_CUSTOM_TIPS_KEY = 'haTopplista.customTippers.ha_2026_2027.v1';
+            const LS_CUSTOM_PANEL_OPEN_KEY = 'haTips.ui.customPanelOpen.ha_2026_2027.v1';
 
             const CUSTOM_TAB_ID = (() => {
                 try { if (window.crypto?.randomUUID) return window.crypto.randomUUID(); } catch { }
@@ -2172,7 +2172,7 @@ Lag 14</pre>
                     const raw = localStorage.getItem(HA_TIPS_CACHE_KEY);
                     if (!raw) return null;
                     const parsed = JSON.parse(raw);
-                    if (!parsed || parsed.version !== 2 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
+                    if (!parsed || parsed.version !== 2 || parsed.season !== '2026_2027' || parsed.league !== 'ha') return null;
                     if (!parsed.TEAM_BY_ID || !parsed.TIPS_MATRIX_HOBBY || !parsed.TIPS_MATRIX_EXPERT) return null;
                     if (!allowStale && !isCacheFresh(parsed)) return null;
                     return parsed;
@@ -2352,7 +2352,7 @@ Lag 14</pre>
                     version: 2,
                     savedAt: new Date().toISOString(),
                     season: '2026_2027',
-                    league: 'shl',
+                    league: 'ha',
                     TIPS_MATRIX_HOBBY,
                     TIPS_MATRIX_EXPERT,
                     TEAM_BY_ID: mapToObject(TEAM_BY_ID),
@@ -2678,7 +2678,7 @@ Lag 14</pre>
                     canvas.toBlob(blob => {
                         if (!blob) return;
                         const a = document.createElement('a');
-                        a.download = `shl-tips-sammanfattning-${String(numTips).padStart(2, '0')}-tips.png`;
+                        a.download = `ha-tips-sammanfattning-${String(numTips).padStart(2, '0')}-tips.png`;
                         a.href = URL.createObjectURL(blob);
                         document.body.appendChild(a);
                         a.click();
