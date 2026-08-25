@@ -1,0 +1,2818 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SHL-tips – snitt på tipsen</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="../js/google-sheets-data.js"></script>
+    <style>
+        /* =========================================================
+ 0) DESIGN-TOKENS / VARIABLER
+ ========================================================= */
+        :root {
+            --bg: #f4f4f9;
+            --card: #ffffff;
+            --text: #0f172a;
+            --text-muted: #6b7280;
+            --accent: #007C30;
+            --border: #e2e8f0;
+            --row-hover: #f8faff;
+            --header-bg: #f8fafc;
+
+            /* OBS: dubletter – sista värdet vinner (behåll ordningen!)
+           ⚠️ Om du “ändrar knapparnas gråa” och inget händer: du har troligen ändrat den FÖRSTA.
+           Ändra de sista värdena i blocket nedan. */
+            --btn-gray-bg: #f1f5f9;
+            --btn-gray-hover: #e2e8f0;
+            --btn-gray-bg: #f7f8fb;
+            --btn-gray-hover: #eef2f7;
+
+            /* en “rad” i topbaren */
+            --ui-gap: 10px;
+
+            /* ⚠️ OBS: --ui-row-h används senare (topbar-grid).
+           Se till att den finns i filen (om den definieras någon annanstans: ok). */
+            /* --ui-row-h: 42px; */
+        }
+
+        /* =========================================================
+ 1) BAS / RESET
+ ========================================================= */
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            line-height: 1.45;
+        }
+
+        /* =========================================================
+ 2) HUVUDLAYOUT
+ ========================================================= */
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--card);
+            padding: 1rem 1rem 2rem;
+        }
+
+        header.page-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .5rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        /* =========================================================
+ 3) LÄNKAR / KNAPPAR (generellt)
+ ========================================================= */
+        .ghost-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .35rem .8rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text);
+            background: var(--card);
+            font-weight: 600;
+        }
+
+        .ghost-link:hover {
+            background: var(--header-bg);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .45rem .85rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .btn[disabled] {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        /* =========================================================
+ 4) TABS
+ ---------------------------------------------------------
+ ⚠️ Tips: align-items (inte align-content) är det som oftast påverkar “center-känsla”
+ i en enradig flex-rad. align-content påverkar primärt när rader wrap:ar.
+ ========================================================= */
+        .tabs {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            flex-wrap: wrap;
+
+            /* ✅ reservera höjd (sätts av JS) så reglaget hamnar identiskt */
+            /* min-height: var(--tabs-reserve-h, auto); */
+
+            /* align-content påverkar främst när flex-wrap skapar flera rader */
+            align-content: center;
+        }
+
+        /* Tab-knappar (gäller både <button> och <a>) */
+        .tab-btn {
+            padding: .5rem .9rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--btn-gray-bg);
+            cursor: pointer;
+            font-weight: 700;
+
+            /* 🔒 gör <a> och <button> identiska i “höjd-känsla” */
+            font: inherit;
+            line-height: 1;
+            box-sizing: border-box;
+            white-space: nowrap;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            /* gör inget för button, men tar bort underline för a */
+            color: inherit;
+        }
+
+        /* Aktiv tab (button har aria-selected, länken har normalt inte det) */
+        .tab-btn[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            cursor: default;
+        }
+
+        /* Snitt-länk */
+        .tab-btn-link {
+            /* Samma padding som systersidorna – förhindrar höjdhopp mellan sidor. */
+            padding: .5rem .9rem;
+        }
+
+        /* Fin hover på “inaktiva” tabs */
+        .tab-btn:hover:not([aria-selected="true"]) {
+            background: var(--btn-gray-hover);
+        }
+
+        /* Allt extra i tab-raden (sourceFilter + rowColorControls) */
+        .tabs #sourceFilter {
+            display: inline-flex;
+            align-items: center;
+            gap: .6rem;
+        }
+
+        /* Labels med input (radio/checkbox) på tab-raden */
+        .tabs label,
+        .tabs .rowcolor-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            line-height: 1;
+        }
+
+        /* Radios/checkboxar hamnar ofta lite off utan detta */
+        .tabs input[type="checkbox"],
+        .tabs input[type="radio"] {
+            margin: 0;
+            transform: translateY(1px);
+        }
+
+        /* =========================================================
+ 5) VYER (visa/dölj)
+ ========================================================= */
+        .views>section {
+            display: none;
+        }
+
+        .views>section[aria-hidden="false"] {
+            display: block;
+        }
+
+        /* =========================================================
+ 6) ACTIONS-RAD
+ ========================================================= */
+        .actions {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: .5rem 0 1rem;
+        }
+
+        /* =========================================================
+ 7) SIFFERKNAPPAR (OMGÅNGAR)
+ ========================================================= */
+        /* Sifferknappar (omgångar) – döljer nu i och med att reglaget finns */
+        .siffror-wrap {
+            display: none;
+        }
+
+        .siffror-btn {
+            display: inline-grid;
+            place-items: center;
+            min-width: 38px;
+            height: 38px;
+            padding: 0 .2rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            background: var(--btn-gray-bg);
+            font-weight: 700;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .siffror-btn:hover {
+            background: var(--btn-gray-hover);
+        }
+
+        .siffror-btn.vald {
+            background: var(--accent);
+            color: #fff;
+            pointer-events: none;
+        }
+
+        .siffror-btn.inaktiv {
+            background: var(--header-bg);
+            color: var(--text-muted);
+            opacity: .7;
+            pointer-events: none;
+        }
+
+        .current-badge {
+            font-size: .85em;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 560px) {
+            .siffror-btn {
+                min-width: 34px;
+                height: 34px;
+                font-size: .95rem;
+            }
+        }
+
+        /* =========================================================
+ 8) TABELL (LIGATABELL)
+ ========================================================= */
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: max-content;
+            margin: 1rem auto 0;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: visible;
+            /* tillåt tooltips att sticka ut */
+            background: #fff;
+        }
+
+        thead,
+        tbody {
+            overflow: visible;
+        }
+
+        th,
+        td {
+            padding: .6rem .8rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        thead th {
+            background: var(--header-bg);
+            font-weight: 800;
+            color: var(--text);
+            text-transform: uppercase;
+            font-size: .85rem;
+            letter-spacing: .02em;
+        }
+
+        #tableStandings thead th.col-team {
+            text-align: left;
+        }
+
+        /* Info-ikon i kolumnrubrik – BAS (kan override:as längre ner) */
+        .th-info {
+            margin-left: .35rem;
+            color: var(--text-muted);
+            font-weight: 900;
+            cursor: help;
+            user-select: none;
+
+            position: relative;
+            /* behövs för att mobil-tooltip ska kunna positioneras */
+        }
+
+        .th-info:hover {
+            color: var(--text);
+        }
+
+        /* Endast på smal skärm: skapa en egen tooltip via pseudo-element */
+        @media (max-width: 768px) {
+            .th-info::after {
+                content: attr(data-mobile-tip);
+                position: absolute;
+                left: 50%;
+                top: 120%;
+                transform: translateX(-50%);
+                white-space: nowrap;
+
+                /* enkel "tooltip-look" */
+                padding: .45rem .6rem;
+                border-radius: 10px;
+                font-size: .85rem;
+                font-weight: 600;
+                line-height: 1.2;
+
+                background: rgba(20, 20, 20, .92);
+                color: #fff;
+
+                opacity: 0;
+                pointer-events: none;
+                z-index: 9999;
+
+                /* liten skugga */
+                box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+            }
+
+            .th-info.show-tip::after {
+                opacity: 1;
+            }
+        }
+
+
+
+        tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        tbody tr:hover {
+            background: var(--row-hover);
+        }
+
+        .num {
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Korrigera rundade hörn på tabellens övre header */
+        #tableStandings thead tr:first-child th:first-child {
+            border-top-left-radius: 10px;
+        }
+
+        #tableStandings thead tr:first-child th:last-child {
+            border-top-right-radius: 10px;
+        }
+
+        #tableStandings thead th {
+            background-clip: padding-box;
+        }
+
+        /* =========================================================
+ 9) SOURCE FILTER – BAS
+ ---------------------------------------------------------
+ ⚠️ BAS FÖR OVERRIDE
+ - Default: hidden tills .is-visible
+ - Förutsätter att ev. overrides ligger SENARE i filen
+
+ ⚠️ VIKTIGT I DENNA FIL:
+ - Denna BAS-logik “slås över” längre ner (sektion 23),
+   där #sourceFilter tvingas alltid synlig i Klassiskt tips.
+ - Om du felsöker “varför syns #sourceFilter ändå?” -> hoppa till sektion 23.
+ ========================================================= */
+        #sourceFilter {
+            display: inline-flex;
+            align-items: center;
+            gap: .8rem;
+
+            /* alltid plats i layouten */
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+
+            /* undvik små höjdskillnader */
+            min-height: 2.2rem;
+        }
+
+        #sourceFilter.is-visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Kryssrutor: visa hobby/experter (alltid synliga) */
+        #sourceFilter .source-options {
+            display: inline-flex;
+            align-items: center;
+            gap: .75rem;
+            margin-left: .75rem;
+            padding-left: .75rem;
+            border-left: 1px solid var(--border);
+        }
+
+        /* Bas-variant inne i #sourceFilter (snävare gap än global .source-options) */
+        #sourceFilter .source-options label {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            white-space: nowrap;
+        }
+
+        /* Kompakt label + undvik radbrytning inne i varje alternativ */
+        #sourceFilter label {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            white-space: nowrap;
+        }
+
+        /* Disabled-look för framtida/inaktivt placeringsläge
+ (Legacy-stöd: om “Placering” återintroduceras ska det synas att valet inte är aktivt ännu.) */
+        #sourceFilter.is-disabled-placement label[data-mode="placement"] {
+            opacity: .45;
+            filter: grayscale(1);
+            cursor: help;
+            /* hjälp-cursor på hela "Placering"-alternativet */
+        }
+
+        /* Viktigt: låt hover gå via labeln (så tooltipen funkar över både radio + text) */
+        #sourceFilter.is-disabled-placement input[value="placement"] {
+            pointer-events: none;
+        }
+
+        /* =========================================================
+ 10) HJÄLPTEXT / KÄLLRAD
+ ========================================================= */
+        .source {
+            margin: 1rem auto 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: .85rem;
+        }
+
+        /* =========================================================
+ 11) TIDSLINJE (SLIDER)
+ ========================================================= */
+        .slider-wrapper {
+            position: relative;
+            margin: 1rem auto 0;
+            width: 100%;
+            padding: 1rem;
+            background: var(--header-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .slider-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem 1rem;
+            flex-wrap: wrap;
+            margin-bottom: .75rem;
+        }
+
+        .slider-info {
+            display: flex;
+            align-items: baseline;
+            gap: .75rem;
+            flex-wrap: wrap;
+        }
+
+        #slider-label {
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+            font-size: .85rem;
+            color: var(--text-muted);
+        }
+
+        #current-step-display {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text);
+            min-height: 1.2em;
+        }
+
+        .slider-controls {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+        }
+
+        /* Mjuk hover/tryck-känsla bara för knapparna i spelaren */
+        .slider-controls .btn {
+            transition: transform .12s ease, box-shadow .15s ease, filter .15s ease, background .15s ease;
+        }
+
+        .slider-controls .btn:hover:not([disabled]) {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, .12);
+            background: var(--btn-gray-hover);
+        }
+
+        .slider-controls .btn.primary:hover:not([disabled]) {
+            filter: brightness(0.95);
+        }
+
+        .slider-controls .btn:active:not([disabled]) {
+            transform: translateY(0);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, .10);
+        }
+
+        .slider-controls .btn:focus-visible {
+            outline: 2px solid rgba(0, 124, 48, .45);
+            outline-offset: 3px;
+        }
+
+        /* Range – “appig” look */
+        #timeline-slider {
+            width: 100%;
+            background: transparent;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        #timeline-slider::-webkit-slider-runnable-track {
+            height: 10px;
+            border-radius: 999px;
+            background: #d5dbe7;
+        }
+
+        #timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -7px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, .08);
+        }
+
+        #timeline-slider::-moz-range-track {
+            height: 10px;
+            border-radius: 999px;
+            background: #d5dbe7;
+        }
+
+        #timeline-slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, .08);
+        }
+
+        /* =========================================================
+ 12) RADFÄRGER (TABELL) + PALETT
+ ========================================================= */
+        .rowcolor-controls.is-hidden {
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #rowColorControls {
+            display: inline-flex;
+            align-items: center;
+            gap: .8rem;
+
+            min-height: 2.2rem;
+            margin-left: auto;
+
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .rowcolor-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            font-weight: 600;
+        }
+
+        .rowcolor-scope {
+            display: inline-flex;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .rowcolor-scope label {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            white-space: nowrap;
+        }
+
+        /* Reset-knapp (kommenterad) */
+        /* #rowColorResetBtn { margin-left: auto; } */
+        /* #rowColorResetBtn.is-hidden { visibility: hidden; opacity: 0; pointer-events: none; } */
+
+        /* X: egen span */
+        .btn-x {
+            display: inline-grid;
+            place-items: center;
+            width: 1.15em;
+            height: 1.15em;
+            line-height: 1;
+            font-size: 0.95em;
+        }
+
+        .rowcolor-palette {
+            position: absolute;
+            z-index: 9999;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: .5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, .12);
+            width: max-content;
+        }
+
+        .rowcolor-swatches {
+            display: flex;
+            gap: .4rem;
+            align-items: center;
+            padding: .25rem;
+        }
+
+        .rowcolor-swatch {
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, .12);
+            cursor: pointer;
+        }
+
+        .rowcolor-swatch:hover {
+            transform: translateY(-1px);
+        }
+
+        .rowcolor-clear {
+            margin-top: .4rem;
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            padding: .4rem .6rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .rowcolor-icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .rowcolor-icon-btn:hover {
+            background: var(--header-bg);
+        }
+
+        td.rowcolor-cell {
+            padding: .45rem .45rem;
+        }
+
+        th[data-rowcolor] {
+            position: relative;
+        }
+
+        th[data-rowcolor] #rowColorResetX {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            transform: translateY(-50%);
+        }
+
+        .summary-actions {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            flex-wrap: wrap;
+        }
+
+        .rowcolor-toggle--summary {
+            margin-left: auto;
+        }
+
+        /* =========================================================
+ 13) EGET TIPS (CUSTOM) – panel + inmatning
+ ========================================================= */
+        .custom-panel {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0 14px 0;
+            background: #fff;
+            display: none;
+            /* Styrs av JS/klassen .open */
+            width: 100%;
+        }
+
+        .custom-panel.open {
+            display: block;
+        }
+
+        .rank-panel-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Denna container centrerar innehållet i mitten av skärmen */
+        .custom-content-centered {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            /* Allt inuti (knappar/text) börjar till vänster */
+            margin: 0 auto;
+            /* Centrerar boxen horisontellt */
+            width: 100%;
+            max-width: 600px;
+            /* Ändra här om du vill ha rutan bredare/smalare */
+        }
+
+        /* Textrutan */
+        #custom-input {
+            width: 100%;
+            height: 280px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.35;
+            resize: vertical;
+            display: block;
+            margin-bottom: 15px;
+        }
+
+        /* Knappraden */
+        .custom-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        /* Meddelanden (Ok/Fel) */
+        .custom-panel .msg {
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .custom-panel .msg.ok {
+            color: #065f46;
+        }
+
+        .custom-panel .msg.err {
+            color: #b91c1c;
+        }
+
+        /* Hjälptext (infällbar) */
+        .custom-help {
+            width: 100%;
+            color: var(--text-muted);
+            font-size: .95rem;
+            line-height: 1.35;
+            text-align: left;
+        }
+
+        .custom-help summary {
+            cursor: pointer;
+            user-select: none;
+            font-weight: 700;
+        }
+
+        .custom-help[open] summary {
+            margin-bottom: 6px;
+        }
+
+        .custom-help__body p {
+            margin: 6px 0;
+        }
+
+        .custom-help__body ul {
+            margin: 6px 0 10px 18px;
+        }
+
+        .custom-help__ex {
+            margin: 6px 0 10px 0;
+            padding: 8px 10px;
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            background: #fafafa;
+            overflow: auto;
+        }
+
+        /* Växla summary-text */
+        .custom-help .when-open {
+            display: none;
+        }
+
+        .custom-help[open] .when-open {
+            display: inline;
+        }
+
+        .custom-help[open] .when-closed {
+            display: none;
+        }
+
+        /* =========================================================
+ 14) RESPONSIVE: kontroller får ALDRIG svälla utanför skärmen
+ ========================================================= */
+        .controls,
+        .controls-row {
+            max-width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px 14px;
+        }
+
+        .controls>*,
+        .controls-row>* {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        .source-options {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            max-width: 100%;
+        }
+
+        /* Global variant (används i controls-row m.m. där .source-options kan förekomma) */
+        .source-options label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 680px) {
+            .source-options {
+                width: 100%;
+            }
+
+            #btn-open-custom {
+                flex: 0 0 auto;
+                width: 42px;
+            }
+
+            .controls .divider,
+            .controls-row .divider {
+                display: none !important;
+            }
+        }
+
+        /* =========================================================
+ 15) NAV-TOAST
+ ========================================================= */
+        .nav-toast {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -0.2rem;
+            text-align: center;
+
+            font-size: .9rem;
+            color: var(--text-muted);
+
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity .25s ease, transform .25s ease;
+
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .nav-toast.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 700px) {
+            .nav-toast {
+                bottom: .4rem;
+                font-size: .85rem;
+                padding: .35rem .7rem;
+                border-radius: 999px;
+
+                background: rgba(248, 250, 252, 0.92);
+                border: 1px solid var(--border);
+
+                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px);
+
+                box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+            }
+        }
+
+        /* =========================================================
+ 16) TOPBAR – LAYOUT-GRID
+ ---------------------------------------------------------
+ ⚠️ STRUKTURELLT ORDNINGSKÄNSLIG
+ - Definierar hela sidans layout-ryggrad
+ - Förutsätter att ikon-/control-overrides kommer EFTER
+ - Flytta inte utan att verifiera hela UI:t
+ ========================================================= */
+        .topbar {
+            display: grid;
+            grid-template-rows: var(--ui-row-h) var(--ui-row-h) calc(var(--ui-row-h) * 2);
+            gap: var(--ui-gap);
+            margin-bottom: 0.75rem;
+        }
+
+        .topbar-row--nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            min-height: var(--ui-row-h);
+        }
+
+        .topbar-nav {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            min-height: var(--ui-row-h);
+        }
+
+        /* Ikon-länkar: samma stil som ghost-link men kompakt */
+        .icon-link {
+            width: 42px;
+            height: 42px;
+            justify-content: center;
+            padding: 0;
+        }
+
+        /* Gör 📸 lika stor klickyta som 🏠/📄 */
+        .topbar-nav #exportBtn {
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+            border-radius: 12px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .topbar-nav #exportBtn:focus-visible {
+            outline: 2px solid rgba(122, 162, 255, .45);
+            outline-offset: 3px;
+        }
+
+        .topbar-row--tabs {
+            min-height: var(--ui-row-h);
+        }
+
+        .topbar-row--controls {
+            min-height: calc(var(--ui-row-h) * 2);
+        }
+
+        .view-controls-stack {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+
+        .view-controls-stack>#sourceFilter,
+        .view-controls-stack>#rowColorControls {
+            grid-area: 1 / 1;
+            align-self: center;
+        }
+
+        /* =========================================================
+ 16B) SOURCE FILTER – TOPBAR LAYOUT-TWEAKS (inte synlighet!)
+ ---------------------------------------------------------
+ ⚠️ Detta block justerar WRAP/HÖJD/overflow för stack-layouten.
+ Synlighet styrs i sektion 9 (BAS) och kan tvingas i sektion 23 (OVERRIDE).
+ ========================================================= */
+        #sourceFilter {
+            min-height: var(--ui-row-h);
+
+            /* Gör sourceFilter mer “mobilstabilt”: låt det wrappa men inte bli oändligt högt */
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            max-height: calc(var(--ui-row-h) * 2);
+            overflow: visible;
+        }
+
+        /* Gör knappen kompaktare i sourceFilter */
+        #btn-open-custom {
+            padding: .45rem .65rem;
+        }
+
+        /* =========================================================
+ 17) UTILS
+ ========================================================= */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* =========================================================
+ 18) TIPPER-TOOLTIP (tipslista 1..14)
+ ========================================================= */
+        .tipper-tooltip-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            cursor: help;
+        }
+
+        .tipper-tooltip-wrap:focus {
+            outline: none;
+        }
+
+        .tipper-tooltip-wrap:focus-visible {
+            outline: 2px solid rgba(0, 124, 48, .35);
+            outline-offset: 3px;
+            border-radius: 8px;
+        }
+
+        /* Själva rutan */
+        .tipper-tooltip {
+            position: absolute;
+            top: calc(100% + .45rem);
+            left: 0;
+            z-index: 60;
+
+            /* Krymp till innehåll (men aldrig större än viewport) */
+            width: fit-content;
+            max-width: calc(100vw - 2rem);
+
+            /* ALDRIG klipp/ellipsis/radbrytning -> scrolla hellre horisontellt */
+            overflow-x: auto;
+            overflow-y: visible;
+
+            padding: .6rem .75rem .6rem .25rem;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, .12), 0 0 0 1px rgba(0, 0, 0, .06);
+
+            color: var(--text);
+            font-weight: 600;
+            font-size: .92rem;
+
+            opacity: 0;
+            transform: translateY(4px);
+            pointer-events: none;
+            transition: opacity .12s ease, transform .12s ease;
+
+            /* gör scrollen lite “diskret” */
+            scrollbar-width: thin;
+            /* Firefox */
+        }
+
+        /* Visa vid hover + fokus (keyboard-friendly) */
+        .tipper-tooltip-wrap:hover .tipper-tooltip,
+        .tipper-tooltip-wrap:focus-within .tipper-tooltip {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Innehåll: två tabeller sida vid sida */
+        .tipper-tooltip .tt-grid {
+            display: grid;
+            grid-template-columns: max-content max-content;
+            gap: .9rem;
+            align-items: start;
+
+            /* Viktigt: låt gridens bredd vara exakt “innehållsbredd” */
+            width: max-content;
+        }
+
+        /* Varje “kolumn” */
+        .tipper-tooltip .tt-col {
+            width: max-content;
+        }
+
+        /* Rubriker */
+        .tipper-tooltip .tt-head {
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+            font-size: .78rem;
+            color: var(--text-muted);
+            margin: 0 0 .4rem 0;
+
+            /* aligna rubriken med lagnamnskolumnen (förbi !-kolumnen) */
+            padding-left: calc(1.1em + .45rem);
+        }
+
+        /* Gemensam ol-stil */
+        .tipper-tooltip .tt-col ol {
+            margin: 0;
+            padding-left: 0;
+            list-style: none;
+            width: max-content;
+        }
+
+        /* Rader: ! | LAG | PIL+SIFFRA */
+        .tipper-tooltip .tt-col li {
+            display: grid;
+            grid-template-columns: 1.1em auto 5.5ch;
+            /* diff får egen kolumn */
+            column-gap: .45rem;
+            align-items: baseline;
+        }
+
+        /* Utropstecken-kolumn */
+        .tipper-tooltip .tt-flag {
+            display: inline-flex;
+            justify-content: center;
+            width: 1.1em;
+            color: #b91c1c;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        /* Lagnamn: ALDRIG radbrytning, ALDRIG ellipsis */
+        .tipper-tooltip .tt-team {
+            white-space: nowrap;
+            overflow: visible;
+            text-overflow: clip;
+        }
+
+        /* Pilar+siffra: egen kolumn, tight men med lite luft */
+        .tipper-tooltip .tt-diff {
+            font-variant-numeric: tabular-nums;
+            opacity: .9;
+            white-space: nowrap;
+            justify-self: end;
+            /* snygg kolumnlinjering */
+        }
+
+        /* Mobil: stapla kolumner (men fortfarande inga radbrytningar i lagnamn) */
+        @media (max-width: 520px) {
+            .tipper-tooltip .tt-grid {
+                grid-template-columns: 1fr;
+                width: max-content;
+            }
+        }
+
+        /* =========================================================
+ 19) IKON-TOGGLE (🎨)
+ ========================================================= */
+        .rowcolor-toggle--icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .06);
+            cursor: pointer;
+            position: relative;
+            opacity: .9;
+        }
+
+        .rowcolor-toggle--icon input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .rowcolor-toggle--icon .toggle-icon {
+            line-height: 1;
+            font-size: 1.15rem;
+        }
+
+        .rowcolor-toggle--icon input:checked+.toggle-icon {
+            transform: translateY(-.5px);
+        }
+
+        .rowcolor-toggle--icon:has(input:checked) {
+            background: rgba(122, 162, 255, .18);
+            border-color: rgba(122, 162, 255, .55);
+            box-shadow: 0 0 0 2px rgba(122, 162, 255, .18) inset;
+            opacity: 1;
+        }
+
+        .rowcolor-toggle--icon:has(input:checked)::after {
+            content: "";
+            position: absolute;
+            top: 7px;
+            right: 7px;
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--accent);
+        }
+
+        /* =========================================================
+ 20) HEADER-IKONER – RESET / INTERAKTION
+ ---------------------------------------------------------
+ ⚠️ ORDNINGSKÄNSLIG
+ - Måste ligga EFTER generella .btn / .icon-regler
+ - Nollställer border/background/box-shadow medvetet
+ - Hover/focus ska vinna över default-knappar
+ ========================================================= */
+        .topbar .icon-link,
+        .topbar #exportBtn,
+        .topbar .rowcolor-toggle--icon {
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        .topbar-nav .icon-link,
+        .topbar-nav #exportBtn {
+            font-size: 1.15rem;
+            line-height: 1;
+        }
+
+        .topbar #exportBtn {
+            margin-left: 0px;
+            cursor: pointer;
+        }
+
+        .topbar .rowcolor-toggle--icon:has(input:checked)::after {
+            content: "";
+            position: absolute;
+            top: 7px;
+            right: 7px;
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--accent);
+        }
+
+        .topbar .rowcolor-toggle--icon:has(input:checked) {
+            opacity: 1;
+            filter: drop-shadow(0 0 6px rgba(122, 162, 255, .35));
+        }
+
+        /* =========================================================
+ 21) PLAIN IKONKNAPP – VISUELL UTILITY
+ ========================================================= */
+        .btn-icon-plain {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            line-height: 1;
+            font-size: 1.15rem;
+        }
+
+        .btn-icon-plain:hover {
+            background: rgba(255, 255, 255, .08);
+        }
+
+        .btn-icon-plain:focus-visible {
+            outline: 2px solid rgba(122, 162, 255, .45);
+            outline-offset: 3px;
+        }
+
+        .btn-icon-plain,
+        .btn-icon-plain * {
+            cursor: pointer;
+        }
+
+        .topbar-nav .icon-link:hover,
+        .topbar #exportBtn:hover,
+        .topbar .rowcolor-toggle--icon:hover,
+        .topbar .rowcolor-toggle--icon:focus-within {
+            background: rgba(15, 23, 42, 0.06) !important;
+        }
+
+        .source-item {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            position: relative;
+        }
+
+        /* =========================================================
+     SÄSONGSVÄLJARE
+     ========================================================= */
+        .season-select-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            margin-left: .1rem;
+            white-space: nowrap;
+        }
+
+        .season-select-label {
+            font-size: .9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .season-select {
+            height: 34px;
+            padding: 0 2rem 0 .75rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--btn-gray-bg);
+            color: var(--text);
+            font: inherit;
+            font-size: .9rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .season-select:hover { background: var(--btn-gray-hover); }
+        .season-select:focus-visible {
+            outline: 2px solid rgba(0, 124, 48, .35);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 700px) {
+            .season-select-label { display: none; }
+            .season-select {
+                max-width: 150px;
+                padding-left: .65rem;
+            }
+        }
+
+        /* =========================================================
+ 22) RESPONSIVE VISIBILITY: .m-tip (ℹ️)
+ ========================================================= */
+        .m-tip {
+            display: none;
+        }
+
+        @media (max-width: 700px) {
+            .m-tip {
+                display: inline-block;
+            }
+
+            #sourceFilter {
+                overflow: visible;
+                max-height: none;
+            }
+
+            .m-tip>summary {
+                list-style: none;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                line-height: 1;
+                user-select: none;
+
+                padding: .15rem .35rem;
+                border-radius: 999px;
+            }
+
+            .m-tip>summary::-webkit-details-marker {
+                display: none;
+            }
+
+            .m-tip__box {
+                position: absolute;
+                top: calc(100% + .4rem);
+                left: 0;
+                z-index: 50;
+
+                width: max-content;
+                max-width: min(36ch, calc(100vw - 2rem));
+                white-space: normal;
+                overflow-wrap: anywhere;
+
+                padding: .55rem .65rem;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: var(--card, #fff);
+                box-shadow: 0 12px 40px rgba(0, 0, 0, .12), 0 0 0 1px rgba(0, 0, 0, .06);
+            }
+
+            .m-tip:not([open]) .m-tip__box {
+                display: none;
+            }
+        }
+
+        /* =========================================================
+ 23) SOURCE FILTER – OVERRIDE (Klassiskt tips)
+ ---------------------------------------------------------
+ ⚠️ ORDNINGSKÄNSLIG SEKTION
+ - Måste ligga EFTER “SOURCE FILTER – BAS”
+ - Här tvingas synlighet: .is-visible i sektion 9 blir i praktiken irrelevant i Klassiskt tips.
+ ========================================================= */
+        #sourceFilter {
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        #sourceFilter .source-options {
+            margin-left: 0 !important;
+            padding-left: 0 !important;
+            border-left: 0 !important;
+        }
+
+        /* =========================================================
+ 24) LOADING STATE – TOPPLISTA
+ ========================================================= */
+        .loading-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: .6rem;
+
+            margin: 1.2rem auto 0;
+            padding: 1.2rem 1.4rem;
+
+            max-width: 420px;
+
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--header-bg);
+
+            font-weight: 700;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            animation: spin 0.9s linear infinite;
+        }
+
+        .loading-progress {
+            font-size: .85rem;
+            font-weight: 800;
+            letter-spacing: .02em;
+            color: var(--text);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===========================================================
+ 25) Rank-panel (Steg 4) – UI-skal för "Anpassa"
+ =========================================================== */
+        .rank-panel {
+            margin: 10px 0 14px 0;
+        }
+
+        .rank-panel-inner {
+            border: 1px solid var(--border, rgba(0, 0, 0, .12));
+            border-radius: 12px;
+            padding: 12px 12px;
+            background: rgba(255, 255, 255, .75);
+            backdrop-filter: blur(6px);
+
+            /* ENDA ändringen: breddbegränsning + centrering */
+            max-width: 500px;
+            /* ← DENNA SIFFRA ändrar du senare */
+            margin-left: auto;
+            margin-right: auto;
+            width: 100%;
+        }
+
+
+        .rank-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .rank-panel-title {
+            font-weight: 800;
+            letter-spacing: .2px;
+        }
+
+        .rank-panel-help summary {
+            cursor: pointer;
+            user-select: none;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin: 6px 0 6px 0;
+        }
+
+        .rank-panel-help-body {
+            margin-top: 8px;
+            color: var(--text);
+            line-height: 1.35;
+        }
+
+        .rank-panel-body .muted {
+            color: var(--text-muted);
+            font-size: .95rem;
+        }
+
+        /* =========================================================
+ 26) INFO-IKON (.th-info) – OVERRIDE
+ ---------------------------------------------------------
+ ⚠️ ORDNINGSKÄNSLIG
+ - Denna sektion SKA ligga efter basregeln för .th-info
+ - Överstyr bara opacity/font-size/position
+ - (Färg/cursor kommer från basregeln i sektion 8)
+ ========================================================= */
+        .th-info {
+            display: inline-block;
+            opacity: .75;
+            font-size: .95em;
+            transform: translateY(-.5px);
+        }
+
+        .th-info:hover {
+            opacity: 1;
+        }
+
+        /* ===========================================================
+ 27) Rank-panel – kolumnlista (Steg 5)
+ =========================================================== */
+        .rank-col-list {
+            list-style: none;
+            padding: 0;
+            margin: 8px 0 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .rank-col-item {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+        }
+
+        .rank-col-item:hover {
+            background: rgba(0, 0, 0, .03);
+            border-color: rgba(0, 0, 0, .08);
+        }
+
+        .rank-col-label {
+            font-weight: 700;
+        }
+
+        .rank-col-item.inactive {
+            opacity: .45;
+        }
+
+        .rank-col-actions {
+            display: inline-flex;
+            gap: 6px;
+        }
+
+        .rank-col-btn {
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: .95rem;
+            line-height: 1;
+            padding: 2px 4px;
+            border-radius: 6px;
+        }
+
+        .rank-col-btn:hover {
+            background: rgba(0, 0, 0, .08);
+        }
+
+        /* ===========================================================
+ 28) CTA-look för "Anpassa topplistan" (LAYOUT-NEUTRAL)
+ -----------------------------------------------------------
+ ⚠️ Ändra INTE padding/height/line-height här utan avsikt,
+ eftersom knappen då kan “hoppa” eller rubba topbarens grid.
+
+ OBS: var(--tab-padding-*) används med fallback här. Om du har ett system,
+ definiera dem gärna i :root. Annars är det helt ok att de bara är fallback.
+ =========================================================== */
+        #btnCustomizeRank.tab-btn-customize {
+            box-sizing: border-box;
+            margin: 0;
+            height: auto;
+            line-height: inherit;
+            padding: calc(var(--tab-padding-y, .45rem)) calc(var(--tab-padding-x, .85rem) + .35rem);
+            white-space: nowrap;
+
+            border: 1px solid rgba(0, 0, 0, .10);
+            background: linear-gradient(180deg, rgba(255, 231, 155, .95), rgba(255, 201, 92, .95));
+            color: rgba(0, 0, 0, .85);
+
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .7),
+                0 2px 10px rgba(0, 0, 0, .08);
+
+            font-weight: 800;
+            letter-spacing: .1px;
+        }
+
+        #btnCustomizeRank.tab-btn-customize:hover {
+            filter: brightness(1.02);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .75),
+                0 3px 14px rgba(0, 0, 0, .10);
+        }
+
+        #btnCustomizeRank.tab-btn-customize:active {
+            transform: translateY(0);
+            filter: brightness(.99);
+        }
+
+        #btnCustomizeRank .cta-spark {
+            margin-right: .45rem;
+            color: #d35400;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, .55);
+            opacity: .95;
+        }
+
+        #btnCustomizeRank.tab-btn-customize[aria-expanded="true"] {
+            background: linear-gradient(180deg, rgba(255, 214, 120, .98), rgba(255, 178, 58, .98));
+            border-color: rgba(0, 0, 0, .18);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .6),
+                0 2px 10px rgba(0, 0, 0, .10);
+        }
+
+        #btnCustomizeRank.tab-btn-customize:focus-visible {
+            outline: 2px solid rgba(0, 0, 0, .35);
+            outline-offset: 2px;
+        }
+    
+
+        /* =========================================================
+           SNITT-SIDANS INNEHÅLL – tillägg ovanpå topplistans CSS
+           OBS: inga regler här ska ändra topbar/sourceFilter.
+           ========================================================= */
+        .container { min-height: 100vh; }
+
+        h1 {
+            font-size: 22px;
+            margin: 0 0 8px 0;
+            font-weight: 800;
+        }
+
+        .sub {
+            margin: 0 0 18px 0;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        a { color: #0b63ce; }
+        .topbar a { color: inherit; }
+
+        .load-error {
+            margin: 10px 0 14px 0;
+            padding: 10px 12px;
+            border: 1px solid #b91c1c;
+            background: #fff5f5;
+            color: #b91c1c;
+            border-radius: 10px;
+            font-weight: 800;
+        }
+
+        .mini-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            padding: 8px 10px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: .95rem;
+        }
+        .mini-btn:hover { background: #f9fafb; }
+
+
+        /* Aktuellt underlag för Snitt – uppdateras direkt när filtren ändras. */
+        .tips-count-status {
+            margin: .15rem auto .55rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: .85rem;
+            font-weight: 600;
+            min-height: 1.25em;
+        }
+
+        .table-wrap {
+            display: block;
+            width: fit-content;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        #summary-export-area table {
+            margin: 0 auto;
+            overflow: hidden;
+            font-size: 0.9rem;
+        }
+
+        /* Snitt-tabellen: 90 % av den ordinarie tabellstorleken.
+           Påverkar endast tabellen i Snitt-vyn. */
+        #summary-export-area th,
+        #summary-export-area td {
+            padding: .54rem .72rem;
+        }
+
+        #summary-export-area thead th {
+            font-size: .765rem;
+        }
+
+        #summary-export-area th,
+        #summary-export-area td {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #summary-export-area th {
+            font-weight: 900;
+        }
+
+        #summary-export-area th.col-team,
+        #summary-export-area td.col-team {
+            text-align: left;
+            font-weight: 800;
+        }
+
+        #summary-export-area th.col-top,
+        #summary-export-area td.col-top {
+            background: #e9f9ee;
+        }
+
+        #summary-export-area th.col-bottom,
+        #summary-export-area td.col-bottom {
+            background: #fdecee;
+        }
+
+        .exporting a {
+            color: var(--text);
+            text-decoration: none;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="topbar" aria-label="Kontroller">
+            <div class="topbar-nav">
+                <a class="ghost-link icon-link" href="../index.html" aria-label="Till startsidan"
+                    title="Till startsidan">🏠</a>
+                <button id="exportBtn" class="btn btn-icon" type="button" aria-label="Spara aktiv vy som bild"
+                    title="Spara aktiv vy som bild">📸</button>
+                <button id="refreshTipsBtn" class="btn btn-icon-plain" type="button"
+                    aria-label="Hämta färska tipsdata" title="Hämta färska tipsdata">🔄</button>
+
+                <!-- Huvudnavigation: samma ordning och placering som på systersidorna -->
+                <div class="topbar-tabs tabs" aria-label="Vyval">
+                    <a id="tabTabell" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2025-2026.html#tabell"
+                        aria-label="Tabell" title="Tabell">Tabell</a>
+
+                    <a id="tabVarmekarta" class="tab-btn tab-btn-link"
+                        href="tabell_och_varmekarta_shl_2025-2026.html#varmekarta"
+                        aria-label="Värmekarta" title="Värmekarta">Värmekarta</a>
+
+                    <button id="tabSnitt" class="tab-btn" type="button" aria-selected="true"
+                        aria-label="Snitt" title="Snitt">Snitt</button>
+
+                    <a id="tabTable" class="tab-btn tab-btn-link" href="shl_tippartopplista_2025-2026.html"
+                        aria-label="Klassiskt tips" title="Klassiskt tips">Klassiskt tips</a>
+
+                    <span id="tabInbordes" class="tab-btn tab-btn-link" aria-hidden="true"
+                        style="visibility:hidden; pointer-events:none;">H2H</span>
+
+                    <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
+                        <span class="season-select-label">Säsong</span>
+                        <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
+<!--                             <option value="shl-tips_2021-2022.html">2021/2022</option>
+                            <option value="shl-tips_2022-2023.html">2022/2023</option>
+                            <option value="shl-tips_2023-2024.html">2023/2024</option>
+                            <option value="shl-tips_2024-2025.html">2024/2025</option>
+ -->                            <option value="" selected>2025/2026</option>
+                            <option value="shl-tips_2026-2027.html">2026/2027</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reserverad kontrollrad: samma headerhöjd som systersidorna, men Snitt har inget tidslinjereglage. -->
+            <div class="topbar-row topbar-row--controls" aria-label="Vy-specifika kontroller">
+                <div class="view-controls-stack">
+                    <div id="sourceFilter" aria-label="Filter för tipskällor">
+                        <span class="source-options" aria-label="Vilka tips som visas">
+                            <span class="source-item">
+                                <label title="Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen)">
+                                    <input id="cb-hobby" type="checkbox" checked>
+                                    Amatörer
+                                </label>
+
+                                <details class="m-tip" aria-label="Mer info om Amatörer">
+                                    <summary aria-label="Mer info">ℹ️</summary>
+                                    <div class="m-tip__box" role="tooltip">
+                                        Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen)
+                                    </div>
+                                </details>
+                            </span>
+
+                            <span class="source-item">
+                                <label title="Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister offentliggjort sina tips)">
+                                    <input id="cb-expert" type="checkbox" checked>
+                                    Experter
+                                </label>
+
+                                <details class="m-tip" aria-label="Mer info om Experter">
+                                    <summary aria-label="Mer info">ℹ️</summary>
+                                    <div class="m-tip__box" role="tooltip">
+                                        Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister offentliggjort sina tips)
+                                    </div>
+                                </details>
+                            </span>
+
+                            <span class="source-item">
+                                <label title="Visa/dölj eget tips">
+                                    <input id="cb-custom" type="checkbox">
+                                    Eget tips
+                                </label>
+
+                                <details class="m-tip" aria-label="Mer info om Eget tips">
+                                    <summary aria-label="Mer info">ℹ️</summary>
+                                    <div class="m-tip__box" role="tooltip">Visa/dölj eget tips</div>
+                                </details>
+                            </span>
+
+                            <button class="btn-icon-plain" id="btn-open-custom" type="button"
+                                aria-label="Lägg till eget tips" title="Lägg till eget tips">
+                                <span class="custom-open-icon" aria-hidden="true">＋</span>
+                                <span class="sr-only">Eget tips</span>
+                            </button>
+                        </span>
+                    </div>
+
+                    <div id="rowColorControls" class="rowcolor-controls is-hidden" aria-hidden="true"></div>
+                </div>
+            </div>
+        </header>
+
+        <div id="load-error" class="load-error" role="alert" aria-live="polite" hidden></div>
+
+        <div class="custom-panel" id="custom-panel" aria-label="Inmatning av eget tips">
+            <div class="custom-content-centered">
+
+                <div class="custom-row">
+                    <button class="mini-btn" id="btn-save-custom" type="button">Spara</button>
+                    <button class="mini-btn" id="btn-clear-custom" type="button">Rensa</button>
+                    <button class="mini-btn" id="btn-cancel-custom" type="button">Avbryt</button>
+                </div>
+
+                <textarea id="custom-input" spellcheck="false" placeholder="Klistra in rader här..."></textarea>
+
+                <div id="custom-msg" class="msg"></div>
+                <details class="hint custom-help">
+                    <summary>
+                        <span class="when-closed">Format-hjälp (klicka för att visa)</span>
+                        <span class="when-open">Format-hjälp (klicka för att dölja)</span>
+                    </summary>
+
+                    <div class="custom-help__body">
+                        <p><strong>Klistra in ett eller flera tips som block.</strong></p>
+                        <ul>
+                            <li>Varje block är antingen <strong>14 rader</strong> (lag i ordning 1–14) eller <strong>15
+                                    rader</strong> (första raden är en valfri rubrik/namnrad).</li>
+                            <li>Lämna <strong>en tom rad</strong> mellan block.</li>
+                            <li>Du får blanda 14- och 15-radersblock i samma inklistring.</li>
+                            <li>Lagnamnen måste totalt bli <strong>alla 14 lagen exakt en gång</strong> per block.</li>
+                        </ul>
+                        <p><strong>Exempel (15 rader):</strong></p>
+                        <pre class="custom-help__ex">Tipparens namn
+Lag 1
+Lag 2
+...
+Lag 14</pre>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div id="tips-count-status" class="tips-count-status" aria-live="polite"></div>
+
+        <div class="table-wrap" id="summary-export-area">
+            <table aria-label="Snittplacering baserat på tabelltips">
+                <thead>
+                    <tr>
+                        <th class="col-team">Lag</th>
+                        <th>Snitt</th>
+                        <th class="col-top">Topp-3</th>
+                        <th class="col-top">Topp-5</th>
+                        <th class="col-bottom">Botten-3</th>
+                        <th class="col-bottom">Botten-5</th>
+                    </tr>
+                </thead>
+                <tbody id="summary-tbody"></tbody>
+            </table>
+        </div>
+
+    </div>
+    <script>
+        (async function () {
+            "use strict";
+
+            // =========================================================
+            // SHL 2025/2026 – gemensam tipsdata + localStorage
+            // Samma cacheformat och nycklar som Tabell/Värmekarta.
+            // =========================================================
+            // GID för fliken tips_shl_2025-2026. Fyll i när fliken är skapad.
+            const TIPS_GID_2025_2026 = '896520270';
+
+            const DATA_SOURCES = {
+                games: {
+                    key: 'games',
+                    label: 'Matchdata',
+                    spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                    gid: '2012579108',
+                    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+                    requiredColumns: [
+                        'home_team_id',
+                        'away_team_id',
+                        'season_id',
+                        'league'
+                    ]
+                },
+
+                allTeams: {
+                    key: 'allTeams',
+                    label: 'Lagdata',
+                    spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                    gid: '257061153',
+                    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv',
+                    requiredColumns: [
+                        'team_id',
+                        'team_name_short',
+                        'team_name_long'
+                    ]
+                },
+
+                tips: {
+                    key: 'tips',
+                    label: 'Tipsdata',
+                    spreadsheetId: '1fsWVsiCnwFzge3xf5p0cReiTAkcpdLcuvmWSyDUmDhI',
+                    gid: TIPS_GID_2025_2026,
+                    tsv: `https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=${TIPS_GID_2025_2026}&single=true&output=tsv`,
+                    requiredColumns: [
+                        'participant_id',
+                        'display_name',
+                        'tip_type',
+                        'team_id',
+                        'pick_rank'
+                    ]
+                }
+            };
+
+            const MATCH_SEASON_ID = '2025-2026';
+            const MATCH_LEAGUE = 'SHL';
+
+            const SHL_TIPS_CACHE_KEY = 'SHL_TIPS_DATA_2025_2026';
+            const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
+            const LS_TIPS_SOURCES_KEY = 'shlTips.sources.shl_2025_2026.v1';
+            const LS_CUSTOM_TIPS_KEY = 'shlTopplista.customTippers.shl_2025_2026.v1';
+            const LS_CUSTOM_PANEL_OPEN_KEY = 'shlTips.ui.customPanelOpen.shl_2025_2026.v1';
+
+            const CUSTOM_TAB_ID = (() => {
+                try { if (window.crypto?.randomUUID) return window.crypto.randomUUID(); } catch { }
+                return 'tab_' + Math.random().toString(16).slice(2) + '_' + Date.now();
+            })();
+            let suppressPanelStateWrite = false;
+
+            const els = {
+                cbHobby: document.getElementById('cb-hobby'),
+                cbExpert: document.getElementById('cb-expert'),
+                cbCustom: document.getElementById('cb-custom'),
+                tbody: document.getElementById('summary-tbody'),
+                tipsCountStatus: document.getElementById('tips-count-status'),
+                exportBtn: document.getElementById('exportBtn'),
+                refreshTipsBtn: document.getElementById('refreshTipsBtn'),
+                seasonSelect: document.getElementById('seasonSelect'),
+                exportArea: document.getElementById('summary-export-area'),
+                openCustomBtn: document.getElementById('btn-open-custom'),
+                customPanel: document.getElementById('custom-panel'),
+                customInput: document.getElementById('custom-input'),
+                customMsg: document.getElementById('custom-msg'),
+                saveCustomBtn: document.getElementById('btn-save-custom'),
+                clearCustomBtn: document.getElementById('btn-clear-custom'),
+                cancelCustomBtn: document.getElementById('btn-cancel-custom'),
+                loadError: document.getElementById('load-error')
+            };
+
+            let TEAM_BY_ID = new Map();
+            let SHORT_TEAMS = [];
+            let TIPS_MATRIX_HOBBY = null;
+            let TIPS_MATRIX_EXPERT = null;
+            let TIPS_MATRIX_CUSTOM = null;
+            let TIPS_CUSTOM_TEXT = '';
+
+            function showLoadError(message) {
+                els.loadError.textContent = message;
+                els.loadError.hidden = false;
+            }
+            function hideLoadError() {
+                els.loadError.textContent = '';
+                els.loadError.hidden = true;
+            }
+
+            function idxOf(header, name) {
+                return header.findIndex(h => String(h).toLowerCase() === String(name).toLowerCase());
+            }
+            function isExpertDisplayName(displayName) {
+                return /^SHL-exp\b/i.test(String(displayName || '').trim());
+            }
+            function mapToObject(map) {
+                return Object.fromEntries(map.entries());
+            }
+            function tipsMapToObject(map) {
+                const out = {};
+                map.forEach((rows, id) => { out[id] = rows; });
+                return out;
+            }
+
+            function rebuildTeamIndexes() {
+                const teams = Array.from(TEAM_BY_ID.values());
+                if (teams.length !== 14) throw new Error(`Lagdata: förväntade 14 SHL-lag men fick ${teams.length}.`);
+
+                const seenShort = new Set();
+                SHORT_TEAMS = teams.map(team => {
+                    const shortName = String(team?.team_name_short || '').trim();
+                    const longName = String(team?.team_name_long || '').trim();
+                    if (!shortName || !longName) throw new Error('Lagdata: team_name_short/team_name_long saknas.');
+                    if (seenShort.has(shortName)) throw new Error(`Lagdata: dubblerat kortnamn ${shortName}.`);
+                    seenShort.add(shortName);
+                    return shortName;
+                }).sort((a, b) => a.localeCompare(b, 'sv'));
+            }
+
+            function createEmptyMatrix() {
+                const matrix = {};
+                SHORT_TEAMS.forEach(team => { matrix[team] = Array(14).fill(0); });
+                return matrix;
+            }
+
+            function validateMatrix(matrix) {
+                if (!matrix || typeof matrix !== 'object') return { ok: false, error: 'Matris saknas.' };
+                const keys = Object.keys(matrix);
+                if (keys.length !== SHORT_TEAMS.length) return { ok: false, error: 'Matrisen har fel antal lag.' };
+                for (const team of SHORT_TEAMS) {
+                    const arr = matrix[team];
+                    if (!Array.isArray(arr) || arr.length !== 14) return { ok: false, error: `Fel matrisrad för ${team}.` };
+                    if (arr.some(v => !Number.isInteger(v) || v < 0)) return { ok: false, error: `Ogiltiga matrisvärden för ${team}.` };
+                }
+                return { ok: true };
+            }
+
+            function isCacheFresh(payload) {
+                const ms = Date.parse(payload?.savedAt || '');
+                return Number.isFinite(ms) && (Date.now() - ms) >= 0 && (Date.now() - ms) < SHL_CACHE_MAX_AGE_MS;
+            }
+
+            function readSharedCache({ allowStale = false } = {}) {
+                try {
+                    const raw = localStorage.getItem(SHL_TIPS_CACHE_KEY);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    if (!parsed || parsed.version !== 2 || parsed.season !== '2025_2026' || parsed.league !== 'shl') return null;
+                    if (!parsed.TEAM_BY_ID || !parsed.TIPS_MATRIX_HOBBY || !parsed.TIPS_MATRIX_EXPERT) return null;
+                    if (!allowStale && !isCacheFresh(parsed)) return null;
+                    return parsed;
+                } catch (e) {
+                    console.warn('[snitt][cache] kunde inte läsa cache', e);
+                    return null;
+                }
+            }
+
+            function hydrateFromCache(payload) {
+                TIPS_MATRIX_HOBBY = payload.TIPS_MATRIX_HOBBY;
+                TIPS_MATRIX_EXPERT = payload.TIPS_MATRIX_EXPERT;
+
+                // Den delade tips-cachen kan innehålla ett större lagregister än
+                // just den aktuella SHL-säsongens 14 lag. Tipsmatriserna är däremot
+                // säsongsspecifika och nycklade på exakt de kortnamn som Snitt ska
+                // använda. Filtrera därför cache-registret mot matrisens lagnycklar
+                // i stället för att låta hela TEAM_BY_ID bli sanningen om säsongen.
+                const matrixTeams = new Set([
+                    ...Object.keys(TIPS_MATRIX_HOBBY || {}),
+                    ...Object.keys(TIPS_MATRIX_EXPERT || {})
+                ]);
+
+                const cachedTeams = new Map(Object.entries(payload.TEAM_BY_ID || {}));
+                TEAM_BY_ID = new Map();
+                cachedTeams.forEach((team, teamId) => {
+                    const shortName = String(team?.team_name_short || '').trim();
+                    if (matrixTeams.has(shortName)) TEAM_BY_ID.set(teamId, team);
+                });
+
+                rebuildTeamIndexes();
+                if (!validateMatrix(TIPS_MATRIX_HOBBY).ok || !validateMatrix(TIPS_MATRIX_EXPERT).ok) {
+                    throw new Error('Tipsdata: cache innehåller ogiltiga matriser.');
+                }
+            }
+
+            async function refreshTipsFromSheets() {
+                const [gamesResult, allTeamsResult, tipsResult] = await Promise.all([
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.games),
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.allTeams),
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.tips)
+                ]);
+
+                // 1) Games avgör exakt vilka lag som ingår i vald liga/säsong.
+                const gameRows = gamesResult.rows;
+                if (!gameRows.length) throw new Error('Matchdata: inga rader hittades.');
+                const gh = gameRows[0];
+                const iGameHome = idxOf(gh, 'home_team_id');
+                const iGameAway = idxOf(gh, 'away_team_id');
+                const iGameSeason = idxOf(gh, 'season_id');
+                const iGameLeague = idxOf(gh, 'league');
+                if ([iGameHome, iGameAway, iGameSeason, iGameLeague].some(i => i === -1)) {
+                    throw new Error('Matchdata: home_team_id, away_team_id, season_id eller league saknas.');
+                }
+
+                const seasonTeamIds = new Set();
+                for (const r of gameRows.slice(1)) {
+                    if (String(r[iGameSeason] || '').trim() !== MATCH_SEASON_ID) continue;
+                    if (String(r[iGameLeague] || '').trim().toUpperCase() !== MATCH_LEAGUE.toUpperCase()) continue;
+
+                    const homeId = String(r[iGameHome] || '').trim();
+                    const awayId = String(r[iGameAway] || '').trim();
+                    if (homeId) seasonTeamIds.add(homeId);
+                    if (awayId) seasonTeamIds.add(awayId);
+                }
+
+                if (seasonTeamIds.size !== 14) {
+                    throw new Error(`Matchdata: förväntade 14 SHL-lag för ${MATCH_SEASON_ID} men hittade ${seasonTeamIds.size}.`);
+                }
+
+                // 2) all_teams är enda namnregistret. Filtrera ner till säsongens 14 team_id.
+                const teamRows = allTeamsResult.rows;
+                if (!teamRows.length) throw new Error('Lagdata: inga rader hittades.');
+                const th = teamRows[0];
+                const iId = idxOf(th, 'team_id');
+                const iAbbr = idxOf(th, 'team_name_abbr');
+                const iShort = idxOf(th, 'team_name_short');
+                const iLong = idxOf(th, 'team_name_long');
+                if ([iId, iShort, iLong].some(i => i === -1)) {
+                    throw new Error('Lagdata: team_id, team_name_short eller team_name_long saknas.');
+                }
+
+                TEAM_BY_ID = new Map();
+                for (const r of teamRows.slice(1)) {
+                    const teamId = String(r[iId] || '').trim();
+                    if (!seasonTeamIds.has(teamId)) continue;
+
+                    TEAM_BY_ID.set(teamId, {
+                        team_id: teamId,
+                        team_name_abbr: iAbbr !== -1 ? String(r[iAbbr] || '').trim() : '',
+                        team_name_short: String(r[iShort] || '').trim(),
+                        team_name_long: String(r[iLong] || '').trim()
+                    });
+                }
+
+                if (TEAM_BY_ID.size !== 14) {
+                    const missing = Array.from(seasonTeamIds).filter(id => !TEAM_BY_ID.has(id));
+                    throw new Error(`Lagdata: all_teams saknar ${missing.length} säsongslag${missing.length ? ` (${missing.join(', ')})` : ''}.`);
+                }
+
+                rebuildTeamIndexes();
+
+                // Publicerad tipsdata: participant_id | display_name | tip_type | team_id | pick_rank | ...
+                const tipsRows = tipsResult.rows;
+                if (!tipsRows.length) throw new Error('Tipsdata: inga rader hittades.');
+                const hdr = tipsRows[0];
+                const iParticipant = idxOf(hdr, 'participant_id');
+                const iDisplay = idxOf(hdr, 'display_name');
+                const iType = idxOf(hdr, 'tip_type');
+                const iTeam = idxOf(hdr, 'team_id');
+                const iRank = idxOf(hdr, 'pick_rank');
+                const missing = [
+                    ['participant_id', iParticipant], ['display_name', iDisplay], ['tip_type', iType],
+                    ['team_id', iTeam], ['pick_rank', iRank]
+                ].filter(([, i]) => i === -1).map(([name]) => name);
+                if (missing.length) throw new Error(`Tipsdata: saknar kolumn(er): ${missing.join(', ')}.`);
+
+                const TIPPER_BY_ID = new Map();
+                const TIPS_BY_TIPPER_HOBBY = new Map();
+                const TIPS_BY_TIPPER_EXPERT = new Map();
+
+                for (const r of tipsRows.slice(1)) {
+                    if (String(r[iType] || '').trim().toLowerCase() !== 'classic') continue;
+
+                    const participantId = String(r[iParticipant] || '').trim();
+                    const displayName = String(r[iDisplay] || '').trim();
+                    const teamId = String(r[iTeam] || '').trim();
+                    const pickRank = Number(r[iRank]);
+
+                    if (!participantId || !displayName || !teamId || !Number.isInteger(pickRank)) {
+                        throw new Error('Tipsdata: en classic-rad saknar obligatoriskt värde.');
+                    }
+                    if (!TEAM_BY_ID.has(teamId)) throw new Error(`Tipsdata: okänt team_id "${teamId}".`);
+                    if (pickRank < 1 || pickRank > 14) throw new Error(`Tipsdata: pick_rank ${pickRank} ligger utanför 1–14.`);
+
+                    TIPPER_BY_ID.set(participantId, {
+                        tipper_id: participantId,
+                        tipper_name_short: displayName,
+                        tipper_name_long: displayName
+                    });
+                    const target = isExpertDisplayName(displayName) ? TIPS_BY_TIPPER_EXPERT : TIPS_BY_TIPPER_HOBBY;
+                    if (!target.has(participantId)) target.set(participantId, []);
+                    target.get(participantId).push({ team_id: teamId, pick_rank: pickRank });
+                }
+
+                for (const target of [TIPS_BY_TIPPER_HOBBY, TIPS_BY_TIPPER_EXPERT]) {
+                    target.forEach((rows, participantId) => {
+                        rows.sort((a, b) => a.pick_rank - b.pick_rank);
+                        if (rows.length !== 14) throw new Error(`Tipsdata: ${participantId} har ${rows.length} classic-rader, förväntat 14.`);
+                        const teamIds = new Set(rows.map(x => x.team_id));
+                        const ranks = new Set(rows.map(x => x.pick_rank));
+                        if (teamIds.size !== 14 || ranks.size !== 14) throw new Error(`Tipsdata: ${participantId} har dubbletter/saknade lag eller placeringar.`);
+                    });
+                }
+
+                function buildMatrix(tipsByTipper) {
+                    const matrix = createEmptyMatrix();
+                    tipsByTipper.forEach(rows => {
+                        rows.forEach(({ team_id, pick_rank }) => {
+                            const shortName = TEAM_BY_ID.get(team_id)?.team_name_short;
+                            if (!shortName || !matrix[shortName]) throw new Error(`Tipsdata: kunde inte mappa ${team_id} till kortnamn.`);
+                            matrix[shortName][pick_rank - 1] += 1;
+                        });
+                    });
+                    return matrix;
+                }
+
+                TIPS_MATRIX_HOBBY = buildMatrix(TIPS_BY_TIPPER_HOBBY);
+                TIPS_MATRIX_EXPERT = buildMatrix(TIPS_BY_TIPPER_EXPERT);
+
+                const TEAM_ID_BY_LONGNAME = {};
+                TEAM_BY_ID.forEach((team, id) => {
+                    if (team.team_name_long) TEAM_ID_BY_LONGNAME[team.team_name_long] = id;
+                });
+
+                const payload = {
+                    version: 2,
+                    savedAt: new Date().toISOString(),
+                    season: '2025_2026',
+                    league: 'shl',
+                    TIPS_MATRIX_HOBBY,
+                    TIPS_MATRIX_EXPERT,
+                    TEAM_BY_ID: mapToObject(TEAM_BY_ID),
+                    TEAM_ID_BY_LONGNAME,
+                    TIPPER_BY_ID: mapToObject(TIPPER_BY_ID),
+                    TIPS_BY_TIPPER_HOBBY: tipsMapToObject(TIPS_BY_TIPPER_HOBBY),
+                    TIPS_BY_TIPPER_EXPERT: tipsMapToObject(TIPS_BY_TIPPER_EXPERT)
+                };
+                localStorage.setItem(SHL_TIPS_CACHE_KEY, JSON.stringify(payload));
+            }
+
+            async function loadSharedTips() {
+                const fresh = readSharedCache();
+                if (fresh) {
+                    hydrateFromCache(fresh);
+                    return;
+                }
+                const stale = readSharedCache({ allowStale: true });
+                try {
+                    await refreshTipsFromSheets();
+                } catch (err) {
+                    if (!stale) throw err;
+                    console.warn('[snitt] nätverksfel – använder utgången gemensam cache', err);
+                    hydrateFromCache(stale);
+                }
+            }
+
+            function saveTipsSources() {
+                try {
+                    let existing = {};
+                    try {
+                        const parsed = JSON.parse(localStorage.getItem(LS_TIPS_SOURCES_KEY) || 'null');
+                        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) existing = parsed;
+                    } catch { /* behåll tomt objekt */ }
+
+                    localStorage.setItem(LS_TIPS_SOURCES_KEY, JSON.stringify({
+                        ...existing,
+                        hobby: !!els.cbHobby.checked,
+                        expert: !!els.cbExpert.checked,
+                        custom: !!els.cbCustom.checked
+                    }));
+                } catch (e) {
+                    console.warn('[snitt][tipsSources][LS] kunde inte spara:', e);
+                }
+            }
+            function loadTipsSources() {
+                try {
+                    const parsed = JSON.parse(localStorage.getItem(LS_TIPS_SOURCES_KEY) || 'null');
+                    if (!parsed || typeof parsed !== 'object') return null;
+                    return {
+                        hobby: parsed.hobby !== false,
+                        expert: parsed.expert !== false,
+                        custom: parsed.custom === true
+                    };
+                } catch { return null; }
+            }
+
+            function totalTips(counts) {
+                return counts.reduce((sum, n) => sum + (Number(n) || 0), 0);
+            }
+
+            function findShortTeamFromLine(line) {
+                const input = String(line || '').trim();
+                if (!input) return null;
+                const lower = input.toLocaleLowerCase('sv-SE');
+                const candidates = [];
+
+                TEAM_BY_ID.forEach((team, teamId) => {
+                    const shortName = String(team.team_name_short || '').trim();
+                    const aliases = Array.from(new Set([
+                        team.team_name_long, team.team_name_short, team.team_name_abbr
+                    ].map(v => String(v || '').trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
+
+                    for (const alias of aliases) {
+                        const al = alias.toLocaleLowerCase('sv-SE');
+                        if (lower === al) candidates.push({ score: 10000 + alias.length, teamId, shortName });
+                        else if (alias.length >= 3 && lower.includes(al)) candidates.push({ score: 1000 + alias.length, teamId, shortName });
+                    }
+                });
+
+                if (!candidates.length) return null;
+                candidates.sort((a, b) => b.score - a.score);
+                const best = candidates[0];
+                const tied = candidates.filter(c => c.score === best.score);
+                if (new Set(tied.map(c => c.teamId)).size > 1) return null;
+                return best.shortName;
+            }
+
+            function parseCustomText(rawText) {
+                const raw = String(rawText || '').replace(/\r\n/g, '\n');
+                if (!raw.trim()) return { ok: true, matrix: null, tipsN: 0, empty: true };
+
+                const blocks = raw.split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
+                const matrix = createEmptyMatrix();
+
+                for (let bi = 0; bi < blocks.length; bi++) {
+                    const lines = blocks[bi].split('\n').map(l => l.trim()).filter(Boolean);
+                    if (lines.length !== 14 && lines.length !== 15) {
+                        return { ok: false, error: `Block ${bi + 1}: fel antal rader (${lines.length}). Måste vara 14 lagrader, eller 15 där första raden är en namnrad.` };
+                    }
+                    const teamLines = lines.length === 15 ? lines.slice(1) : lines;
+                    const ordered = [];
+                    for (let li = 0; li < teamLines.length; li++) {
+                        const team = findShortTeamFromLine(teamLines[li]);
+                        if (!team) return { ok: false, error: `Block ${bi + 1}, lagrad ${li + 1}: okänt eller tvetydigt lag "${teamLines[li]}".` };
+                        ordered.push(team);
+                    }
+                    const uniq = new Set(ordered);
+                    if (uniq.size !== 14) return { ok: false, error: `Block ${bi + 1}: varje lag måste förekomma exakt en gång.` };
+                    const missing = SHORT_TEAMS.filter(t => !uniq.has(t));
+                    if (missing.length) return { ok: false, error: `Block ${bi + 1}: saknar ${missing.join(', ')}.` };
+                    ordered.forEach((team, pos) => { matrix[team][pos] += 1; });
+                }
+                return { ok: true, matrix, tipsN: blocks.length };
+            }
+
+            function loadCustom({ fillTextarea = false } = {}) {
+                const raw = localStorage.getItem(LS_CUSTOM_TIPS_KEY);
+                if (!raw) {
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = '';
+                    return false;
+                }
+                try {
+                    const payload = JSON.parse(raw);
+                    if (payload?.version !== 1 || typeof payload?.tips !== 'string') throw new Error('fel payload');
+                    const check = validateMatrix(payload.matrix);
+                    if (!check.ok) throw new Error(check.error);
+                    TIPS_MATRIX_CUSTOM = payload.matrix;
+                    TIPS_CUSTOM_TEXT = payload.tips;
+                    if (fillTextarea) els.customInput.value = payload.tips;
+                    return true;
+                } catch (e) {
+                    console.warn('[snitt][custom] ogiltigt localStorage-payload', e);
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = '';
+                    return false;
+                }
+            }
+
+            function setCustomMsg(type, text) {
+                els.customMsg.className = 'msg ' + (type === 'ok' ? 'ok' : 'err');
+                els.customMsg.textContent = text || '';
+            }
+
+            function toggleCustomPanel(forceOpen, reason = 'local') {
+                const open = typeof forceOpen === 'boolean' ? forceOpen : !els.customPanel.classList.contains('open');
+                els.customPanel.classList.toggle('open', open);
+
+                if (!suppressPanelStateWrite) {
+                    localStorage.setItem(LS_CUSTOM_PANEL_OPEN_KEY, JSON.stringify({
+                        open, ts: new Date().toISOString(), by: CUSTOM_TAB_ID, reason
+                    }));
+                }
+                if (open) {
+                    loadCustom({ fillTextarea: true });
+                    if (!TIPS_MATRIX_CUSTOM) els.customInput.value = '';
+                    setCustomMsg('err', '');
+                    requestAnimationFrame(() => els.customInput.focus());
+                } else {
+                    setCustomMsg('err', '');
+                }
+            }
+
+            function saveCustom() {
+                const raw = String(els.customInput.value || '').trim();
+                if (!raw) {
+                    localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                    TIPS_MATRIX_CUSTOM = null;
+                    TIPS_CUSTOM_TEXT = '';
+                    els.cbCustom.checked = false;
+                    saveTipsSources();
+                    toggleCustomPanel(false, 'custom-delete');
+                    render();
+                    return;
+                }
+
+                const parsed = parseCustomText(raw);
+                if (!parsed.ok || !parsed.matrix) {
+                    setCustomMsg('err', parsed.error || 'Kunde inte tolka tipset.');
+                    return;
+                }
+                const check = validateMatrix(parsed.matrix);
+                if (!check.ok) {
+                    setCustomMsg('err', check.error);
+                    return;
+                }
+
+                localStorage.setItem(LS_CUSTOM_TIPS_KEY, JSON.stringify({
+                    version: 1,
+                    savedAt: new Date().toISOString(),
+                    tips: raw,
+                    matrix: parsed.matrix
+                }));
+                TIPS_MATRIX_CUSTOM = parsed.matrix;
+                TIPS_CUSTOM_TEXT = raw;
+                els.cbCustom.checked = true;
+                saveTipsSources();
+                toggleCustomPanel(false, 'custom-save');
+                render();
+            }
+
+            function selectedMatrices() {
+                const out = [];
+                if (els.cbHobby.checked) out.push(TIPS_MATRIX_HOBBY);
+                if (els.cbExpert.checked) out.push(TIPS_MATRIX_EXPERT);
+                if (els.cbCustom.checked && TIPS_MATRIX_CUSTOM) out.push(TIPS_MATRIX_CUSTOM);
+                return out;
+            }
+
+            function countsForTeam(team) {
+                const counts = Array(14).fill(0);
+                selectedMatrices().forEach(matrix => {
+                    const row = matrix?.[team];
+                    if (!Array.isArray(row) || row.length !== 14) throw new Error(`Tipsdata: saknar korrekt matrisrad för ${team}.`);
+                    for (let i = 0; i < 14; i++) counts[i] += Number(row[i]) || 0;
+                });
+                return counts;
+            }
+
+            function computeRows() {
+                return SHORT_TEAMS.map(team => {
+                    const counts = countsForTeam(team);
+                    const total = totalTips(counts);
+                    let avg = null;
+                    if (total) {
+                        avg = counts.reduce((sum, count, i) => sum + count * (i + 1), 0) / total;
+                    }
+                    return {
+                        team,
+                        total,
+                        avg,
+                        top3: counts.slice(0, 3).reduce((a, b) => a + b, 0),
+                        top5: counts.slice(0, 5).reduce((a, b) => a + b, 0),
+                        bottom3: counts.slice(11).reduce((a, b) => a + b, 0),
+                        bottom5: counts.slice(9).reduce((a, b) => a + b, 0)
+                    };
+                }).sort((a, b) => {
+                    const aa = a.avg == null ? Infinity : a.avg;
+                    const bb = b.avg == null ? Infinity : b.avg;
+                    return aa - bb || a.team.localeCompare(b.team, 'sv');
+                });
+            }
+
+            function escapeHtml(str) {
+                return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+            }
+            function formatAvg(avg) {
+                return avg == null ? '–' : avg.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            function syncCustomButtons() {
+                const hasCustom = !!TIPS_MATRIX_CUSTOM;
+                const icon = els.openCustomBtn?.querySelector('.custom-open-icon');
+                if (icon) icon.textContent = hasCustom ? '✎' : '＋';
+                if (els.openCustomBtn) {
+                    const label = hasCustom ? 'Redigera eget tips' : 'Lägg till eget tips';
+                    els.openCustomBtn.setAttribute('aria-label', label);
+                    els.openCustomBtn.setAttribute('title', label);
+                }
+            }
+            function matrixTipCount(matrix) {
+                if (!matrix || typeof matrix !== 'object') return 0;
+                const firstRow = Object.values(matrix).find(Array.isArray);
+                return Array.isArray(firstRow)
+                    ? firstRow.reduce((sum, value) => sum + (Number(value) || 0), 0)
+                    : 0;
+            }
+
+            function updateTipsCountStatus() {
+                const parts = [];
+                let total = 0;
+
+                if (els.cbHobby.checked) {
+                    const count = matrixTipCount(TIPS_MATRIX_HOBBY);
+                    total += count;
+                    parts.push(`${count} amatörer`);
+                }
+                if (els.cbExpert.checked) {
+                    const count = matrixTipCount(TIPS_MATRIX_EXPERT);
+                    total += count;
+                    parts.push(`${count} experter`);
+                }
+                if (els.cbCustom.checked && TIPS_MATRIX_CUSTOM) {
+                    const count = matrixTipCount(TIPS_MATRIX_CUSTOM);
+                    total += count;
+                    parts.push(count === 1 ? 'eget tips' : `${count} egna tips`);
+                }
+
+                if (!els.tipsCountStatus) return;
+                els.tipsCountStatus.textContent = total > 0
+                    ? `${total} tips ingår: ${parts.join(' + ')}`
+                    : 'Inga tips ingår i snittet';
+            }
+
+            function render() {
+                const rows = computeRows();
+                const candidate = rows.find(r => r.total > 0);
+                const numTips = candidate?.total || 0;
+                els.tbody.innerHTML = rows.map(r => `
+                    <tr>
+                        <td class="col-team">${escapeHtml(r.team)}</td>
+                        <td>${formatAvg(r.avg)}</td>
+                        <td class="col-top">${r.top3}</td>
+                        <td class="col-top">${r.top5}</td>
+                        <td class="col-bottom">${r.bottom3}</td>
+                        <td class="col-bottom">${r.bottom5}</td>
+                    </tr>`).join('');
+                syncCustomButtons();
+                updateTipsCountStatus();
+            }
+
+            async function exportTableAsImage() {
+                if (!window.html2canvas) {
+                    alert('html2canvas kunde inte laddas. (Offline?)');
+                    return;
+                }
+                const rows = computeRows();
+                const numTips = rows.find(r => r.total > 0)?.total || 0;
+                document.body.classList.add('exporting');
+                try {
+                    const canvas = await html2canvas(els.exportArea, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+                    canvas.toBlob(blob => {
+                        if (!blob) return;
+                        const a = document.createElement('a');
+                        a.download = `shl-tips-sammanfattning-${String(numTips).padStart(2, '0')}-tips.png`;
+                        a.href = URL.createObjectURL(blob);
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(a.href);
+                    }, 'image/png');
+                } finally {
+                    document.body.classList.remove('exporting');
+                }
+            }
+
+            function applySourcesFromStorage() {
+                const saved = loadTipsSources();
+                if (saved) {
+                    els.cbHobby.checked = saved.hobby;
+                    els.cbExpert.checked = saved.expert;
+                    els.cbCustom.checked = saved.custom;
+                }
+                loadCustom({ fillTextarea: false });
+                if (!TIPS_MATRIX_CUSTOM && els.cbCustom.checked) {
+                    els.cbCustom.checked = false;
+                    saveTipsSources();
+                }
+            }
+
+            function applyPanelStateFromStorage() {
+                try {
+                    const incoming = JSON.parse(localStorage.getItem(LS_CUSTOM_PANEL_OPEN_KEY) || 'null');
+                    suppressPanelStateWrite = true;
+                    toggleCustomPanel(!!incoming?.open, 'init:storage');
+                } catch { /* inget sparat */ }
+                finally { suppressPanelStateWrite = false; }
+            }
+
+            function bindEvents() {
+                [els.cbHobby, els.cbExpert].forEach(cb => cb.addEventListener('change', () => {
+                    saveTipsSources();
+                    render();
+                }));
+
+                els.cbCustom.addEventListener('change', () => {
+                    if (els.cbCustom.checked && !loadCustom({ fillTextarea: false })) {
+                        els.cbCustom.checked = false;
+                        saveTipsSources();
+                        toggleCustomPanel(true, 'custom-checkbox-empty');
+                        render();
+                        return;
+                    }
+                    saveTipsSources();
+                    render();
+                });
+
+                els.exportBtn.addEventListener('click', exportTableAsImage);
+
+                els.seasonSelect?.addEventListener('change', () => {
+                    const target = els.seasonSelect.value;
+                    if (!target) return;
+                    location.href = target;
+                });
+
+                els.refreshTipsBtn?.addEventListener('click', async () => {
+                    if (els.refreshTipsBtn.disabled) return;
+
+                    const oldTitle = els.refreshTipsBtn.title;
+                    els.refreshTipsBtn.disabled = true;
+                    els.refreshTipsBtn.title = 'Uppdaterar tipsdata…';
+                    els.refreshTipsBtn.setAttribute('aria-label', 'Uppdaterar tipsdata');
+
+                    try {
+                        await refreshTipsFromSheets();
+                        hideLoadError();
+                        loadCustom({ fillTextarea: false });
+                        render();
+                    } catch (err) {
+                        console.error('[snitt][refresh]', err);
+                        showLoadError('Tipsdata kunde inte uppdateras. Den senast inlästa datan ligger kvar.');
+                    } finally {
+                        els.refreshTipsBtn.disabled = false;
+                        els.refreshTipsBtn.title = oldTitle || 'Hämta färska tipsdata';
+                        els.refreshTipsBtn.setAttribute('aria-label', 'Hämta färska tipsdata');
+                    }
+                });
+                els.openCustomBtn.addEventListener('click', () => toggleCustomPanel(true, TIPS_MATRIX_CUSTOM ? 'edit' : 'add'));
+                els.cancelCustomBtn.addEventListener('click', () => toggleCustomPanel(false, 'cancel'));
+                els.saveCustomBtn.addEventListener('click', saveCustom);
+                els.clearCustomBtn.addEventListener('click', () => {
+                    els.customInput.value = '';
+                    setCustomMsg('err', '');
+                    els.customInput.focus();
+                });
+                els.customInput.addEventListener('input', () => setCustomMsg('err', ''));
+
+                document.querySelectorAll('details.m-tip').forEach(d => {
+                    d.addEventListener('toggle', () => {
+                        if (!d.open) return;
+                        document.querySelectorAll('details.m-tip[open]').forEach(other => {
+                            if (other !== d) other.removeAttribute('open');
+                        });
+                    });
+                });
+                document.addEventListener('click', e => {
+                    if (e.target?.closest?.('details.m-tip')) return;
+                    document.querySelectorAll('details.m-tip[open]').forEach(d => d.removeAttribute('open'));
+                });
+
+                window.addEventListener('storage', e => {
+                    if (!e) return;
+                    if (e.key === LS_TIPS_SOURCES_KEY) {
+                        const saved = loadTipsSources();
+                        if (saved) {
+                            els.cbHobby.checked = saved.hobby;
+                            els.cbExpert.checked = saved.expert;
+                            els.cbCustom.checked = saved.custom;
+                            if (saved.custom) loadCustom({ fillTextarea: false });
+                            render();
+                        }
+                        return;
+                    }
+                    if (e.key === LS_CUSTOM_TIPS_KEY) {
+                        loadCustom({ fillTextarea: false });
+                        if (!TIPS_MATRIX_CUSTOM) els.cbCustom.checked = false;
+                        render();
+                        return;
+                    }
+                    if (e.key === LS_CUSTOM_PANEL_OPEN_KEY) {
+                        let incoming = null;
+                        try { incoming = e.newValue ? JSON.parse(e.newValue) : null; } catch { }
+                        suppressPanelStateWrite = true;
+                        try { toggleCustomPanel(!!incoming?.open, 'storage'); }
+                        finally { suppressPanelStateWrite = false; }
+                        return;
+                    }
+                    if (e.key === SHL_TIPS_CACHE_KEY && e.newValue) {
+                        const fresh = readSharedCache({ allowStale: true });
+                        if (fresh) {
+                            hydrateFromCache(fresh);
+                            loadCustom({ fillTextarea: false });
+                            render();
+                        }
+                    }
+                });
+            }
+
+            try {
+                await loadSharedTips();
+                hideLoadError();
+                applySourcesFromStorage();
+                bindEvents();
+                applyPanelStateFromStorage();
+                render();
+            } catch (err) {
+                console.error('[snitt][FATAL]', err);
+                showLoadError('Tabellerna kunde inte laddas. Prova att ladda om sidan. Om problemet kvarstår: kontrollera uppkopplingen och datakällorna.');
+            }
+        })();
+    </script>
+
+
+</body>
+</html>
