@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Poängställning NHL 2024/2025</title>
+    <title>Poängställning NHL 2023/2024</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -41,18 +41,20 @@
         .dropdown-menu {
             display: none; position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
             background-color: white; border: 1px solid #ddd; border-radius: 4px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 1000; min-width: 250px; padding: 0.5rem 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 1000;
+            min-width: 220px; max-height: 70vh; overflow-y: auto; padding: 0.3rem 0;
         }
         .dropdown-menu.active { display: block; }
         .dropdown-menu a {
-            display: block; padding: 0.45rem 1rem; color: #007bff; text-decoration: none; white-space: nowrap; font-size: 1.4rem;
+            display: block; padding: 0.28rem 0.8rem; color: #007bff; text-decoration: none;
+            white-space: nowrap; font-size: 1rem; line-height: 1.25;
         }
         .dropdown-menu a:hover { background-color: #f8f9fa; }
 
         .dropdown-menu hr {
             border: none; /* Ta bort standardramen */
             border-top: 1px solid #d0d0d0; /* Lägg till en tunn, ljusgrå linje */
-            margin: 0.7rem 0; /* Lite luft ovanför och under linjen */
+            margin: 0.4rem 0; /* Lite luft ovanför och under linjen */
         }
 
         /* Stil för den valda länken */
@@ -266,18 +268,21 @@ flex-direction: column;
                      <a href="ha_2023-2024.html" target="_self">Hockeyallsvenskan 2023/2024</a>
                      <a href="ha_2024-2025.html" target="_self">Hockeyallsvenskan 2024/2025</a>
                      <a href="ha_2025-2026.html" target="_self">Hockeyallsvenskan 2025/2026</a>
+                     <a href="ha_2026-2027.html" target="_self">Hockeyallsvenskan 2026/2027</a>
                      <hr>
                      <a href="nhl_2021-2022.html" target="_self">NHL 2021/2022</a>
                      <a href="nhl_2022-2023.html" target="_self">NHL 2022/2023</a>
                      <a class="chosen">NHL 2023/2024</a>
                      <a href="nhl_2024-2025.html" target="_self">NHL 2024/2025</a>
                      <a href="nhl_2025-2026.html" target="_self">NHL 2025/2026</a>
+                     <a href="nhl_2026-2027.html" target="_self">NHL 2026/2027</a>
                      <hr>
                      <a href="shl_2021-2022.html" target="_self">SHL 2021/2022</a>
                      <a href="shl_2022-2023.html" target="_self">SHL 2022/2023</a>
                      <a href="shl_2023-2024.html" target="_self">SHL 2023/2024</a>
                      <a href="shl_2024-2025.html" target="_self">SHL 2024/2025</a>
                      <a href="shl_2025-2026.html" target="_self">SHL 2025/2026</a>
+                     <a href="shl_2026-2027.html" target="_self">SHL 2026/2027</a>
                  </div>
              </div>
         </h1>
