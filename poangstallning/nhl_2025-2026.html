@@ -364,21 +364,13 @@ flex-direction: column;
 <script>
   // --- DATA OCH KONSTANTER ---
   const DATA_SOURCE = {
-    key: 'games',
-    label: 'Matchdata',
-    spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
-    gid: '0',
+    key: 'nhl_2025_2026',
+    label: 'NHL 2025/2026',
+    // Samma publicerade kalkylblad som sidan alltid har använt.
+    // GViz testas först; TSV-adressen nedan är fallback.
+    gviz: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/gviz/tq?tqx=out:csv&gid=0',
     tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=0&single=true&output=tsv',
-    requiredColumns: [
-      'date',
-      'home_team',
-      'away_team',
-      'result',
-      'home_goals',
-      'away_goals',
-      'home_points',
-      'away_points'
-    ]
+    requiredColumns: []
   };
   const SEASON_MAX_POINTS = 82 * 2; // Uppdatera detta manuellt om säsongens maxpoäng ändras
   const PLAYBACK_SPEED_MS = 600;
@@ -510,15 +502,19 @@ flex-direction: column;
       // 1. Hämta data via GViz, med publicerad TSV som fallback.
       const { rows } = await GoogleSheetsData.fetchRows(DATA_SOURCE);
 
-      // 2. Bygg objekt utifrån kolumnnamnen i stället för fasta kolumnindex.
-      const headers = (rows[0] || []).map(h => String(h || '').trim());
-      const columnIndex = Object.fromEntries(headers.map((name, index) => [name, index]));
-
+      // 2. Behåll exakt samma kolumnlogik som den gamla fungerande sidan:
+      //    kolumn 1–8 = datum, hemma, borta, resultat, hemmamål,
+      //    bortamål, hemmapoäng, bortapoäng. Rubrikraden hoppas över.
       matches = rows.slice(1).map((row, index) => {
-        const homeGoals = parseInt(row[columnIndex.home_goals]);
-        const awayGoals = parseInt(row[columnIndex.away_goals]);
-        const homePoints = parseInt(row[columnIndex.home_points]);
-        const awayPoints = parseInt(row[columnIndex.away_points]);
+        if (row.length < 8) {
+          console.warn(`Rad ${index + 2} har för få kolumner:`, row);
+          return null;
+        }
+
+        const homeGoals = parseInt(row[4]);
+        const awayGoals = parseInt(row[5]);
+        const homePoints = parseInt(row[6]);
+        const awayPoints = parseInt(row[7]);
 
         if (isNaN(homeGoals) || isNaN(awayGoals) || isNaN(homePoints) || isNaN(awayPoints)) {
           console.warn(`Rad ${index + 2} innehåller ogiltiga numeriska värden:`, row);
@@ -526,9 +522,9 @@ flex-direction: column;
         }
 
         return {
-          date: String(row[columnIndex.date] ?? '').trim(),
-          homeTeam: String(row[columnIndex.home_team] ?? '').trim(),
-          awayTeam: String(row[columnIndex.away_team] ?? '').trim(),
+          date: String(row[0] ?? '').trim(),
+          homeTeam: String(row[1] ?? '').trim(),
+          awayTeam: String(row[2] ?? '').trim(),
           homeGoals, awayGoals, homePoints, awayPoints
         };
       }).filter(m => m !== null && m.date && m.homeTeam && m.awayTeam);
