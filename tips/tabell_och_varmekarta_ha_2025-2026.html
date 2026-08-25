@@ -4541,7 +4541,7 @@ Lag 14</pre>
 
                 const parsed = JSON.parse(raw);
                 if (!parsed || typeof parsed !== "object") return null;
-                if (parsed.version !== 2 || parsed.season !== "2025_2026" || parsed.league !== "shl") return null;
+                if (parsed.version !== 2 || parsed.season !== "2025_2026" || parsed.league !== "ha") return null;
 
                 const hasMatrices = !!(parsed.TIPS_MATRIX_HOBBY && parsed.TIPS_MATRIX_EXPERT);
                 if (!hasMatrices) return null;
@@ -4598,7 +4598,7 @@ Lag 14</pre>
                 version: 2,
                 savedAt: new Date().toISOString(),
                 season: "2025_2026",
-                league: "shl",
+                league: "ha",
                 TIPS_MATRIX_HOBBY: window.TIPS_MATRIX_HOBBY,
                 TIPS_MATRIX_EXPERT: window.TIPS_MATRIX_EXPERT,
                 TEAM_BY_ID: (() => {
