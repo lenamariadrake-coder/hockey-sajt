@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SHL-tips – snitt på tipsen</title>
+    <title>HA-tips – snitt på tipsen</title>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="../js/google-sheets-data.js"></script>
     <style>
@@ -1990,7 +1990,7 @@ Lag 14</pre>
             "use strict";
 
             // =========================================================
-            // SHL 2025/2026 – gemensam tipsdata + localStorage
+            // HA 2025/2026 – gemensam tipsdata + localStorage
             // Samma cacheformat och nycklar som Tabell/Värmekarta.
             // =========================================================
             // GID för fliken tips_shl_2025-2026. Fyll i när fliken är skapad.
@@ -2041,10 +2041,10 @@ Lag 14</pre>
             };
 
             const MATCH_SEASON_ID = '2025-2026';
-            const MATCH_LEAGUE = 'SHL';
+            const MATCH_LEAGUE = 'HA';
 
-            const SHL_TIPS_CACHE_KEY = 'SHL_TIPS_DATA_2025_2026';
-            const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
+            const HA_TIPS_CACHE_KEY = 'HA_TIPS_DATA_2025_2026';
+            const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
             const LS_TIPS_SOURCES_KEY = 'shlTips.sources.shl_2025_2026.v1';
             const LS_CUSTOM_TIPS_KEY = 'shlTopplista.customTippers.shl_2025_2026.v1';
             const LS_CUSTOM_PANEL_OPEN_KEY = 'shlTips.ui.customPanelOpen.shl_2025_2026.v1';
@@ -2095,7 +2095,7 @@ Lag 14</pre>
                 return header.findIndex(h => String(h).toLowerCase() === String(name).toLowerCase());
             }
             function isExpertDisplayName(displayName) {
-                return /^SHL-exp\b/i.test(String(displayName || '').trim());
+                return /^HA-exp\b/i.test(String(displayName || '').trim());
             }
             function mapToObject(map) {
                 return Object.fromEntries(map.entries());
@@ -2108,7 +2108,7 @@ Lag 14</pre>
 
             function rebuildTeamIndexes() {
                 const teams = Array.from(TEAM_BY_ID.values());
-                if (teams.length !== 14) throw new Error(`Lagdata: förväntade 14 SHL-lag men fick ${teams.length}.`);
+                if (teams.length !== 14) throw new Error(`Lagdata: förväntade 14 HA-lag men fick ${teams.length}.`);
 
                 const seenShort = new Set();
                 SHORT_TEAMS = teams.map(team => {
@@ -2141,12 +2141,12 @@ Lag 14</pre>
 
             function isCacheFresh(payload) {
                 const ms = Date.parse(payload?.savedAt || '');
-                return Number.isFinite(ms) && (Date.now() - ms) >= 0 && (Date.now() - ms) < SHL_CACHE_MAX_AGE_MS;
+                return Number.isFinite(ms) && (Date.now() - ms) >= 0 && (Date.now() - ms) < HA_CACHE_MAX_AGE_MS;
             }
 
             function readSharedCache({ allowStale = false } = {}) {
                 try {
-                    const raw = localStorage.getItem(SHL_TIPS_CACHE_KEY);
+                    const raw = localStorage.getItem(HA_TIPS_CACHE_KEY);
                     if (!raw) return null;
                     const parsed = JSON.parse(raw);
                     if (!parsed || parsed.version !== 2 || parsed.season !== '2025_2026' || parsed.league !== 'shl') return null;
@@ -2164,7 +2164,7 @@ Lag 14</pre>
                 TIPS_MATRIX_EXPERT = payload.TIPS_MATRIX_EXPERT;
 
                 // Den delade tips-cachen kan innehålla ett större lagregister än
-                // just den aktuella SHL-säsongens 14 lag. Tipsmatriserna är däremot
+                // just den aktuella HA-säsongens 14 lag. Tipsmatriserna är däremot
                 // säsongsspecifika och nycklade på exakt de kortnamn som Snitt ska
                 // använda. Filtrera därför cache-registret mot matrisens lagnycklar
                 // i stället för att låta hela TEAM_BY_ID bli sanningen om säsongen.
@@ -2217,7 +2217,7 @@ Lag 14</pre>
                 }
 
                 if (seasonTeamIds.size !== 14) {
-                    throw new Error(`Matchdata: förväntade 14 SHL-lag för ${MATCH_SEASON_ID} men hittade ${seasonTeamIds.size}.`);
+                    throw new Error(`Matchdata: förväntade 14 HA-lag för ${MATCH_SEASON_ID} men hittade ${seasonTeamIds.size}.`);
                 }
 
                 // 2) all_teams är enda namnregistret. Filtrera ner till säsongens 14 team_id.
@@ -2338,7 +2338,7 @@ Lag 14</pre>
                     TIPS_BY_TIPPER_HOBBY: tipsMapToObject(TIPS_BY_TIPPER_HOBBY),
                     TIPS_BY_TIPPER_EXPERT: tipsMapToObject(TIPS_BY_TIPPER_EXPERT)
                 };
-                localStorage.setItem(SHL_TIPS_CACHE_KEY, JSON.stringify(payload));
+                localStorage.setItem(HA_TIPS_CACHE_KEY, JSON.stringify(payload));
             }
 
             async function loadSharedTips() {
@@ -2788,7 +2788,7 @@ Lag 14</pre>
                         finally { suppressPanelStateWrite = false; }
                         return;
                     }
-                    if (e.key === SHL_TIPS_CACHE_KEY && e.newValue) {
+                    if (e.key === HA_TIPS_CACHE_KEY && e.newValue) {
                         const fresh = readSharedCache({ allowStale: true });
                         if (fresh) {
                             hydrateFromCache(fresh);
