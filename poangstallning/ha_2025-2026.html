@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poängställning Hockeyallsvenskan 2025/2026</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../js/google-sheets-data.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -315,7 +316,13 @@
 
 <script>
         // --- DATA OCH KONSTANTER ---
-        const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1353493089&single=true&output=tsv'; // Din Google Sheet URL
+        const DATA_SOURCE = {
+            key: 'ha_2025_2026',
+            label: 'Hockeyallsvenskan 2025/2026',
+            spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+            gid: '1353493089',
+            tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1353493089&single=true&output=tsv'
+        };
         const SEASON_MAX_POINTS = 52 * 3; // Uppdatera detta manuellt om säsongens maxpoäng ändras
         const PLAYBACK_SPEED_MS = 600;
         const DEFAULT_BAR_COLOR = 'rgba(0, 123, 255, 0.7)';
@@ -349,17 +356,15 @@
         // --- FUNKTION FÖR ATT LADDA OCH BEARBETA DATA ---
         async function loadAndProcessData() {
             try {
-                // 1. Hämta data från Google Sheet
-                const response = await fetch(sheetUrl);
-                if (!response.ok) {
-                    throw new Error(`Kunde inte hämta data: ${response.statusText}`);
-                }
-                const rawDataString = await response.text();
+                // 1. Hämta data från Google Sheet.
+                //    Gemensamma hjälparen försöker GViz först och faller tillbaka till TSV.
+                const { rows, source } = await GoogleSheetsData.fetchRows(DATA_SOURCE);
+                console.info(`[data][${DATA_SOURCE.key}] Använder ${source}.`);
 
-                // 2. Parsa rådatan (TSV)
-                const lines = rawDataString.trim().split('\n').slice(1); // Skippa rubrikraden
-                matches = lines.map((line, index) => {
-                    const parts = line.split('\t');
+                // 2. Behåll samma positionsbaserade kolumnlogik som sidan redan använder.
+                //    Första raden är rubrikrad.
+                const dataRows = rows.slice(1);
+                matches = dataRows.map((parts, index) => {
                     // Validering och felhantering vid parsning
                     if (parts.length < 8) {
                         console.warn(`Rad ${index + 2} har för få kolumner:`, line);
