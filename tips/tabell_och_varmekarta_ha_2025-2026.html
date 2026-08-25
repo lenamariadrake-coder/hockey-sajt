@@ -1759,7 +1759,7 @@
                     <a id="tabSnitt" class="tab-btn tab-btn-link" href="shl-tips_2025-2026.html" aria-label="Snitt"
                         title="Snitt">Snitt</a>
 
-                    <a id="tabTopplista" class="tab-btn tab-btn-link" href="shl_tippartopplista_2025-2026.html"
+                    <a id="tabTopplista" class="tab-btn tab-btn-link" href="ha_tippartopplista_2025-2026.html"
                         aria-label="Klassiskt tips" title="Klassiskt tips">Klassiskt tips</a>
 
                     <!-- H2H fanns inte 2025/2026.
@@ -1770,12 +1770,12 @@
                     <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
                         <span class="season-select-label">Säsong</span>
                         <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
-                            <option value="tabell_shl_2021-2022.html">2021/2022</option>
-                            <option value="tabell_shl_2022-2023.html">2022/2023</option>
-                            <option value="tabell_shl_2023-2024.html">2023/2024</option>
-                            <option value="tabell_shl_2024-2025.html">2024/2025</option>
+                            <option value="tabell_ha_2021-2022.html">2021/2022</option>
+                            <option value="tabell_ha_2022-2023.html">2022/2023</option>
+                            <option value="tabell_ha_2023-2024.html">2023/2024</option>
+                            <option value="tabell_ha_2024-2025.html">2024/2025</option>
                             <option value="" selected>2025/2026</option>
-                            <option value="tabell_och_varmekarta_shl_2026-2027.html">2026/2027</option>
+                            <option value="tabell_och_varmekarta_ha_2026-2027.html">2026/2027</option>
                         </select>
                     </div>
 
@@ -2252,7 +2252,7 @@ Lag 14</pre>
            ligger fortsatt i den här sidan.
            =========================================================== */
 
-        // Fyll i gid för fliken tips_shl_2025-2026 när den är skapad/publicerad.
+        // Fyll i gid för fliken tips_ha_2025-2026 när den är skapad/publicerad.
         // Resten av tipskopplingen använder sedan detta enda värde.
         const TIPS_GID_2025_2026 = '896520270';
 
@@ -2291,7 +2291,7 @@ Lag 14</pre>
 
             tips: {
                 // 2025/2026 använder samma moderna tipsformat som 2026/2027.
-                // När fliken tips_shl_2025-2026 finns: ersätt BYT_TILL_GID... nedan med flikens gid.
+                // När fliken tips_ha_2025-2026 finns: ersätt BYT_TILL_GID... nedan med flikens gid.
                 key: 'tips',
                 label: 'Tipsdata',
                 spreadsheetId: '1fsWVsiCnwFzge3xf5p0cReiTAkcpdLcuvmWSyDUmDhI',
@@ -2320,12 +2320,12 @@ Lag 14</pre>
         //
         // LocalStorage-nyckel för valt matchsteg (liga + säsong)
         // ⚠️ MÅSTE vara IDENTISK i systerappen
-        const ROUND_STORAGE_KEY = 'round_shl_2025_2026';
-        const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2025_2026';
-        const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2025_2026';
-        const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2025_2026.v1';
-        const ROWCOLOR_STORAGE_KEY = 'shlTable.rowColors.shl_2025_2026.v1';
-        const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2025_2026.v1";
+        const ROUND_STORAGE_KEY = 'round_ha_2025_2026';
+        const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_ha_2025_2026';
+        const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_ha_2025_2026';
+        const MOVEMENT_STORAGE_KEY = 'shlTable.movements.ha_2025_2026.v1';
+        const ROWCOLOR_STORAGE_KEY = 'shlTable.rowColors.ha_2025_2026.v1';
+        const LS_TIPS_SOURCES_KEY = "shlTips.sources.ha_2025_2026.v1";
         const HA_TIPS_CACHE_KEY = "HA_TIPS_DATA_2025_2026";
         const HA_STANDINGS_CACHE_KEY = "HA_STANDINGS_DATA_2025_2026";
         const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
@@ -2333,7 +2333,7 @@ Lag 14</pre>
         // Laguppsättningen för vald säsong hämtas inte längre från en separat teams_shl-flik.
         // Den här sidan härleder den från games och slår sedan upp namnen i all_teams.
 
-        // Lagnamn och heatmap-radordning byggs från teams_shl_2025-2026.
+        // Lagnamn och heatmap-radordning byggs från teams_ha_2025-2026.
         // Ingen säsongs laguppsättning hårdkodas längre i HTML-filen.
         let NAME_MAP = {};
         let NAME_MAP_LONG_TO_SHORT = {};
@@ -2724,7 +2724,7 @@ Lag 14</pre>
             if (!input) return input;
 
             // Eget tips ska använda exakt samma säsongslag som resten av sidan.
-            // Inga HA-lag hårdkodas här: alias byggs från teams_shl_2025-2026
+            // Inga HA-lag hårdkodas här: alias byggs från teams_ha_2025-2026
             // (abbr + short + long), som redan ligger i TEAM_BY_ID.
             const lower = input.toLocaleLowerCase("sv-SE");
             const candidates = [];
@@ -3806,10 +3806,10 @@ Lag 14</pre>
         const NAV_TOAST_KEY = 'nav-toast-shown-shl-v1';
 
         // localStorage-nyckel (versionerad ifall formatet ändras i framtiden)
-        const LS_CUSTOM_TIPS_KEY = "shlTopplista.customTippers.shl_2025_2026.v1";
+        const LS_CUSTOM_TIPS_KEY = "shlTopplista.customTippers.ha_2025_2026.v1";
 
         // ✅ Panelens öppet/stängt-läge (synk mellan flikar + systerappar)
-        const LS_CUSTOM_PANEL_OPEN_KEY = "shlTips.ui.customPanelOpen.shl_2025_2026.v1";
+        const LS_CUSTOM_PANEL_OPEN_KEY = "shlTips.ui.customPanelOpen.ha_2025_2026.v1";
 
         // ✅ Stabilt tab-id (för logg + felsökning)
         const CUSTOM_TAB_ID = (function () {
@@ -4831,7 +4831,7 @@ Lag 14</pre>
         }
 
         // ===========================================================
-        // ROUND SYNC (round_shl_2025_2026) – robust timing + cross-tab
+        // ROUND SYNC (round_ha_2025_2026) – robust timing + cross-tab
         // ===========================================================
         let _roundSyncBound = false;
 
@@ -5119,17 +5119,17 @@ Lag 14</pre>
             if (!seasonSelect) return;
 
             const tableSeasons = [
-                { label: '2021/2022', value: 'tabell_shl_2021-2022.html' },
-                { label: '2022/2023', value: 'tabell_shl_2022-2023.html' },
-                { label: '2023/2024', value: 'tabell_shl_2023-2024.html' },
-                { label: '2024/2025', value: 'tabell_shl_2024-2025.html' },
+                { label: '2021/2022', value: 'tabell_ha_2021-2022.html' },
+                { label: '2022/2023', value: 'tabell_ha_2022-2023.html' },
+                { label: '2023/2024', value: 'tabell_ha_2023-2024.html' },
+                { label: '2024/2025', value: 'tabell_ha_2024-2025.html' },
                 { label: '2025/2026', value: '' },
-                { label: '2026/2027', value: 'tabell_och_varmekarta_shl_2026-2027.html' }
+                { label: '2026/2027', value: 'tabell_och_varmekarta_ha_2026-2027.html' }
             ];
 
             const heatSeasons = [
                 { label: '2025/2026', value: '' },
-                { label: '2026/2027', value: 'tabell_och_varmekarta_shl_2026-2027.html#heat' }
+                { label: '2026/2027', value: 'tabell_och_varmekarta_ha_2026-2027.html#heat' }
             ];
 
             const seasons = view === 'heat' ? heatSeasons : tableSeasons;
