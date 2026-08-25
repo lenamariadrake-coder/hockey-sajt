@@ -374,15 +374,7 @@ flex-direction: column;
     spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
     gid: '1922624871',
     tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1922624871&single=true&output=tsv',
-    requiredColumns: [
-      'date',
-      'home_team',
-      'away_team',
-      'home_goals',
-      'away_goals',
-      'home_points',
-      'away_points'
-    ]
+    requiredColumns: []
   };
   const SEASON_MAX_POINTS = 82 * 2; // Uppdatera detta manuellt om säsongens maxpoäng ändras
   const PLAYBACK_SPEED_MS = 600;
@@ -518,25 +510,28 @@ flex-direction: column;
         throw new Error('NHL 2026/2027: inga rader hittades.');
       }
 
-      const hdr = rows[0].map(h => String(h || '').trim());
-      const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+      const normalized = value => String(value ?? '').trim();
+      const hdr = rows[0].map(normalized);
+      const idx = name => hdr.findIndex(h => h.toLocaleLowerCase('sv-SE') === name.toLocaleLowerCase('sv-SE'));
 
-      const iDate = idx('date');
-      const iHomeTeam = idx('home_team');
-      const iAwayTeam = idx('away_team');
-      const iHomeGoals = idx('home_goals');
-      const iAwayGoals = idx('away_goals');
-      const iHomePts = idx('home_points');
-      const iAwayPts = idx('away_points');
+      // Faktiska rubriker i NHL-fliken:
+      // Datum | Hemmalag | Bortalag | Matchresultat | Hemmamål | Bortamål | Hemmapoäng | Bortapoäng
+      const iDate = idx('Datum');
+      const iHomeTeam = idx('Hemmalag');
+      const iAwayTeam = idx('Bortalag');
+      const iHomeGoals = idx('Hemmamål');
+      const iAwayGoals = idx('Bortamål');
+      const iHomePts = idx('Hemmapoäng');
+      const iAwayPts = idx('Bortapoäng');
 
       const required = [
-        ['date', iDate],
-        ['home_team', iHomeTeam],
-        ['away_team', iAwayTeam],
-        ['home_goals', iHomeGoals],
-        ['away_goals', iAwayGoals],
-        ['home_points', iHomePts],
-        ['away_points', iAwayPts]
+        ['Datum', iDate],
+        ['Hemmalag', iHomeTeam],
+        ['Bortalag', iAwayTeam],
+        ['Hemmamål', iHomeGoals],
+        ['Bortamål', iAwayGoals],
+        ['Hemmapoäng', iHomePts],
+        ['Bortapoäng', iAwayPts]
       ].filter(([, i]) => i === -1).map(([name]) => name);
 
       if (required.length) {
@@ -544,30 +539,31 @@ flex-direction: column;
       }
 
       const dataRows = rows.slice(1).filter(r =>
-        String(r[iHomeTeam] || '').trim() || String(r[iAwayTeam] || '').trim()
+        normalized(r[iHomeTeam]) || normalized(r[iAwayTeam])
       );
 
       if (!dataRows.length) {
         throw new Error('NHL 2026/2027: inga lag eller matcher hittades.');
       }
 
-      // Lagen hämtas från alla schemarader, även om resultatkolumnerna är tomma.
+      // Lagen hämtas från alla schemarader – resultat behöver alltså inte finnas ännu.
       allTeams = [...new Set(
         dataRows.flatMap(r => [
-          String(r[iHomeTeam] || '').trim(),
-          String(r[iAwayTeam] || '').trim()
+          normalized(r[iHomeTeam]),
+          normalized(r[iAwayTeam])
         ]).filter(Boolean)
       )].sort((a, b) => a.localeCompare(b, 'sv'));
 
-      // Bara rader med kompletta resultat räknas som spelade matcher.
+      // Bara matcher med mål OCH poäng räknas som spelade.
+      // Kolumnen Matchresultat behövs inte för beräkningarna.
       matches = dataRows.map((parts, index) => {
-        const date = String(parts[iDate] || '').trim();
-        const homeTeam = String(parts[iHomeTeam] || '').trim();
-        const awayTeam = String(parts[iAwayTeam] || '').trim();
-        const homeGoalsRaw = String(parts[iHomeGoals] ?? '').trim();
-        const awayGoalsRaw = String(parts[iAwayGoals] ?? '').trim();
-        const homePointsRaw = String(parts[iHomePts] ?? '').trim();
-        const awayPointsRaw = String(parts[iAwayPts] ?? '').trim();
+        const date = normalized(parts[iDate]);
+        const homeTeam = normalized(parts[iHomeTeam]);
+        const awayTeam = normalized(parts[iAwayTeam]);
+        const homeGoalsRaw = normalized(parts[iHomeGoals]);
+        const awayGoalsRaw = normalized(parts[iAwayGoals]);
+        const homePointsRaw = normalized(parts[iHomePts]);
+        const awayPointsRaw = normalized(parts[iAwayPts]);
 
         if (!date || !homeTeam || !awayTeam ||
             homeGoalsRaw === '' || awayGoalsRaw === '' ||
@@ -591,7 +587,6 @@ flex-direction: column;
       matches.sort((a, b) => a.date.localeCompare(b.date));
       allDates = ["Start", ...[...new Set(matches.map(m => m.date))]];
 
-      // Poäng och målskillnad per datum
       pointsByDate = {};
       allTeams.forEach(team => {
         pointsByDate[team] = { "Start": { points: 0, goalDiff: 0 } };
@@ -619,7 +614,6 @@ flex-direction: column;
         });
       });
 
-      // Poäng och målskillnad per spelad match
       const teamHistory = {};
       allTeams.forEach(team => {
         teamHistory[team] = [{ games: 0, points: 0, goalDiff: 0 }];
