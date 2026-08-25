@@ -1071,7 +1071,7 @@
  ========================================================= */
         #sourceFilter {
             /* Tippartopplistan får 42 px kontrollhöjd av Eget tips-knappen.
-               Inbördes saknar den medvetet, så vi reserverar samma höjd här
+               H2H saknar den medvetet, så vi reserverar samma höjd här
                för att Amatörer/Experter ska hamna på exakt samma nivå. */
             min-height: var(--ui-row-h, 42px);
 
@@ -1391,7 +1391,7 @@
         }
 
         /* Reserverar samma 42 px som uppdateringsknappen på facitsidorna,
-           utan att lägga till ny funktionalitet på Inbördes. */
+           utan att lägga till ny funktionalitet på H2H. */
         .header-icon-reserve {
             width: 42px;
             height: 42px;
@@ -1931,7 +1931,7 @@
             margin: 1rem 0 0;
         }
 
-        /* Endast de två Inbördes-tabellerna: 90 % av tidigare storlek. */
+        /* Endast de två H2H-tabellerna: 90 % av tidigare storlek. */
         #leagueStandings,
         #tableStandings {
             font-size: 90%;
@@ -2155,7 +2155,7 @@
                 <button id="exportBtn" class="btn btn-icon" aria-label="Spara aktiv vy som bild"
                     title="Spara aktiv vy som bild">📸</button>
 
-                <!-- Inbördes har ingen egen uppdateringskontroll i detta steg.
+                <!-- H2H har ingen egen uppdateringskontroll i detta steg.
                      Platsen reserveras så att följande gemensamma element inte flyttar sig. -->
                 <span class="header-icon-reserve" aria-hidden="true"></span>
 
@@ -2175,7 +2175,7 @@
                     <a id="tabTopplista" class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html"
                         aria-label="Topplista" title="Topplista">Topplista</a>
 
-                    <button id="tabInbordes" class="tab-btn" type="button" aria-selected="true">Inbördes</button>
+                    <button id="tabInbordes" class="tab-btn" type="button" aria-selected="true">H2H</button>
 
                     <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
                         <span class="season-select-label">Säsong</span>
@@ -2736,7 +2736,7 @@
                 hydrateFromSharedShlStandingsCache(cache);
                 return 'cache';
             }
-            // Inbördes skriver inte en egen/fattigare variant till den delade cachen.
+            // H2H skriver inte en egen/fattigare variant till den delade cachen.
             // Om cachen saknas eller är gammal läses games + all_teams direkt.
             await loadTeams(DATA_SOURCES.allTeams);
             await loadAndPrepareStandings(DATA_SOURCES.games);
