@@ -246,6 +246,7 @@ flex-direction: column;
             .slider-info { justify-content: center; text-align: center; } /* Centrera texten */
         }
     </style>
+    <script src="../js/google-sheets-data.js"></script>
 </head>
 <body>
 
@@ -362,7 +363,23 @@ flex-direction: column;
 
 <script>
   // --- DATA OCH KONSTANTER ---
-  const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=0&single=true&output=tsv'; // Din Google Sheet URL
+  const DATA_SOURCE = {
+    key: 'games',
+    label: 'Matchdata',
+    spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+    gid: '0',
+    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=0&single=true&output=tsv',
+    requiredColumns: [
+      'date',
+      'home_team',
+      'away_team',
+      'result',
+      'home_goals',
+      'away_goals',
+      'home_points',
+      'away_points'
+    ]
+  };
   const SEASON_MAX_POINTS = 82 * 2; // Uppdatera detta manuellt om säsongens maxpoäng ändras
   const PLAYBACK_SPEED_MS = 600;
   const DEFAULT_BAR_COLOR = 'rgba(0, 123, 255, 0.7)';
@@ -490,34 +507,31 @@ flex-direction: column;
   // --- FUNKTION FÖR ATT LADDA OCH BEARBETA DATA ---
   async function loadAndProcessData() {
     try {
-      // 1. Hämta data från Google Sheet
-      const response = await fetch(sheetUrl);
-      if (!response.ok) { throw new Error(`Kunde inte hämta data: ${response.statusText}`); }
-      const rawDataString = await response.text();
+      // 1. Hämta data via GViz, med publicerad TSV som fallback.
+      const { rows } = await GoogleSheetsData.fetchRows(DATA_SOURCE);
 
-      // 2. Parsa rådatan (TSV)
-      const lines = rawDataString.trim().split('\n').slice(1); // Skippa rubrikraden
-      matches = lines.map((line, index) => {
-        const parts = line.split('\t');
-        if (parts.length < 8) {
-          console.warn(`Rad ${index + 2} har för få kolumner:`, line);
-          return null;
-        }
-        const homeGoals = parseInt(parts[4]);
-        const awayGoals = parseInt(parts[5]);
-        const homePoints = parseInt(parts[6]);
-        const awayPoints = parseInt(parts[7]);
+      // 2. Bygg objekt utifrån kolumnnamnen i stället för fasta kolumnindex.
+      const headers = (rows[0] || []).map(h => String(h || '').trim());
+      const columnIndex = Object.fromEntries(headers.map((name, index) => [name, index]));
+
+      matches = rows.slice(1).map((row, index) => {
+        const homeGoals = parseInt(row[columnIndex.home_goals]);
+        const awayGoals = parseInt(row[columnIndex.away_goals]);
+        const homePoints = parseInt(row[columnIndex.home_points]);
+        const awayPoints = parseInt(row[columnIndex.away_points]);
+
         if (isNaN(homeGoals) || isNaN(awayGoals) || isNaN(homePoints) || isNaN(awayPoints)) {
-          console.warn(`Rad ${index + 2} innehåller ogiltiga numeriska värden:`, line);
+          console.warn(`Rad ${index + 2} innehåller ogiltiga numeriska värden:`, row);
           return null;
         }
-        return { 
-          date: parts[0].trim(),
-          homeTeam: parts[1].trim(),
-          awayTeam: parts[2].trim(),
+
+        return {
+          date: String(row[columnIndex.date] ?? '').trim(),
+          homeTeam: String(row[columnIndex.home_team] ?? '').trim(),
+          awayTeam: String(row[columnIndex.away_team] ?? '').trim(),
           homeGoals, awayGoals, homePoints, awayPoints
         };
-      }).filter(m => m !== null);
+      }).filter(m => m !== null && m.date && m.homeTeam && m.awayTeam);
 
       if (matches.length === 0) { throw new Error("Ingen giltig matchdata kunde laddas."); }
 
