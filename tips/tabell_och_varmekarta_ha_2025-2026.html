@@ -4549,7 +4549,7 @@ Lag 14</pre>
 
                 return parsed;
             } catch (e) {
-                console.warn("[shl][cache] kunde inte läsa/parsea", HA_TIPS_CACHE_KEY, e);
+                console.warn("[ha][cache] kunde inte läsa/parsea", HA_TIPS_CACHE_KEY, e);
                 return null;
             }
         }
@@ -4557,9 +4557,9 @@ Lag 14</pre>
         function writeSharedShlTipsCache(payload) {
             try {
                 localStorage.setItem(HA_TIPS_CACHE_KEY, JSON.stringify(payload));
-                console.log("[shl][cache] WROTE ->", HA_TIPS_CACHE_KEY, { savedAt: payload?.savedAt });
+                console.log("[ha][cache] WROTE ->", HA_TIPS_CACHE_KEY, { savedAt: payload?.savedAt });
             } catch (e) {
-                console.warn("[shl][cache] kunde inte skriva", HA_TIPS_CACHE_KEY, e);
+                console.warn("[ha][cache] kunde inte skriva", HA_TIPS_CACHE_KEY, e);
             }
         }
 
@@ -4581,7 +4581,7 @@ Lag 14</pre>
 
             window.TIPS_MATRIX_HOBBY = payload.TIPS_MATRIX_HOBBY;
             window.TIPS_MATRIX_EXPERT = payload.TIPS_MATRIX_EXPERT;
-            console.log("[shl][cache] tips HIT", { savedAt: payload.savedAt, fresh: isShlCacheFresh(payload) });
+            console.log("[ha][cache] tips HIT", { savedAt: payload.savedAt, fresh: isShlCacheFresh(payload) });
         }
 
         async function refreshTipsFromSheets() {
@@ -4671,7 +4671,7 @@ Lag 14</pre>
                 if (!allowStale && !isShlCacheFresh(parsed)) return null;
                 return parsed;
             } catch (e) {
-                console.warn('[shl][standings-cache] kunde inte läsa', e);
+                console.warn('[ha][standings-cache] kunde inte läsa', e);
                 return null;
             }
         }
@@ -4692,7 +4692,7 @@ Lag 14</pre>
             SEASON_TEAM_IDS = new Set((payload.seasonTeamIds || []).map(v => String(v || '').trim()).filter(Boolean));
             rebuildTeamNameIndexes();
 
-            console.log('[shl][standings-cache] HIT', { savedAt: payload.savedAt, latestRound: state.latestRound });
+            console.log('[ha][standings-cache] HIT', { savedAt: payload.savedAt, latestRound: state.latestRound });
         }
 
         function writeSharedShlStandingsCache() {
@@ -4714,7 +4714,7 @@ Lag 14</pre>
                 dateTimelineKeys: DATE_TIMELINE_KEYS.slice()
             };
             try { localStorage.setItem(HA_STANDINGS_CACHE_KEY, JSON.stringify(payload)); }
-            catch (e) { console.warn('[shl][standings-cache] kunde inte skriva', e); }
+            catch (e) { console.warn('[ha][standings-cache] kunde inte skriva', e); }
             return payload;
         }
 
@@ -4733,7 +4733,7 @@ Lag 14</pre>
                 return { source: 'network', fresh: true };
             } catch (err) {
                 if (stale) {
-                    console.warn('[shl][standings-cache] nätverksfel -> använder utgången cache som reserv', err);
+                    console.warn('[ha][standings-cache] nätverksfel -> använder utgången cache som reserv', err);
                     hydrateStandingsFromSharedCache(stale);
                     return { source: 'stale-cache', fresh: false };
                 }
@@ -6718,7 +6718,7 @@ Lag 14</pre>
                     applyRoundFromSliderValue();
                 }
             } catch (err) {
-                console.warn('[shl][storage] kunde inte applicera delad cache', err);
+                console.warn('[ha][storage] kunde inte applicera delad cache', err);
             }
         });
 
