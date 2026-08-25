@@ -317,11 +317,25 @@
 <script>
         // --- DATA OCH KONSTANTER ---
         const DATA_SOURCE = {
-            key: 'shl_2025_2026',
-            label: 'SHL 2025/2026',
-            gviz: 'https://docs.google.com/spreadsheets/d/1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM/gviz/tq?tqx=out:csv&gid=1247847413',
-            tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=1247847413&single=true&output=tsv'
+            key: 'games',
+            label: 'Matchdata',
+            spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+            gid: '2012579108',
+            tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+            requiredColumns: [
+                'date',
+                'home_team',
+                'away_team',
+                'home_goals',
+                'away_goals',
+                'home_points',
+                'away_points',
+                'season_id',
+                'league'
+            ]
         };
+        const MATCH_SEASON_ID = '2025-2026';
+        const MATCH_LEAGUE = 'SHL';
         const SEASON_MAX_POINTS = 52 * 3; // Uppdatera detta manuellt om säsongens maxpoäng ändras
         const PLAYBACK_SPEED_MS = 600;
         const DEFAULT_BAR_COLOR = 'rgba(0, 123, 255, 0.7)';
@@ -355,115 +369,184 @@
         // --- FUNKTION FÖR ATT LADDA OCH BEARBETA DATA ---
         async function loadAndProcessData() {
             try {
-                // 1. Hämta data från Google Sheet.
-                //    Gemensamma hjälparen försöker GViz först och faller tillbaka till TSV.
+                // 1. Hämta gemensam matchdata från games.
+                //    GoogleSheetsData försöker GViz först och faller tillbaka till TSV.
                 const { rows, source } = await GoogleSheetsData.fetchRows(DATA_SOURCE);
                 console.info(`[data][${DATA_SOURCE.key}] Använder ${source}.`);
 
-                // 2. Behåll samma positionsbaserade kolumnlogik som sidan redan använder.
-                //    Första raden är rubrikrad.
-                const dataRows = rows.slice(1);
+                if (!rows.length) {
+                    throw new Error('Matchdata: inga rader hittades.');
+                }
+
+                // 2. Slå upp kolumner via rubriknamn eftersom games innehåller fler kolumner
+                //    än den gamla säsongsspecifika fliken.
+                const hdr = rows[0].map(h => String(h || '').trim());
+                const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+
+                const iDate = idx('date');
+                const iHomeTeam = idx('home_team');
+                const iAwayTeam = idx('away_team');
+                const iHomeGoals = idx('home_goals');
+                const iAwayGoals = idx('away_goals');
+                const iHomePts = idx('home_points');
+                const iAwayPts = idx('away_points');
+                const iSeason = idx('season_id');
+                const iLeague = idx('league');
+
+                const required = [
+                    ['date', iDate],
+                    ['home_team', iHomeTeam],
+                    ['away_team', iAwayTeam],
+                    ['home_goals', iHomeGoals],
+                    ['away_goals', iAwayGoals],
+                    ['home_points', iHomePts],
+                    ['away_points', iAwayPts],
+                    ['season_id', iSeason],
+                    ['league', iLeague]
+                ].filter(([, i]) => i === -1).map(([name]) => name);
+
+                if (required.length) {
+                    throw new Error(`Matchdata: saknar kolumn(er): ${required.join(', ')}.`);
+                }
+
+                // 3. games innehåller flera ligor och säsonger.
+                //    Behåll bara SHL 2025-2026.
+                const dataRows = rows.slice(1).filter(r =>
+                    String(r[iSeason] || '').trim() === MATCH_SEASON_ID &&
+                    String(r[iLeague] || '').trim().toUpperCase() === MATCH_LEAGUE
+                );
+
+                if (!dataRows.length) {
+                    throw new Error(`Matchdata: inga matcher hittades för ${MATCH_LEAGUE} ${MATCH_SEASON_ID}.`);
+                }
+
+                // 4. Om games även innehåller ospelade schemarader ignoreras de här.
                 matches = dataRows.map((parts, index) => {
-                    // Validering och felhantering vid parsning
-                    if (parts.length < 8) {
-                        console.warn(`Rad ${index + 2} har för få kolumner:`, line);
-                        return null; // Ignorera felaktig rad
-                    }
-                    const homeGoals = parseInt(parts[4]);
-                    const awayGoals = parseInt(parts[5]);
-                    const homePoints = parseInt(parts[6]);
-                    const awayPoints = parseInt(parts[7]);
+                    const date = String(parts[iDate] || '').trim();
+                    const homeTeam = String(parts[iHomeTeam] || '').trim();
+                    const awayTeam = String(parts[iAwayTeam] || '').trim();
+                    const homeGoalsRaw = String(parts[iHomeGoals] ?? '').trim();
+                    const awayGoalsRaw = String(parts[iAwayGoals] ?? '').trim();
+                    const homePointsRaw = String(parts[iHomePts] ?? '').trim();
+                    const awayPointsRaw = String(parts[iAwayPts] ?? '').trim();
 
-                    if (isNaN(homeGoals) || isNaN(awayGoals) || isNaN(homePoints) || isNaN(awayPoints)) {
-                         console.warn(`Rad ${index + 2} innehåller ogiltiga numeriska värden:`, line);
-                         return null; // Ignorera felaktig rad
+                    if (!date || !homeTeam || !awayTeam ||
+                        homeGoalsRaw === '' || awayGoalsRaw === '' ||
+                        homePointsRaw === '' || awayPointsRaw === '') {
+                        return null;
                     }
 
-                    return { 
-                        date: parts[0].trim(), 
-                        homeTeam: parts[1].trim(), 
-                        awayTeam: parts[2].trim(), 
-                        // Matchresultat (parts[3]) används inte just nu
-                        homeGoals: homeGoals,
-                        awayGoals: awayGoals, 
-                        homePoints: homePoints, 
-                        awayPoints: awayPoints
+                    const homeGoals = Number(homeGoalsRaw);
+                    const awayGoals = Number(awayGoalsRaw);
+                    const homePoints = Number(homePointsRaw);
+                    const awayPoints = Number(awayPointsRaw);
+
+                    if (![homeGoals, awayGoals, homePoints, awayPoints].every(Number.isFinite)) {
+                        console.warn(`Matchdata: ogiltiga numeriska värden på filtrerad rad ${index + 2}.`, parts);
+                        return null;
+                    }
+
+                    return {
+                        date,
+                        homeTeam,
+                        awayTeam,
+                        homeGoals,
+                        awayGoals,
+                        homePoints,
+                        awayPoints
                     };
-                }).filter(match => match !== null); // Ta bort rader som inte kunde parsas
+                }).filter(Boolean);
 
                 if (matches.length === 0) {
-                     throw new Error("Ingen giltig matchdata kunde laddas.");
+                    throw new Error(`Matchdata: inga spelade matcher hittades för ${MATCH_LEAGUE} ${MATCH_SEASON_ID}.`);
                 }
 
                 // Sortera matcher efter datum (viktigt!)
                 matches.sort((a, b) => a.date.localeCompare(b.date));
 
-                // 3. Extrahera alla lag och unika datum
-                allTeams = [...new Set(matches.flatMap(m => [m.homeTeam, m.awayTeam]))].sort((a, b) => a.localeCompare(b, 'sv'));
-                allDates = ["Start", ...[...new Set(matches.map(m => m.date))]]; // Unika datum redan sorterade
+                // 5. Extrahera alla lag och unika datum
+                allTeams = [...new Set(matches.flatMap(m => [m.homeTeam, m.awayTeam]))]
+                    .sort((a, b) => a.localeCompare(b, 'sv'));
+                allDates = ["Start", ...[...new Set(matches.map(m => m.date))]];
 
-                // 4. Beräkna poäng och målskillnad över tid (per datum)
+                // 6. Beräkna poäng och målskillnad över tid (per datum)
                 pointsByDate = {};
                 allTeams.forEach(team => {
                     pointsByDate[team] = { "Start": { points: 0, goalDiff: 0 } };
-                    let cumulativePoints = 0; let cumulativeGoalDiff = 0;
+                    let cumulativePoints = 0;
+                    let cumulativeGoalDiff = 0;
+
                     allDates.slice(1).forEach(date => {
                         matches.forEach(match => {
-                            if (match.date === date) {
-                                if (match.homeTeam === team) {
-                                    cumulativePoints += match.homePoints; cumulativeGoalDiff += (match.homeGoals - match.awayGoals);
-                                }
-                                if (match.awayTeam === team) {
-                                    cumulativePoints += match.awayPoints; cumulativeGoalDiff += (match.awayGoals - match.homeGoals);
-                                }
+                            if (match.date !== date) return;
+
+                            if (match.homeTeam === team) {
+                                cumulativePoints += match.homePoints;
+                                cumulativeGoalDiff += (match.homeGoals - match.awayGoals);
+                            }
+                            if (match.awayTeam === team) {
+                                cumulativePoints += match.awayPoints;
+                                cumulativeGoalDiff += (match.awayGoals - match.homeGoals);
                             }
                         });
-                        pointsByDate[team][date] = { points: cumulativePoints, goalDiff: cumulativeGoalDiff };
+
+                        pointsByDate[team][date] = {
+                            points: cumulativePoints,
+                            goalDiff: cumulativeGoalDiff
+                        };
                     });
                 });
 
-                // 5. Beräkna poäng och målskillnad över tid (per spelad match)
+                // 7. Beräkna poäng och målskillnad över tid (per spelad match)
                 const teamHistory = {};
-                allTeams.forEach(team => teamHistory[team] = [{ games: 0, points: 0, goalDiff: 0 }]);
-                
+                allTeams.forEach(team => {
+                    teamHistory[team] = [{ games: 0, points: 0, goalDiff: 0 }];
+                });
+
                 matches.forEach(match => {
                     const homeLast = teamHistory[match.homeTeam].slice(-1)[0];
-                    teamHistory[match.homeTeam].push({ games: homeLast.games + 1, points: homeLast.points + match.homePoints, goalDiff: homeLast.goalDiff + (match.homeGoals - match.awayGoals) });
+                    teamHistory[match.homeTeam].push({
+                        games: homeLast.games + 1,
+                        points: homeLast.points + match.homePoints,
+                        goalDiff: homeLast.goalDiff + (match.homeGoals - match.awayGoals)
+                    });
+
                     const awayLast = teamHistory[match.awayTeam].slice(-1)[0];
-                    teamHistory[match.awayTeam].push({ games: awayLast.games + 1, points: awayLast.points + match.awayPoints, goalDiff: awayLast.goalDiff + (match.awayGoals - match.homeGoals) });
+                    teamHistory[match.awayTeam].push({
+                        games: awayLast.games + 1,
+                        points: awayLast.points + match.awayPoints,
+                        goalDiff: awayLast.goalDiff + (match.awayGoals - match.homeGoals)
+                    });
                 });
-                
-                // Hitta minsta antal spelade matcher bland ALLA lag
+
                 minGamesPlayed = Math.min(...Object.values(teamHistory).map(h => h.length - 1));
-                if (minGamesPlayed < 0) minGamesPlayed = 0; // Säkerställ att det inte blir negativt om inga matcher finns
-                
-                // Bygg upp data per matchomgång upp till minGamesPlayed
+                if (minGamesPlayed < 0) minGamesPlayed = 0;
+
                 pointsByMatches = Array(minGamesPlayed + 1).fill(null).map(() => ({}));
                 for (let i = 0; i <= minGamesPlayed; i++) {
                     allTeams.forEach(team => {
-                        // Hitta lagets data efter exakt i matcher, eller den senaste om de inte spelat i matcher än
-                        const entry = teamHistory[team].find(e => e.games === i) || teamHistory[team].filter(e => e.games <= i).slice(-1)[0];
-                         if (entry) {
-                             pointsByMatches[i][team] = { points: entry.points, goalDiff: entry.goalDiff };
-                         } else {
-                             // Fallback om ett lag inte har någon data alls (bör inte hända med Start)
-                             pointsByMatches[i][team] = { points: 0, goalDiff: 0 };
-                         }
+                        const entry =
+                            teamHistory[team].find(e => e.games === i) ||
+                            teamHistory[team].filter(e => e.games <= i).slice(-1)[0];
+
+                        pointsByMatches[i][team] = entry
+                            ? { points: entry.points, goalDiff: entry.goalDiff }
+                            : { points: 0, goalDiff: 0 };
                     });
                 }
 
-                // 6. Beräkna slutgiltig ledares poäng (om det finns datum)
+                // 8. Beräkna slutgiltig ledares poäng
                 const lastDate = allDates.length > 1 ? allDates[allDates.length - 1] : "Start";
-                FINAL_LEADER_POINTS = allTeams.length > 0 ? Math.max(...allTeams.map(team => pointsByDate[team][lastDate]?.points || 0)) : 0;
+                FINAL_LEADER_POINTS = allTeams.length > 0
+                    ? Math.max(...allTeams.map(team => pointsByDate[team][lastDate]?.points || 0))
+                    : 0;
 
-
-                // 7. Initiera UI när all data är klar
                 initializeUI();
 
             } catch (error) {
                 console.error('Fel vid laddning eller bearbetning av data:', error);
-                // Visa ett felmeddelande för användaren på sidan
-                chartContainer.innerHTML = `<p style="color: red; text-align: center;">Kunde inte ladda matchdata. Försök ladda om sidan.</p>`;
+                chartContainer.innerHTML =
+                    `<p style="color: red; text-align: center;">Kunde inte ladda matchdata. Försök ladda om sidan.</p>`;
             }
         }
 
