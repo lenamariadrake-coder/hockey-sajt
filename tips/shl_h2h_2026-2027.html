@@ -421,7 +421,7 @@
 
  ⚠️ VIKTIGT I DENNA FIL:
  - Denna BAS-logik “slås över” längre ner (sektion 23),
-   där #sourceFilter tvingas alltid synlig i Topplista.
+   där #sourceFilter tvingas alltid synlig i Klassiskt tips.
  - Om du felsöker “varför syns #sourceFilter ändå?” -> hoppa till sektion 23.
  ========================================================= */
         #sourceFilter {
@@ -1506,11 +1506,11 @@
         }
 
         /* =========================================================
- 23) SOURCE FILTER – OVERRIDE (Topplista)
+ 23) SOURCE FILTER – OVERRIDE (Klassiskt tips)
  ---------------------------------------------------------
  ⚠️ ORDNINGSKÄNSLIG SEKTION
  - Måste ligga EFTER “SOURCE FILTER – BAS”
- - Här tvingas synlighet: .is-visible i sektion 9 blir i praktiken irrelevant i Topplista.
+ - Här tvingas synlighet: .is-visible i sektion 9 blir i praktiken irrelevant i Klassiskt tips.
  ========================================================= */
         #sourceFilter {
             visibility: visible !important;
@@ -2173,7 +2173,7 @@
                         aria-label="Snitt" title="Snitt">Snitt</a>
 
                     <a id="tabTopplista" class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html"
-                        aria-label="Topplista" title="Topplista">Topplista</a>
+                        aria-label="Klassiskt tips" title="Klassiskt tips">Klassiskt tips</a>
 
                     <button id="tabInbordes" class="tab-btn" type="button" aria-selected="true">H2H</button>
 
@@ -2288,7 +2288,7 @@
         </section>
 
         <div class="views">
-            <section id="viewTable" role="tabpanel" aria-hidden="false" aria-label="Topplista">
+            <section id="viewTable" role="tabpanel" aria-hidden="false" aria-label="Klassiskt tips">
                 <div id="tableLoading" class="loading-box" aria-live="polite">
                     <div class="loading-spinner" aria-hidden="true"></div>
                     <div>Laddar H2H-topplista…</div>
