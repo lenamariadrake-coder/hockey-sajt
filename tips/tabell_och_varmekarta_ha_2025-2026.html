@@ -2309,12 +2309,12 @@ Lag 14</pre>
 
         // Vilken del av games som just den här sidan ska använda.
         const MATCH_SEASON_ID = '2025-2026';
-        const MATCH_LEAGUE = 'SHL';
+        const MATCH_LEAGUE = 'HA';
 
         // TERMINOLOGI I KODEN:
         // "round" / "omgång" betyder i den här filen normalt ett MATCHSTEG:
         // varje lags första X spelade matcher. Det är alltså inte nödvändigtvis
-        // en officiell SHL-omgång. De etablerade interna namnen behålls för att
+        // en officiell HA-omgång. De etablerade interna namnen behålls för att
         // undvika onödig ombyggnad av fungerande logik. Användarsynlig text ska
         // däremot beskriva detta som "matchsteg" / "spelade matcher".
         //
@@ -2326,9 +2326,9 @@ Lag 14</pre>
         const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2025_2026.v1';
         const ROWCOLOR_STORAGE_KEY = 'shlTable.rowColors.shl_2025_2026.v1';
         const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2025_2026.v1";
-        const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2025_2026";
-        const SHL_STANDINGS_CACHE_KEY = "SHL_STANDINGS_DATA_2025_2026";
-        const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
+        const HA_TIPS_CACHE_KEY = "HA_TIPS_DATA_2025_2026";
+        const HA_STANDINGS_CACHE_KEY = "HA_STANDINGS_DATA_2025_2026";
+        const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
 
         // Laguppsättningen för vald säsong hämtas inte längre från en separat teams_shl-flik.
         // Den här sidan härleder den från games och slår sedan upp namnen i all_teams.
@@ -2343,7 +2343,7 @@ Lag 14</pre>
 
         function rebuildTeamNameIndexes() {
             if (!(SEASON_TEAM_IDS instanceof Set) || SEASON_TEAM_IDS.size !== 14) {
-                throw new Error(`Säsongslag: förväntade 14 SHL-lag men har ${SEASON_TEAM_IDS?.size ?? 0}.`);
+                throw new Error(`Säsongslag: förväntade 14 HA-lag men har ${SEASON_TEAM_IDS?.size ?? 0}.`);
             }
 
             const teams = Array.from(SEASON_TEAM_IDS).map(teamId => {
@@ -2716,7 +2716,7 @@ Lag 14</pre>
                 .filter(Boolean);
         }
 
-        // SHL "contains"-mappning: returnerar ett kanoniskt lagnamn (oftast långt),
+        // HA "contains"-mappning: returnerar ett kanoniskt lagnamn (oftast långt),
         // eller returnerar originalraden om ingen mappning träffar.
         // OBS: Detta "släpper inte igenom" okända lag – okända fångas sen av getShortTeamFromInput().
         function resolveCanonicalTeamNameFromLine(line) {
@@ -2724,7 +2724,7 @@ Lag 14</pre>
             if (!input) return input;
 
             // Eget tips ska använda exakt samma säsongslag som resten av sidan.
-            // Inga SHL-lag hårdkodas här: alias byggs från teams_shl_2025-2026
+            // Inga HA-lag hårdkodas här: alias byggs från teams_shl_2025-2026
             // (abbr + short + long), som redan ligger i TEAM_BY_ID.
             const lower = input.toLocaleLowerCase("sv-SE");
             const candidates = [];
@@ -4121,7 +4121,7 @@ Lag 14</pre>
             });
 
             if (teamIds.size !== 14) {
-                throw new Error(`Matchdata: förväntade 14 SHL-lag i games för ${MATCH_SEASON_ID}, men hittade ${teamIds.size}.`);
+                throw new Error(`Matchdata: förväntade 14 HA-lag i games för ${MATCH_SEASON_ID}, men hittade ${teamIds.size}.`);
             }
 
             for (const teamId of teamIds) {
@@ -4169,7 +4169,7 @@ Lag 14</pre>
                 const ap = toInt(r[iAwayPts]);
 
                 // En match hör till den omgång som den utgör för båda lagen.
-                // Vid normala SHL-omgångar är detta samma nummer för hemma- och bortalaget.
+                // Vid normala HA-omgångar är detta samma nummer för hemma- och bortalaget.
                 const homeRound = (gamesPlayedByTeam.get(ht) || 0) + 1;
                 const awayRound = (gamesPlayedByTeam.get(at) || 0) + 1;
                 gamesPlayedByTeam.set(ht, homeRound);
@@ -4346,7 +4346,7 @@ Lag 14</pre>
 
 
         // ============================================================
-        // SHL – statiska tips (amatör / expert) från Google Sheets
+        // HA – statiska tips (amatör / expert) från Google Sheets
         // ============================================================
 
         // Datastrukturer (samma ansvar som i mamma-appen)
@@ -4391,7 +4391,7 @@ Lag 14</pre>
         }
 
         function isExpertDisplayName(displayName) {
-            return /^SHL-exp\b/i.test(String(displayName || '').trim());
+            return /^HA-exp\b/i.test(String(displayName || '').trim());
         }
 
         async function loadClassicTips(source) {
@@ -4531,12 +4531,12 @@ Lag 14</pre>
 
         function isShlCacheFresh(payload) {
             const savedAtMs = Date.parse(payload?.savedAt || '');
-            return Number.isFinite(savedAtMs) && (Date.now() - savedAtMs) >= 0 && (Date.now() - savedAtMs) < SHL_CACHE_MAX_AGE_MS;
+            return Number.isFinite(savedAtMs) && (Date.now() - savedAtMs) >= 0 && (Date.now() - savedAtMs) < HA_CACHE_MAX_AGE_MS;
         }
 
         function readSharedShlTipsCache({ allowStale = false } = {}) {
             try {
-                const raw = localStorage.getItem(SHL_TIPS_CACHE_KEY);
+                const raw = localStorage.getItem(HA_TIPS_CACHE_KEY);
                 if (!raw) return null;
 
                 const parsed = JSON.parse(raw);
@@ -4549,17 +4549,17 @@ Lag 14</pre>
 
                 return parsed;
             } catch (e) {
-                console.warn("[shl][cache] kunde inte läsa/parsea", SHL_TIPS_CACHE_KEY, e);
+                console.warn("[shl][cache] kunde inte läsa/parsea", HA_TIPS_CACHE_KEY, e);
                 return null;
             }
         }
 
         function writeSharedShlTipsCache(payload) {
             try {
-                localStorage.setItem(SHL_TIPS_CACHE_KEY, JSON.stringify(payload));
-                console.log("[shl][cache] WROTE ->", SHL_TIPS_CACHE_KEY, { savedAt: payload?.savedAt });
+                localStorage.setItem(HA_TIPS_CACHE_KEY, JSON.stringify(payload));
+                console.log("[shl][cache] WROTE ->", HA_TIPS_CACHE_KEY, { savedAt: payload?.savedAt });
             } catch (e) {
-                console.warn("[shl][cache] kunde inte skriva", SHL_TIPS_CACHE_KEY, e);
+                console.warn("[shl][cache] kunde inte skriva", HA_TIPS_CACHE_KEY, e);
             }
         }
 
@@ -4659,7 +4659,7 @@ Lag 14</pre>
 
         function readSharedShlStandingsCache({ allowStale = false } = {}) {
             try {
-                const raw = localStorage.getItem(SHL_STANDINGS_CACHE_KEY);
+                const raw = localStorage.getItem(HA_STANDINGS_CACHE_KEY);
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
                 if (!parsed || parsed.version !== 1 || parsed.season !== '2025_2026' || parsed.league !== 'shl') return null;
@@ -4713,7 +4713,7 @@ Lag 14</pre>
                 dateSnapshots: Object.fromEntries(DATE_STANDING_SNAPSHOTS),
                 dateTimelineKeys: DATE_TIMELINE_KEYS.slice()
             };
-            try { localStorage.setItem(SHL_STANDINGS_CACHE_KEY, JSON.stringify(payload)); }
+            try { localStorage.setItem(HA_STANDINGS_CACHE_KEY, JSON.stringify(payload)); }
             catch (e) { console.warn('[shl][standings-cache] kunde inte skriva', e); }
             return payload;
         }
@@ -6696,7 +6696,7 @@ Lag 14</pre>
                     return;
                 }
 
-                if (e.key === SHL_TIPS_CACHE_KEY && e.newValue) {
+                if (e.key === HA_TIPS_CACHE_KEY && e.newValue) {
                     const cache = readSharedShlTipsCache();
                     if (!cache) return;
                     hydrateFromSharedCache(cache);
@@ -6706,7 +6706,7 @@ Lag 14</pre>
                     return;
                 }
 
-                if (e.key === SHL_STANDINGS_CACHE_KEY && e.newValue) {
+                if (e.key === HA_STANDINGS_CACHE_KEY && e.newValue) {
                     const cache = readSharedShlStandingsCache();
                     if (!cache) return;
                     hydrateStandingsFromSharedCache(cache);
