@@ -4647,7 +4647,7 @@ Lag 14</pre>
                 const raw = localStorage.getItem(HA_STANDINGS_CACHE_KEY);
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
-                if (!parsed || parsed.version !== 1 || parsed.season !== '2026_2027' || parsed.league !== 'shl') return null;
+                if (!parsed || parsed.version !== 1 || parsed.season !== '2026_2027' || parsed.league !== 'ha') return null;
                 if (!parsed.snapshots || !Array.isArray(parsed.roundsAvailable) || !Array.isArray(parsed.seasonTeamIds) || !parsed.teamById) return null;
                 // Den här sidan behöver även datumaxeln. Äldre cache utan dessa
                 // fält ignoreras här och byggs om från games; systersidor kan
@@ -4688,7 +4688,7 @@ Lag 14</pre>
                 version: 1,
                 savedAt: new Date().toISOString(),
                 season: '2026_2027',
-                league: 'shl',
+                league: 'ha',
                 latestRound: state.latestRound ?? 0,
                 roundsAvailable: Array.from(state.roundsAvailable || []),
                 seasonTeamIds: Array.from(SEASON_TEAM_IDS),
