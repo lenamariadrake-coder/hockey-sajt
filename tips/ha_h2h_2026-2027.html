@@ -2162,17 +2162,17 @@
                 <!-- Huvudnavigation: samma ordning och placering som på facitsidorna -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
                     <a id="tabTabell" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_shl_2026-2027.html#tabell"
+                        href="tabell_och_varmekarta_ha_2026-2027.html#tabell"
                         aria-label="Tabell" title="Tabell">Tabell</a>
 
                     <a id="tabVarmekarta" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_shl_2026-2027.html#varmekarta"
+                        href="tabell_och_varmekarta_ha_2026-2027.html#varmekarta"
                         aria-label="Värmekarta" title="Värmekarta">Värmekarta</a>
 
-                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="shl-tips_2026-2027.html"
+                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="ha-tips_2026-2027.html"
                         aria-label="Snitt" title="Snitt">Snitt</a>
 
-                    <a id="tabTopplista" class="tab-btn tab-btn-link" href="shl_tippartopplista_2026-2027.html"
+                    <a id="tabTopplista" class="tab-btn tab-btn-link" href="ha_tippartopplista_2026-2027.html"
                         aria-label="Klassiskt tips" title="Klassiskt tips">Klassiskt tips</a>
 
                     <button id="tabInbordes" class="tab-btn" type="button" aria-selected="true">H2H</button>
@@ -2455,12 +2455,12 @@
         const H2H_TIPS_SOURCE = DATA_SOURCES.h2hTips;
 
         // Delas med Tabell/Värmekarta och Tippartopplistan.
-        const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
-        const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
-        const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
-        const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2026_2027.v1';
-        const ROWCOLOR_STORAGE_KEY = 'shlTable.rowColors.shl_2026_2027.v1';
-        const LS_TIPS_SOURCES_KEY = 'shlTips.sources.shl_2026_2027.v1';
+        const ROUND_STORAGE_KEY = 'round_ha_2026_2027';
+        const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_ha_2026_2027';
+        const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_ha_2026_2027';
+        const MOVEMENT_STORAGE_KEY = 'haTable.movements.ha_2026_2027.v1';
+        const ROWCOLOR_STORAGE_KEY = 'haTable.rowColors.ha_2026_2027.v1';
+        const LS_TIPS_SOURCES_KEY = 'haTips.sources.ha_2026_2027.v1';
         const HA_STANDINGS_CACHE_KEY = 'HA_STANDINGS_DATA_2026_2027';
         const HA_H2H_TIPS_CACHE_KEY = 'HA_H2H_TIPS_DATA_2026_2027';
         const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
@@ -2554,7 +2554,7 @@
                 const raw = localStorage.getItem(HA_H2H_TIPS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
-                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
+                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'ha') return null;
                 if (!isShlCacheFresh(data) || !Array.isArray(data.participants)) return null;
                 return data;
             } catch (error) {
@@ -2587,7 +2587,7 @@
                     version: 1,
                     savedAt: new Date().toISOString(),
                     season: '2026_2027',
-                    league: 'shl',
+                    league: 'ha',
                     participants: Array.from(H2H_TIPS_BY_PARTICIPANT.values())
                 }));
             } catch (error) {
@@ -2707,7 +2707,7 @@
                 const raw = localStorage.getItem(HA_STANDINGS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
-                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
+                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'ha') return null;
                 if (!data.snapshots || !Array.isArray(data.roundsAvailable) || !Array.isArray(data.seasonTeamIds) || !data.teamById) return null;
                 // Datumläget kräver systersidornas utökade version-1-cache.
                 if (!data.dateSnapshots || !Array.isArray(data.dateTimelineKeys)) return null;
@@ -4076,7 +4076,7 @@
                 const pad = n => String(n).padStart(2, '0');
 
                 a.download =
-                    `export-shl-h2h-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-` +
+                    `export-ha-h2h-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-` +
                     `${pad(now.getHours())}${pad(now.getMinutes())}.png`;
 
                 a.href = URL.createObjectURL(blob);
