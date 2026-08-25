@@ -1799,7 +1799,7 @@
             <div class="topbar-nav">
                 <a class="ghost-link icon-link" href="../index.html" aria-label="Till startsidan"
                     title="Till startsidan">🏠</a>
-                <!-- <a class="ghost-link icon-link" href="shl-tips_2026-2027.html" aria-label="Till sammanfattningen"
+                <!-- <a class="ghost-link icon-link" href="ha-tips_2026-2027.html" aria-label="Till sammanfattningen"
 title="Till sammanfattningen">📄</a> -->
                 <button id="exportBtn" class="btn btn-icon" aria-label="Spara aktiv vy som bild"
                     title="Spara aktiv vy som bild">📸</button>
@@ -1810,30 +1810,30 @@ title="Till sammanfattningen">📄</a> -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
 
                     <a id="tabTabell" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_shl_2026-2027.html#tabell"
+                        href="tabell_och_varmekarta_ha_2026-2027.html#tabell"
                         aria-label="Tabell" title="Tabell">Tabell</a>
 
                     <a id="tabVarmekarta" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_shl_2026-2027.html#varmekarta"
+                        href="tabell_och_varmekarta_ha_2026-2027.html#varmekarta"
                         aria-label="Värmekarta" title="Värmekarta">Värmekarta</a>
 
-                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="shl-tips_2026-2027.html"
+                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="ha-tips_2026-2027.html"
                         aria-label="Snitt" title="Snitt">Snitt</a>
 
                     <button id="tabTable" class="tab-btn" role="tab" aria-selected="true"
                         aria-controls="viewTable">Klassiskt tips</button>
 
-                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="shl_h2h_2026-2027.html"
+                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="ha_h2h_2026-2027.html"
                         aria-label="H2H" title="H2H">H2H</a>
 
                     <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
                         <span class="season-select-label">Säsong</span>
                         <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
-<!--                             <option value="shl_tippartopplista_2021-2022.html">2021/2022</option>
-                            <option value="shl_tippartopplista_2022-2023.html">2022/2023</option>
-                            <option value="shl_tippartopplista_2023-2024.html">2023/2024</option>
-                            <option value="shl_tippartopplista_2024-2025.html">2024/2025</option>
- -->                            <option value="shl_tippartopplista_2025-2026.html">2025/2026</option>
+<!--                             <option value="ha_tippartopplista_2021-2022.html">2021/2022</option>
+                            <option value="ha_tippartopplista_2022-2023.html">2022/2023</option>
+                            <option value="ha_tippartopplista_2023-2024.html">2023/2024</option>
+                            <option value="ha_tippartopplista_2024-2025.html">2024/2025</option>
+ -->                            <option value="ha_tippartopplista_2025-2026.html">2025/2026</option>
                             <option value="" selected>2026/2027</option>
                         </select>
                     </div>
@@ -2233,10 +2233,10 @@ Lag 14</pre>
         const MATCH_LEAGUE = 'HA';
 
         // LocalStorage-nycklar. Dessa matchar tabell/värmekarta-sidan för 2026/2027.
-        const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
-        const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
-        const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
-        const RANKCFG_STORAGE_KEY = 'rankcfg_shl_2026_2027';
+        const ROUND_STORAGE_KEY = 'round_ha_2026_2027';
+        const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_ha_2026_2027';
+        const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_ha_2026_2027';
+        const RANKCFG_STORAGE_KEY = 'rankcfg_ha_2026_2027';
         const HA_TIPS_CACHE_KEY = "HA_TIPS_DATA_2026_2027";
         const HA_STANDINGS_CACHE_KEY = "HA_STANDINGS_DATA_2026_2027";
         const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
@@ -2574,13 +2574,13 @@ Lag 14</pre>
         }
 
         // localStorage-nycklar (versionerade ifall formatet ändras i framtiden)
-        const LS_CUSTOM_TIPS_KEY = "shlTopplista.customTippers.shl_2026_2027.v1";
+        const LS_CUSTOM_TIPS_KEY = "haTopplista.customTippers.ha_2026_2027.v1";
 
         // Signal som används för att be andra flikar stänga panelen efter save/clear
-        const LS_CUSTOM_SIGNAL_KEY = "shlTips.signal.customCleared.shl_2026_2027.v1";
+        const LS_CUSTOM_SIGNAL_KEY = "haTips.signal.customCleared.ha_2026_2027.v1";
 
         // ✅ NY: panelens öppet/stängt-läge (för synk mellan flikar)
-        const LS_CUSTOM_PANEL_OPEN_KEY = "shlTips.ui.customPanelOpen.shl_2026_2027.v1";
+        const LS_CUSTOM_PANEL_OPEN_KEY = "haTips.ui.customPanelOpen.ha_2026_2027.v1";
 
         // ✅ Stabilt tab-id så vi kan logga vem som skrev (och undvika ping-pong)
         const CUSTOM_TAB_ID = (function () {
@@ -4142,7 +4142,7 @@ Lag 14</pre>
 
         // Sparade radfärger per liga/säsong. Detta är UI-state och hålls separat
         // från tips-/matchcachen, så en datauppdatering aldrig rensar användarens färger.
-        const LS_ROW_COLORS_KEY = 'shlTopplista.rowColors.shl_2026_2027.v1';
+        const LS_ROW_COLORS_KEY = 'haTopplista.rowColors.ha_2026_2027.v1';
 
         function loadRowColorsFromLocalStorage() {
             try {
@@ -4262,11 +4262,11 @@ Lag 14</pre>
             timelineSlider.value = String(value);
             applyRoundFromSliderValue();
         }
-        const NAV_TOAST_KEY = 'nav-toast-shown-shl-2026-2027-v1';
+        const NAV_TOAST_KEY = 'nav-toast-shown-ha-2026-2027-v1';
 
         // ✅ Kryssrutor (hobby/experter/eget tips) – separat preferens i localStorage
         // Döpt specifikt för liga+säsong så HA/HA och olika år inte krockar.
-        const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2026_2027.v1";
+        const LS_TIPS_SOURCES_KEY = "haTips.sources.ha_2026_2027.v1";
 
         function loadTipsSourcesFromLocalStorage() {
             try {
@@ -5510,7 +5510,7 @@ Lag 14</pre>
                 const now = new Date();
                 const pad = (n) => String(n).padStart(2, '0');
 
-                a.download = `export-shl-topplista-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.png`;
+                a.download = `export-ha-topplista-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.png`;
 
                 a.href = URL.createObjectURL(blob || await (async () => {
                     // fallback om toBlob returnerar null
@@ -5759,7 +5759,7 @@ Lag 14</pre>
         function restoreRoundFromLocalStorage() {
             if (!timelineSlider) return;
 
-            const raw = localStorage.getItem(ROUND_STORAGE_KEY); // round_shl_2026_2027 :contentReference[oaicite:5]{index=5}
+            const raw = localStorage.getItem(ROUND_STORAGE_KEY); // round_ha_2026_2027 :contentReference[oaicite:5]{index=5}
             const n = Number(raw);
 
             // Default enligt kontrakt: "0"
@@ -5952,7 +5952,7 @@ Lag 14</pre>
                 const raw = localStorage.getItem(HA_TIPS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
-                if (!data || data.version !== 2 || data.season !== '2026_2027' || data.league !== 'shl') return null;
+                if (!data || data.version !== 2 || data.season !== '2026_2027' || data.league !== 'ha') return null;
                 if (!data.TEAM_BY_ID || !data.TIPS_BY_TIPPER_HOBBY || !data.TIPS_BY_TIPPER_EXPERT) return null;
                 if (!allowStale && !isShlCacheFresh(data)) return null;
                 return data;
@@ -5978,7 +5978,7 @@ Lag 14</pre>
                 version: 2,
                 savedAt: new Date().toISOString(),
                 season: '2026_2027',
-                league: 'shl',
+                league: 'ha',
                 TIPS_MATRIX_HOBBY,
                 TIPS_MATRIX_EXPERT,
                 TEAM_BY_ID: _mapToObject(TEAM_BY_ID),
@@ -6035,7 +6035,7 @@ Lag 14</pre>
                 const raw = localStorage.getItem(HA_STANDINGS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
-                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
+                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'ha') return null;
                 if (!data.snapshots || !Array.isArray(data.roundsAvailable) || !Array.isArray(data.seasonTeamIds) || !data.teamById) return null;
                 // Datumläget kräver den utökade, fortfarande version-1-kompatibla systercachen.
                 if (!data.dateSnapshots || !Array.isArray(data.dateTimelineKeys)) return null;
@@ -6075,7 +6075,7 @@ Lag 14</pre>
                 version: 1,
                 savedAt: new Date().toISOString(),
                 season: '2026_2027',
-                league: 'shl',
+                league: 'ha',
                 latestRound: state.latestRound ?? 0,
                 roundsAvailable: Array.from(state.roundsAvailable || []),
                 seasonTeamIds: Array.from(SEASON_TEAM_IDS),
