@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tippartopplista H2H 2026/2027 (SHL)</title>
+    <title>Tippartopplista H2H 2026/2027 (HA)</title>
 
     <!-- html2canvas för export av aktiv vy -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -2299,7 +2299,7 @@
                 <div id="h2hSummary" class="h2h-summary" aria-live="polite"></div>
 
                 <div class="h2h-tables-layout">
-                    <div class="h2h-table-panel h2h-league-panel" aria-label="Aktuell SHL-tabell">
+                    <div class="h2h-table-panel h2h-league-panel" aria-label="Aktuell HA-tabell">
                         <table id="leagueStandings" class="aktuell_tabell hidden">
                             <thead>
                                 <tr id="leagueStandingsHeadRow">
@@ -2331,9 +2331,9 @@
                                     <th class="num">
                                         Dagar
                                         <span class="th-info"
-                                            data-desktop-tip="Antal kalenderdagar som tipparens valda lag hittills legat i rätt inbördes ordning i den faktiska SHL-tabellen. Räknas endast från verkliga tabellställningar, inte från jämförelsen efter lika många spelade matcher."
-                                            data-mobile-tip="Antal kalenderdagar som tipparens valda lag hittills legat i rätt inbördes ordning i den faktiska SHL-tabellen. Räknas endast från verkliga tabellställningar, inte från jämförelsen efter lika många spelade matcher."
-                                            aria-label="Hjälp: antal kalenderdagar som tipparens valda lag legat i rätt inbördes ordning i den faktiska SHL-tabellen. Räknas endast från verkliga tabellställningar.">ℹ️</span>
+                                            data-desktop-tip="Antal kalenderdagar som tipparens valda lag hittills legat i rätt inbördes ordning i den faktiska HA-tabellen. Räknas endast från verkliga tabellställningar, inte från jämförelsen efter lika många spelade matcher."
+                                            data-mobile-tip="Antal kalenderdagar som tipparens valda lag hittills legat i rätt inbördes ordning i den faktiska HA-tabellen. Räknas endast från verkliga tabellställningar, inte från jämförelsen efter lika många spelade matcher."
+                                            aria-label="Hjälp: antal kalenderdagar som tipparens valda lag legat i rätt inbördes ordning i den faktiska HA-tabellen. Räknas endast från verkliga tabellställningar.">ℹ️</span>
                                     </th>
                                     <th class="num">Status</th>
                                 </tr>
@@ -2350,7 +2350,7 @@
 
     <script>
         /* ===========================================================
-           H2H SHL 2026/27 – byggd från originalsidans struktur.
+           H2H HA 2026/27 – byggd från originalsidans struktur.
            Behållet: matchinläsning, standings-snapshots, tidslinje,
            play/pause, long-press, export och grundlayout.
            =========================================================== */
@@ -2449,7 +2449,7 @@
 
         // Matchfiltret. Ändra säsongen här när sidan ska användas "på riktigt".
         const MATCH_SEASON_ID = '2026-2027';
-        const MATCH_LEAGUE = 'SHL';
+        const MATCH_LEAGUE = 'HA';
 
         // Historikläge: sätt hela H2H-källan till null om tips inte ska läsas.
         const H2H_TIPS_SOURCE = DATA_SOURCES.h2hTips;
@@ -2461,9 +2461,9 @@
         const MOVEMENT_STORAGE_KEY = 'shlTable.movements.shl_2026_2027.v1';
         const ROWCOLOR_STORAGE_KEY = 'shlTable.rowColors.shl_2026_2027.v1';
         const LS_TIPS_SOURCES_KEY = 'shlTips.sources.shl_2026_2027.v1';
-        const SHL_STANDINGS_CACHE_KEY = 'SHL_STANDINGS_DATA_2026_2027';
-        const SHL_H2H_TIPS_CACHE_KEY = 'SHL_H2H_TIPS_DATA_2026_2027';
-        const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
+        const HA_STANDINGS_CACHE_KEY = 'HA_STANDINGS_DATA_2026_2027';
+        const HA_H2H_TIPS_CACHE_KEY = 'HA_H2H_TIPS_DATA_2026_2027';
+        const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 
         /* ===========================================================
            STATE / DATA
@@ -2551,7 +2551,7 @@
 
         function readH2HTipsCache() {
             try {
-                const raw = localStorage.getItem(SHL_H2H_TIPS_CACHE_KEY);
+                const raw = localStorage.getItem(HA_H2H_TIPS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
                 if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
@@ -2583,7 +2583,7 @@
 
         function writeH2HTipsCache() {
             try {
-                localStorage.setItem(SHL_H2H_TIPS_CACHE_KEY, JSON.stringify({
+                localStorage.setItem(HA_H2H_TIPS_CACHE_KEY, JSON.stringify({
                     version: 1,
                     savedAt: new Date().toISOString(),
                     season: '2026_2027',
@@ -2692,7 +2692,7 @@
 
         function isShlCacheFresh(payload) {
             const savedAtMs = Date.parse(payload?.savedAt || '');
-            return Number.isFinite(savedAtMs) && (Date.now() - savedAtMs) >= 0 && (Date.now() - savedAtMs) < SHL_CACHE_MAX_AGE_MS;
+            return Number.isFinite(savedAtMs) && (Date.now() - savedAtMs) >= 0 && (Date.now() - savedAtMs) < HA_CACHE_MAX_AGE_MS;
         }
 
         function snapshotsObjectToMap(obj) {
@@ -2704,7 +2704,7 @@
 
         function readSharedShlStandingsCache() {
             try {
-                const raw = localStorage.getItem(SHL_STANDINGS_CACHE_KEY);
+                const raw = localStorage.getItem(HA_STANDINGS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
                 if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
@@ -3064,7 +3064,7 @@
         }
 
         function isExpertDisplayName(displayName) {
-            return /^SHL-exp\b/i.test(String(displayName || '').trim());
+            return /^HA-exp\b/i.test(String(displayName || '').trim());
         }
 
         function loadTipsSourcesFromLocalStorage() {
