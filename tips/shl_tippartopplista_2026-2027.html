@@ -419,7 +419,7 @@
 
  ⚠️ VIKTIGT I DENNA FIL:
  - Denna BAS-logik “slås över” längre ner (sektion 23),
-   där #sourceFilter tvingas alltid synlig i Topplista.
+   där #sourceFilter tvingas alltid synlig i Klassiskt tips.
  - Om du felsöker “varför syns #sourceFilter ändå?” -> hoppa till sektion 23.
  ========================================================= */
         #sourceFilter {
@@ -1533,11 +1533,11 @@
         }
 
         /* =========================================================
- 23) SOURCE FILTER – OVERRIDE (Topplista)
+ 23) SOURCE FILTER – OVERRIDE (Klassiskt tips)
  ---------------------------------------------------------
  ⚠️ ORDNINGSKÄNSLIG SEKTION
  - Måste ligga EFTER “SOURCE FILTER – BAS”
- - Här tvingas synlighet: .is-visible i sektion 9 blir i praktiken irrelevant i Topplista.
+ - Här tvingas synlighet: .is-visible i sektion 9 blir i praktiken irrelevant i Klassiskt tips.
  ========================================================= */
         #sourceFilter {
             visibility: visible !important;
@@ -1821,7 +1821,7 @@ title="Till sammanfattningen">📄</a> -->
                         aria-label="Snitt" title="Snitt">Snitt</a>
 
                     <button id="tabTable" class="tab-btn" role="tab" aria-selected="true"
-                        aria-controls="viewTable">Topplista</button>
+                        aria-controls="viewTable">Klassiskt tips</button>
 
                     <a id="tabInbordes" class="tab-btn tab-btn-link" href="shl_h2h_2026-2027.html"
                         aria-label="H2H" title="Inbördes">H2H</a>
@@ -1859,7 +1859,7 @@ title="Till sammanfattningen">📄</a> -->
             <!-- Rad 2: flikar -->
             <!-- <nav class="tabs topbar-row topbar-row--tabs" role="tablist" aria-label="Vyval">
                 <button id="tabTable" class="tab-btn" role="tab" aria-selected="true"
-                    aria-controls="viewTable">Topplista</button>
+                    aria-controls="viewTable">Klassiskt tips</button>
 </nav> -->
 
             <!-- Rad 3: reserverad kontrollrad (samma höjd oavsett vy) -->
@@ -2031,7 +2031,7 @@ Lag 14</pre>
         <!-- Vyernas innehåll -->
         <div class="views">
             <!-- TOPPLISTA (huvudvy) -->
-            <section id="viewTable" role="tabpanel" aria-hidden="false" aria-label="Topplista">
+            <section id="viewTable" role="tabpanel" aria-hidden="false" aria-label="Klassiskt tips">
                 <div id="tableLoading" class="loading-box" aria-live="polite">
                     <div class="loading-spinner" aria-hidden="true"></div>
                     <div>Laddar tabell…</div>
@@ -2127,10 +2127,10 @@ Lag 14</pre>
         /* ===========================================================
            1) DOM-hakar (matchar HTML)
            =========================================================== */
-        const btnTabell = document.getElementById('tabTable');       // flikknapp: Topplista
+        const btnTabell = document.getElementById('tabTable');       // flikknapp: Klassiskt tips
         const seasonSelectWrap = document.getElementById('seasonSelectWrap');
         const seasonSelect = document.getElementById('seasonSelect');
-        const viewTable = document.getElementById('viewTable');     // panel: Topplista-vyn
+        const viewTable = document.getElementById('viewTable');     // panel: Klassiskt tips-vyn
         const tableStand = document.getElementById('tableStandings'); // HTML-tabellen i topplistan
 
         const roundButtons = document.getElementById('roundButtons');   // container för sifferknappar
@@ -3628,7 +3628,7 @@ Lag 14</pre>
            3) State
            =========================================================== */
         const state = {
-            // Systerapp: endast Topplista-vyn.
+            // Systerapp: endast Klassiskt tips-vyn.
             // Vi behåller värdet 'table' som intern nyckel (legacy/kompatibilitet),
             // så att befintlig show/hide-logik och kontroller kan återanvändas.
             // Om fler vyer införs senare kan activeView utökas med fler nycklar.
@@ -4192,7 +4192,7 @@ Lag 14</pre>
         function updateRowColorControlsVisibility() {
             if (!rowColorControls) return;
 
-            // Visa endast i Topplista-vyn
+            // Visa endast i Klassiskt tips-vyn
             // (andra vyer har inga rader att färgsätta)
             rowColorControls.classList.toggle(
                 'is-hidden',
@@ -4949,8 +4949,8 @@ Lag 14</pre>
 
 
 
-        function setActiveView(view) { // systerapp: endast Topplista
-            // Vi ignorerar 'view' och visar alltid Topplista-vyn
+        function setActiveView(view) { // systerapp: endast Klassiskt tips
+            // Vi ignorerar 'view' och visar alltid Klassiskt tips-vyn
             btnTabell.setAttribute('aria-selected', 'true');
             viewTable.setAttribute('aria-hidden', 'false');
         }
@@ -5462,7 +5462,7 @@ Lag 14</pre>
 
 
         /* ===========================================================
-           9) Export – spara Topplista som bild (html2canvas)
+           9) Export – spara Klassiskt tips som bild (html2canvas)
            =========================================================== */
         async function exportActiveView() {
             const activePanel = document.getElementById('viewTable'); // alltid topplistan här
