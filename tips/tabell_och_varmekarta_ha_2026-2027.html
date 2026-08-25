@@ -1735,7 +1735,7 @@
             <div class="topbar-nav">
                 <a class="ghost-link icon-link" href="../index.html" aria-label="Till startsidan"
                     title="Till startsidan">🏠</a>
-                <!-- <a class="ghost-link icon-link" href="shl-tips_2026-2027.html" aria-label="Till sammanfattningen"
+                <!-- <a class="ghost-link icon-link" href="ha-tips_2026-2027.html" aria-label="Till sammanfattningen"
         title="Till sammanfattningen">📄</a> -->
                 <button id="exportBtn" class="btn btn-icon" aria-label="Spara aktiv vy som bild"
                     title="Spara aktiv vy som bild">📸</button>
@@ -1749,7 +1749,7 @@
                     <button id="tabHeat" class="tab-btn" role="tab" aria-selected="false"
                         aria-controls="viewHeat">Värmekarta</button>
 
-                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="shl-tips_2026-2027.html" aria-label="Snitt"
+                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="ha-tips_2026-2027.html" aria-label="Snitt"
                         title="Snitt">Snitt</a>
 
                     <a id="tabTopplista" class="tab-btn tab-btn-link" href="ha_tippartopplista_2026-2027.html"
@@ -2308,14 +2308,14 @@ Lag 14</pre>
         const ROUND_STORAGE_KEY = 'round_ha_2026_2027';
         const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_ha_2026_2027';
         const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_ha_2026_2027';
-        const MOVEMENT_STORAGE_KEY = 'shlTable.movements.ha_2026_2027.v1';
-        const ROWCOLOR_STORAGE_KEY = 'shlTable.rowColors.ha_2026_2027.v1';
-        const LS_TIPS_SOURCES_KEY = "shlTips.sources.ha_2026_2027.v1";
+        const MOVEMENT_STORAGE_KEY = 'haTable.movements.ha_2026_2027.v1';
+        const ROWCOLOR_STORAGE_KEY = 'haTable.rowColors.ha_2026_2027.v1';
+        const LS_TIPS_SOURCES_KEY = "haTips.sources.ha_2026_2027.v1";
         const HA_TIPS_CACHE_KEY = "HA_TIPS_DATA_2026_2027";
         const HA_STANDINGS_CACHE_KEY = "HA_STANDINGS_DATA_2026_2027";
         const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
 
-        // Laguppsättningen för vald säsong hämtas inte längre från en separat teams_shl-flik.
+        // Laguppsättningen för vald säsong hämtas inte längre från en separat teams_ha-flik.
         // Den här sidan härleder den från games och slår sedan upp namnen i all_teams.
 
         // Lagnamn och heatmap-radordning byggs från teams_ha_2026-2027.
@@ -3221,7 +3221,7 @@ Lag 14</pre>
                 }
                 state.tipsSources.custom = false;
 
-                // ✅ VIKTIGT: skriv om shlTips.sources... direkt
+                // ✅ VIKTIGT: skriv om haTips.sources... direkt
                 saveTipsSourcesToLocalStorage();
 
                 toggleCustomPanel(false);
@@ -3258,7 +3258,7 @@ Lag 14</pre>
             }
             state.tipsSources.custom = true;
 
-            // ✅ VIKTIGT: skriv om shlTips.sources... direkt
+            // ✅ VIKTIGT: skriv om haTips.sources... direkt
             saveTipsSourcesToLocalStorage();
 
             toggleCustomPanel(false);
@@ -3788,13 +3788,13 @@ Lag 14</pre>
             timelineSlider.value = String(value);
             applyRoundFromSliderValue();
         }
-        const NAV_TOAST_KEY = 'nav-toast-shown-shl-v1';
+        const NAV_TOAST_KEY = 'nav-toast-shown-ha-v1';
 
         // localStorage-nyckel (versionerad ifall formatet ändras i framtiden)
-        const LS_CUSTOM_TIPS_KEY = "shlTopplista.customTippers.ha_2026_2027.v1";
+        const LS_CUSTOM_TIPS_KEY = "haTopplista.customTippers.ha_2026_2027.v1";
 
         // ✅ Panelens öppet/stängt-läge (synk mellan flikar + systerappar)
-        const LS_CUSTOM_PANEL_OPEN_KEY = "shlTips.ui.customPanelOpen.ha_2026_2027.v1";
+        const LS_CUSTOM_PANEL_OPEN_KEY = "haTips.ui.customPanelOpen.ha_2026_2027.v1";
 
         // ✅ Stabilt tab-id (för logg + felsökning)
         const CUSTOM_TAB_ID = (function () {
@@ -5824,7 +5824,7 @@ Lag 14</pre>
                 const a = document.createElement('a');
                 const now = new Date();
                 const pad = n => String(n).padStart(2, '0');
-                a.download = `export-shl-${state.activeView}-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.png`;
+                a.download = `export-ha-${state.activeView}-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.png`;
 
                 a.href = URL.createObjectURL(blob || await (async () => { // fallback om toBlob skulle returnera null
                     const dataUrl = canvas.toDataURL('image/png', 0.95);
