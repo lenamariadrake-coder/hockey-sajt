@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tippartopplista Klassiskt tips 2026/2027 (SHL)</title>
+    <title>Tippartopplista Klassiskt tips 2026/2027 (HA)</title>
     <!-- Datum-cache-fix: sparar timeline mode + valt speldatum i localStorage -->
 
     <!-- html2canvas för export av aktiv vy -->
@@ -2230,16 +2230,16 @@ Lag 14</pre>
         };
 
         const MATCH_SEASON_ID = '2026-2027';
-        const MATCH_LEAGUE = 'SHL';
+        const MATCH_LEAGUE = 'HA';
 
         // LocalStorage-nycklar. Dessa matchar tabell/värmekarta-sidan för 2026/2027.
         const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
         const TIMELINE_MODE_STORAGE_KEY = 'timeline_mode_shl_2026_2027';
         const DATE_SNAPSHOT_STORAGE_KEY = 'date_snapshot_shl_2026_2027';
         const RANKCFG_STORAGE_KEY = 'rankcfg_shl_2026_2027';
-        const SHL_TIPS_CACHE_KEY = "SHL_TIPS_DATA_2026_2027";
-        const SHL_STANDINGS_CACHE_KEY = "SHL_STANDINGS_DATA_2026_2027";
-        const SHL_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
+        const HA_TIPS_CACHE_KEY = "HA_TIPS_DATA_2026_2027";
+        const HA_STANDINGS_CACHE_KEY = "HA_STANDINGS_DATA_2026_2027";
+        const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 timme
 
         // Lagnamn byggs från all_teams; vilka 14 lag som gäller härleds från games.
         let NAME_MAP = {};
@@ -2248,7 +2248,7 @@ Lag 14</pre>
 
         function rebuildTeamNameIndexes() {
             if (!(SEASON_TEAM_IDS instanceof Set) || SEASON_TEAM_IDS.size !== 14) {
-                throw new Error(`Säsongslag: förväntade 14 SHL-lag men har ${SEASON_TEAM_IDS?.size ?? 0}.`);
+                throw new Error(`Säsongslag: förväntade 14 HA-lag men har ${SEASON_TEAM_IDS?.size ?? 0}.`);
             }
 
             const teams = Array.from(SEASON_TEAM_IDS).map(teamId => {
@@ -4265,7 +4265,7 @@ Lag 14</pre>
         const NAV_TOAST_KEY = 'nav-toast-shown-shl-2026-2027-v1';
 
         // ✅ Kryssrutor (hobby/experter/eget tips) – separat preferens i localStorage
-        // Döpt specifikt för liga+säsong så SHL/SHL och olika år inte krockar.
+        // Döpt specifikt för liga+säsong så HA/HA och olika år inte krockar.
         const LS_TIPS_SOURCES_KEY = "shlTips.sources.shl_2026_2027.v1";
 
         function loadTipsSourcesFromLocalStorage() {
@@ -4382,7 +4382,7 @@ Lag 14</pre>
             return team?.team_name_long || team?.team_name_short || id;
         }
 
-        // --- SHL tipset (statiskt) ---
+        // --- HA tipset (statiskt) ---
         let TEAM_BY_ID = new Map();              // team_id -> { team_id, team_name_short, team_name_long, ... }
         let TIPPER_BY_ID = new Map();            // tipper_id -> { tipper_id, tipper_name_short, tipper_name_long }
         let TIPS_BY_TIPPER_HOBBY = new Map();  // amatörer
@@ -4454,7 +4454,7 @@ Lag 14</pre>
             });
 
             if (teamIds.size !== 14) {
-                throw new Error(`Matchdata: förväntade 14 SHL-lag i games för ${MATCH_SEASON_ID}, men hittade ${teamIds.size}.`);
+                throw new Error(`Matchdata: förväntade 14 HA-lag i games för ${MATCH_SEASON_ID}, men hittade ${teamIds.size}.`);
             }
             for (const teamId of teamIds) {
                 if (!TEAM_BY_ID.has(teamId)) {
@@ -4655,7 +4655,7 @@ Lag 14</pre>
 
 
         function isExpertDisplayName(displayName) {
-            return /^SHL-exp\b/i.test(String(displayName || '').trim());
+            return /^HA-exp\b/i.test(String(displayName || '').trim());
         }
 
         async function loadClassicTips(source) {
@@ -5944,12 +5944,12 @@ Lag 14</pre>
         }
         function isShlCacheFresh(payload) {
             const savedAtMs = Date.parse(payload?.savedAt || '');
-            return Number.isFinite(savedAtMs) && (Date.now() - savedAtMs) >= 0 && (Date.now() - savedAtMs) < SHL_CACHE_MAX_AGE_MS;
+            return Number.isFinite(savedAtMs) && (Date.now() - savedAtMs) >= 0 && (Date.now() - savedAtMs) < HA_CACHE_MAX_AGE_MS;
         }
 
         function readShlTipsCache({ allowStale = false } = {}) {
             try {
-                const raw = localStorage.getItem(SHL_TIPS_CACHE_KEY);
+                const raw = localStorage.getItem(HA_TIPS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
                 if (!data || data.version !== 2 || data.season !== '2026_2027' || data.league !== 'shl') return null;
@@ -5987,7 +5987,7 @@ Lag 14</pre>
                 TIPS_BY_TIPPER_HOBBY: _mapToObject(TIPS_BY_TIPPER_HOBBY),
                 TIPS_BY_TIPPER_EXPERT: _mapToObject(TIPS_BY_TIPPER_EXPERT)
             };
-            localStorage.setItem(SHL_TIPS_CACHE_KEY, JSON.stringify(payload));
+            localStorage.setItem(HA_TIPS_CACHE_KEY, JSON.stringify(payload));
             return payload;
         }
 
@@ -6032,7 +6032,7 @@ Lag 14</pre>
 
         function readShlStandingsCache({ allowStale = false } = {}) {
             try {
-                const raw = localStorage.getItem(SHL_STANDINGS_CACHE_KEY);
+                const raw = localStorage.getItem(HA_STANDINGS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
                 if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
@@ -6085,7 +6085,7 @@ Lag 14</pre>
                 dateSnapshots: Object.fromEntries(DATE_STANDING_SNAPSHOTS),
                 dateTimelineKeys: DATE_TIMELINE_KEYS.slice()
             };
-            localStorage.setItem(SHL_STANDINGS_CACHE_KEY, JSON.stringify(payload));
+            localStorage.setItem(HA_STANDINGS_CACHE_KEY, JSON.stringify(payload));
             return payload;
         }
 
@@ -6112,7 +6112,7 @@ Lag 14</pre>
         }
 
         function onShlTipsCacheStorageEvent(e) {
-            if (!e || e.key !== SHL_TIPS_CACHE_KEY || !e.newValue) return;
+            if (!e || e.key !== HA_TIPS_CACHE_KEY || !e.newValue) return;
             const cache = readShlTipsCache();
             if (!cache) return;
             hydrateFromShlTipsCache(cache);
@@ -6120,7 +6120,7 @@ Lag 14</pre>
         }
 
         function onShlStandingsCacheStorageEvent(e) {
-            if (!e || e.key !== SHL_STANDINGS_CACHE_KEY || !e.newValue) return;
+            if (!e || e.key !== HA_STANDINGS_CACHE_KEY || !e.newValue) return;
             const cache = readShlStandingsCache();
             if (!cache) return;
             hydrateFromShlStandingsCache(cache);
