@@ -14,6 +14,7 @@
             color: #333;
         }
         .container {
+            position: relative;
             max-width: 1200px;
             margin: auto;
             background: #fff;
@@ -247,16 +248,64 @@ flex-direction: column;
             .action-buttons { flex-direction: row; justify-content: flex-end; }
             .slider-info { justify-content: center; text-align: center; } /* Centrera texten */
         }
+
+        /* Rad med rubrik + hemikon */
+        .page-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .page-title {
+            flex: 1;
+            text-align: center;
+            margin: 0;
+        }
+
+        .title-icons {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            display: flex;
+            gap: 12px;
+        }
+
+        .title-icon {
+            font-size: 1.4rem;
+            text-decoration: none;
+            color: #444;
+            opacity: 0.85;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+
+        .title-icon:hover {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+
+        @media (max-width: 600px) {
+            .page-title-row {
+                align-items: flex-start;
+            }
+
+            .title-icon {
+                font-size: 1.25rem;
+            }
+        }
+
     </style>
     <script src="../js/google-sheets-data.js"></script>
 </head>
 <body>
 
     <div class="container">
-        <h1>
-             <div class="title-dropdown">
+        <div class="page-title-row">
+            <h1 class="page-title">
+                <div class="title-dropdown">
                  <button id="dropdown-toggle-button" class="dropdown-toggle">
-                     Poängställning NHL 2025/2026
+                     Poängställning SHL 2026/2027
                      <span class="dropdown-arrow">&#9660;</span>
                  </button>
                  <div id="dropdown-menu-content" class="dropdown-menu">
@@ -275,7 +324,7 @@ flex-direction: column;
                      <a href="nhl_2022-2023.html" target="_self">NHL 2022/2023</a>
                      <a href="nhl_2023-2024.html" target="_self">NHL 2023/2024</a>
                      <a href="nhl_2024-2025.html" target="_self">NHL 2024/2025</a>
-                     <a class="chosen">NHL 2025/2026</a>
+                     <a href="nhl_2025-2026.html" target="_self">NHL 2025/2026</a>
                      <a href="nhl_2026-2027.html" target="_self">NHL 2026/2027</a>
                      <hr>
                      <a href="shl_2021-2022.html" target="_self">SHL 2021/2022</a>
@@ -283,12 +332,19 @@ flex-direction: column;
                      <a href="shl_2023-2024.html" target="_self">SHL 2023/2024</a>
                      <a href="shl_2024-2025.html" target="_self">SHL 2024/2025</a>
                      <a href="shl_2025-2026.html" target="_self">SHL 2025/2026</a>
-                     <a href="shl_2026-2027.html" target="_self">SHL 2026/2027</a>
+                     <a class="chosen">SHL 2026/2027</a>
                  </div>
              </div>
-        </h1>
+            </h1>
 
-<details class="filter-section">
+            <div class="title-icons">
+                <a href="../index.html" class="title-icon" title="Hem">
+                    &#127968;
+                </a>
+            </div>
+        </div>
+
+        <details class="filter-section">
   <summary id="filter-summary">Filtrera lag</summary>
   <div class="filter-content">
     
