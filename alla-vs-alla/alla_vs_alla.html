@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Alla möter alla</title>
+    <script src="../js/google-sheets-data.js"></script>
     <style>
         /***********************************************************
    * 1) Theme tokens
@@ -847,137 +848,171 @@ details[open] > .sum .sum-open {
         const PRESET_PAIRS = "0, 3\n1, 2\n2, 1\n3, 0";
         const PRESET_Y = "4";
 
-        // Laglistorna för SHL/HA hämtas dynamiskt från all_teams.
-        // För respektive liga används den senaste season_id som finns i fliken.
-        const ALL_TEAMS_SPREADSHEET_ID = '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM';
-        const ALL_TEAMS_GID = '2044886949';
-        const ALL_TEAMS_CSV_URL =
-            `https://docs.google.com/spreadsheets/d/${ALL_TEAMS_SPREADSHEET_ID}/gviz/tq?gid=${ALL_TEAMS_GID}&tqx=out:csv`;
+        /* =========================================================
+           Dynamiska laglistor
+           ---------------------------------------------------------
+           games avgör:
+           - senaste säsongen för respektive liga
+           - vilka 14 team_id som ingår
 
-        let allTeamsRowsPromise = null;
+           all_teams avgör:
+           - team_id -> team_name_short
 
-        function parseCsv(text) {
-            const rows = [];
-            let row = [];
-            let cell = '';
-            let inQuotes = false;
+           GoogleSheetsData.fetchRows använder GViz först och den
+           publicerade TSV-länken som fallback.
+           ========================================================= */
+        const DATA_SOURCES = {
+            games: {
+                key: 'games',
+                label: 'Matchdata',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '2012579108',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+                requiredColumns: [
+                    'season_id',
+                    'league',
+                    'home_team_id',
+                    'away_team_id'
+                ]
+            },
 
-            for (let i = 0; i < text.length; i++) {
-                const ch = text[i];
-
-                if (inQuotes) {
-                    if (ch === '"' && text[i + 1] === '"') {
-                        cell += '"';
-                        i++;
-                    } else if (ch === '"') {
-                        inQuotes = false;
-                    } else {
-                        cell += ch;
-                    }
-                } else {
-                    if (ch === '"') {
-                        inQuotes = true;
-                    } else if (ch === ',') {
-                        row.push(cell);
-                        cell = '';
-                    } else if (ch === '\n') {
-                        row.push(cell);
-                        rows.push(row);
-                        row = [];
-                        cell = '';
-                    } else if (ch !== '\r') {
-                        cell += ch;
-                    }
-                }
+            allTeams: {
+                key: 'allTeams',
+                label: 'Lagdata',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '257061153',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv',
+                requiredColumns: [
+                    'team_id',
+                    'team_name_short'
+                ]
             }
+        };
 
-            if (cell.length || row.length) {
-                row.push(cell);
-                rows.push(row);
-            }
+        let leaguePresetPromise = null;
 
-            return rows;
+        function headerIndex(headers, name) {
+            return headers.findIndex(h =>
+                String(h || '').trim().toLowerCase() === name.toLowerCase()
+            );
         }
 
-        async function loadAllTeamsRows() {
-            if (!allTeamsRowsPromise) {
-                allTeamsRowsPromise = fetch(ALL_TEAMS_CSV_URL, { cache: 'no-store' })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}`);
-                        }
-                        return response.text();
-                    })
-                    .then(csv => {
-                        const rows = parseCsv(csv);
-                        if (rows.length < 2) {
-                            throw new Error('all_teams gav inga lagrader.');
-                        }
-                        return rows;
-                    })
-                    .catch(error => {
-                        allTeamsRowsPromise = null;
-                        throw error;
-                    });
-            }
-
-            return allTeamsRowsPromise;
+        function latestSeasonId(seasons) {
+            return [...seasons].sort((a, b) =>
+                String(b).localeCompare(String(a), 'sv', {
+                    numeric: true,
+                    sensitivity: 'base'
+                })
+            )[0] || '';
         }
 
-        function findHeaderIndex(headers, candidates) {
-            const normalized = headers.map(h => String(h || '').trim().toLowerCase());
-            for (const candidate of candidates) {
-                const index = normalized.indexOf(candidate.toLowerCase());
-                if (index !== -1) return index;
+        async function loadLeaguePresetData() {
+            if (!window.GoogleSheetsData?.fetchRows) {
+                throw new Error('google-sheets-data.js kunde inte laddas.');
             }
-            return -1;
+
+            if (!leaguePresetPromise) {
+                leaguePresetPromise = Promise.all([
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.games),
+                    GoogleSheetsData.fetchRows(DATA_SOURCES.allTeams)
+                ]).then(([gamesResult, allTeamsResult]) => {
+                    const gamesRows = gamesResult.rows || [];
+                    const teamRows = allTeamsResult.rows || [];
+
+                    if (gamesRows.length < 2) {
+                        throw new Error('games innehåller inga matchrader.');
+                    }
+                    if (teamRows.length < 2) {
+                        throw new Error('all_teams innehåller inga lagrader.');
+                    }
+
+                    const gh = gamesRows[0];
+                    const iSeason = headerIndex(gh, 'season_id');
+                    const iLeague = headerIndex(gh, 'league');
+                    const iHomeId = headerIndex(gh, 'home_team_id');
+                    const iAwayId = headerIndex(gh, 'away_team_id');
+
+                    if ([iSeason, iLeague, iHomeId, iAwayId].some(i => i === -1)) {
+                        throw new Error(
+                            'games måste innehålla season_id, league, home_team_id och away_team_id.'
+                        );
+                    }
+
+                    const th = teamRows[0];
+                    const iTeamId = headerIndex(th, 'team_id');
+                    const iShort = headerIndex(th, 'team_name_short');
+
+                    if ([iTeamId, iShort].some(i => i === -1)) {
+                        throw new Error('all_teams måste innehålla team_id och team_name_short.');
+                    }
+
+                    const shortNameById = new Map();
+                    for (const row of teamRows.slice(1)) {
+                        const teamId = String(row[iTeamId] || '').trim();
+                        const shortName = String(row[iShort] || '').trim();
+                        if (teamId && shortName) shortNameById.set(teamId, shortName);
+                    }
+
+                    return { gamesRows, indexes: { iSeason, iLeague, iHomeId, iAwayId }, shortNameById };
+                }).catch(error => {
+                    leaguePresetPromise = null;
+                    throw error;
+                });
+            }
+
+            return leaguePresetPromise;
         }
 
         async function getLatestLeagueTeamNames(league) {
-            const rows = await loadAllTeamsRows();
-            const headers = rows[0];
+            const { gamesRows, indexes, shortNameById } = await loadLeaguePresetData();
+            const { iSeason, iLeague, iHomeId, iAwayId } = indexes;
+            const wantedLeague = String(league).trim().toUpperCase();
 
-            const iSeason = findHeaderIndex(headers, ['season_id', 'season']);
-            const iLeague = findHeaderIndex(headers, ['league', 'liga']);
-            const iShort = findHeaderIndex(headers, ['team_name_short']);
-
-            if (iSeason === -1 || iLeague === -1 || iShort === -1) {
-                throw new Error(
-                    'all_teams måste innehålla kolumnerna season_id, league och team_name_short.'
-                );
-            }
-
-            const leagueRows = rows.slice(1).filter(row =>
-                String(row[iLeague] || '').trim().toUpperCase() === league.toUpperCase() &&
-                String(row[iSeason] || '').trim() &&
-                String(row[iShort] || '').trim()
+            const leagueRows = gamesRows.slice(1).filter(row =>
+                String(row[iLeague] || '').trim().toUpperCase() === wantedLeague &&
+                String(row[iSeason] || '').trim()
             );
 
             if (!leagueRows.length) {
-                throw new Error(`Hittade inga lag för ${league} i all_teams.`);
+                throw new Error(`Hittade inga matcher för ${league} i games.`);
             }
 
-            const seasons = [...new Set(
+            const latestSeason = latestSeasonId(new Set(
                 leagueRows.map(row => String(row[iSeason] || '').trim())
-            )].sort((a, b) =>
-                b.localeCompare(a, 'sv', { numeric: true, sensitivity: 'base' })
+            ));
+
+            const seasonRows = leagueRows.filter(row =>
+                String(row[iSeason] || '').trim() === latestSeason
             );
 
-            const latestSeason = seasons[0];
+            const teamIds = new Set();
+            for (const row of seasonRows) {
+                const homeId = String(row[iHomeId] || '').trim();
+                const awayId = String(row[iAwayId] || '').trim();
+                if (homeId) teamIds.add(homeId);
+                if (awayId) teamIds.add(awayId);
+            }
 
-            const names = [...new Set(
-                leagueRows
-                    .filter(row => String(row[iSeason] || '').trim() === latestSeason)
-                    .map(row => String(row[iShort] || '').trim())
-            )].sort((a, b) =>
-                a.localeCompare(b, 'sv', { numeric: true, sensitivity: 'base' })
-            );
-
-            if (names.length !== 14) {
+            if (teamIds.size !== 14) {
                 throw new Error(
-                    `${league} ${latestSeason}: förväntade 14 lag men hittade ${names.length}.`
+                    `${league} ${latestSeason}: förväntade 14 lag i games men hittade ${teamIds.size}.`
                 );
             }
+
+            const names = [];
+            for (const teamId of teamIds) {
+                const shortName = shortNameById.get(teamId);
+                if (!shortName) {
+                    throw new Error(
+                        `${league} ${latestSeason}: team_id "${teamId}" saknar team_name_short i all_teams.`
+                    );
+                }
+                names.push(shortName);
+            }
+
+            names.sort((a, b) =>
+                a.localeCompare(b, 'sv', { numeric: true, sensitivity: 'base' })
+            );
 
             return { season: latestSeason, names };
         }
