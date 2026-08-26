@@ -847,37 +847,140 @@ details[open] > .sum .sum-open {
         const PRESET_PAIRS = "0, 3\n1, 2\n2, 1\n3, 0";
         const PRESET_Y = "4";
 
-        const PRESET_HA_TERMS =
-            `AIK
-Almtuna
-BIK Karlskoga
-Oskarshamn
-Kalmar
-Leksand
-MoDo
-Mora
-Nybro
-Södertälje
-Vimmerby
-Visby/Roma
-Västerås
-Östersund`;
+        // Laglistorna för SHL/HA hämtas dynamiskt från all_teams.
+        // För respektive liga används den senaste season_id som finns i fliken.
+        const ALL_TEAMS_SPREADSHEET_ID = '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM';
+        const ALL_TEAMS_GID = '2044886949';
+        const ALL_TEAMS_CSV_URL =
+            `https://docs.google.com/spreadsheets/d/${ALL_TEAMS_SPREADSHEET_ID}/gviz/tq?gid=${ALL_TEAMS_GID}&tqx=out:csv`;
 
-        const PRESET_SHL_TERMS =
-            `Björklöven
-Brynäs
-Djurgården
-Färjestad
-Frölunda
-HV71
-Linköping
-Luleå
-Malmö
-Örebro
-Rögle
-Skellefteå
-Timrå
-Växjö`;
+        let allTeamsRowsPromise = null;
+
+        function parseCsv(text) {
+            const rows = [];
+            let row = [];
+            let cell = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const ch = text[i];
+
+                if (inQuotes) {
+                    if (ch === '"' && text[i + 1] === '"') {
+                        cell += '"';
+                        i++;
+                    } else if (ch === '"') {
+                        inQuotes = false;
+                    } else {
+                        cell += ch;
+                    }
+                } else {
+                    if (ch === '"') {
+                        inQuotes = true;
+                    } else if (ch === ',') {
+                        row.push(cell);
+                        cell = '';
+                    } else if (ch === '\n') {
+                        row.push(cell);
+                        rows.push(row);
+                        row = [];
+                        cell = '';
+                    } else if (ch !== '\r') {
+                        cell += ch;
+                    }
+                }
+            }
+
+            if (cell.length || row.length) {
+                row.push(cell);
+                rows.push(row);
+            }
+
+            return rows;
+        }
+
+        async function loadAllTeamsRows() {
+            if (!allTeamsRowsPromise) {
+                allTeamsRowsPromise = fetch(ALL_TEAMS_CSV_URL, { cache: 'no-store' })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.text();
+                    })
+                    .then(csv => {
+                        const rows = parseCsv(csv);
+                        if (rows.length < 2) {
+                            throw new Error('all_teams gav inga lagrader.');
+                        }
+                        return rows;
+                    })
+                    .catch(error => {
+                        allTeamsRowsPromise = null;
+                        throw error;
+                    });
+            }
+
+            return allTeamsRowsPromise;
+        }
+
+        function findHeaderIndex(headers, candidates) {
+            const normalized = headers.map(h => String(h || '').trim().toLowerCase());
+            for (const candidate of candidates) {
+                const index = normalized.indexOf(candidate.toLowerCase());
+                if (index !== -1) return index;
+            }
+            return -1;
+        }
+
+        async function getLatestLeagueTeamNames(league) {
+            const rows = await loadAllTeamsRows();
+            const headers = rows[0];
+
+            const iSeason = findHeaderIndex(headers, ['season_id', 'season']);
+            const iLeague = findHeaderIndex(headers, ['league', 'liga']);
+            const iShort = findHeaderIndex(headers, ['team_name_short']);
+
+            if (iSeason === -1 || iLeague === -1 || iShort === -1) {
+                throw new Error(
+                    'all_teams måste innehålla kolumnerna season_id, league och team_name_short.'
+                );
+            }
+
+            const leagueRows = rows.slice(1).filter(row =>
+                String(row[iLeague] || '').trim().toUpperCase() === league.toUpperCase() &&
+                String(row[iSeason] || '').trim() &&
+                String(row[iShort] || '').trim()
+            );
+
+            if (!leagueRows.length) {
+                throw new Error(`Hittade inga lag för ${league} i all_teams.`);
+            }
+
+            const seasons = [...new Set(
+                leagueRows.map(row => String(row[iSeason] || '').trim())
+            )].sort((a, b) =>
+                b.localeCompare(a, 'sv', { numeric: true, sensitivity: 'base' })
+            );
+
+            const latestSeason = seasons[0];
+
+            const names = [...new Set(
+                leagueRows
+                    .filter(row => String(row[iSeason] || '').trim() === latestSeason)
+                    .map(row => String(row[iShort] || '').trim())
+            )].sort((a, b) =>
+                a.localeCompare(b, 'sv', { numeric: true, sensitivity: 'base' })
+            );
+
+            if (names.length !== 14) {
+                throw new Error(
+                    `${league} ${latestSeason}: förväntade 14 lag men hittade ${names.length}.`
+                );
+            }
+
+            return { season: latestSeason, names };
+        }
 
 
         /* =========================================================
@@ -1379,20 +1482,29 @@ Växjö`;
         /* =========================================================
            10) Preset-hantering
            ========================================================= */
-        function setPreset(mode) {
+        async function setPreset(mode) {
             state.presetMode = mode;
 
             showInputsArea();
             clearError();
 
-            if (mode === 'ha') {
-                el.terms.value = PRESET_HA_TERMS;
+            if (mode === 'ha' || mode === 'shl') {
+                const league = mode === 'ha' ? 'HA' : 'SHL';
+
+                el.btnStart.disabled = true;
+                el.terms.value = 'Hämtar lag…';
                 el.pairs.value = PRESET_PAIRS;
                 el.y.value = PRESET_Y;
-            } else if (mode === 'shl') {
-                el.terms.value = PRESET_SHL_TERMS;
-                el.pairs.value = PRESET_PAIRS;
-                el.y.value = PRESET_Y;
+                autoGrowTextarea(el.terms);
+                autoGrowTextarea(el.pairs);
+
+                try {
+                    const { names } = await getLatestLeagueTeamNames(league);
+                    el.terms.value = names.join('\n');
+                } catch (error) {
+                    el.terms.value = '';
+                    showError(`Kunde inte hämta ${league}-lagen: ${error.message}`);
+                }
             } else {
                 // custom: tomt men placeholders syns
                 el.terms.value = '';
