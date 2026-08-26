@@ -15,6 +15,7 @@
             color: #333;
         }
         .container {
+            position: relative;
             max-width: 1200px;
             margin: auto;
             background: #fff;
@@ -217,13 +218,61 @@
             .action-buttons { flex-direction: row; justify-content: flex-end; }
             .slider-info { justify-content: center; text-align: center; } /* Centrera texten */
         }
+
+        /* Rad med rubrik + hemikon */
+        .page-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .page-title {
+            flex: 1;
+            text-align: center;
+            margin: 0;
+        }
+
+        .title-icons {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            display: flex;
+            gap: 12px;
+        }
+
+        .title-icon {
+            font-size: 1.4rem;
+            text-decoration: none;
+            color: #444;
+            opacity: 0.85;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+
+        .title-icon:hover {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+
+        @media (max-width: 600px) {
+            .page-title-row {
+                align-items: flex-start;
+            }
+
+            .title-icon {
+                font-size: 1.25rem;
+            }
+        }
+
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>
-             <div class="title-dropdown">
+        <div class="page-title-row">
+            <h1 class="page-title">
+                <div class="title-dropdown">
                  <button id="dropdown-toggle-button" class="dropdown-toggle">
                      Poängställning SHL 2026/2027
                      <span class="dropdown-arrow">&#9660;</span>
@@ -255,7 +304,14 @@
                      <a class="chosen">SHL 2026/2027</a>
                  </div>
              </div>
-        </h1>
+            </h1>
+
+            <div class="title-icons">
+                <a href="../index.html" class="title-icon" title="Hem">
+                    &#127968;
+                </a>
+            </div>
+        </div>
 
         <details class="filter-section">
             <summary id="filter-summary">Filtrera lag</summary>
