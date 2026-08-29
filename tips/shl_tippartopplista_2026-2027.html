@@ -2633,11 +2633,12 @@ Lag 14</pre>
         function getTeamIdByShort(shortTeam) {
             if (!shortTeam) return null;
 
-            // TEAM_BY_ID: team_id -> obj(team_name_short/long)
-            for (const [teamId, obj] of TEAM_BY_ID.entries()) {
+            // Begränsa namnmatchningen till lag som faktiskt ingår i sidans liga/säsong.
+            for (const teamId of SEASON_TEAM_IDS) {
+                const obj = TEAM_BY_ID.get(teamId);
                 if (!obj) continue;
                 if (String(obj.team_name_short || "").trim() === shortTeam) return teamId;
-                // fallback om short inte är ifyllt i TSV:
+                // fallback om short inte är ifyllt i lagdata:
                 if (String(obj.team_name_long || "").trim() === NAME_MAP[shortTeam]) return teamId;
             }
             return null;
@@ -2687,17 +2688,22 @@ Lag 14</pre>
             if (!raw) return null;
             const folded = customFoldForContains(raw);
 
+            // Eget tips får bara matcha lag som faktiskt ingår i sidans liga/säsong.
+            const seasonTeams = Array.from(SEASON_TEAM_IDS)
+                .map(teamId => TEAM_BY_ID.get(teamId))
+                .filter(Boolean);
+
             // Exakt match prioriteras (kortnamn, långnamn eller förkortning).
-            for (const [teamId, team] of TEAM_BY_ID.entries()) {
-                const candidates = [team?.team_name_short, team?.team_name_long, team?.team_name_abbr]
+            for (const team of seasonTeams) {
+                const aliases = [team?.team_name_short, team?.team_name_long, team?.team_name_abbr]
                     .filter(Boolean)
                     .map(customNormKey);
-                if (candidates.includes(customNormKey(raw))) return team.team_name_short;
+                if (aliases.includes(customNormKey(raw))) return team.team_name_short;
             }
 
             // Därefter tolerant innehållsmatchning. Längre namn prövas först för att minska falska träffar.
             const candidates = [];
-            TEAM_BY_ID.forEach(team => {
+            seasonTeams.forEach(team => {
                 const shortName = String(team?.team_name_short || '').trim();
                 [team?.team_name_long, team?.team_name_short, team?.team_name_abbr].filter(Boolean).forEach(alias => {
                     candidates.push({ shortName, alias: customFoldForContains(alias) });
