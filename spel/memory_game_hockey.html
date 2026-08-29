@@ -600,8 +600,9 @@
         
         let totalMoves = 0, misses = 0, matchedPairs = 0, seconds = 0;
         let timerInterval;
-        let knownPairValues = new Set(); // Minne för "Kända Par" (värden)
+        let knownPairValues = new Set(); // Minne för kända synliga namn/nummer-kombinationer
         let knownCardIds = new Set(); // Minne för "Kända Exakta Brickor" (ID:n)
+        let validVisiblePairs = new Set(); // Alla namn/nummer-kombinationer som är rätt i aktuell omgång
 
         // --- NY VARIABEL FÖR STEG 3 ---
         let currentSortMode = 'name'; // 'name' eller 'number'
@@ -657,7 +658,7 @@
                     teamButton.dataset.leagueKey = leagueKey;
                     
                     // Inaktivera knappen om inga spelare finns
-                    if (Object.keys(team.players).length === 0) {
+                    if (team.players.length === 0) {
                         teamButton.disabled = true;
                         teamButton.style.opacity = '0.5';
                         teamButton.style.cursor = 'not-allowed';
@@ -782,16 +783,12 @@
                 return;
             }
 
-            // Hämta spelardatan
-            const playersObject = TEAMS[selectedLeagueKey]?.teams[selectedTeamKey]?.players;
-            if (!playersObject) return; // Säkerhetskoll
-            
-            // --- Konvertera din datastruktur ---
-            // Från: { '9': 'Jack York', '12': 'Scott Pooley' }
-            // Till: [ { name: 'Jack York', number: '9' }, { name: 'Scott Pooley', number: '12' } ]
-            const playerList = Object.entries(playersObject).map(([number, name]) => {
-                return { name: name, number: number };
-            });
+            // Hämta spelardatan. Spelarna lagras som en array så att
+            // samma tröjnummer aldrig kan skriva över en annan spelare.
+            const players = TEAMS[selectedLeagueKey]?.teams[selectedTeamKey]?.players;
+            if (!players) return; // Säkerhetskoll
+
+            const playerList = players.map(player => ({ ...player }));
             
             if (playerList.length === 0) {
                  studyList.innerHTML = '<p class="muted">Inga spelare hittades för detta lag.</p>';
@@ -851,176 +848,208 @@
                 spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
                 gid: '123605134',
                 tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=123605134&single=true&output=tsv',
-                requiredColumns: [
-                    'player_name',
-                    'number',
-                    'team_id'
-                ]
+                requiredColumns: ['player_name', 'number', 'team_id', 'season_id']
             },
-
-            teams: {
-                key: 'teams',
-                label: 'Lagdata',
+            allTeams: {
+                key: 'all_teams',
+                label: 'Alla lag',
                 spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
-                gid: '365651820',
-                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=365651820&single=true&output=tsv',
+                gid: '257061153',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv',
+                requiredColumns: ['team_id', 'team_name_abbr', 'team_name_short', 'team_name_long']
+            },
+            seasonSummary: {
+                key: 'season_summary',
+                label: 'Säsongsdata',
+                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                gid: '2044886949',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2044886949&single=true&output=tsv',
                 requiredColumns: [
-                    'team_id',
-                    'team_name',
-                    'league'
+                    'league', 'season_id', 'team', 'team_label',
+                    'regular_season_rank', 'regular_season_points', 'goal_difference',
+                    'playoff_result', 'playoff_round_numeric', 'row_id', 'team_id'
                 ]
             }
         };
 
-        // Länkar till lokala filer (måste köras via Live Server)
         const LOCAL_PLAYERS_URL = 'players.txt';
-        const LOCAL_TEAMS_URL = 'teams.txt';
+        const LOCAL_ALL_TEAMS_URL = 'all_teams.txt';
+        const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
 
-/**
-         * Omvandlar en TSV-textsträng...
-         */
         function parseTSV(tsvText, columns) {
-        // ...
             const data = [];
-            const lines = tsvText.split('\n'); // Dela upp i rader
-            
-            // Hoppa över rubrikraden (rad 0)
-            for (let i = 1; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (!line) continue; // Hoppa över tomma rader
+            const lines = tsvText.replace(/\r/g, '').split('\n');
 
-                const values = line.split('\t'); // Dela upp med TAB
-                
-                // Skippa rader som inte har rätt antal kolumner (skydd mot data-fel)
-                if (values.length !== columns.length) {
-                    console.warn('Skippar felaktig rad:', line);
-                    continue;
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const values = lines[i].split('\t');
+
+                if (values.length < columns.length) {
+                    while (values.length < columns.length) values.push('');
                 }
 
                 const entry = {};
                 for (let j = 0; j < columns.length; j++) {
-                    entry[columns[j]] = values[j].trim();
+                    entry[columns[j]] = String(values[j] ?? '').trim();
                 }
                 data.push(entry);
             }
             return data;
         }
 
-        /**
-         * Bygger den nästlade TEAMS-strukturen som spelet förväntar sig,
-         * från de två "platta" listorna hämtade från Google Sheets.
-         * @param {Array<Object>} teamsList - Parsad data från teams-fliken.
-         * @param {Array<Object>} playersList - Parsad data från players-fliken.
-         */
+        function prepareCurrentSeasonData(allTeamsList, seasonSummaryList, playersList) {
+            const seasonCandidates = playersList
+                .filter(p => p.player_name && p.team_id && p.season_id)
+                .map(p => p.season_id);
+
+            if (!seasonCandidates.length) {
+                throw new Error('Hittade ingen säsong i players-fliken.');
+            }
+
+            const currentSeason = [...new Set(seasonCandidates)]
+                .sort((a, b) => a.localeCompare(b))
+                .at(-1);
+
+            const currentPlayers = playersList.filter(p =>
+                p.season_id === currentSeason &&
+                p.player_name &&
+                p.number &&
+                p.team_id
+            );
+
+            const playableTeamIds = new Set(currentPlayers.map(p => p.team_id));
+            const teamNames = new Map(
+                allTeamsList
+                    .filter(team => team.team_id && team.team_name_short)
+                    .map(team => [team.team_id, team.team_name_short])
+            );
+
+            const teamsList = seasonSummaryList
+                .filter(row =>
+                    row.season_id === currentSeason &&
+                    row.league &&
+                    row.team_id &&
+                    playableTeamIds.has(row.team_id) &&
+                    teamNames.has(row.team_id)
+                )
+                .map(row => ({
+                    team_id: row.team_id,
+                    team_name: teamNames.get(row.team_id),
+                    league: row.league
+                }));
+
+            const validTeamIds = new Set(teamsList.map(team => team.team_id));
+            const playablePlayers = currentPlayers.filter(p => validTeamIds.has(p.team_id));
+
+            console.log(`Aktuell säsong: ${currentSeason}`);
+            console.log(`Spelbara spelare: ${playablePlayers.length}`);
+            console.log(`Synliga lag: ${validTeamIds.size}`);
+
+            return { currentSeason, teamsList, playersList: playablePlayers };
+        }
+
         function buildTeamsObject(teamsList, playersList) {
             const newTeamsObject = {};
-            const teamIdToLeagueKeyMap = {}; // För att snabbt hitta var en spelare hör hemma
+            const teamIdToLeagueKeyMap = {};
 
-            // Steg 1: Bygg upp ligor och lag
             teamsList.forEach(team => {
                 const { team_id, team_name, league } = team;
-                
-                // Skapa en säker "key" för ligan, t.ex. "Hockeyallsvenskan" -> "hockeyallsvenskan"
                 const leagueKey = league.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-                // Skapa ligan om den inte finns
                 if (!newTeamsObject[leagueKey]) {
-                    newTeamsObject[leagueKey] = {
-                        name: league, // Det fulla namnet, t.ex. "HockeyAllsvenskan"
-                        teams: {}
-                    };
+                    newTeamsObject[leagueKey] = { name: league, teams: {} };
                 }
 
-                // Lägg till laget i ligan (med en tom player-lista)
                 newTeamsObject[leagueKey].teams[team_id] = {
                     name: team_name,
-                    players: {}
+                    players: []
                 };
-                
-                // Spara en genväg för Steg 2
                 teamIdToLeagueKeyMap[team_id] = leagueKey;
             });
 
-            // Steg 2: Fyll i spelarna
-            playersList.forEach(player => {
+            playersList.forEach((player, index) => {
                 const { player_name, number, team_id } = player;
-                
-                // Hitta vilken liga spelarens lag tillhör
                 const leagueKey = teamIdToLeagueKeyMap[team_id];
 
                 if (leagueKey && newTeamsObject[leagueKey].teams[team_id]) {
-                    // Lägg till spelaren i rätt lag i formatet { '9': 'Jack York' }
-                    newTeamsObject[leagueKey].teams[team_id].players[number] = player_name;
-                } else {
-                    console.warn(`Kunde inte placera spelare: ${player_name} (lag-ID: ${team_id})`);
+                    newTeamsObject[leagueKey].teams[team_id].players.push({
+                        id: `${team_id}::${index}::${player_name}`,
+                        name: player_name,
+                        number
+                    });
                 }
             });
 
             return newTeamsObject;
         }
 
-
-        /**
-         * Huvudfunktion som körs när sidan laddas.
-         * Hämtar all data, bygger objektet och startar sedan spelet.
-         */
         async function initializeApp() {
             try {
-                // Visa laddningsskärmen
                 showScreen(loadingScreen);
 
-                let teamsList;
+                let allTeamsList;
+                let seasonSummaryList;
                 let playersList;
 
                 if (USE_LOCAL_FILES) {
-                    // Lokalt testläge: behåll exakt samma .txt-flöde som tidigare.
-                    const [teamDataResponse, playerDataResponse] = await Promise.all([
-                        fetch(LOCAL_TEAMS_URL),
+                    const [allTeamsResponse, seasonSummaryResponse, playersResponse] = await Promise.all([
+                        fetch(LOCAL_ALL_TEAMS_URL),
+                        fetch(LOCAL_SEASON_SUMMARY_URL),
                         fetch(LOCAL_PLAYERS_URL)
                     ]);
 
-                    if (!teamDataResponse.ok || !playerDataResponse.ok) {
+                    if (!allTeamsResponse.ok || !seasonSummaryResponse.ok || !playersResponse.ok) {
                         throw new Error('Kunde inte hämta lokala datafiler.');
                     }
 
-                    const teamsTSV = await teamDataResponse.text();
-                    const playersTSV = await playerDataResponse.text();
-
-                    teamsList = parseTSV(teamsTSV, ['team_id', 'team_name', 'league']);
-                    playersList = parseTSV(playersTSV, ['player_name', 'number', 'team_id']);
+                    allTeamsList = parseTSV(await allTeamsResponse.text(), DATA_SOURCES.allTeams.requiredColumns);
+                    seasonSummaryList = parseTSV(await seasonSummaryResponse.text(), DATA_SOURCES.seasonSummary.requiredColumns);
+                    playersList = parseTSV(await playersResponse.text(), DATA_SOURCES.players.requiredColumns);
                 } else {
-                    // Online-läge: GViz först, publicerad TSV som fallback.
                     const [
-                        { rows: teamRows },
+                        { rows: allTeamRows },
+                        { rows: seasonSummaryRows },
                         { rows: playerRows }
                     ] = await Promise.all([
-                        GoogleSheetsData.fetchRows(DATA_SOURCES.teams),
+                        GoogleSheetsData.fetchRows(DATA_SOURCES.allTeams),
+                        GoogleSheetsData.fetchRows(DATA_SOURCES.seasonSummary),
                         GoogleSheetsData.fetchRows(DATA_SOURCES.players)
                     ]);
 
-                    // Behåll exakt samma interna objektformat som buildTeamsObject() redan använder.
-                    teamsList = teamRows.slice(1).map(row => ({
+                    allTeamsList = allTeamRows.slice(1).map(row => ({
                         team_id: String(row[0] ?? '').trim(),
-                        team_name: String(row[1] ?? '').trim(),
-                        league: String(row[2] ?? '').trim()
-                    })).filter(row => row.team_id && row.team_name && row.league);
+                        team_name_abbr: String(row[1] ?? '').trim(),
+                        team_name_short: String(row[2] ?? '').trim(),
+                        team_name_long: String(row[3] ?? '').trim()
+                    }));
+
+                    seasonSummaryList = seasonSummaryRows.slice(1).map(row => ({
+                        league: String(row[0] ?? '').trim(),
+                        season_id: String(row[1] ?? '').trim(),
+                        team: String(row[2] ?? '').trim(),
+                        team_label: String(row[3] ?? '').trim(),
+                        regular_season_rank: String(row[4] ?? '').trim(),
+                        regular_season_points: String(row[5] ?? '').trim(),
+                        goal_difference: String(row[6] ?? '').trim(),
+                        playoff_result: String(row[7] ?? '').trim(),
+                        playoff_round_numeric: String(row[8] ?? '').trim(),
+                        row_id: String(row[9] ?? '').trim(),
+                        team_id: String(row[10] ?? '').trim()
+                    }));
 
                     playersList = playerRows.slice(1).map(row => ({
                         player_name: String(row[0] ?? '').trim(),
                         number: String(row[1] ?? '').trim(),
-                        team_id: String(row[2] ?? '').trim()
-                    })).filter(row => row.player_name && row.number && row.team_id);
+                        team_id: String(row[2] ?? '').trim(),
+                        season_id: String(row[3] ?? '').trim()
+                    }));
                 }
 
-                // Bygg det slutgiltiga TEAMS-objektet
-                TEAMS = buildTeamsObject(teamsList, playersList);
+                const prepared = prepareCurrentSeasonData(allTeamsList, seasonSummaryList, playersList);
+                TEAMS = buildTeamsObject(prepared.teamsList, prepared.playersList);
 
-                // --- STARTA SPELET ---
-                // Nu när TEAMS är fyllt kan vi köra de vanliga startfunktionerna
                 createStartScreen();
                 populateStudyLeagues();
-                
-                // Dölj laddningsskärmen och visa startskärmen
                 showScreen(startScreen);
 
             } catch (error) {
@@ -1028,7 +1057,6 @@
                 loadingScreen.innerHTML = '<h2>Kunde inte ladda spelet</h2><p style="color:red;">Kontrollera att Google Sheet-länkarna är korrekt publicerade och att du har internetanslutning.</p>';
             }
         }
-
 
 
 // --- NY LISTENER FÖR STEG 2 ---
@@ -1147,30 +1175,35 @@ function returnToStart() {
 
         function startGame(mode) {
             resetGame();
-            
-            // *** UPPDATERAD RAD ***
-            // Hämtar spelare från den nya nästlade TEAMS-strukturen
+
             const allPlayers = TEAMS[selectedLeagueKey].teams[selectedTeamKey].players;
-            
-            const allNumbers = Object.keys(allPlayers);
-            let numbersForGame;
-            
+            let playersForGame;
+
             if (mode === 'all') {
-                numbersForGame = allNumbers;
+                playersForGame = [...allPlayers];
             } else {
-                numbersForGame = [...allNumbers].sort(() => 0.5 - Math.random()).slice(0, parseInt(mode));
+                playersForGame = [...allPlayers]
+                    .sort(() => 0.5 - Math.random())
+                    .slice(0, parseInt(mode));
             }
 
             cardValues = [];
-            numbersForGame.forEach(num => {
-                cardValues.push({ value: num, display: num, type: 'number' });
-                cardValues.push({ value: num, display: allPlayers[num], type: 'name' });
+            validVisiblePairs.clear();
+
+            playersForGame.forEach(player => {
+                // Varje faktisk spelare bidrar med en giltig SYNLIG kombination.
+                // Om flera brickor ser likadana ut får spelet aldrig kräva att
+                // användaren skiljer dem åt bakom kulisserna.
+                validVisiblePairs.add(makeVisiblePairKey(player.name, player.number));
+
+                cardValues.push({ display: player.number, type: 'number' });
+                cardValues.push({ display: player.name, type: 'name' });
             });
             cardValues.sort(() => 0.5 - Math.random());
-            
+
             let columns;
-            const numUniqueCards = numbersForGame.length;
-            if (numUniqueCards >= 25) { 
+            const numUniqueCards = playersForGame.length;
+            if (numUniqueCards >= 25) {
                 columns = 10;
             } else if (numUniqueCards > 15) {
                 columns = 8;
@@ -1179,11 +1212,11 @@ function returnToStart() {
             } else {
                 columns = 7;
             }
-            
+
             gameBoard.style.gridTemplateColumns = `repeat(${columns}, var(--card-size))`;
 
             createBoard();
-            showScreen(gameContainer); // Visar spelskärmen
+            showScreen(gameContainer);
             startTimer();
         }
 
@@ -1191,7 +1224,8 @@ function returnToStart() {
             cardValues.forEach((cardData, index) => {
                 const card = document.createElement('div');
                 card.classList.add('card');
-                card.dataset.value = cardData.value;
+                card.dataset.type = cardData.type;
+                card.dataset.display = cardData.display;
                 card.dataset.id = index.toString(); // ID som textsträng
 
                 let cardContent;
@@ -1239,32 +1273,53 @@ function returnToStart() {
             checkForMatch();
         }
         
-        function checkForMatch() {
-            const isMatch = firstCard.dataset.value === secondCard.dataset.value;
-            
-            // --- IMPLEMENTERING AV DIN LOGIK ---
+        function makeVisiblePairKey(name, number) {
+            return `${name}\u0000${number}`;
+        }
 
-            // 1. KONTROLLERA FÖR MISSAR
+        function getVisiblePairKey(cardA, cardB) {
+            if (cardA.dataset.type === cardB.dataset.type) {
+                return null;
+            }
+
+            const nameCard = cardA.dataset.type === 'name' ? cardA : cardB;
+            const numberCard = cardA.dataset.type === 'number' ? cardA : cardB;
+
+            return makeVisiblePairKey(nameCard.dataset.display, numberCard.dataset.display);
+        }
+
+        function getVisibleCardKey(card) {
+            return `${card.dataset.type}\u0000${card.dataset.display}`;
+        }
+
+        function checkForMatch() {
+            // Hela matchningen bygger på det som faktiskt syns på brickorna.
+            // Ett namn + ett nummer är rätt om den kombinationen finns bland
+            // spelarna i aktuell omgång. Därmed fungerar även:
+            // - samma nummer för olika spelare
+            // - samma namn med olika nummer
+            // - samma namn OCH samma nummer för flera spelare
+            const visiblePairKey = getVisiblePairKey(firstCard, secondCard);
+            const isMatch = visiblePairKey !== null && validVisiblePairs.has(visiblePairKey);
+
+            // Missräkningen får inte heller bero på någon osynlig identitet.
+            // Därför minns vi synliga brickvärden/kombinationer, inte vilken
+            // underliggande spelarrad en identisk bricka råkade komma från.
+            const firstVisibleKey = getVisibleCardKey(firstCard);
+
             if (!isMatch) {
-                // Villkor A: Om första brickan tillhör ett "Känt Par"
-                if (knownPairValues.has(firstCard.dataset.value)) {
+                if (knownPairValues.has(firstVisibleKey)) {
                     misses++;
-                  //  debugInfo.textContent = 'MISS!';
-                } 
-                // Villkor B: Om första brickan var ny, men andra är en "Känd Exakt Bricka"
-                else if (knownCardIds.has(secondCard.dataset.id)) {
+                } else if (knownCardIds.has(secondCard.dataset.id)) {
                     misses++;
-                  //  debugInfo.textContent = 'MISS!';
                 }
             }
 
-            // 2. UPPDATERA MINNET (EFTER KONTROLLEN)
-            knownPairValues.add(firstCard.dataset.value);
-            knownPairValues.add(secondCard.dataset.value);
+            knownPairValues.add(getVisibleCardKey(firstCard));
+            knownPairValues.add(getVisibleCardKey(secondCard));
             knownCardIds.add(firstCard.dataset.id);
             knownCardIds.add(secondCard.dataset.id);
-            
-            // 3. HANTERA SPELETS FLÖDE
+
             if (isMatch) {
                 disableCards();
             } else {
@@ -1312,6 +1367,7 @@ function returnToStart() {
             gameBoard.innerHTML = '';
             knownPairValues.clear();
             knownCardIds.clear();
+            validVisiblePairs.clear();
             mismatchedPair = [];
             resetBoardState();
             if(debugInfo) debugInfo.textContent = '';
