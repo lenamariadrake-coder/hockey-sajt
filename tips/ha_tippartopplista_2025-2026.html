@@ -5982,6 +5982,9 @@ Lag 14</pre>
         }
 
         function writeShlTipsCache() {
+            const seasonTeams = new Map();
+            SEASON_TEAM_IDS.forEach(teamId => seasonTeams.set(teamId, TEAM_BY_ID.get(teamId)));
+
             const payload = {
                 version: 2,
                 savedAt: new Date().toISOString(),
@@ -5989,7 +5992,7 @@ Lag 14</pre>
                 league: 'ha',
                 TIPS_MATRIX_HOBBY,
                 TIPS_MATRIX_EXPERT,
-                TEAM_BY_ID: _mapToObject(TEAM_BY_ID),
+                TEAM_BY_ID: _mapToObject(seasonTeams),
                 TEAM_ID_BY_LONGNAME: _mapToObject(TEAM_ID_BY_LONGNAME),
                 TIPPER_BY_ID: _mapToObject(TIPPER_BY_ID),
                 TIPS_BY_TIPPER_HOBBY: _mapToObject(TIPS_BY_TIPPER_HOBBY),
