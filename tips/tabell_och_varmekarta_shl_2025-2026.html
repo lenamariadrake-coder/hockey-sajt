@@ -4447,8 +4447,8 @@ Lag 14</pre>
                 if (!participantId || !displayName || !teamId || !Number.isInteger(pickRank)) {
                     throw new Error('Tipsdata: en classic-rad saknar participant_id, display_name, team_id eller giltig pick_rank.');
                 }
-                if (!TEAM_BY_ID.has(teamId)) {
-                    throw new Error(`Tipsdata: okänt team_id "${teamId}" i classic-tipset.`);
+                if (!SEASON_TEAM_IDS.has(teamId)) {
+                    throw new Error(`Tipsdata: team_id "${teamId}" tillhör inte SHL ${MATCH_SEASON_ID}.`);
                 }
                 if (pickRank < 1 || pickRank > 14) {
                     throw new Error(`Tipsdata: pick_rank ${pickRank} ligger utanför 1–14.`);
