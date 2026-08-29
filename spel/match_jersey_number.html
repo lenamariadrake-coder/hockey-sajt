@@ -760,27 +760,51 @@ const DATA_SOURCES = {
     requiredColumns: [
       'player_name',
       'number',
-      'team_id'
+      'team_id',
+      'season_id'
     ]
   },
 
-  teams: {
-    key: 'teams',
-    label: 'Lagdata',
+  allTeams: {
+    key: 'all_teams',
+    label: 'Alla lag',
     spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
-    gid: '365651820',
-    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=365651820&single=true&output=tsv',
+    gid: '257061153',
+    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv',
     requiredColumns: [
       'team_id',
-      'team_name',
-      'league'
+      'team_name_abbr',
+      'team_name_short',
+      'team_name_long'
+    ]
+  },
+
+  seasonSummary: {
+    key: 'season_summary',
+    label: 'Säsongsdata',
+    spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+    gid: '2044886949',
+    tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2044886949&single=true&output=tsv',
+    requiredColumns: [
+      'league',
+      'season_id',
+      'team',
+      'team_label',
+      'regular_season_rank',
+      'regular_season_points',
+      'goal_difference',
+      'playoff_result',
+      'playoff_round_numeric',
+      'row_id',
+      'team_id'
     ]
   }
 };
 
 // Länkar till lokala filer (måste köras via Live Server)
 const LOCAL_PLAYERS_URL = 'players.txt';
-const LOCAL_TEAMS_URL = 'teams.txt';
+const LOCAL_ALL_TEAMS_URL = 'all_teams.txt';
+const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
 
 
 /**
@@ -809,6 +833,67 @@ function parseTSV(tsvText, columns) {
         data.push(entry);
     }
     return data;
+}
+
+/**
+ * Förbereder speldata för den senaste säsong som finns i players.
+ * En enda spelarrad med namn, team_id och season_id räcker för att den
+ * säsongen ska bli aktuell. Spelare utan nummer är däremot inte spelbara.
+ */
+function prepareCurrentSeasonData(allTeamsList, seasonSummaryList, playersList) {
+    const seasonCandidates = playersList
+        .filter(p => p.player_name && p.team_id && p.season_id)
+        .map(p => p.season_id);
+
+    if (!seasonCandidates.length) {
+        throw new Error('Hittade ingen säsong i players-fliken.');
+    }
+
+    const currentSeason = [...new Set(seasonCandidates)]
+        .sort((a, b) => a.localeCompare(b))
+        .at(-1);
+
+    const currentPlayers = playersList.filter(p =>
+        p.season_id === currentSeason &&
+        p.player_name &&
+        p.number &&
+        p.team_id
+    );
+
+    const playableTeamIds = new Set(currentPlayers.map(p => p.team_id));
+
+    const teamNames = new Map(
+        allTeamsList
+            .filter(team => team.team_id && team.team_name_short)
+            .map(team => [team.team_id, team.team_name_short])
+    );
+
+    const teamsList = seasonSummaryList
+        .filter(row =>
+            row.season_id === currentSeason &&
+            row.league &&
+            row.team_id &&
+            playableTeamIds.has(row.team_id) &&
+            teamNames.has(row.team_id)
+        )
+        .map(row => ({
+            team_id: row.team_id,
+            team_name: teamNames.get(row.team_id),
+            league: row.league
+        }));
+
+    const validTeamIds = new Set(teamsList.map(team => team.team_id));
+    const playablePlayers = currentPlayers.filter(p => validTeamIds.has(p.team_id));
+
+    console.log(`Aktuell säsong: ${currentSeason}`);
+    console.log(`Spelbara spelare: ${playablePlayers.length}`);
+    console.log(`Synliga lag: ${validTeamIds.size}`);
+
+    return {
+        currentSeason,
+        teamsList,
+        playersList: playablePlayers
+    };
 }
 
 /**
@@ -856,90 +941,120 @@ function buildTeamsConfig(teamsList) {
  */
 async function initializeApp() {
     try {
-        // Visa laddningsskärmen (vi behöver inte 'showScreen' här än)
         screenLoading.style.display = 'flex';
 
-        let teamsList;
+        let allTeamsList;
+        let seasonSummaryList;
         let playersList;
 
         if (USE_LOCAL_FILES) {
-            // Lokalt testläge: behåll exakt samma .txt-flöde som tidigare.
-            const [teamDataResponse, playerDataResponse] = await Promise.all([
-                fetch(LOCAL_TEAMS_URL),
+            const [allTeamsResponse, seasonSummaryResponse, playersResponse] = await Promise.all([
+                fetch(LOCAL_ALL_TEAMS_URL),
+                fetch(LOCAL_SEASON_SUMMARY_URL),
                 fetch(LOCAL_PLAYERS_URL)
             ]);
 
-            if (!teamDataResponse.ok || !playerDataResponse.ok) {
+            if (!allTeamsResponse.ok || !seasonSummaryResponse.ok || !playersResponse.ok) {
                 throw new Error('Kunde inte hämta lokala datafiler.');
             }
 
-            const teamsTSV = await teamDataResponse.text();
-            const playersTSV = await playerDataResponse.text();
+            const allTeamsTSV = await allTeamsResponse.text();
+            const seasonSummaryTSV = await seasonSummaryResponse.text();
+            const playersTSV = await playersResponse.text();
 
-            teamsList = parseTSV(teamsTSV, ['team_id', 'team_name', 'league']);
-            playersList = parseTSV(playersTSV, ['player_name', 'number', 'team_id']);
+            allTeamsList = parseTSV(allTeamsTSV, [
+                'team_id', 'team_name_abbr', 'team_name_short', 'team_name_long'
+            ]);
+
+            seasonSummaryList = parseTSV(seasonSummaryTSV, [
+                'league', 'season_id', 'team', 'team_label',
+                'regular_season_rank', 'regular_season_points', 'goal_difference',
+                'playoff_result', 'playoff_round_numeric', 'row_id', 'team_id'
+            ]);
+
+            playersList = parseTSV(playersTSV, [
+                'player_name', 'number', 'team_id', 'season_id'
+            ]);
         } else {
-            // Online-läge: GViz först, publicerad TSV som fallback.
             const [
-                { rows: teamRows },
+                { rows: allTeamRows },
+                { rows: seasonSummaryRows },
                 { rows: playerRows }
             ] = await Promise.all([
-                GoogleSheetsData.fetchRows(DATA_SOURCES.teams),
+                GoogleSheetsData.fetchRows(DATA_SOURCES.allTeams),
+                GoogleSheetsData.fetchRows(DATA_SOURCES.seasonSummary),
                 GoogleSheetsData.fetchRows(DATA_SOURCES.players)
             ]);
 
-            // Behåll samma interna objektstruktur som resten av spelet redan använder.
-            teamsList = teamRows.slice(1).map(row => ({
+            allTeamsList = allTeamRows.slice(1).map(row => ({
                 team_id: String(row[0] ?? '').trim(),
-                team_name: String(row[1] ?? '').trim(),
-                league: String(row[2] ?? '').trim()
-            })).filter(row => row.team_id && row.team_name && row.league);
+                team_name_abbr: String(row[1] ?? '').trim(),
+                team_name_short: String(row[2] ?? '').trim(),
+                team_name_long: String(row[3] ?? '').trim()
+            }));
+
+            seasonSummaryList = seasonSummaryRows.slice(1).map(row => ({
+                league: String(row[0] ?? '').trim(),
+                season_id: String(row[1] ?? '').trim(),
+                team: String(row[2] ?? '').trim(),
+                team_label: String(row[3] ?? '').trim(),
+                regular_season_rank: String(row[4] ?? '').trim(),
+                regular_season_points: String(row[5] ?? '').trim(),
+                goal_difference: String(row[6] ?? '').trim(),
+                playoff_result: String(row[7] ?? '').trim(),
+                playoff_round_numeric: String(row[8] ?? '').trim(),
+                row_id: String(row[9] ?? '').trim(),
+                team_id: String(row[10] ?? '').trim()
+            }));
 
             playersList = playerRows.slice(1).map(row => ({
                 player_name: String(row[0] ?? '').trim(),
                 number: String(row[1] ?? '').trim(),
-                team_id: String(row[2] ?? '').trim()
-            })).filter(row => row.player_name && row.number && row.team_id);
+                team_id: String(row[2] ?? '').trim(),
+                season_id: String(row[3] ?? '').trim()
+            }));
         }
-        
-// --- BYGG DE GLOBALA DATA-OBJEKTEN ---
+
+        // Samma säsongs- och kvalitetsfilter används oavsett datakälla.
+        const prepared = prepareCurrentSeasonData(
+            allTeamsList,
+            seasonSummaryList,
+            playersList
+        );
+
+        const teamsList = prepared.teamsList;
+        playersList = prepared.playersList;
+
+        // --- BYGG DE GLOBALA DATA-OBJEKTEN ---
         teamsConfig = buildTeamsConfig(teamsList);
         playersAll = buildPlayersAll(playersList);
 
-        // --- NYTT TILLÄGG: Fyll hjälp-listorna NU ---
+        // Fyll hjälp-listorna.
         allTeamsFlat = Object.values(teamsConfig).flatMap(teamArray => teamArray);
-        teamIdToLeagueMap.clear(); 
+        teamIdToLeagueMap.clear();
         for (const [leagueKey, teams] of Object.entries(teamsConfig)) {
           for (const team of teams) {
             teamIdToLeagueMap.set(team.id, leagueKey);
           }
         }
-        // --- SLUT PÅ TILLÄGG ---
 
         // --- STARTA SPELET ---
-
-
-
-        // --- STARTA SPELET ---
-        // Nu kan vi köra de ursprungliga startfunktionerna
         console.log("Calling populateLeagues");
         populateLeagues();
         console.log("Calling populateStudyLeagues");
         populateStudyLeagues();
         console.log("Calling populateMixedSelector");
         populateMixedSelector();
-        
-// Initiera master-tri-state vid laddning (efter att listan byggts)
-syncMasterToggle();
 
+        // Initiera master-tri-state vid laddning (efter att listan byggts)
+        syncMasterToggle();
 
-        // Dölj laddningsskärmen och visa startskärmen
         screenLoading.style.display = 'none';
-        showScreen($("#screenStart")); // Använd din befintliga funktion
+        showScreen($("#screenStart"));
 
     } catch (error) {
         console.error('Kunde inte ladda spelet:', error);
-        screenLoading.innerHTML = '<div><h2 style="font-size: 20px; color: #ef4444;">Kunde inte ladda spelet</h2><!--p style="color: var(--muted);">Kontrollera att filerna (`players.txt`, `teams.txt`) finns i samma mapp och att Live Server körs, eller att Google Sheet-länkarna är publicerade.<--/p></div>';
+        screenLoading.innerHTML = '<div><h2 style="font-size: 20px; color: #ef4444;">Kunde inte ladda spelet</h2><p style="color: var(--muted);">Kontrollera Google Sheets-data och kolumnrubrikerna.</p></div>';
     }
 }
 
