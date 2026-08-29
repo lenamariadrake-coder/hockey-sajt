@@ -2160,27 +2160,14 @@ Lag 14</pre>
             }
 
             function hydrateFromCache(payload) {
+                // Den delade säsongscachen ska redan vara skapad från:
+                // games (liga + säsong) -> exakt 14 team_id -> all_teams.
+                // Snitt ska därför inte försöka avgöra ligatillhörighet via lagnamn.
+                TEAM_BY_ID = new Map(Object.entries(payload.TEAM_BY_ID || {}));
+                rebuildTeamIndexes();
+
                 TIPS_MATRIX_HOBBY = payload.TIPS_MATRIX_HOBBY;
                 TIPS_MATRIX_EXPERT = payload.TIPS_MATRIX_EXPERT;
-
-                // Den delade tips-cachen kan innehålla ett större lagregister än
-                // just den aktuella HA-säsongens 14 lag. Tipsmatriserna är däremot
-                // säsongsspecifika och nycklade på exakt de kortnamn som Snitt ska
-                // använda. Filtrera därför cache-registret mot matrisens lagnycklar
-                // i stället för att låta hela TEAM_BY_ID bli sanningen om säsongen.
-                const matrixTeams = new Set([
-                    ...Object.keys(TIPS_MATRIX_HOBBY || {}),
-                    ...Object.keys(TIPS_MATRIX_EXPERT || {})
-                ]);
-
-                const cachedTeams = new Map(Object.entries(payload.TEAM_BY_ID || {}));
-                TEAM_BY_ID = new Map();
-                cachedTeams.forEach((team, teamId) => {
-                    const shortName = String(team?.team_name_short || '').trim();
-                    if (matrixTeams.has(shortName)) TEAM_BY_ID.set(teamId, team);
-                });
-
-                rebuildTeamIndexes();
                 if (!validateMatrix(TIPS_MATRIX_HOBBY).ok || !validateMatrix(TIPS_MATRIX_EXPERT).ok) {
                     throw new Error('Tipsdata: cache innehåller ogiltiga matriser.');
                 }
