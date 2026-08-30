@@ -858,23 +858,24 @@
                 tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv',
                 requiredColumns: ['team_id', 'team_name_abbr', 'team_name_short', 'team_name_long']
             },
-            seasonSummary: {
-                key: 'season_summary',
-                label: 'Säsongsdata',
+            games: {
+                key: 'games',
+                label: 'Matcher',
                 spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
-                gid: '2044886949',
-                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2044886949&single=true&output=tsv',
+                gid: '2012579108',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
                 requiredColumns: [
-                    'league', 'season_id', 'team', 'team_label',
-                    'regular_season_rank', 'regular_season_points', 'goal_difference',
-                    'playoff_result', 'playoff_round_numeric', 'row_id', 'team_id'
+                    'date', 'home_team', 'away_team', 'result',
+                    'home_goals', 'away_goals', 'home_points', 'away_points',
+                    'season_id', 'league', 'home_team_label', 'away_team_label',
+                    'date_no_year', 'date_no_year2', 'home_team_id', 'away_team_id'
                 ]
             }
         };
 
         const LOCAL_PLAYERS_URL = 'players.txt';
         const LOCAL_ALL_TEAMS_URL = 'all_teams.txt';
-        const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
+        const LOCAL_GAMES_URL = 'games.txt';
 
         function parseTSV(tsvText, columns) {
             const data = [];
@@ -897,7 +898,7 @@
             return data;
         }
 
-        function prepareCurrentSeasonData(allTeamsList, seasonSummaryList, playersList) {
+        function prepareCurrentSeasonData(allTeamsList, gamesList, playersList) {
             const seasonCandidates = playersList
                 .filter(p => p.player_name && p.team_id && p.season_id)
                 .map(p => p.season_id);
@@ -918,26 +919,37 @@
             );
 
             const playableTeamIds = new Set(currentPlayers.map(p => p.team_id));
+
             const teamNames = new Map(
                 allTeamsList
                     .filter(team => team.team_id && team.team_name_short)
                     .map(team => [team.team_id, team.team_name_short])
             );
 
-            const teamsList = seasonSummaryList
-                .filter(row =>
-                    row.season_id === currentSeason &&
-                    row.league &&
-                    row.team_id &&
-                    playableTeamIds.has(row.team_id) &&
-                    teamNames.has(row.team_id)
-                )
-                .map(row => ({
-                    team_id: row.team_id,
-                    team_name: teamNames.get(row.team_id),
-                    league: row.league
-                }));
+            // games avgör vilka lag som faktiskt hör till respektive liga den aktuella säsongen.
+            // Samma lag förekommer i många matcher, därför deduplicerar vi på league + team_id.
+            const teamsByKey = new Map();
 
+            gamesList
+                .filter(row => row.season_id === currentSeason && row.league)
+                .forEach(row => {
+                    for (const teamId of [row.home_team_id, row.away_team_id]) {
+                        if (!teamId || !playableTeamIds.has(teamId) || !teamNames.has(teamId)) {
+                            continue;
+                        }
+
+                        const key = `${row.league}::${teamId}`;
+                        if (!teamsByKey.has(key)) {
+                            teamsByKey.set(key, {
+                                team_id: teamId,
+                                team_name: teamNames.get(teamId),
+                                league: row.league
+                            });
+                        }
+                    }
+                });
+
+            const teamsList = [...teamsByKey.values()];
             const validTeamIds = new Set(teamsList.map(team => team.team_id));
             const playablePlayers = currentPlayers.filter(p => validTeamIds.has(p.team_id));
 
@@ -945,9 +957,12 @@
             console.log(`Spelbara spelare: ${playablePlayers.length}`);
             console.log(`Synliga lag: ${validTeamIds.size}`);
 
-            return { currentSeason, teamsList, playersList: playablePlayers };
+            return {
+                currentSeason,
+                teamsList,
+                playersList: playablePlayers
+            };
         }
-
         function buildTeamsObject(teamsList, playersList) {
             const newTeamsObject = {};
             const teamIdToLeagueKeyMap = {};
@@ -988,31 +1003,31 @@
                 showScreen(loadingScreen);
 
                 let allTeamsList;
-                let seasonSummaryList;
+                let gamesList;
                 let playersList;
 
                 if (USE_LOCAL_FILES) {
-                    const [allTeamsResponse, seasonSummaryResponse, playersResponse] = await Promise.all([
+                    const [allTeamsResponse, gamesResponse, playersResponse] = await Promise.all([
                         fetch(LOCAL_ALL_TEAMS_URL),
-                        fetch(LOCAL_SEASON_SUMMARY_URL),
+                        fetch(LOCAL_GAMES_URL),
                         fetch(LOCAL_PLAYERS_URL)
                     ]);
 
-                    if (!allTeamsResponse.ok || !seasonSummaryResponse.ok || !playersResponse.ok) {
+                    if (!allTeamsResponse.ok || !gamesResponse.ok || !playersResponse.ok) {
                         throw new Error('Kunde inte hämta lokala datafiler.');
                     }
 
                     allTeamsList = parseTSV(await allTeamsResponse.text(), DATA_SOURCES.allTeams.requiredColumns);
-                    seasonSummaryList = parseTSV(await seasonSummaryResponse.text(), DATA_SOURCES.seasonSummary.requiredColumns);
+                    gamesList = parseTSV(await gamesResponse.text(), DATA_SOURCES.games.requiredColumns);
                     playersList = parseTSV(await playersResponse.text(), DATA_SOURCES.players.requiredColumns);
                 } else {
                     const [
                         { rows: allTeamRows },
-                        { rows: seasonSummaryRows },
+                        { rows: gameRows },
                         { rows: playerRows }
                     ] = await Promise.all([
                         GoogleSheetsData.fetchRows(DATA_SOURCES.allTeams),
-                        GoogleSheetsData.fetchRows(DATA_SOURCES.seasonSummary),
+                        GoogleSheetsData.fetchRows(DATA_SOURCES.games),
                         GoogleSheetsData.fetchRows(DATA_SOURCES.players)
                     ]);
 
@@ -1023,18 +1038,23 @@
                         team_name_long: String(row[3] ?? '').trim()
                     }));
 
-                    seasonSummaryList = seasonSummaryRows.slice(1).map(row => ({
-                        league: String(row[0] ?? '').trim(),
-                        season_id: String(row[1] ?? '').trim(),
-                        team: String(row[2] ?? '').trim(),
-                        team_label: String(row[3] ?? '').trim(),
-                        regular_season_rank: String(row[4] ?? '').trim(),
-                        regular_season_points: String(row[5] ?? '').trim(),
-                        goal_difference: String(row[6] ?? '').trim(),
-                        playoff_result: String(row[7] ?? '').trim(),
-                        playoff_round_numeric: String(row[8] ?? '').trim(),
-                        row_id: String(row[9] ?? '').trim(),
-                        team_id: String(row[10] ?? '').trim()
+                    gamesList = gameRows.slice(1).map(row => ({
+                        date: String(row[0] ?? '').trim(),
+                        home_team: String(row[1] ?? '').trim(),
+                        away_team: String(row[2] ?? '').trim(),
+                        result: String(row[3] ?? '').trim(),
+                        home_goals: String(row[4] ?? '').trim(),
+                        away_goals: String(row[5] ?? '').trim(),
+                        home_points: String(row[6] ?? '').trim(),
+                        away_points: String(row[7] ?? '').trim(),
+                        season_id: String(row[8] ?? '').trim(),
+                        league: String(row[9] ?? '').trim(),
+                        home_team_label: String(row[10] ?? '').trim(),
+                        away_team_label: String(row[11] ?? '').trim(),
+                        date_no_year: String(row[12] ?? '').trim(),
+                        date_no_year2: String(row[13] ?? '').trim(),
+                        home_team_id: String(row[14] ?? '').trim(),
+                        away_team_id: String(row[15] ?? '').trim()
                     }));
 
                     playersList = playerRows.slice(1).map(row => ({
@@ -1045,7 +1065,7 @@
                     }));
                 }
 
-                const prepared = prepareCurrentSeasonData(allTeamsList, seasonSummaryList, playersList);
+                const prepared = prepareCurrentSeasonData(allTeamsList, gamesList, playersList);
                 TEAMS = buildTeamsObject(prepared.teamsList, prepared.playersList);
 
                 createStartScreen();
