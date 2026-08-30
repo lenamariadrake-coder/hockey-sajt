@@ -5100,6 +5100,35 @@ Lag 14</pre>
         }
 
 
+        function applyInitialViewShell(view) {
+            if (view !== 'table' && view !== 'heat') return;
+
+            // Välj rätt visuell panel direkt, utan att rendera data ännu.
+            // Den fulla setActiveView() körs senare när all data är laddad.
+            state.activeView = view;
+
+            btnTabell?.setAttribute(
+                'aria-selected',
+                view === 'table' ? 'true' : 'false'
+            );
+
+            btnHeat?.setAttribute(
+                'aria-selected',
+                view === 'heat' ? 'true' : 'false'
+            );
+
+            viewTable?.setAttribute(
+                'aria-hidden',
+                view === 'table' ? 'false' : 'true'
+            );
+
+            viewHeat?.setAttribute(
+                'aria-hidden',
+                view === 'heat' ? 'false' : 'true'
+            );
+        }
+
+
         function updateSeasonOptionsForView(view) {
             if (!seasonSelect) return;
 
@@ -6293,6 +6322,9 @@ Lag 14</pre>
            10) Init
            =========================================================== */
         async function init() {
+            const initialView = getInitialViewFromURL() || 'table';
+
+            applyInitialViewShell(initialView);
             loadingStart();
 
             // ---------------------------------------------------------
@@ -6355,7 +6387,6 @@ Lag 14</pre>
             } catch (error) {
                 showFatalDataError(error);
 
-                const initialView = getInitialViewFromURL() || 'table';
                 setActiveView(initialView);
                 return;
             }
@@ -6668,8 +6699,7 @@ Lag 14</pre>
             }
 
 
-            // Viktigt: välj startvy och rendera direkt
-            const initialView = getInitialViewFromURL() || 'table';
+            // Viktigt: rendera den startvy som valdes redan före datahämtningen
             console.log("[view][init] initial view", { initialView, hash: location.hash });
 
             setActiveView(initialView);
