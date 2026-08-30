@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>H2H-testgenerator 2–14 lag</title>
+<style>
+  :root {
+    --bg:#f4f4f7;
+    --card:#fff;
+    --text:#172033;
+    --muted:#667085;
+    --border:#d9dee8;
+    --accent:#007c30;
+    --accent-soft:#e8f5ed;
+    --danger:#b42318;
+    --danger-soft:#feeceb;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    color:var(--text);
+    background:var(--bg);
+  }
+  main {
+    width:min(980px, calc(100% - 24px));
+    margin:24px auto;
+  }
+  h1 { margin:0 0 8px; font-size:1.55rem; }
+  p { line-height:1.45; }
+  .muted { color:var(--muted); }
+  .card {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:18px;
+    margin:0 0 16px;
+  }
+  input[type="text"] {
+    width:min(360px, 100%);
+    border:1px solid var(--border);
+    border-radius:9px;
+    padding:9px 11px;
+    font:inherit;
+  }
+  textarea {
+    width:100%;
+    min-height:330px;
+    resize:vertical;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px;
+    font:14px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  button {
+    font:inherit;
+    font-weight:700;
+    border:1px solid var(--border);
+    border-radius:9px;
+    padding:9px 13px;
+    background:#fff;
+    color:var(--text);
+    cursor:pointer;
+  }
+  button:hover:not(:disabled) { background:#f6f7f9; }
+  button.primary {
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  button.primary:hover:not(:disabled) { filter:brightness(.95); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .row {
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .stepbar {
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    margin-top:12px;
+  }
+  .step-btn {
+    min-width:48px;
+    padding:7px 9px;
+    border-radius:999px;
+  }
+  .step-btn.active {
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  .step-btn.done:not(.active) {
+    background:var(--accent-soft);
+    border-color:#9bd1ae;
+  }
+  .step-btn.over {
+    background:var(--danger-soft);
+    border-color:var(--danger);
+    color:var(--danger);
+  }
+  .step-btn.over.active {
+    background:var(--danger);
+    border-color:var(--danger);
+    color:#fff;
+  }
+  .teams {
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+    margin-top:12px;
+    max-width:520px;
+  }
+  .team-btn {
+    text-align:left;
+    min-height:32px;
+    padding:5px 10px;
+    font-size:.9rem;
+  }
+  .team-btn.selected {
+    background:var(--accent-soft);
+    border-color:var(--accent);
+    box-shadow:inset 0 0 0 1px var(--accent);
+  }
+  .team-btn.selected::before {
+    content:"✓ ";
+    color:var(--accent);
+    font-weight:900;
+  }
+  .status {
+    margin-top:12px;
+    font-weight:700;
+  }
+  .status.ok { color:var(--accent); }
+  .status.err { color:var(--danger); }
+  .preview {
+    white-space:pre-wrap;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px;
+    min-height:140px;
+    background:#fafafa;
+    font:14px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  .copymsg { min-height:1.3em; margin-left:4px; font-weight:700; color:var(--accent); }
+  .hidden { display:none !important; }
+  @media (max-width:600px) {
+    main { width:min(100% - 16px, 980px); margin:8px auto; }
+    .card { padding:14px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <h1>H2H-testgenerator: 2–14 lag</h1>
+    <p class="muted">Klistra in ditt fullständiga 14-lagstips, ett lag per rad. Generatorn gör sedan separata testtips för 2, 3, 4 … 14 lag. Lagnamnen kontrolleras inte mot någon lista.</p>
+  </section>
+
+  <section class="card" id="inputCard">
+    <h2>1. Klistra in 14-lagstipset</h2>
+    <div style="margin-bottom:12px">
+      <label for="tipperName"><strong>Namn på tipparen</strong></label><br>
+      <input id="tipperName" type="text" value="" placeholder="Fyll i valfritt namn">
+    </div>
+    <textarea id="fullTip" spellcheck="false" placeholder="Lag 1&#10;Lag 2&#10;Lag 3&#10;Lag 4&#10;Lag 5&#10;Lag 6&#10;Lag 7&#10;Lag 8&#10;Lag 9&#10;Lag 10&#10;Lag 11&#10;Lag 12&#10;Lag 13&#10;Lag 14"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" id="startBtn" type="button">Läs in listan</button>
+      <span id="inputStatus" class="status" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <section class="card hidden" id="chooseCard">
+    <h2>2. Välj lag för varje test</h2>
+    <p class="muted">Välj vilket testblock du vill arbeta med. Lag 1 och lag 14 är förvalda i varje block, men kan avmarkeras. Tipsets inbördes ordning följer alltid ditt ursprungliga 14-lagstips.</p>
+
+    <div class="row" style="margin:14px 0 10px">
+      <button class="primary" id="spreadAllBtn" type="button">Välj jämnt i alla block</button>
+    </div>
+
+    <details style="margin-bottom:14px">
+      <summary><strong>Hur fungerar ”Välj jämnt”?</strong></summary>
+      <div class="muted" style="margin-top:8px; max-width:780px">
+        <p style="margin:0 0 8px">Tanken är att omvandla ett vanligt 14-lagstips till H2H-block utan att försöka gissa vilka lag tipparen själv skulle ha valt. I stället väljs placeringar så jämnt fördelade som möjligt över hela tipset. Placering 1 och 14 finns alltid med.</p>
+        <p style="margin:0 0 8px">För varje block delas intervallet från plats 1 till plats 14 upp i så jämna steg som möjligt och mellanlägena avrundas till hela tabellplaceringar. Det ger en reproducerbar regel som behandlar alla 14-lagstips på samma sätt.</p>
+        <p style="margin:0"><strong>Placeringar:</strong> 2 lag: 1, 14 · 3 lag: 1, 7, 14 · 4 lag: 1, 5, 10, 14 · 5 lag: 1, 4, 7, 11, 14 · 6 lag: 1, 4, 6, 9, 11, 14 · 7 lag: 1, 3, 5, 7, 10, 12, 14 · 8 lag: 1, 3, 5, 7, 8, 10, 12, 14 · 9 lag: 1, 3, 4, 6, 7, 9, 11, 12, 14 · 10 lag: 1, 2, 4, 5, 7, 8, 10, 11, 13, 14 · 11 lag: 1, 2, 4, 5, 6, 7, 9, 10, 11, 13, 14 · 12 lag: 1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 13, 14 · 13 lag: alla utom 8 · 14 lag: alla.</p>
+      </div>
+    </details>
+
+    <div class="stepbar" id="stepbar" aria-label="Välj antal lag"></div>
+
+    <div class="row" style="margin-top:16px; justify-content:space-between">
+      <strong id="currentTitle">Test (2 lag)</strong>
+      <span id="countLabel" class="muted"></span>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <button id="selectAllBtn" type="button">Markera alla</button>
+      <button id="clearBtn" type="button">Rensa</button>
+    </div>
+
+    <div class="teams" id="teams"></div>
+    <div id="selectionStatus" class="status" aria-live="polite"></div>
+
+  </section>
+
+  <section class="card hidden" id="outputCard">
+    <h2>3. Färdiga block</h2>
+    <p class="muted">Här visas alla block som är färdiga just nu. Du kan kopiera när som helst; ofärdiga block tas inte med.</p>
+    <div class="row" style="margin-bottom:10px">
+      <button class="primary" id="copyBtn" type="button" disabled>Kopiera färdiga block</button>
+      <span id="copyMsg" class="copymsg" aria-live="polite"></span>
+    </div>
+    <div id="output" class="preview"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const MIN = 2;
+  const MAX = 14;
+
+  const tipperName = document.getElementById('tipperName');
+  const fullTip = document.getElementById('fullTip');
+  const startBtn = document.getElementById('startBtn');
+  const inputStatus = document.getElementById('inputStatus');
+  const chooseCard = document.getElementById('chooseCard');
+  const outputCard = document.getElementById('outputCard');
+  const stepbar = document.getElementById('stepbar');
+  const currentTitle = document.getElementById('currentTitle');
+  const countLabel = document.getElementById('countLabel');
+  const teamsWrap = document.getElementById('teams');
+  const selectionStatus = document.getElementById('selectionStatus');
+  const selectAllBtn = document.getElementById('selectAllBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const spreadAllBtn = document.getElementById('spreadAllBtn');
+  const output = document.getElementById('output');
+  const copyBtn = document.getElementById('copyBtn');
+  const copyMsg = document.getElementById('copyMsg');
+
+  let teams = [];
+  let currentCount = MIN;
+  const selections = new Map();
+
+  function stripPrefix(line) {
+    return String(line || '')
+      .trim()
+      .replace(/^\s*\d{1,2}\s*(?:[.)\-:]\s*|\s+)/, '')
+      .replace(/^\s*[-–—•*]\s+/, '')
+      .trim();
+  }
+
+  function readTeams() {
+    return fullTip.value
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map(stripPrefix)
+      .filter(Boolean);
+  }
+
+  function selectedCount(count) {
+    return selections.get(count)?.size || 0;
+  }
+
+  function isComplete(count) {
+    return selectedCount(count) === count;
+  }
+
+  function isOver(count) {
+    return selectedCount(count) > count;
+  }
+
+  function getTipperName() {
+    return tipperName.value.trim() || 'Test';
+  }
+
+  function buildOutput() {
+    const blocks = [];
+
+    for (let n = MIN; n <= MAX; n++) {
+      const selected = selections.get(n);
+      if (!selected || selected.size !== n) continue;
+
+      const pickedTeams = teams.filter((_, index) => selected.has(index));
+      blocks.push([`${getTipperName()} (${n} lag)`, ...pickedTeams].join('\n'));
+    }
+
+    return blocks.join('\n\n');
+  }
+
+  function updateOutput() {
+    const text = buildOutput();
+    output.textContent = text || 'Färdiga testblock visas här.';
+    copyBtn.disabled = !text;
+  }
+
+  function renderStepbar() {
+    stepbar.innerHTML = '';
+
+    for (let n = MIN; n <= MAX; n++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'step-btn';
+      btn.textContent = `${n} lag`;
+      btn.classList.toggle('active', n === currentCount);
+      btn.classList.toggle('done', isComplete(n));
+      btn.classList.toggle('over', isOver(n));
+      btn.addEventListener('click', () => {
+        currentCount = n;
+        renderCurrent();
+      });
+      stepbar.appendChild(btn);
+    }
+  }
+
+  function renderCurrent() {
+    renderStepbar();
+
+    currentTitle.textContent = `${getTipperName()} (${currentCount} lag)`;
+    const selected = selections.get(currentCount) || new Set();
+    countLabel.textContent = `${selected.size} av ${currentCount} valda`;
+
+    teamsWrap.innerHTML = '';
+    teams.forEach((team, index) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'team-btn';
+      btn.textContent = team;
+      btn.classList.toggle('selected', selected.has(index));
+
+      btn.addEventListener('click', () => {
+        const set = selections.get(currentCount) || new Set();
+
+        if (set.has(index)) {
+          set.delete(index);
+        } else {
+          set.add(index);
+        }
+
+        selections.set(currentCount, set);
+        renderCurrent();
+        updateOutput();
+      });
+
+      teamsWrap.appendChild(btn);
+    });
+
+    if (selected.size === currentCount) {
+      selectionStatus.className = 'status ok';
+      selectionStatus.textContent = 'Klart för detta lagantal.';
+    } else if (selected.size > currentCount) {
+      selectionStatus.className = 'status err';
+      selectionStatus.textContent = `För många valda: avmarkera ${selected.size - currentCount} lag.`;
+    } else {
+      selectionStatus.className = 'status';
+      selectionStatus.textContent = `Välj ${currentCount - selected.size} lag till.`;
+    }
+
+  }
+
+  function initializeSelections() {
+    selections.clear();
+
+    for (let n = MIN; n <= MAX; n++) {
+      const selected = new Set([0, MAX - 1]);
+
+      if (n === MAX) {
+        teams.forEach((_, index) => selected.add(index));
+      }
+
+      selections.set(n, selected);
+    }
+  }
+
+  const EVEN_POSITIONS = {
+    2:  [1, 14],
+    3:  [1, 7, 14],
+    4:  [1, 5, 10, 14],
+    5:  [1, 4, 7, 11, 14],
+    6:  [1, 4, 6, 9, 11, 14],
+    7:  [1, 3, 5, 7, 10, 12, 14],
+    8:  [1, 3, 5, 7, 8, 10, 12, 14],
+    9:  [1, 3, 4, 6, 7, 9, 11, 12, 14],
+    10: [1, 2, 4, 5, 7, 8, 10, 11, 13, 14],
+    11: [1, 2, 4, 5, 6, 7, 9, 10, 11, 13, 14],
+    12: [1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 13, 14],
+    13: [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14],
+    14: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+  };
+
+  function applyEvenSelectionsToAll() {
+    for (let n = MIN; n <= MAX; n++) {
+      const indexes = EVEN_POSITIONS[n].map(position => position - 1);
+      selections.set(n, new Set(indexes));
+    }
+
+    renderCurrent();
+    updateOutput();
+  }
+
+  startBtn.addEventListener('click', () => {
+    const parsed = readTeams();
+
+    if (parsed.length !== MAX) {
+      inputStatus.className = 'status err';
+      inputStatus.textContent = `Jag hittar ${parsed.length} rader. Det ska vara exakt 14 lag.`;
+      return;
+    }
+
+    teams = parsed;
+    currentCount = MIN;
+    initializeSelections();
+
+    inputStatus.className = 'status ok';
+    inputStatus.textContent = '14 lag inlästa.';
+    chooseCard.classList.remove('hidden');
+    outputCard.classList.remove('hidden');
+
+    renderCurrent();
+    updateOutput();
+    chooseCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  spreadAllBtn.addEventListener('click', () => {
+    applyEvenSelectionsToAll();
+  });
+
+  selectAllBtn.addEventListener('click', () => {
+    selections.set(currentCount, new Set(teams.map((_, index) => index)));
+    renderCurrent();
+    updateOutput();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    selections.set(currentCount, new Set());
+    renderCurrent();
+    updateOutput();
+  });
+
+  tipperName.addEventListener('input', () => {
+    if (!teams.length) return;
+    renderCurrent();
+    updateOutput();
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    const text = buildOutput();
+    copyMsg.textContent = '';
+
+    try {
+      await navigator.clipboard.writeText(text);
+      copyMsg.textContent = 'Kopierat!';
+    } catch {
+      const helper = document.createElement('textarea');
+      helper.value = text;
+      helper.setAttribute('readonly', '');
+      helper.style.position = 'fixed';
+      helper.style.opacity = '0';
+      document.body.appendChild(helper);
+      helper.select();
+      const ok = document.execCommand('copy');
+      helper.remove();
+      copyMsg.textContent = ok ? 'Kopierat!' : 'Kunde inte kopiera automatiskt.';
+    }
+
+    window.setTimeout(() => { copyMsg.textContent = ''; }, 1800);
+  });
+})();
+</script>
+</body>
+</html>
