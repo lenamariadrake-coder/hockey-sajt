@@ -859,12 +859,23 @@ function prepareCurrentSeasonData(allTeamsList, gamesList, seasonSummaryList, pl
         .sort((a, b) => a.localeCompare(b))
         .at(-1);
 
-    const currentPlayers = playersList.filter(p =>
+    const currentPlayersRaw = playersList.filter(p =>
         p.season_id === currentSeason &&
         p.player_name &&
         p.number &&
         p.team_id
     );
+
+    // Ignorera exakta dubbletter i players.
+    // Två rader räknas som samma endast när alla fyra kolumner är identiska.
+    // Första förekomsten behålls; senare identiska rader ignoreras.
+    const seenPlayerRows = new Set();
+    const currentPlayers = currentPlayersRaw.filter(p => {
+        const key = [p.player_name, p.number, p.team_id, p.season_id].join('\u0000');
+        if (seenPlayerRows.has(key)) return false;
+        seenPlayerRows.add(key);
+        return true;
+    });
 
     const playableTeamIds = new Set(currentPlayers.map(p => p.team_id));
 
