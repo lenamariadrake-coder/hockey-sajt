@@ -2174,6 +2174,8 @@ Lag 14</pre>
                     const parsed = JSON.parse(raw);
                     if (!parsed || parsed.version !== 2 || parsed.season !== '2026_2027' || parsed.league !== 'ha') return null;
                     if (!parsed.TEAM_BY_ID || !parsed.TIPS_MATRIX_HOBBY || !parsed.TIPS_MATRIX_EXPERT) return null;
+                    const cachedTeams = Object.values(parsed.TEAM_BY_ID || {});
+                    if (!cachedTeams.length || cachedTeams.some(team => !Object.prototype.hasOwnProperty.call(team || {}, 'team_aliases'))) return null;
                     if (!allowStale && !isCacheFresh(parsed)) return null;
                     return parsed;
                 } catch (e) {
@@ -2238,6 +2240,7 @@ Lag 14</pre>
                 const iAbbr = idxOf(th, 'team_name_abbr');
                 const iShort = idxOf(th, 'team_name_short');
                 const iLong = idxOf(th, 'team_name_long');
+                const iAliases = idxOf(th, 'team_aliases');
                 if ([iId, iShort, iLong].some(i => i === -1)) {
                     throw new Error('Lagdata: team_id, team_name_short eller team_name_long saknas.');
                 }
@@ -2251,7 +2254,8 @@ Lag 14</pre>
                         team_id: teamId,
                         team_name_abbr: iAbbr !== -1 ? String(r[iAbbr] || '').trim() : '',
                         team_name_short: String(r[iShort] || '').trim(),
-                        team_name_long: String(r[iLong] || '').trim()
+                        team_name_long: String(r[iLong] || '').trim(),
+                        team_aliases: iAliases !== -1 ? String(r[iAliases] || '').trim() : ''
                     });
                 }
 
@@ -2401,31 +2405,39 @@ Lag 14</pre>
                 return counts.reduce((sum, n) => sum + (Number(n) || 0), 0);
             }
 
+function stripCustomTeamLinePrefix(line) {
+                return String(line || '')
+                    .trim()
+                    .replace(/^\s*\d{1,2}\s*(?:[.)\-:]\s*|\s+)/, '')
+                    .replace(/^\s*[-–—•*]\s+/, '')
+                    .trim();
+            }
+
             function findShortTeamFromLine(line) {
-                const input = String(line || '').trim();
+                const input = stripCustomTeamLinePrefix(line);
                 if (!input) return null;
-                const lower = input.toLocaleLowerCase('sv-SE');
-                const candidates = [];
+                const key = input.toLocaleLowerCase('sv-SE');
+                const matches = [];
 
                 TEAM_BY_ID.forEach((team, teamId) => {
                     const shortName = String(team.team_name_short || '').trim();
+                    const extraAliases = String(team.team_aliases || '')
+                        .split(';').map(v => v.trim()).filter(Boolean);
                     const aliases = Array.from(new Set([
-                        team.team_name_long, team.team_name_short, team.team_name_abbr
-                    ].map(v => String(v || '').trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
+                        team.team_name_long,
+                        team.team_name_short,
+                        team.team_name_abbr,
+                        ...extraAliases
+                    ].map(v => String(v || '').trim()).filter(Boolean)));
 
-                    for (const alias of aliases) {
-                        const al = alias.toLocaleLowerCase('sv-SE');
-                        if (lower === al) candidates.push({ score: 10000 + alias.length, teamId, shortName });
-                        else if (alias.length >= 3 && lower.includes(al)) candidates.push({ score: 1000 + alias.length, teamId, shortName });
+                    if (aliases.some(alias => alias.toLocaleLowerCase('sv-SE') === key)) {
+                        matches.push({ teamId, shortName });
                     }
                 });
 
-                if (!candidates.length) return null;
-                candidates.sort((a, b) => b.score - a.score);
-                const best = candidates[0];
-                const tied = candidates.filter(c => c.score === best.score);
-                if (new Set(tied.map(c => c.teamId)).size > 1) return null;
-                return best.shortName;
+                if (!matches.length) return null;
+                if (new Set(matches.map(m => m.teamId)).size > 1) return null;
+                return matches[0].shortName;
             }
 
             function parseCustomText(rawText) {
@@ -2465,7 +2477,7 @@ Lag 14</pre>
                 }
                 try {
                     const payload = JSON.parse(raw);
-                    if (payload?.version !== 1 || typeof payload?.tips !== 'string') throw new Error('fel payload');
+                    if (![1, 2].includes(Number(payload?.version)) || typeof payload?.tips !== 'string') throw new Error('fel payload');
                     const check = validateMatrix(payload.matrix);
                     if (!check.ok) throw new Error(check.error);
                     TIPS_MATRIX_CUSTOM = payload.matrix;
@@ -2529,7 +2541,7 @@ Lag 14</pre>
                 }
 
                 localStorage.setItem(LS_CUSTOM_TIPS_KEY, JSON.stringify({
-                    version: 1,
+                    version: 2,
                     savedAt: new Date().toISOString(),
                     tips: raw,
                     matrix: parsed.matrix
