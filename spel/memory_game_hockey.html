@@ -858,6 +858,18 @@
                 tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv',
                 requiredColumns: ['team_id', 'team_name_abbr', 'team_name_short', 'team_name_long']
             },
+            seasonSummary: {
+              key: 'season_summary',
+              label: 'Säsongssammanfattning',
+              spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+              gid: '2044886949',
+              requiredColumns: [
+                'league','season_id','team','team_label',
+                'regular_season_rank','regular_season_points','goal_difference',
+                'playoff_result','playoff_round_numeric','row_id','team_id'
+              ]
+            },
+
             games: {
                 key: 'games',
                 label: 'Matcher',
@@ -876,6 +888,7 @@
         const LOCAL_PLAYERS_URL = 'players.txt';
         const LOCAL_ALL_TEAMS_URL = 'all_teams.txt';
         const LOCAL_GAMES_URL = 'games.txt';
+const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
 
         function parseTSV(tsvText, columns) {
             const data = [];
@@ -898,7 +911,36 @@
             return data;
         }
 
-        function prepareCurrentSeasonData(allTeamsList, gamesList, playersList) {
+        function prepareCurrentSeasonData(allTeamsList, gamesList, seasonSummaryList, playersList) {
+            /*
+             * DATAFLÖDET I SPELET
+             * ===================
+             *
+             * players
+             *   - avgör vilken season_id som är den senaste som faktiskt har spelardata
+             *   - avgör dessutom vilka team_id som har minst en spelbar spelare
+             *
+             * games + season_summary
+             *   - används TILLSAMMANS för att avgöra vilka lag som hör till vilka ligor
+             *     under den aktuella säsongen
+             *
+             * Varför båda?
+             *   - SHL och HA finns i games och kan därför hämtas därifrån.
+             *   - NHL och SDHL kan finnas i season_summary även när vi ännu inte har deras
+             *     matcher i games.
+             *   - Vi hårdkodar inte detta per liga. Om en liga senare finns i båda källorna
+             *     fungerar det ändå, eftersom lagposterna dedupliceras på league + team_id.
+             *
+             * all_teams
+             *   - är bara det globala namnregistret: team_id -> team_name_short.
+             *   - all_teams bestämmer alltså INTE vilka lag som tillhör en viss säsong.
+             *
+             * Ett lag blir synligt i spelet bara om:
+             *   1) det finns i games ELLER season_summary för aktuell season_id,
+             *   2) det har minst en spelare med namn + nummer i players, och
+             *   3) team_id finns i all_teams så att laget kan få ett visningsnamn.
+             */
+
             const seasonCandidates = playersList
                 .filter(p => p.player_name && p.team_id && p.season_id)
                 .map(p => p.season_id);
@@ -926,28 +968,44 @@
                     .map(team => [team.team_id, team.team_name_short])
             );
 
-            // games avgör vilka lag som faktiskt hör till respektive liga den aktuella säsongen.
-            // Samma lag förekommer i många matcher, därför deduplicerar vi på league + team_id.
             const teamsByKey = new Map();
 
+            function addTeam(league, teamId) {
+                if (!league || !teamId) return;
+                if (!playableTeamIds.has(teamId)) return;
+                if (!teamNames.has(teamId)) return;
+
+                const key = `${league}::${teamId}`;
+
+                if (!teamsByKey.has(key)) {
+                    teamsByKey.set(key, {
+                        team_id: teamId,
+                        team_name: teamNames.get(teamId),
+                        league
+                    });
+                }
+            }
+
+            // Källa 1: games.
+            // Varje match ger ett hemma- och ett bortalag. Samma lag förekommer därför
+            // många gånger, men addTeam() deduplicerar automatiskt på league + team_id.
             gamesList
                 .filter(row => row.season_id === currentSeason && row.league)
                 .forEach(row => {
-                    for (const teamId of [row.home_team_id, row.away_team_id]) {
-                        if (!teamId || !playableTeamIds.has(teamId) || !teamNames.has(teamId)) {
-                            continue;
-                        }
-
-                        const key = `${row.league}::${teamId}`;
-                        if (!teamsByKey.has(key)) {
-                            teamsByKey.set(key, {
-                                team_id: teamId,
-                                team_name: teamNames.get(teamId),
-                                league: row.league
-                            });
-                        }
-                    }
+                    addTeam(row.league, row.home_team_id);
+                    addTeam(row.league, row.away_team_id);
                 });
+
+            // Källa 2: season_summary.
+            // Den här kompletterar games och är särskilt viktig för ligor där vi ännu
+            // inte har matcherna i games, t.ex. NHL och SDHL.
+            seasonSummaryList
+                .filter(row =>
+                    row.season_id === currentSeason &&
+                    row.league &&
+                    row.team_id
+                )
+                .forEach(row => addTeam(row.league, row.team_id));
 
             const teamsList = [...teamsByKey.values()];
             const validTeamIds = new Set(teamsList.map(team => team.team_id));
@@ -956,6 +1014,7 @@
             console.log(`Aktuell säsong: ${currentSeason}`);
             console.log(`Spelbara spelare: ${playablePlayers.length}`);
             console.log(`Synliga lag: ${validTeamIds.size}`);
+            console.log('Ligor:', [...new Set(teamsList.map(team => team.league))]);
 
             return {
                 currentSeason,
@@ -963,6 +1022,7 @@
                 playersList: playablePlayers
             };
         }
+
         function buildTeamsObject(teamsList, playersList) {
             const newTeamsObject = {};
             const teamIdToLeagueKeyMap = {};
@@ -1004,30 +1064,35 @@
 
                 let allTeamsList;
                 let gamesList;
+                let seasonSummaryList;
                 let playersList;
 
                 if (USE_LOCAL_FILES) {
-                    const [allTeamsResponse, gamesResponse, playersResponse] = await Promise.all([
+                    const [allTeamsResponse, gamesResponse, seasonSummaryResponse, playersResponse] = await Promise.all([
                         fetch(LOCAL_ALL_TEAMS_URL),
                         fetch(LOCAL_GAMES_URL),
+                        fetch(LOCAL_SEASON_SUMMARY_URL),
                         fetch(LOCAL_PLAYERS_URL)
                     ]);
 
-                    if (!allTeamsResponse.ok || !gamesResponse.ok || !playersResponse.ok) {
+                    if (!allTeamsResponse.ok || !gamesResponse.ok || !seasonSummaryResponse.ok || !playersResponse.ok) {
                         throw new Error('Kunde inte hämta lokala datafiler.');
                     }
 
                     allTeamsList = parseTSV(await allTeamsResponse.text(), DATA_SOURCES.allTeams.requiredColumns);
                     gamesList = parseTSV(await gamesResponse.text(), DATA_SOURCES.games.requiredColumns);
+                    seasonSummaryList = parseTSV(await seasonSummaryResponse.text(), DATA_SOURCES.seasonSummary.requiredColumns);
                     playersList = parseTSV(await playersResponse.text(), DATA_SOURCES.players.requiredColumns);
                 } else {
                     const [
                         { rows: allTeamRows },
                         { rows: gameRows },
+                        { rows: seasonSummaryRows },
                         { rows: playerRows }
                     ] = await Promise.all([
                         GoogleSheetsData.fetchRows(DATA_SOURCES.allTeams),
                         GoogleSheetsData.fetchRows(DATA_SOURCES.games),
+                        GoogleSheetsData.fetchRows(DATA_SOURCES.seasonSummary),
                         GoogleSheetsData.fetchRows(DATA_SOURCES.players)
                     ]);
 
@@ -1057,6 +1122,20 @@
                         away_team_id: String(row[15] ?? '').trim()
                     }));
 
+                    seasonSummaryList = seasonSummaryRows.slice(1).map(row => ({
+                        league: String(row[0] ?? '').trim(),
+                        season_id: String(row[1] ?? '').trim(),
+                        team: String(row[2] ?? '').trim(),
+                        team_label: String(row[3] ?? '').trim(),
+                        regular_season_rank: String(row[4] ?? '').trim(),
+                        regular_season_points: String(row[5] ?? '').trim(),
+                        goal_difference: String(row[6] ?? '').trim(),
+                        playoff_result: String(row[7] ?? '').trim(),
+                        playoff_round_numeric: String(row[8] ?? '').trim(),
+                        row_id: String(row[9] ?? '').trim(),
+                        team_id: String(row[10] ?? '').trim()
+                    }));
+
                     playersList = playerRows.slice(1).map(row => ({
                         player_name: String(row[0] ?? '').trim(),
                         number: String(row[1] ?? '').trim(),
@@ -1065,7 +1144,7 @@
                     }));
                 }
 
-                const prepared = prepareCurrentSeasonData(allTeamsList, gamesList, playersList);
+                const prepared = prepareCurrentSeasonData(allTeamsList, gamesList, seasonSummaryList, playersList);
                 TEAMS = buildTeamsObject(prepared.teamsList, prepared.playersList);
 
                 createStartScreen();
