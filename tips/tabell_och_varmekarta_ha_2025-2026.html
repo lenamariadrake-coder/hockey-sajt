@@ -3056,8 +3056,7 @@ Lag 14</pre>
             try {
                 payload = JSON.parse(rawJson);
             } catch (e) {
-                console.warn("[custom][localStorage] Ogiltig JSON -> rensar", e);
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Ogiltig JSON -> ignorerar utan att radera delad data", e);
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "bad_json" };
@@ -3071,16 +3070,14 @@ Lag 14</pre>
             // ✅ Ingen fallback: vi accepterar bara fullständigt payload-format
             // Förväntat format: { version, savedAt, tips, matrix }
             if (!matrix || typeof matrix !== "object") {
-                console.warn("[custom][localStorage] Saknar payload.matrix -> rensar");
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Saknar payload.matrix -> ignorerar utan att radera delad data");
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "missing_matrix" };
             }
 
             if (typeof payload?.tips !== "string") {
-                console.warn("[custom][localStorage] Saknar payload.tips (raw text) -> rensar");
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Saknar payload.tips (raw text) -> ignorerar utan att radera delad data");
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "missing_tips" };
@@ -3088,8 +3085,7 @@ Lag 14</pre>
 
 
             if (!matrix || typeof matrix !== "object") {
-                console.warn("[custom][localStorage] Saknar payload.matrix -> rensar");
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Saknar payload.matrix -> ignorerar utan att radera delad data");
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "missing_matrix" };
@@ -3097,8 +3093,7 @@ Lag 14</pre>
 
             const v = validateCustomMatrix(matrix);
             if (!v.ok) {
-                console.warn("[custom][localStorage] Ogiltig matrix -> rensar", v.error);
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Ogiltig matrix -> ignorerar utan att radera delad data", v.error);
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "invalid_matrix" };
