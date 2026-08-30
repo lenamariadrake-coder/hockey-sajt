@@ -1756,6 +1756,23 @@
                     <button id="tabHeat" class="tab-btn" role="tab" aria-selected="false"
                         aria-controls="viewHeat">Värmekarta</button>
 
+                    <script>
+                        // Sätt rätt aktiv flik redan under HTML-parsningen.
+                        // Detta är en ren visuell förhandsinställning; den riktiga
+                        // vy/renderingen sköts fortfarande av huvudscriptet senare.
+                        (() => {
+                            const h = String(location.hash || '')
+                                .replace('#', '')
+                                .trim()
+                                .toLowerCase();
+
+                            if (h === 'heat' || h === 'heatmap' || h === 'varmekarta') {
+                                document.getElementById('tabTable')?.setAttribute('aria-selected', 'false');
+                                document.getElementById('tabHeat')?.setAttribute('aria-selected', 'true');
+                            }
+                        })();
+                    </script>
+
                     <a id="tabSnitt" class="tab-btn tab-btn-link" href="ha-tips_2025-2026.html" aria-label="Snitt"
                         title="Snitt">Snitt</a>
 
@@ -2716,91 +2733,101 @@ Lag 14</pre>
                 .filter(Boolean);
         }
 
-        // HA "contains"-mappning: returnerar ett kanoniskt lagnamn (oftast långt),
-        // eller returnerar originalraden om ingen mappning träffar.
-        // OBS: Detta "släpper inte igenom" okända lag – okända fångas sen av getShortTeamFromInput().
+        // Eget tips får vara tolerant mot LISTFORMAT (t.ex. "12. AIK" eller "12) AIK"),
+        // men själva lagnamnet måste efter rensning vara en EXAKT tillåten namnform från all_teams.
+        // Det förhindrar t.ex. att "Troja" råkar godkännas bara för att det innehåller förkortningen "TRO".
+        function stripCustomTeamLinePrefix(line) {
+            return String(line || "")
+                .trim()
+                // Vanliga numrerade listor: 1. Lag, 1) Lag, 1: Lag, 1- Lag, 1 Lag
+                .replace(/^\s*\d{1,2}\s*(?:[.)\-:]\s*|\s+)/, "")
+                // Vanliga punktlistor: - Lag, – Lag, — Lag, • Lag, * Lag
+                .replace(/^\s*[-–—•*]\s+/, "")
+                .trim();
+        }
+
         function resolveCanonicalTeamNameFromLine(line) {
             const input = String(line || "").trim();
             if (!input) return input;
 
+            const teamText = stripCustomTeamLinePrefix(input);
+            if (!teamText) return input;
+
             // Eget tips ska använda exakt samma säsongslag som resten av sidan.
-            // Inga HA-lag hårdkodas här: alias byggs från teams_ha_2025-2026
-            // (abbr + short + long), som redan ligger i TEAM_BY_ID.
-            const lower = input.toLocaleLowerCase("sv-SE");
+            // Inga HA-lag hårdkodas här: tillåtna namnformer byggs från all_teams
+            // (abbr + short + long + team_aliases) för just säsongens 14 team_id.
+            const lower = teamText.toLocaleLowerCase("sv-SE");
             const candidates = [];
 
-            TEAM_BY_ID.forEach((team, teamId) => {
+            // Matcha bara mot de 14 lag som faktiskt tillhör den här säsongen/ligan.
+            // TEAM_BY_ID innehåller även lag från andra ligor (t.ex. SDHL), där samma
+            // synliga namn kan förekomma med ett annat team_id.
+            SEASON_TEAM_IDS.forEach(teamId => {
+                const team = TEAM_BY_ID.get(teamId);
                 const shortName = String(team?.team_name_short || "").trim();
                 const longName = String(team?.team_name_long || "").trim();
                 const abbr = String(team?.team_name_abbr || "").trim();
+                const extraAliases = String(team?.team_aliases || "")
+                    .split(';')
+                    .map(v => v.trim())
+                    .filter(Boolean);
 
                 const aliases = Array.from(new Set(
-                    [longName, shortName, abbr]
+                    [longName, shortName, abbr, ...extraAliases]
                         .map(v => String(v || "").trim())
                         .filter(Boolean)
-                )).sort((a, b) => b.length - a.length);
+                ));
 
                 for (const alias of aliases) {
                     const aliasLower = alias.toLocaleLowerCase("sv-SE");
 
-                    // Exakt match är säkrast och får högst prioritet.
+                    // Efter att listprefixet har rensats krävs exakt namnmatchning.
+                    // Parsern får alltså vara generös med "1."/"1)" osv, men den
+                    // hittar aldrig själv på nya smeknamn eller avkortningar.
                     if (lower === aliasLower) {
                         candidates.push({
-                            score: 10000 + alias.length,
                             alias,
                             shortName,
-                            teamId,
-                            matchType: "exact"
-                        });
-                        continue;
-                    }
-
-                    // Behåll den gamla bekvämligheten: en rad får innehålla
-                    // lagnamnet/förkortningen tillsammans med annan text.
-                    // Kräv minst 3 tecken så att mycket korta fragment inte
-                    // råkar träffa fel lag.
-                    if (alias.length >= 3 && lower.includes(aliasLower)) {
-                        candidates.push({
-                            score: 1000 + alias.length,
-                            alias,
-                            shortName,
-                            teamId,
-                            matchType: "contains"
+                            teamId
                         });
                     }
                 }
             });
 
             if (!candidates.length) {
-                dlog(DEBUG.tips, "[custom][team-match] ingen aliasträff", { input });
+                dlog(DEBUG.tips, "[custom][team-match] ingen exakt namnträff", {
+                    input,
+                    teamText
+                });
                 // Låt getShortTeamFromInput() göra sin vanliga strikta kontroll.
-                return input;
+                // För en numrerad okänd rad kommer den att underkännas, vilket är avsikten.
+                return teamText;
             }
 
-            candidates.sort((a, b) => b.score - a.score);
+            // Samma synliga namn får inte peka på flera av säsongens team_id.
+            // I så fall gissar vi inte tyst.
+            const uniqueTeams = new Set(candidates.map(c => c.teamId));
+            if (uniqueTeams.size > 1) {
+                dwarn(DEBUG.tips, "[custom][team-match] tvetydig exakt namnträff", {
+                    input,
+                    teamText,
+                    candidates
+                });
+                return teamText;
+            }
 
             const best = candidates[0];
-            const tiedBest = candidates.filter(c => c.score === best.score);
-
-            // Ambiguös bästa träff ska inte gissas tyst.
-            const uniqueBestTeams = new Set(tiedBest.map(c => c.teamId));
-            if (uniqueBestTeams.size > 1) {
-                dwarn(DEBUG.tips, "[custom][team-match] tvetydig aliasträff", {
-                    input,
-                    candidates: tiedBest
-                });
-                return input;
-            }
 
             dlog(DEBUG.tips, "[custom][team-match]", {
                 input,
+                teamText,
                 matchedAlias: best.alias,
-                matchType: best.matchType,
+                matchType: "exact-after-prefix-strip",
                 shortTeam: best.shortName,
                 teamId: best.teamId
             });
 
-            return best.shortName || input;
+            return best.shortName || teamText;
         }
 
         function parseCustomTipsText(rawText) {
@@ -3029,8 +3056,7 @@ Lag 14</pre>
             try {
                 payload = JSON.parse(rawJson);
             } catch (e) {
-                console.warn("[custom][localStorage] Ogiltig JSON -> rensar", e);
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Ogiltig JSON -> ignorerar utan att radera delad data", e);
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "bad_json" };
@@ -3044,16 +3070,14 @@ Lag 14</pre>
             // ✅ Ingen fallback: vi accepterar bara fullständigt payload-format
             // Förväntat format: { version, savedAt, tips, matrix }
             if (!matrix || typeof matrix !== "object") {
-                console.warn("[custom][localStorage] Saknar payload.matrix -> rensar");
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Saknar payload.matrix -> ignorerar utan att radera delad data");
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "missing_matrix" };
             }
 
             if (typeof payload?.tips !== "string") {
-                console.warn("[custom][localStorage] Saknar payload.tips (raw text) -> rensar");
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Saknar payload.tips (raw text) -> ignorerar utan att radera delad data");
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "missing_tips" };
@@ -3061,8 +3085,7 @@ Lag 14</pre>
 
 
             if (!matrix || typeof matrix !== "object") {
-                console.warn("[custom][localStorage] Saknar payload.matrix -> rensar");
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Saknar payload.matrix -> ignorerar utan att radera delad data");
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "missing_matrix" };
@@ -3070,8 +3093,7 @@ Lag 14</pre>
 
             const v = validateCustomMatrix(matrix);
             if (!v.ok) {
-                console.warn("[custom][localStorage] Ogiltig matrix -> rensar", v.error);
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][localStorage] Ogiltig matrix -> ignorerar utan att radera delad data", v.error);
                 TIPS_MATRIX_CUSTOM = null;
                 updateCustomOpenButtonIcon();
                 return { ok: false, hasCustom: false, reason: "invalid_matrix" };
@@ -4366,6 +4388,7 @@ Lag 14</pre>
             const iAbbr = idx('team_name_abbr');
             const iShort = idx('team_name_short');
             const iLong = idx('team_name_long');
+            const iAliases = idx('team_aliases');
 
             if (iId === -1 || iShort === -1 || iLong === -1) {
                 throw new Error('Lagdata: all_teams måste innehålla team_id, team_name_short och team_name_long.');
@@ -4383,7 +4406,8 @@ Lag 14</pre>
                     team_id,
                     team_name_abbr: iAbbr !== -1 ? String(r[iAbbr] || '').trim() : '',
                     team_name_short: String(r[iShort] || '').trim(),
-                    team_name_long: String(r[iLong] || '').trim()
+                    team_name_long: String(r[iLong] || '').trim(),
+                    team_aliases: iAliases !== -1 ? String(r[iAliases] || '').trim() : ''
                 });
             });
 
@@ -4447,8 +4471,8 @@ Lag 14</pre>
                 if (!participantId || !displayName || !teamId || !Number.isInteger(pickRank)) {
                     throw new Error('Tipsdata: en classic-rad saknar participant_id, display_name, team_id eller giltig pick_rank.');
                 }
-                if (!TEAM_BY_ID.has(teamId)) {
-                    throw new Error(`Tipsdata: okänt team_id "${teamId}" i classic-tipset.`);
+                if (!SEASON_TEAM_IDS.has(teamId)) {
+                    throw new Error(`Tipsdata: team_id "${teamId}" tillhör inte HA ${MATCH_SEASON_ID}.`);
                 }
                 if (pickRank < 1 || pickRank > 14) {
                     throw new Error(`Tipsdata: pick_rank ${pickRank} ligger utanför 1–14.`);
@@ -4664,6 +4688,12 @@ Lag 14</pre>
                 const parsed = JSON.parse(raw);
                 if (!parsed || parsed.version !== 1 || parsed.season !== '2025_2026' || parsed.league !== 'ha') return null;
                 if (!parsed.snapshots || !Array.isArray(parsed.roundsAvailable) || !Array.isArray(parsed.seasonTeamIds) || !parsed.teamById) return null;
+
+                // Eget tips använder även team_aliases från all_teams. En äldre cache
+                // utan den egenskapen får därför byggas om en gång från nätverket.
+                const cachedTeams = Object.values(parsed.teamById || {});
+                if (!cachedTeams.length || cachedTeams.some(team => !Object.prototype.hasOwnProperty.call(team || {}, 'team_aliases'))) return null;
+
                 // Den här sidan behöver även datumaxeln. Äldre cache utan dessa
                 // fält ignoreras här och byggs om från games; systersidor kan
                 // fortfarande läsa samma version 1-cache och ignorera extrafälten.
@@ -5114,6 +5144,35 @@ Lag 14</pre>
             return null;
         }
 
+
+
+        function applyInitialViewShell(view) {
+            if (view !== 'table' && view !== 'heat') return;
+
+            // Välj rätt visuell panel direkt, utan att rendera data ännu.
+            // Den fulla setActiveView() körs senare när all data är laddad.
+            state.activeView = view;
+
+            btnTabell?.setAttribute(
+                'aria-selected',
+                view === 'table' ? 'true' : 'false'
+            );
+
+            btnHeat?.setAttribute(
+                'aria-selected',
+                view === 'heat' ? 'true' : 'false'
+            );
+
+            viewTable?.setAttribute(
+                'aria-hidden',
+                view === 'table' ? 'false' : 'true'
+            );
+
+            viewHeat?.setAttribute(
+                'aria-hidden',
+                view === 'heat' ? 'false' : 'true'
+            );
+        }
 
         function updateSeasonOptionsForView(view) {
             if (!seasonSelect) return;
@@ -6303,6 +6362,9 @@ Lag 14</pre>
            10) Init
            =========================================================== */
         async function init() {
+            const initialView = getInitialViewFromURL() || 'table';
+
+            applyInitialViewShell(initialView);
             loadingStart();
 
             // ---------------------------------------------------------
@@ -6357,7 +6419,6 @@ Lag 14</pre>
             } catch (error) {
                 showFatalDataError(error);
 
-                const initialView = getInitialViewFromURL() || 'table';
                 setActiveView(initialView);
                 return;
             }
@@ -6671,7 +6732,7 @@ Lag 14</pre>
 
 
             // Viktigt: välj startvy och rendera direkt
-            const initialView = getInitialViewFromURL() || 'table';
+            // Viktigt: rendera den startvy som valdes redan före datahämtningen
             console.log("[view][init] initial view", { initialView, hash: location.hash });
 
             setActiveView(initialView);

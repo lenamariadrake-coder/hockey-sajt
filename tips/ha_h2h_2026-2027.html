@@ -1070,7 +1070,7 @@
  Synlighet styrs i sektion 9 (BAS) och kan tvingas i sektion 23 (OVERRIDE).
  ========================================================= */
         #sourceFilter {
-            /* Tippartopplistan får 42 px kontrollhöjd av Eget tips-knappen.
+            /* Tippartopplistan får 42 px kontrollhöjd av Eget H2H-tips-knappen.
                H2H saknar den medvetet, så vi reserverar samma höjd här
                för att Amatörer/Experter ska hamna på exakt samma nivå. */
             min-height: var(--ui-row-h, 42px);
@@ -2234,11 +2234,69 @@
                                     </div>
                                 </details>
                             </span>
+
+                            <span class="source-item">
+                                <label title="Visa/dölj eget H2H-tips">
+                                    <input id="tipsSourceCustom" type="checkbox">
+                                    Eget H2H-tips
+                                </label>
+
+                                <details class="m-tip" aria-label="Mer info om Eget H2H-tips">
+                                    <summary aria-label="Mer info">ℹ️</summary>
+                                    <div class="m-tip__box" role="tooltip">Visa/dölj eget H2H-tips</div>
+                                </details>
+                            </span>
+
+                            <button class="btn-icon-plain" id="btn-open-custom" type="button"
+                                aria-label="Lägg till eget H2H-tips" title="Lägg till eget H2H-tips">
+                                <span class="custom-open-icon" aria-hidden="true">＋</span>
+                                <span class="sr-only">Eget H2H-tips</span>
+                            </button>
                         </span>
                     </div>
                 </div>
             </div>
         </header>
+
+        <div class="custom-panel" id="custom-panel" aria-label="Inmatning av eget H2H-tips">
+            <div class="custom-content-centered">
+                <div class="custom-row">
+                    <button class="btn" id="btn-save-custom" type="button">Spara</button>
+                    <button class="btn" id="btn-clear-custom" type="button">Rensa</button>
+                    <button class="btn" id="btn-cancel-custom" type="button">Avbryt</button>
+                </div>
+
+                <textarea id="custom-input" spellcheck="false" placeholder="Klistra in H2H-tips här..."></textarea>
+
+                <div id="custom-msg" class="msg"></div>
+                <details class="hint custom-help">
+                    <summary>
+                        <span class="when-closed">Format-hjälp (klicka för att visa)</span>
+                        <span class="when-open">Format-hjälp (klicka för att dölja)</span>
+                    </summary>
+
+                    <div class="custom-help__body">
+                        <p><strong>Klistra in ett eller flera H2H-tips som block.</strong></p>
+                        <ul>
+                            <li>Varje block ska innehålla <strong>2–14 olika lag</strong> i den ordning du tippar dem.</li>
+                            <li>Lämna <strong>en tom rad</strong> mellan block.</li>
+                            <li>Om första raden är ett lagnamn räknas hela blocket som lag. Då döps tipparen automatiskt, till exempel <strong>Tippare 1 (eget tips)</strong>.</li>
+                            <li>Om första raden inte är ett lagnamn används den som tipparens namn och resten av blocket som lag.</li>
+                            <li>Vanliga namnformer och registrerade alias accepteras. Numrering som <strong>1. Lag</strong> går också bra.</li>
+                        </ul>
+                        <p><strong>Exempel:</strong></p>
+                        <pre class="custom-help__ex">Mitt H2H-tips
+AIK
+Björklöven
+Karlskoga
+
+MoDo
+AIK
+Södertälje</pre>
+                    </div>
+                </details>
+            </div>
+        </div>
 
         <section class="controls">
             <div class="siffror-wrap" id="roundButtons" aria-label="Omgångar (antal matcher)"></div>
@@ -2364,6 +2422,14 @@
         const timelineSlider = document.getElementById('timeline-slider');
         const tipsSourceHobby = document.getElementById('tipsSourceHobby');
         const tipsSourceExpert = document.getElementById('tipsSourceExpert');
+        const tipsSourceCustom = document.getElementById('tipsSourceCustom');
+        const openCustomBtn = document.getElementById('btn-open-custom');
+        const customPanel = document.getElementById('custom-panel');
+        const customInput = document.getElementById('custom-input');
+        const customMsg = document.getElementById('custom-msg');
+        const saveCustomBtn = document.getElementById('btn-save-custom');
+        const clearCustomBtn = document.getElementById('btn-clear-custom');
+        const cancelCustomBtn = document.getElementById('btn-cancel-custom');
         const currentStepDisplay = document.getElementById('current-step-display');
         const btnPrev = document.getElementById('step-prev');
         const btnNext = document.getElementById('step-next');
@@ -2426,7 +2492,8 @@
                 tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=257061153&single=true&output=tsv',
                 requiredColumns: [
                     'team_id',
-                    'team_name_long'
+                    'team_name_long',
+                    'team_aliases'
                 ]
             },
 
@@ -2461,6 +2528,9 @@
         const MOVEMENT_STORAGE_KEY = 'haTable.movements.ha_2026_2027.v1';
         const ROWCOLOR_STORAGE_KEY = 'haTable.rowColors.ha_2026_2027.v1';
         const LS_TIPS_SOURCES_KEY = 'haTips.sources.ha_2026_2027.v1';
+        const LS_H2H_CUSTOM_TIPS_KEY = 'haH2H.customTippers.ha_2026_2027.v1';
+        const LS_H2H_CUSTOM_VISIBLE_KEY = 'haH2H.customVisible.ha_2026_2027.v1';
+        const LS_H2H_CUSTOM_PANEL_OPEN_KEY = 'haH2H.ui.customPanelOpen.ha_2026_2027.v1';
         const HA_STANDINGS_CACHE_KEY = 'HA_STANDINGS_DATA_2026_2027';
         const HA_H2H_TIPS_CACHE_KEY = 'HA_H2H_TIPS_DATA_2026_2027';
         const HA_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
@@ -2477,7 +2547,7 @@
             currentDateIndex: 0,
             _matchTimelineValue: 0,
             showMovements: true,
-            tipsSources: { hobby: true, expert: true },
+            tipsSources: { hobby: true, expert: true, custom: false },
             rowColorMode: false,
             rowColors: new Map(),
             _rowColorActiveTeam: null
@@ -2489,6 +2559,8 @@
         let ALL_TEAM_IDS = [];
         let TEAM_BY_ID = new Map();
         let H2H_TIPS_BY_PARTICIPANT = new Map();
+        let H2H_CUSTOM_TIPS_BY_PARTICIPANT = new Map();
+        let H2H_CUSTOM_TEXT = '';
 
         let playbackTimer = null;
         const PLAYBACK_MS = 900;
@@ -2527,6 +2599,7 @@
             const iShort = idx('team_name_short');
             const iLong = idx('team_name_long');
             const iAbbr = idx('team_name_abbr');
+            const iAliases = idx('team_aliases');
 
             if (iId === -1 || iLong === -1) {
                 throw new Error('Lagdata: team_id eller team_name_long saknas.');
@@ -2542,7 +2615,8 @@
                     team_id,
                     team_name_abbr: iAbbr !== -1 ? r[iAbbr] : '',
                     team_name_short: iShort !== -1 ? r[iShort] : '',
-                    team_name_long: iLong !== -1 ? r[iLong] : ''
+                    team_name_long: iLong !== -1 ? r[iLong] : '',
+                    team_aliases: iAliases !== -1 ? r[iAliases] : ''
                 };
 
                 TEAM_BY_ID.set(team_id, obj);
@@ -3084,19 +3158,34 @@
 
         function saveTipsSourcesToLocalStorage() {
             try {
-                let custom = false;
-                const raw = localStorage.getItem(LS_TIPS_SOURCES_KEY);
-                if (raw) {
-                    const existing = JSON.parse(raw);
-                    custom = existing?.custom === true;
-                }
+                let existing = {};
+                try {
+                    const raw = localStorage.getItem(LS_TIPS_SOURCES_KEY);
+                    if (raw) existing = JSON.parse(raw) || {};
+                } catch { }
                 localStorage.setItem(LS_TIPS_SOURCES_KEY, JSON.stringify({
+                    ...existing,
                     hobby: !!state.tipsSources.hobby,
-                    expert: !!state.tipsSources.expert,
-                    custom
+                    expert: !!state.tipsSources.expert
                 }));
             } catch (error) {
                 console.warn('[tipsSources][LS] kunde inte spara:', error);
+            }
+        }
+
+        function loadH2HCustomVisibility() {
+            try {
+                return localStorage.getItem(LS_H2H_CUSTOM_VISIBLE_KEY) === 'true';
+            } catch {
+                return false;
+            }
+        }
+
+        function saveH2HCustomVisibility() {
+            try {
+                localStorage.setItem(LS_H2H_CUSTOM_VISIBLE_KEY, state.tipsSources.custom ? 'true' : 'false');
+            } catch (error) {
+                console.warn('[h2h-custom][visible] kunde inte spara:', error);
             }
         }
 
@@ -3106,8 +3195,190 @@
                 state.tipsSources.hobby = !!saved.hobby;
                 state.tipsSources.expert = !!saved.expert;
             }
+            state.tipsSources.custom = loadH2HCustomVisibility();
             if (tipsSourceHobby) tipsSourceHobby.checked = !!state.tipsSources.hobby;
             if (tipsSourceExpert) tipsSourceExpert.checked = !!state.tipsSources.expert;
+            if (tipsSourceCustom) tipsSourceCustom.checked = !!state.tipsSources.custom;
+        }
+
+        function stripCustomTeamLinePrefix(line) {
+            return String(line || '')
+                .trim()
+                .replace(/^\s*\d{1,2}\s*(?:[.)\-:]\s*|\s+)/, '')
+                .replace(/^\s*[-–—•*]\s+/, '')
+                .trim();
+        }
+
+        function findTeamIdFromCustomLine(line) {
+            const input = stripCustomTeamLinePrefix(line);
+            if (!input) return { teamId: null, ambiguous: false };
+            const key = input.toLocaleLowerCase('sv-SE');
+            const matches = [];
+            const seasonIds = new Set(ALL_TEAM_IDS);
+
+            TEAM_BY_ID.forEach((team, teamId) => {
+                if (!seasonIds.has(teamId)) return;
+                const extraAliases = String(team.team_aliases || '')
+                    .split(';').map(v => v.trim()).filter(Boolean);
+                const aliases = Array.from(new Set([
+                    team.team_name_long,
+                    team.team_name_short,
+                    team.team_name_abbr,
+                    ...extraAliases
+                ].map(v => String(v || '').trim()).filter(Boolean)));
+
+                if (aliases.some(alias => alias.toLocaleLowerCase('sv-SE') === key)) {
+                    matches.push(teamId);
+                }
+            });
+
+            const unique = Array.from(new Set(matches));
+            if (unique.length === 1) return { teamId: unique[0], ambiguous: false };
+            return { teamId: null, ambiguous: unique.length > 1 };
+        }
+
+        function parseH2HCustomText(rawText) {
+            const raw = String(rawText || '').replace(/\r\n/g, '\n');
+            if (!raw.trim()) return { ok: true, participants: [], empty: true };
+
+            const blocks = raw.split(/\n\s*\n+/).map(block => block.trim()).filter(Boolean);
+            const participants = [];
+            let unnamedCounter = 0;
+
+            for (let bi = 0; bi < blocks.length; bi++) {
+                const lines = blocks[bi].split('\n').map(line => line.trim()).filter(Boolean);
+                if (!lines.length) continue;
+
+                const firstMatch = findTeamIdFromCustomLine(lines[0]);
+                const hasNameLine = !firstMatch.teamId;
+                if (hasNameLine && firstMatch.ambiguous) {
+                    return { ok: false, error: `Block ${bi + 1}: första raden "${lines[0]}" är ett tvetydigt lagnamn.` };
+                }
+
+                const teamLines = hasNameLine ? lines.slice(1) : lines;
+                if (teamLines.length < 2 || teamLines.length > 14) {
+                    return { ok: false, error: `Block ${bi + 1}: H2H-tipset måste innehålla 2–14 lag. Här hittades ${teamLines.length}.` };
+                }
+
+                const picks = [];
+                const usedTeamIds = new Set();
+                for (let li = 0; li < teamLines.length; li++) {
+                    const match = findTeamIdFromCustomLine(teamLines[li]);
+                    if (!match.teamId) {
+                        const reason = match.ambiguous ? 'tvetydigt' : 'okänt';
+                        return { ok: false, error: `Block ${bi + 1}, lagrad ${li + 1}: ${reason} lag "${teamLines[li]}".` };
+                    }
+                    if (usedTeamIds.has(match.teamId)) {
+                        return { ok: false, error: `Block ${bi + 1}: samma lag får bara förekomma en gång.` };
+                    }
+                    usedTeamIds.add(match.teamId);
+                    picks.push({ team_id: match.teamId, pick_rank: li + 1 });
+                }
+
+                let displayName;
+                if (hasNameLine) {
+                    displayName = lines[0].trim();
+                    if (!displayName) return { ok: false, error: `Block ${bi + 1}: namnrad saknar text.` };
+                } else {
+                    unnamedCounter += 1;
+                    displayName = `Tippare ${unnamedCounter} (eget tips)`;
+                }
+
+                participants.push({
+                    participant_id: `h2h_custom_${bi + 1}`,
+                    display_name: displayName,
+                    h2h_point_spread_tip: null,
+                    picks
+                });
+            }
+
+            return { ok: true, participants, tipsN: participants.length };
+        }
+
+        function setCustomMsg(type, text) {
+            if (!customMsg) return;
+            customMsg.className = 'msg ' + (type === 'ok' ? 'ok' : 'err');
+            customMsg.textContent = text || '';
+        }
+
+        function updateCustomOpenButtonIcon() {
+            const icon = openCustomBtn?.querySelector('.custom-open-icon');
+            if (!icon || !customPanel) return;
+            icon.textContent = customPanel.classList.contains('open') ? '−' : '＋';
+        }
+
+        function toggleCustomPanel(forceOpen, { persist = true } = {}) {
+            if (!customPanel) return;
+            const open = typeof forceOpen === 'boolean' ? forceOpen : !customPanel.classList.contains('open');
+            customPanel.classList.toggle('open', open);
+            updateCustomOpenButtonIcon();
+            if (persist) {
+                try { localStorage.setItem(LS_H2H_CUSTOM_PANEL_OPEN_KEY, open ? 'true' : 'false'); } catch { }
+            }
+            if (open) {
+                customInput.value = H2H_CUSTOM_TEXT || '';
+                setCustomMsg('err', '');
+                requestAnimationFrame(() => customInput?.focus());
+            } else {
+                setCustomMsg('err', '');
+            }
+        }
+
+        function loadH2HCustomTips({ fillTextarea = false } = {}) {
+            H2H_CUSTOM_TIPS_BY_PARTICIPANT.clear();
+            H2H_CUSTOM_TEXT = '';
+            try {
+                const raw = localStorage.getItem(LS_H2H_CUSTOM_TIPS_KEY);
+                if (!raw) return false;
+                const payload = JSON.parse(raw);
+                if (Number(payload?.version) !== 1 || typeof payload?.tips !== 'string') return false;
+                const parsed = parseH2HCustomText(payload.tips);
+                if (!parsed.ok) throw new Error(parsed.error || 'Ogiltigt eget H2H-tips.');
+                parsed.participants.forEach(participant => H2H_CUSTOM_TIPS_BY_PARTICIPANT.set(participant.participant_id, participant));
+                H2H_CUSTOM_TEXT = payload.tips;
+                if (fillTextarea && customInput) customInput.value = payload.tips;
+                return H2H_CUSTOM_TIPS_BY_PARTICIPANT.size > 0;
+            } catch (error) {
+                console.warn('[h2h-custom] kunde inte läsa sparade tips:', error);
+                H2H_CUSTOM_TIPS_BY_PARTICIPANT.clear();
+                H2H_CUSTOM_TEXT = '';
+                return false;
+            }
+        }
+
+        function saveH2HCustomTips() {
+            const raw = String(customInput?.value || '').trim();
+            if (!raw) {
+                localStorage.removeItem(LS_H2H_CUSTOM_TIPS_KEY);
+                H2H_CUSTOM_TIPS_BY_PARTICIPANT.clear();
+                H2H_CUSTOM_TEXT = '';
+                state.tipsSources.custom = false;
+                if (tipsSourceCustom) tipsSourceCustom.checked = false;
+                saveH2HCustomVisibility();
+                toggleCustomPanel(false);
+                renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                return;
+            }
+
+            const parsed = parseH2HCustomText(raw);
+            if (!parsed.ok) {
+                setCustomMsg('err', parsed.error || 'Kunde inte tolka H2H-tipset.');
+                return;
+            }
+
+            localStorage.setItem(LS_H2H_CUSTOM_TIPS_KEY, JSON.stringify({
+                version: 1,
+                savedAt: new Date().toISOString(),
+                tips: raw
+            }));
+            H2H_CUSTOM_TIPS_BY_PARTICIPANT.clear();
+            parsed.participants.forEach(participant => H2H_CUSTOM_TIPS_BY_PARTICIPANT.set(participant.participant_id, participant));
+            H2H_CUSTOM_TEXT = raw;
+            state.tipsSources.custom = true;
+            if (tipsSourceCustom) tipsSourceCustom.checked = true;
+            saveH2HCustomVisibility();
+            toggleCustomPanel(false);
+            renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
         }
 
         function buildParticipantRows(actualRankByTeamId, standings, isStartMode, currentRound) {
@@ -3117,10 +3388,14 @@
             const isFinalRound = !isStartMode && standings.length > 0 && standings.every(row => Number(row.g) === 52);
             const actualPointSpread = isFinalRound ? getFinalPointSpread(standings) : null;
 
-            H2H_TIPS_BY_PARTICIPANT.forEach(participant => {
-                const expert = isExpertDisplayName(participant.display_name);
-                if (expert && !state.tipsSources.expert) return;
-                if (!expert && !state.tipsSources.hobby) return;
+            const addParticipant = (participant, sourceType) => {
+                if (sourceType === 'custom') {
+                    if (!state.tipsSources.custom) return;
+                } else {
+                    const expert = isExpertDisplayName(participant.display_name);
+                    if (expert && !state.tipsSources.expert) return;
+                    if (!expert && !state.tipsSources.hobby) return;
+                }
 
                 const picks = participant.picks || [];
                 const pointSpreadTip = participant.h2h_point_spread_tip;
@@ -3138,7 +3413,10 @@
                     correctDays: isStartMode ? 0 : countCorrectDaysThroughDate(picks, tiebreakThroughDate),
                     tiebreakThroughDate
                 });
-            });
+            };
+
+            H2H_TIPS_BY_PARTICIPANT.forEach(participant => addParticipant(participant, 'official'));
+            H2H_CUSTOM_TIPS_BY_PARTICIPANT.forEach(participant => addParticipant(participant, 'custom'));
 
             if (isStartMode) {
                 rows.sort((a, b) => a.display_name.localeCompare(b.display_name, 'sv'));
@@ -4116,6 +4394,13 @@
 
                 await loadStandingsCacheFirst();
 
+                // Delad ställningscache kan vara skapad av en äldre systersida utan aliasfält.
+                // Hämta då all_teams en gång så Eget H2H-tips får samma aliasmatchning som de klassiska sidorna.
+                const missingAliasField = ALL_TEAM_IDS.some(teamId => !Object.prototype.hasOwnProperty.call(TEAM_BY_ID.get(teamId) || {}, 'team_aliases'));
+                if (missingAliasField) await loadTeams(DATA_SOURCES.allTeams);
+
+                loadH2HCustomTips();
+
                 if (!historicalMode) {
                     await loadH2HTips(H2H_TIPS_SOURCE);
                 } else {
@@ -4125,6 +4410,7 @@
                 // Läs delat state FÖRE första riktiga renderingen för att undvika blinkning.
                 restoreTimelineStateFromLocalStorage();
                 restoreTipsSourcesFromLocalStorage();
+                try { toggleCustomPanel(localStorage.getItem(LS_H2H_CUSTOM_PANEL_OPEN_KEY) === 'true', { persist: false }); } catch { }
                 loadMovementPreference();
                 loadRowColorPreference();
                 initRowColorsUI();
@@ -4158,6 +4444,29 @@
                     renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
                 });
 
+                tipsSourceCustom?.addEventListener('change', () => {
+                    if (tipsSourceCustom.checked && !H2H_CUSTOM_TIPS_BY_PARTICIPANT.size) {
+                        tipsSourceCustom.checked = false;
+                        state.tipsSources.custom = false;
+                        saveH2HCustomVisibility();
+                        toggleCustomPanel(true);
+                        return;
+                    }
+                    state.tipsSources.custom = !!tipsSourceCustom.checked;
+                    saveH2HCustomVisibility();
+                    renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                });
+
+                openCustomBtn?.addEventListener('click', () => toggleCustomPanel());
+                saveCustomBtn?.addEventListener('click', saveH2HCustomTips);
+                clearCustomBtn?.addEventListener('click', () => {
+                    if (customInput) customInput.value = '';
+                    setCustomMsg('err', '');
+                    customInput?.focus();
+                });
+                cancelCustomBtn?.addEventListener('click', () => toggleCustomPanel(false));
+                customInput?.addEventListener('input', () => setCustomMsg('err', ''));
+
                 exportBtn?.addEventListener('click', exportActiveView);
 
                 seasonSelect?.addEventListener('change', () => {
@@ -4171,6 +4480,26 @@
                     if (event.key === LS_TIPS_SOURCES_KEY) {
                         restoreTipsSourcesFromLocalStorage();
                         renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                        return;
+                    }
+                    if (event.key === LS_H2H_CUSTOM_TIPS_KEY) {
+                        loadH2HCustomTips();
+                        if (!H2H_CUSTOM_TIPS_BY_PARTICIPANT.size) {
+                            state.tipsSources.custom = false;
+                            if (tipsSourceCustom) tipsSourceCustom.checked = false;
+                            saveH2HCustomVisibility();
+                        }
+                        renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                        return;
+                    }
+                    if (event.key === LS_H2H_CUSTOM_VISIBLE_KEY) {
+                        state.tipsSources.custom = loadH2HCustomVisibility();
+                        if (tipsSourceCustom) tipsSourceCustom.checked = state.tipsSources.custom;
+                        renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                        return;
+                    }
+                    if (event.key === LS_H2H_CUSTOM_PANEL_OPEN_KEY) {
+                        toggleCustomPanel(event.newValue === 'true', { persist: false });
                         return;
                     }
                     if (event.key === MOVEMENT_STORAGE_KEY) {
