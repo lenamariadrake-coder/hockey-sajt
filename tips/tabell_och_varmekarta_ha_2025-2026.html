@@ -2733,20 +2733,37 @@ Lag 14</pre>
                 .filter(Boolean);
         }
 
-        // HA "contains"-mappning: returnerar ett kanoniskt lagnamn (oftast långt),
-        // eller returnerar originalraden om ingen mappning träffar.
-        // OBS: Detta "släpper inte igenom" okända lag – okända fångas sen av getShortTeamFromInput().
+        // Eget tips får vara tolerant mot LISTFORMAT (t.ex. "12. AIK" eller "12) AIK"),
+        // men själva lagnamnet måste efter rensning vara en EXAKT tillåten namnform från all_teams.
+        // Det förhindrar t.ex. att "Troja" råkar godkännas bara för att det innehåller förkortningen "TRO".
+        function stripCustomTeamLinePrefix(line) {
+            return String(line || "")
+                .trim()
+                // Vanliga numrerade listor: 1. Lag, 1) Lag, 1: Lag, 1- Lag, 1 Lag
+                .replace(/^\s*\d{1,2}\s*(?:[.)\-:]\s*|\s+)/, "")
+                // Vanliga punktlistor: - Lag, – Lag, — Lag, • Lag, * Lag
+                .replace(/^\s*[-–—•*]\s+/, "")
+                .trim();
+        }
+
         function resolveCanonicalTeamNameFromLine(line) {
             const input = String(line || "").trim();
             if (!input) return input;
 
+            const teamText = stripCustomTeamLinePrefix(input);
+            if (!teamText) return input;
+
             // Eget tips ska använda exakt samma säsongslag som resten av sidan.
-            // Inga HA-lag hårdkodas här: alias byggs från teams_ha_2025-2026
-            // (abbr + short + long + team_aliases), som redan ligger i TEAM_BY_ID.
-            const lower = input.toLocaleLowerCase("sv-SE");
+            // Inga HA-lag hårdkodas här: tillåtna namnformer byggs från all_teams
+            // (abbr + short + long + team_aliases) för just säsongens 14 team_id.
+            const lower = teamText.toLocaleLowerCase("sv-SE");
             const candidates = [];
 
-            TEAM_BY_ID.forEach((team, teamId) => {
+            // Matcha bara mot de 14 lag som faktiskt tillhör den här säsongen/ligan.
+            // TEAM_BY_ID innehåller även lag från andra ligor (t.ex. SDHL), där samma
+            // synliga namn kan förekomma med ett annat team_id.
+            SEASON_TEAM_IDS.forEach(teamId => {
+                const team = TEAM_BY_ID.get(teamId);
                 const shortName = String(team?.team_name_short || "").trim();
                 const longName = String(team?.team_name_long || "").trim();
                 const abbr = String(team?.team_name_abbr || "").trim();
@@ -2759,69 +2776,58 @@ Lag 14</pre>
                     [longName, shortName, abbr, ...extraAliases]
                         .map(v => String(v || "").trim())
                         .filter(Boolean)
-                )).sort((a, b) => b.length - a.length);
+                ));
 
                 for (const alias of aliases) {
                     const aliasLower = alias.toLocaleLowerCase("sv-SE");
 
-                    // Exakt match är säkrast och får högst prioritet.
+                    // Efter att listprefixet har rensats krävs exakt namnmatchning.
+                    // Parsern får alltså vara generös med "1."/"1)" osv, men den
+                    // hittar aldrig själv på nya smeknamn eller avkortningar.
                     if (lower === aliasLower) {
                         candidates.push({
-                            score: 10000 + alias.length,
                             alias,
                             shortName,
-                            teamId,
-                            matchType: "exact"
-                        });
-                        continue;
-                    }
-
-                    // Behåll den gamla bekvämligheten: en rad får innehålla
-                    // lagnamnet/förkortningen tillsammans med annan text.
-                    // Kräv minst 3 tecken så att mycket korta fragment inte
-                    // råkar träffa fel lag.
-                    if (alias.length >= 3 && lower.includes(aliasLower)) {
-                        candidates.push({
-                            score: 1000 + alias.length,
-                            alias,
-                            shortName,
-                            teamId,
-                            matchType: "contains"
+                            teamId
                         });
                     }
                 }
             });
 
             if (!candidates.length) {
-                dlog(DEBUG.tips, "[custom][team-match] ingen aliasträff", { input });
+                dlog(DEBUG.tips, "[custom][team-match] ingen exakt namnträff", {
+                    input,
+                    teamText
+                });
                 // Låt getShortTeamFromInput() göra sin vanliga strikta kontroll.
-                return input;
+                // För en numrerad okänd rad kommer den att underkännas, vilket är avsikten.
+                return teamText;
             }
 
-            candidates.sort((a, b) => b.score - a.score);
+            // Samma synliga namn får inte peka på flera av säsongens team_id.
+            // I så fall gissar vi inte tyst.
+            const uniqueTeams = new Set(candidates.map(c => c.teamId));
+            if (uniqueTeams.size > 1) {
+                dwarn(DEBUG.tips, "[custom][team-match] tvetydig exakt namnträff", {
+                    input,
+                    teamText,
+                    candidates
+                });
+                return teamText;
+            }
 
             const best = candidates[0];
-            const tiedBest = candidates.filter(c => c.score === best.score);
-
-            // Ambiguös bästa träff ska inte gissas tyst.
-            const uniqueBestTeams = new Set(tiedBest.map(c => c.teamId));
-            if (uniqueBestTeams.size > 1) {
-                dwarn(DEBUG.tips, "[custom][team-match] tvetydig aliasträff", {
-                    input,
-                    candidates: tiedBest
-                });
-                return input;
-            }
 
             dlog(DEBUG.tips, "[custom][team-match]", {
                 input,
+                teamText,
                 matchedAlias: best.alias,
-                matchType: best.matchType,
+                matchType: "exact-after-prefix-strip",
                 shortTeam: best.shortName,
                 teamId: best.teamId
             });
 
-            return best.shortName || input;
+            return best.shortName || teamText;
         }
 
         function parseCustomTipsText(rawText) {
