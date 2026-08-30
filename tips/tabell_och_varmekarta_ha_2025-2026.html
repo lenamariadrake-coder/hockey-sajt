@@ -2742,7 +2742,7 @@ Lag 14</pre>
 
             // Eget tips ska använda exakt samma säsongslag som resten av sidan.
             // Inga HA-lag hårdkodas här: alias byggs från teams_ha_2025-2026
-            // (abbr + short + long), som redan ligger i TEAM_BY_ID.
+            // (abbr + short + long + team_aliases), som redan ligger i TEAM_BY_ID.
             const lower = input.toLocaleLowerCase("sv-SE");
             const candidates = [];
 
@@ -2750,9 +2750,13 @@ Lag 14</pre>
                 const shortName = String(team?.team_name_short || "").trim();
                 const longName = String(team?.team_name_long || "").trim();
                 const abbr = String(team?.team_name_abbr || "").trim();
+                const extraAliases = String(team?.team_aliases || "")
+                    .split(';')
+                    .map(v => v.trim())
+                    .filter(Boolean);
 
                 const aliases = Array.from(new Set(
-                    [longName, shortName, abbr]
+                    [longName, shortName, abbr, ...extraAliases]
                         .map(v => String(v || "").trim())
                         .filter(Boolean)
                 )).sort((a, b) => b.length - a.length);
@@ -4383,6 +4387,7 @@ Lag 14</pre>
             const iAbbr = idx('team_name_abbr');
             const iShort = idx('team_name_short');
             const iLong = idx('team_name_long');
+            const iAliases = idx('team_aliases');
 
             if (iId === -1 || iShort === -1 || iLong === -1) {
                 throw new Error('Lagdata: all_teams måste innehålla team_id, team_name_short och team_name_long.');
@@ -4400,7 +4405,8 @@ Lag 14</pre>
                     team_id,
                     team_name_abbr: iAbbr !== -1 ? String(r[iAbbr] || '').trim() : '',
                     team_name_short: String(r[iShort] || '').trim(),
-                    team_name_long: String(r[iLong] || '').trim()
+                    team_name_long: String(r[iLong] || '').trim(),
+                    team_aliases: iAliases !== -1 ? String(r[iAliases] || '').trim() : ''
                 });
             });
 
@@ -4681,6 +4687,12 @@ Lag 14</pre>
                 const parsed = JSON.parse(raw);
                 if (!parsed || parsed.version !== 1 || parsed.season !== '2025_2026' || parsed.league !== 'ha') return null;
                 if (!parsed.snapshots || !Array.isArray(parsed.roundsAvailable) || !Array.isArray(parsed.seasonTeamIds) || !parsed.teamById) return null;
+
+                // Eget tips använder även team_aliases från all_teams. En äldre cache
+                // utan den egenskapen får därför byggas om en gång från nätverket.
+                const cachedTeams = Object.values(parsed.teamById || {});
+                if (!cachedTeams.length || cachedTeams.some(team => !Object.prototype.hasOwnProperty.call(team || {}, 'team_aliases'))) return null;
+
                 // Den här sidan behöver även datumaxeln. Äldre cache utan dessa
                 // fält ignoreras här och byggs om från games; systersidor kan
                 // fortfarande läsa samma version 1-cache och ignorera extrafälten.
