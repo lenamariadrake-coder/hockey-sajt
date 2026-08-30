@@ -1070,7 +1070,7 @@
  Synlighet styrs i sektion 9 (BAS) och kan tvingas i sektion 23 (OVERRIDE).
  ========================================================= */
         #sourceFilter {
-            /* Tippartopplistan får 42 px kontrollhöjd av Eget tips-knappen.
+            /* Tippartopplistan får 42 px kontrollhöjd av Eget H2H-tips-knappen.
                H2H saknar den medvetet, så vi reserverar samma höjd här
                för att Amatörer/Experter ska hamna på exakt samma nivå. */
             min-height: var(--ui-row-h, 42px);
@@ -2238,10 +2238,10 @@
                             <span class="source-item">
                                 <label title="Visa/dölj eget H2H-tips">
                                     <input id="tipsSourceCustom" type="checkbox">
-                                    Eget tips
+                                    Eget H2H-tips
                                 </label>
 
-                                <details class="m-tip" aria-label="Mer info om Eget tips">
+                                <details class="m-tip" aria-label="Mer info om Eget H2H-tips">
                                     <summary aria-label="Mer info">ℹ️</summary>
                                     <div class="m-tip__box" role="tooltip">Visa/dölj eget H2H-tips</div>
                                 </details>
@@ -2250,7 +2250,7 @@
                             <button class="btn-icon-plain" id="btn-open-custom" type="button"
                                 aria-label="Lägg till eget H2H-tips" title="Lägg till eget H2H-tips">
                                 <span class="custom-open-icon" aria-hidden="true">＋</span>
-                                <span class="sr-only">Eget tips</span>
+                                <span class="sr-only">Eget H2H-tips</span>
                             </button>
                         </span>
                     </div>
@@ -4395,7 +4395,7 @@ Södertälje</pre>
                 await loadStandingsCacheFirst();
 
                 // Delad ställningscache kan vara skapad av en äldre systersida utan aliasfält.
-                // Hämta då all_teams en gång så Eget tips får samma aliasmatchning som de klassiska sidorna.
+                // Hämta då all_teams en gång så Eget H2H-tips får samma aliasmatchning som de klassiska sidorna.
                 const missingAliasField = ALL_TEAM_IDS.some(teamId => !Object.prototype.hasOwnProperty.call(TEAM_BY_ID.get(teamId) || {}, 'team_aliases'));
                 if (missingAliasField) await loadTeams(DATA_SOURCES.allTeams);
 

@@ -1070,9 +1070,8 @@
  Synlighet styrs i sektion 9 (BAS) och kan tvingas i sektion 23 (OVERRIDE).
  ========================================================= */
         #sourceFilter {
-            /* Tippartopplistan får 42 px kontrollhöjd av Eget tips-knappen.
-               H2H saknar den medvetet, så vi reserverar samma höjd här
-               för att Amatörer/Experter ska hamna på exakt samma nivå. */
+            /* Kontrollraden reserverar samma höjd som systersidorna,
+               så Amatörer/Experter/Eget H2H-tips ligger stabilt i topbaren. */
             min-height: var(--ui-row-h, 42px);
 
             /* Gör sourceFilter mer “mobilstabilt”: låt det wrappa men inte bli oändligt högt */
@@ -2238,10 +2237,10 @@
                             <span class="source-item">
                                 <label title="Visa/dölj eget H2H-tips">
                                     <input id="tipsSourceCustom" type="checkbox">
-                                    Eget tips
+                                    Eget H2H-tips
                                 </label>
 
-                                <details class="m-tip" aria-label="Mer info om Eget tips">
+                                <details class="m-tip" aria-label="Mer info om Eget H2H-tips">
                                     <summary aria-label="Mer info">ℹ️</summary>
                                     <div class="m-tip__box" role="tooltip">Visa/dölj eget H2H-tips</div>
                                 </details>
@@ -2250,7 +2249,7 @@
                             <button class="btn-icon-plain" id="btn-open-custom" type="button"
                                 aria-label="Lägg till eget H2H-tips" title="Lägg till eget H2H-tips">
                                 <span class="custom-open-icon" aria-hidden="true">＋</span>
-                                <span class="sr-only">Eget tips</span>
+                                <span class="sr-only">Eget H2H-tips</span>
                             </button>
                         </span>
                     </div>
@@ -2281,7 +2280,7 @@
                             <li>Varje block ska innehålla <strong>2–14 olika lag</strong> i den ordning du tippar dem.</li>
                             <li>Lämna <strong>en tom rad</strong> mellan block.</li>
                             <li>Om första raden är ett lagnamn räknas hela blocket som lag. Då döps tipparen automatiskt, till exempel <strong>Tippare 1 (eget tips)</strong>.</li>
-                            <li>Om första raden inte är ett lagnamn används den som tipparens namn och resten av blocket som lag.</li>
+                            <li>Om första raden inte är ett lagnamn används den som tipparens namn och resten av blocket som lag. I tabellen läggs <strong>(eget tips)</strong> automatiskt till efter namnet.</li>
                             <li>Vanliga namnformer och registrerade alias accepteras. Numrering som <strong>1. Lag</strong> går också bra.</li>
                         </ul>
                         <p><strong>Exempel:</strong></p>
@@ -3277,8 +3276,11 @@ Skellefteå</pre>
 
                 let displayName;
                 if (hasNameLine) {
-                    displayName = lines[0].trim();
-                    if (!displayName) return { ok: false, error: `Block ${bi + 1}: namnrad saknar text.` };
+                    const rawDisplayName = lines[0].trim();
+                    if (!rawDisplayName) return { ok: false, error: `Block ${bi + 1}: namnrad saknar text.` };
+                    displayName = /\(eget tips\)\s*$/i.test(rawDisplayName)
+                        ? rawDisplayName
+                        : `${rawDisplayName} (eget tips)`;
                 } else {
                     unnamedCounter += 1;
                     displayName = `Tippare ${unnamedCounter} (eget tips)`;
@@ -3303,8 +3305,19 @@ Skellefteå</pre>
 
         function updateCustomOpenButtonIcon() {
             const icon = openCustomBtn?.querySelector('.custom-open-icon');
-            if (!icon || !customPanel) return;
-            icon.textContent = customPanel.classList.contains('open') ? '−' : '＋';
+            if (!icon || !customPanel || !openCustomBtn) return;
+
+            const isOpen = customPanel.classList.contains('open');
+            const hasCustomTips = H2H_CUSTOM_TIPS_BY_PARTICIPANT.size > 0;
+
+            icon.textContent = isOpen ? '−' : (hasCustomTips ? '✎' : '＋');
+
+            const actionText = isOpen
+                ? 'Stäng Eget H2H-tips'
+                : (hasCustomTips ? 'Redigera Eget H2H-tips' : 'Lägg till Eget H2H-tips');
+
+            openCustomBtn.setAttribute('aria-label', actionText);
+            openCustomBtn.title = actionText;
         }
 
         function toggleCustomPanel(forceOpen, { persist = true } = {}) {
@@ -3329,19 +3342,27 @@ Skellefteå</pre>
             H2H_CUSTOM_TEXT = '';
             try {
                 const raw = localStorage.getItem(LS_H2H_CUSTOM_TIPS_KEY);
-                if (!raw) return false;
+                if (!raw) {
+                    updateCustomOpenButtonIcon();
+                    return false;
+                }
                 const payload = JSON.parse(raw);
-                if (Number(payload?.version) !== 1 || typeof payload?.tips !== 'string') return false;
+                if (Number(payload?.version) !== 1 || typeof payload?.tips !== 'string') {
+                    updateCustomOpenButtonIcon();
+                    return false;
+                }
                 const parsed = parseH2HCustomText(payload.tips);
                 if (!parsed.ok) throw new Error(parsed.error || 'Ogiltigt eget H2H-tips.');
                 parsed.participants.forEach(participant => H2H_CUSTOM_TIPS_BY_PARTICIPANT.set(participant.participant_id, participant));
                 H2H_CUSTOM_TEXT = payload.tips;
                 if (fillTextarea && customInput) customInput.value = payload.tips;
+                updateCustomOpenButtonIcon();
                 return H2H_CUSTOM_TIPS_BY_PARTICIPANT.size > 0;
             } catch (error) {
                 console.warn('[h2h-custom] kunde inte läsa sparade tips:', error);
                 H2H_CUSTOM_TIPS_BY_PARTICIPANT.clear();
                 H2H_CUSTOM_TEXT = '';
+                updateCustomOpenButtonIcon();
                 return false;
             }
         }
