@@ -2677,44 +2677,45 @@ Lag 14</pre>
             return customCollapseWhitespace(String(s || "")).toLocaleLowerCase("sv-SE");
         }
 
-        function customFoldForContains(s) {
-            return String(s || "")
-                .toLocaleLowerCase("sv-SE")
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "");
+        function customStripTeamLinePrefix(line) {
+            return String(line || '')
+                .trim()
+                .replace(/^\s*\d{1,2}\s*(?:[.)\-:]\s*|\s+)/, '')
+                .replace(/^\s*[-–—•*]\s+/, '')
+                .trim();
         }
 
         function customResolveCanonicalTeamFromLine(rawLine) {
-            const raw = customCollapseWhitespace(rawLine);
+            const raw = customCollapseWhitespace(customStripTeamLinePrefix(rawLine));
             if (!raw) return null;
-            const folded = customFoldForContains(raw);
+            const key = customNormKey(raw);
+            const matches = [];
 
-            // Eget tips får bara matcha lag som faktiskt ingår i sidans liga/säsong.
-            const seasonTeams = Array.from(SEASON_TEAM_IDS)
-                .map(teamId => TEAM_BY_ID.get(teamId))
-                .filter(Boolean);
+            // Bara de 14 lag som games har placerat i aktuell liga/säsong får matcha.
+            for (const teamId of SEASON_TEAM_IDS) {
+                const team = TEAM_BY_ID.get(teamId);
+                if (!team) continue;
 
-            // Exakt match prioriteras (kortnamn, långnamn eller förkortning).
-            for (const team of seasonTeams) {
-                const aliases = [team?.team_name_short, team?.team_name_long, team?.team_name_abbr]
-                    .filter(Boolean)
-                    .map(customNormKey);
-                if (aliases.includes(customNormKey(raw))) return team.team_name_short;
+                const extraAliases = String(team?.team_aliases || '')
+                    .split(';')
+                    .map(v => v.trim())
+                    .filter(Boolean);
+
+                const aliases = Array.from(new Set([
+                    team?.team_name_short,
+                    team?.team_name_long,
+                    team?.team_name_abbr,
+                    ...extraAliases
+                ].map(v => String(v || '').trim()).filter(Boolean)));
+
+                if (aliases.some(alias => customNormKey(alias) === key)) {
+                    matches.push({ teamId, shortName: String(team?.team_name_short || '').trim() });
+                }
             }
 
-            // Därefter tolerant innehållsmatchning. Längre namn prövas först för att minska falska träffar.
-            const candidates = [];
-            seasonTeams.forEach(team => {
-                const shortName = String(team?.team_name_short || '').trim();
-                [team?.team_name_long, team?.team_name_short, team?.team_name_abbr].filter(Boolean).forEach(alias => {
-                    candidates.push({ shortName, alias: customFoldForContains(alias) });
-                });
-            });
-            candidates.sort((a,b) => b.alias.length - a.alias.length);
-            for (const c of candidates) {
-                if (c.alias && folded.includes(c.alias)) return c.shortName;
-            }
-            return null;
+            if (!matches.length) return null;
+            if (new Set(matches.map(m => m.teamId)).size > 1) return null;
+            return matches[0].shortName || null;
         }
 
         // Förslag (endast hjälptext; ingen autorättning)
@@ -3046,17 +3047,21 @@ Lag 14</pre>
             try {
                 payload = JSON.parse(raw);
             } catch (e) {
-                console.warn("[custom][LS] bad json -> clear", e);
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][LS] bad json -> ignore without deleting shared data", e);
                 resetCustomMemory({ clearTextareaIfPanelClosed: true });
                 return { ok: false, hasCustom: false };
             }
 
-            const tipsText = String(payload?.tips || "");
+            if (![1, 2].includes(Number(payload?.version)) || typeof payload?.tips !== "string") {
+                console.warn("[custom][LS] unsupported payload -> ignore without deleting shared data");
+                resetCustomMemory({ clearTextareaIfPanelClosed: true });
+                return { ok: false, hasCustom: false };
+            }
+
+            const tipsText = payload.tips;
             const parsed = parseCustomTippers(tipsText);
             if (!parsed.ok) {
-                console.warn("[custom][LS] invalid tips -> clear", parsed.error);
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][LS] invalid tips -> ignore without deleting shared data", parsed.error);
                 resetCustomMemory({ clearTextareaIfPanelClosed: true });
                 return { ok: false, hasCustom: false };
             }
@@ -3066,8 +3071,7 @@ Lag 14</pre>
 
             // ✅ Om vi av någon anledning ändå inte fick någon data: behandla som trasigt
             if (TIPS_BY_TIPPER_CUSTOM.size === 0) {
-                console.warn("[custom][LS] parsed ok but produced empty map -> clear");
-                localStorage.removeItem(LS_CUSTOM_TIPS_KEY);
+                console.warn("[custom][LS] parsed ok but produced empty map -> ignore without deleting shared data");
                 resetCustomMemory({ clearTextareaIfPanelClosed: true });
                 return { ok: false, hasCustom: false };
             }
@@ -3128,7 +3132,7 @@ Lag 14</pre>
             TIPS_MATRIX_CUSTOM = buildCustomMatrixFromParsed(parsed);
 
             const payload = {
-                version: 1,
+                version: 2,
                 savedAt: new Date().toISOString(),
                 tips: raw,
                 matrix: TIPS_MATRIX_CUSTOM
@@ -4638,6 +4642,7 @@ Lag 14</pre>
             const iShort = idx('team_name_short');
             const iLong = idx('team_name_long');
             const iAbbr = idx('team_name_abbr');
+            const iAliases = idx('team_aliases');
 
             if (iId === -1 || iShort === -1 || iLong === -1) {
                 throw new Error('Lagdata: all_teams måste innehålla team_id, team_name_short och team_name_long.');
@@ -4653,7 +4658,8 @@ Lag 14</pre>
                     team_id,
                     team_name_abbr: iAbbr !== -1 ? String(r[iAbbr] || '').trim() : '',
                     team_name_short: String(r[iShort] || '').trim(),
-                    team_name_long: String(r[iLong] || '').trim()
+                    team_name_long: String(r[iLong] || '').trim(),
+                    team_aliases: iAliases !== -1 ? String(r[iAliases] || '').trim() : ''
                 };
                 TEAM_BY_ID.set(team_id, obj);
                 if (obj.team_name_long) TEAM_ID_BY_LONGNAME.set(obj.team_name_long, team_id);
@@ -6047,6 +6053,8 @@ Lag 14</pre>
                 const data = JSON.parse(raw);
                 if (!data || data.version !== 1 || data.season !== '2025_2026' || data.league !== 'shl') return null;
                 if (!data.snapshots || !Array.isArray(data.roundsAvailable) || !Array.isArray(data.seasonTeamIds) || !data.teamById) return null;
+                const cachedTeams = Object.values(data.teamById || {});
+                if (!cachedTeams.length || cachedTeams.some(team => !Object.prototype.hasOwnProperty.call(team || {}, 'team_aliases'))) return null;
                 // Datumläget kräver den utökade, fortfarande version-1-kompatibla systercachen.
                 if (!data.dateSnapshots || !Array.isArray(data.dateTimelineKeys)) return null;
                 if (!allowStale && !isShlCacheFresh(data)) return null;
