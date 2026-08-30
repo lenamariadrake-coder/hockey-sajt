@@ -1749,6 +1749,23 @@
                     <button id="tabHeat" class="tab-btn" role="tab" aria-selected="false"
                         aria-controls="viewHeat">Värmekarta</button>
 
+                    <script>
+                        // Sätt rätt aktiv flik redan under HTML-parsningen.
+                        // Detta är en ren visuell förhandsinställning; den riktiga
+                        // vy/renderingen sköts fortfarande av huvudscriptet senare.
+                        (() => {
+                            const h = String(location.hash || '')
+                                .replace('#', '')
+                                .trim()
+                                .toLowerCase();
+
+                            if (h === 'heat' || h === 'heatmap' || h === 'varmekarta') {
+                                document.getElementById('tabTable')?.setAttribute('aria-selected', 'false');
+                                document.getElementById('tabHeat')?.setAttribute('aria-selected', 'true');
+                            }
+                        })();
+                    </script>
+
                     <a id="tabSnitt" class="tab-btn tab-btn-link" href="ha-tips_2026-2027.html" aria-label="Snitt"
                         title="Snitt">Snitt</a>
 
