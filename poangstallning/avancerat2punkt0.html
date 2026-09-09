@@ -1028,6 +1028,143 @@
         .team-item-wrapper.dnd-drop-after {
             box-shadow: inset -4px 0 0 0 #90d3e0;
         }
+    
+
+        /* =========================================================
+           HISTORISKA FILTERLAGER (Avancerat 2.0, första versionen)
+           ---------------------------------------------------------
+           Ett historiskt lager prövar samma lag N säsonger bakåt
+           relativt VARJE rad i tabellen. Lagren kombineras med OCH.
+           ========================================================= */
+        .historical-filter-section {
+            flex: 1 1 100%;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 0.25rem;
+            padding: 0.9rem 1rem;
+            border: 1px solid #d8dee7;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .historical-filter-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .historical-filter-header h3 {
+            margin: 0;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #4b5563;
+        }
+
+        .historical-filter-help {
+            margin: 0.25rem 0 0;
+            max-width: 760px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #6b7280;
+        }
+
+        #add-historical-filter,
+        .historical-remove-layer {
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            background: #fff;
+            padding: 0.35rem 0.7rem;
+            font: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        #add-historical-filter:hover,
+        .historical-remove-layer:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .historical-filter-layers {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 0.8rem;
+        }
+
+        .historical-filter-layer {
+            padding: 0.8rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .historical-layer-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .historical-layer-title-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .historical-layer-title {
+            font-weight: 650;
+            color: #374151;
+        }
+
+        .historical-offset {
+            padding: 0.25rem 0.4rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.4rem;
+            background: #fff;
+            font: inherit;
+            font-size: 0.88rem;
+        }
+
+        .historical-layer-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+            gap: 0.7rem;
+        }
+
+        .historical-mini-block {
+            padding: 0.65rem 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            background: #fff;
+        }
+
+        .historical-mini-block h4 {
+            margin: 0 0 0.45rem;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        .historical-mini-block label {
+            display: block;
+            margin: 0.2rem 0;
+            font-size: 0.86rem;
+        }
+
+        @media (max-width: 760px) {
+            .historical-layer-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
     </style>
 </head>
 
@@ -1306,6 +1443,28 @@
 
                                 </div>
 
+
+
+
+                                <!-- =====================================================
+                                     HISTORISKA FILTERLAGER
+                                     Varje lager gäller relativt respektive lag+säsongsrad.
+                                     Exempel: "2 säsonger tidigare" betyder 2024-2025 för
+                                     raden 2026-2027, men 2022-2023 för raden 2024-2025.
+                                     ===================================================== -->
+                                <div class="historical-filter-section">
+                                    <div class="historical-filter-header">
+                                        <div>
+                                            <h3>Historiska filter</h3>
+                                            <p class="historical-filter-help">
+                                                Lägg kriterier på samma lag en eller flera säsonger tidigare.
+                                                Varje lager räknas relativt den aktuella raden och alla lager måste matcha.
+                                            </p>
+                                        </div>
+                                        <button type="button" id="add-historical-filter">+ Lägg till historiskt filter</button>
+                                    </div>
+                                    <div id="historical-filter-layers" class="historical-filter-layers"></div>
+                                </div>
 
                                 <div class="working-selection-bar">
                                     <span class="working-selection-text" id="working-selection-text">
@@ -3625,6 +3784,7 @@
             setupRegularFilterListeners(); // grundserie-kryss
             setupRegularIntervalUI();      // intervall/sekvens UI
             setupPlayoffFilterListeners(); // slutspelsfilter
+            setupHistoricalFilters();      // historiska lager (relativa per lag+säsongsrad)
 
             // 6) Slider + första rendering
             // updateSliderRange(); // Sätt maxvärde på slidern
@@ -5062,6 +5222,8 @@
                     : '';
                 tr.dataset.playoffResult = row.playoffResult || '';
                 tr.dataset.teamLabel = row.teamLabel || row.team || '';
+                // Rena lagnamnet behövs för historiska uppslag över flera säsonger.
+                tr.dataset.team = row.team || '';
                 tr.dataset.teamSeasonKey = row.teamSeasonKey || ''; // NYTT
 
 
@@ -5160,6 +5322,280 @@
 
         // Gemensam funktion som läser av kryssrutorna och filtrerar tabellen
         // Gemensam funktion som läser av kryssrutorna och filtrerar tabellen
+
+        // =========================================================
+        // HISTORISKA FILTERLAGER
+        // =========================================================
+        // Grundprincip:
+        // - tabellens rad (lag + säsong) är nollpunkten
+        // - varje historiskt lager anger N säsonger bakåt
+        // - samma lag slås upp i season_summary för målsäsongen
+        // - alla aktiva historiska lager måste matcha
+        // - saknad historik är ett eget internt utfall och räknas INTE som träff
+        //
+        // Vi skiljer i debug mellan:
+        //   season_missing     = målsäsongen finns inte alls i vår data
+        //   team_season_missing = säsongen finns, men inte detta lag
+        // =========================================================
+        const DEBUG_HISTORICAL_FILTERS = true;
+        let historicalFilterLayerCounter = 0;
+
+        function shiftSeasonIdBack(seasonId, seasonsBack) {
+            const match = String(seasonId || '').match(/^(\d{4})-(\d{4})$/);
+            if (!match) return null;
+
+            const startYear = parseInt(match[1], 10);
+            const endYear = parseInt(match[2], 10);
+            const offset = parseInt(seasonsBack, 10);
+            if (!Number.isFinite(startYear) || !Number.isFinite(endYear) || !Number.isFinite(offset)) return null;
+
+            return `${startYear - offset}-${endYear - offset}`;
+        }
+
+        function getHistoricalMaxOffset() {
+            if (!Array.isArray(seasonSummaryRows) || !seasonSummaryRows.length) return 1;
+
+            const years = seasonSummaryRows
+                .map(row => {
+                    const m = String(row.seasonId || '').match(/^(\d{4})-/);
+                    return m ? parseInt(m[1], 10) : NaN;
+                })
+                .filter(Number.isFinite);
+
+            if (!years.length) return 1;
+            return Math.max(1, Math.max(...years) - Math.min(...years));
+        }
+
+        function getHistoricalFilterConfigs() {
+            return Array.from(document.querySelectorAll('.historical-filter-layer')).map(layer => {
+                const checkedValues = group => new Set(
+                    Array.from(layer.querySelectorAll(`input.historical-option[data-group="${group}"]:checked`))
+                        .map(cb => cb.value)
+                );
+
+                return {
+                    id: layer.dataset.layerId || '',
+                    offset: Math.max(1, parseInt(layer.querySelector('.historical-offset')?.value || '1', 10)),
+                    leagues: checkedValues('league'),
+                    regular: checkedValues('regular'),
+                    playoff: checkedValues('playoff')
+                };
+            });
+        }
+
+        function historicalRegularCategory(row) {
+            const rank = Number.isFinite(row?.regularSeasonRank) ? Number(row.regularSeasonRank) : null;
+            if (!Number.isFinite(rank)) return 'unresolved';
+            if (rank >= 1 && rank <= 6) return 'top6';
+            if (rank >= 7 && rank <= 12) return 'middle';
+
+            const maxRank = GLOBAL_MAX_REGULAR_RANK || 14;
+            const bottomStart = Math.max(1, maxRank - 1);
+            if (rank >= bottomStart && rank <= maxRank) return 'bottom2';
+
+            // Säker fallback om ligastorlek någon gång avviker från dagens kategorier.
+            return 'other';
+        }
+
+        function evaluateHistoricalFiltersForRow(tableRow, configs, lookup, availableSeasons) {
+            if (!configs.length) return { status: 'match', details: [] };
+
+            const team = tableRow.dataset.team || '';
+            const currentSeason = tableRow.dataset.seasonId || '';
+            const details = [];
+            let hasMissing = false;
+            let missingReason = null;
+
+            for (const config of configs) {
+                const targetSeason = shiftSeasonIdBack(currentSeason, config.offset);
+
+                if (!targetSeason || !availableSeasons.has(targetSeason)) {
+                    hasMissing = true;
+                    missingReason = missingReason || 'season_missing';
+                    details.push({ layer: config.id, offset: config.offset, targetSeason, status: 'missing', reason: 'season_missing' });
+                    continue;
+                }
+
+                const historyRow = lookup.get(`${team}::${targetSeason}`) || null;
+                if (!historyRow) {
+                    hasMissing = true;
+                    missingReason = missingReason || 'team_season_missing';
+                    details.push({ layer: config.id, offset: config.offset, targetSeason, status: 'missing', reason: 'team_season_missing' });
+                    continue;
+                }
+
+                const leagueOk = config.leagues.has(historyRow.league);
+                const regularCategory = historicalRegularCategory(historyRow);
+                const regularOk = config.regular.has(regularCategory);
+                const playoffCode = historyRow.playoffResult || '';
+                const playoffValue = playoffCode === '' ? 'unresolved' : playoffCode;
+                const playoffOk = config.playoff.has(playoffValue);
+
+                const ok = leagueOk && regularOk && playoffOk;
+                details.push({
+                    layer: config.id,
+                    offset: config.offset,
+                    targetSeason,
+                    status: ok ? 'match' : 'no_match',
+                    historyRow,
+                    checks: { leagueOk, regularOk, playoffOk, regularCategory, playoffValue }
+                });
+
+                // Ett säkert nej räcker för att hela raden ska falla.
+                if (!ok) return { status: 'no_match', details };
+            }
+
+            if (hasMissing) return { status: 'missing', reason: missingReason, details };
+            return { status: 'match', details };
+        }
+
+        function updateHistoricalAllCheckboxState(layer, group) {
+            const allCb = layer.querySelector(`input.historical-all[data-group="${group}"]`);
+            const optionCbs = Array.from(layer.querySelectorAll(`input.historical-option[data-group="${group}"]`));
+            if (!allCb || !optionCbs.length) return;
+
+            const checked = optionCbs.filter(cb => cb.checked).length;
+            allCb.checked = checked === optionCbs.length;
+            allCb.indeterminate = checked > 0 && checked < optionCbs.length;
+        }
+
+        function bindHistoricalGroup(layer, group) {
+            const allCb = layer.querySelector(`input.historical-all[data-group="${group}"]`);
+            const optionCbs = Array.from(layer.querySelectorAll(`input.historical-option[data-group="${group}"]`));
+            if (!allCb || !optionCbs.length) return;
+
+            allCb.addEventListener('change', () => {
+                optionCbs.forEach(cb => cb.checked = allCb.checked);
+                updateHistoricalAllCheckboxState(layer, group);
+                applyTableFilters();
+            });
+
+            optionCbs.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    updateHistoricalAllCheckboxState(layer, group);
+                    applyTableFilters();
+                });
+            });
+
+            updateHistoricalAllCheckboxState(layer, group);
+        }
+
+        function refreshHistoricalLayerTitles() {
+            document.querySelectorAll('.historical-filter-layer').forEach((layer, index) => {
+                const title = layer.querySelector('.historical-layer-title');
+                if (title) title.textContent = `Historiskt filter ${index + 1}`;
+            });
+        }
+
+        function createHistoricalFilterLayer(defaultOffset = 1) {
+            const host = document.getElementById('historical-filter-layers');
+            if (!host) return null;
+
+            historicalFilterLayerCounter += 1;
+            const layer = document.createElement('div');
+            layer.className = 'historical-filter-layer';
+            layer.dataset.layerId = `history-${historicalFilterLayerCounter}`;
+
+            const maxOffset = getHistoricalMaxOffset();
+            const offsetOptions = Array.from({ length: maxOffset }, (_, i) => i + 1)
+                .map(n => `<option value="${n}"${n === defaultOffset ? ' selected' : ''}>${n} ${n === 1 ? 'säsong' : 'säsonger'} tidigare</option>`)
+                .join('');
+
+            layer.innerHTML = `
+                <div class="historical-layer-header">
+                    <div class="historical-layer-title-row">
+                        <span class="historical-layer-title">Historiskt filter</span>
+                        <select class="historical-offset" aria-label="Antal säsonger bakåt">${offsetOptions}</select>
+                    </div>
+                    <button type="button" class="historical-remove-layer">Ta bort</button>
+                </div>
+                <div class="historical-layer-grid">
+                    <div class="historical-mini-block">
+                        <h4>Ligor</h4>
+                        <label><input type="checkbox" class="historical-all" data-group="league" checked> Alla</label>
+                        <label><input type="checkbox" class="historical-option" data-group="league" value="HA" checked> Hockeyallsvenskan</label>
+                        <label><input type="checkbox" class="historical-option" data-group="league" value="SHL" checked> SHL</label>
+                    </div>
+                    <div class="historical-mini-block">
+                        <h4>Grundserie</h4>
+                        <label><input type="checkbox" class="historical-all" data-group="regular" checked> Alla</label>
+                        <label><input type="checkbox" class="historical-option" data-group="regular" value="top6" checked> Topp sex (1-6)</label>
+                        <label><input type="checkbox" class="historical-option" data-group="regular" value="middle" checked> Mitten (7-12)</label>
+                        <label><input type="checkbox" class="historical-option" data-group="regular" value="bottom2" checked> Två sämsta (13-14)</label>
+                        <label><input type="checkbox" class="historical-option" data-group="regular" value="unresolved" checked> Ej avgjort</label>
+                    </div>
+                    <div class="historical-mini-block">
+                        <h4>Slutspel</h4>
+                        <label><input type="checkbox" class="historical-all" data-group="playoff" checked> Alla</label>
+                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="champion" checked> Mästare</label>
+                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="final" checked> Final</label>
+                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="semi" checked> Semi</label>
+                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="kvart" checked> Kvart</label>
+                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="play_in" checked> Play-in</label>
+                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="none" checked> -</label>
+                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="play_out" checked> Play-out</label>
+                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="relegated" checked> Åkte ur</label>
+                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="unresolved" checked> Ej avgjort</label>
+                    </div>
+                </div>`;
+
+            host.appendChild(layer);
+            ['league', 'regular', 'playoff'].forEach(group => bindHistoricalGroup(layer, group));
+
+            layer.querySelector('.historical-offset')?.addEventListener('change', () => {
+                if (DEBUG_HISTORICAL_FILTERS) {
+                    console.log('[HISTORIKFILTER][OFFSET]', {
+                        layer: layer.dataset.layerId,
+                        offset: layer.querySelector('.historical-offset')?.value
+                    });
+                }
+                applyTableFilters();
+            });
+
+            layer.querySelector('.historical-remove-layer')?.addEventListener('click', () => {
+                const id = layer.dataset.layerId;
+                layer.remove();
+                refreshHistoricalLayerTitles();
+                if (DEBUG_HISTORICAL_FILTERS) console.log('[HISTORIKFILTER][REMOVE]', id);
+                applyTableFilters();
+            });
+
+            refreshHistoricalLayerTitles();
+            if (DEBUG_HISTORICAL_FILTERS) {
+                console.log('[HISTORIKFILTER][ADD]', {
+                    layer: layer.dataset.layerId,
+                    defaultOffset,
+                    maxOffset
+                });
+            }
+            return layer;
+        }
+
+        function resetHistoricalFilters() {
+            const host = document.getElementById('historical-filter-layers');
+            if (host) host.innerHTML = '';
+            if (DEBUG_HISTORICAL_FILTERS) console.log('[HISTORIKFILTER][RESET] Alla historiska lager borttagna');
+        }
+
+        function setupHistoricalFilters() {
+            const addBtn = document.getElementById('add-historical-filter');
+            if (!addBtn || addBtn.dataset.bound === '1') return;
+
+            addBtn.dataset.bound = '1';
+            addBtn.addEventListener('click', () => {
+                createHistoricalFilterLayer(1);
+                applyTableFilters();
+            });
+
+            if (DEBUG_HISTORICAL_FILTERS) {
+                console.log('[HISTORIKFILTER][INIT]', {
+                    availableSeasons: [...new Set((seasonSummaryRows || []).map(r => r.seasonId))].sort(),
+                    maxOffset: getHistoricalMaxOffset(),
+                    principle: 'Varje lager prövas relativt respektive lag+säsongsrad'
+                });
+            }
+        }
+
         function applyTableFilters() {
             const table = document.querySelector('.team-table');
             if (!table) return;
@@ -5331,6 +5767,27 @@
                 playoffSet = null;
             }
 
+            // --- HISTORISKA FILTER: bygg lookup EN gång per filtrering ---
+            const historicalConfigs = getHistoricalFilterConfigs();
+            const historicalLookup = new Map();
+            const historicalAvailableSeasons = new Set();
+
+            if (Array.isArray(seasonSummaryRows)) {
+                seasonSummaryRows.forEach(summaryRow => {
+                    historicalAvailableSeasons.add(summaryRow.seasonId);
+                    historicalLookup.set(`${summaryRow.team}::${summaryRow.seasonId}`, summaryRow);
+                });
+            }
+
+            const historicalStats = {
+                total: 0,
+                match: 0,
+                noMatch: 0,
+                missing: 0,
+                seasonMissing: 0,
+                teamSeasonMissing: 0
+            };
+
             // --- SJÄLVA RAD-FILTRET ---
             const rows = tbody.querySelectorAll('tr');
 
@@ -5427,8 +5884,50 @@
                     }
                 }
 
-                row.style.display = (leagueOk && seasonOk && regularOk && playoffOk) ? '' : 'none';
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk;
+
+                let historicalOk = true;
+                if (currentFiltersOk && historicalConfigs.length > 0) {
+                    const historicalResult = evaluateHistoricalFiltersForRow(
+                        row,
+                        historicalConfigs,
+                        historicalLookup,
+                        historicalAvailableSeasons
+                    );
+
+                    historicalStats.total += 1;
+                    if (historicalResult.status === 'match') {
+                        historicalStats.match += 1;
+                    } else if (historicalResult.status === 'missing') {
+                        historicalStats.missing += 1;
+                        if (historicalResult.reason === 'season_missing') historicalStats.seasonMissing += 1;
+                        if (historicalResult.reason === 'team_season_missing') historicalStats.teamSeasonMissing += 1;
+                        historicalOk = false;
+                    } else {
+                        historicalStats.noMatch += 1;
+                        historicalOk = false;
+                    }
+                }
+
+                row.style.display = (currentFiltersOk && historicalOk) ? '' : 'none';
             });
+
+            if (DEBUG_HISTORICAL_FILTERS && historicalConfigs.length > 0) {
+                console.log('[HISTORIKFILTER][APPLY]', {
+                    layers: historicalConfigs.map(config => ({
+                        offset: config.offset,
+                        leagues: Array.from(config.leagues),
+                        regular: Array.from(config.regular),
+                        playoff: Array.from(config.playoff)
+                    })),
+                    rowsAfterCurrentFilters: historicalStats.total,
+                    matched: historicalStats.match,
+                    definiteNoMatch: historicalStats.noMatch,
+                    missingHistory: historicalStats.missing,
+                    missingBecauseSeasonOutsideData: historicalStats.seasonMissing,
+                    missingBecauseTeamRowAbsent: historicalStats.teamSeasonMissing
+                });
+            }
         }
 
 
@@ -6741,6 +7240,12 @@
                 regularIntervalJustConfirmed = false;
                 regularIntervalSelection = [];
                 regularIntervalHasBeenApplied = false; // tolka som "full range" igen
+
+                // --- HISTORISKA FILTER ---
+                // De är en del av arbetsfiltret och återställs tillsammans med övriga filter.
+                if (typeof resetHistoricalFilters === 'function') {
+                    resetHistoricalFilters();
+                }
 
                 // --- SLUTSPEL ---
                 const cbPOAll = document.getElementById('filter-playoff-all');
