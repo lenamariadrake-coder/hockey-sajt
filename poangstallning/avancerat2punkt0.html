@@ -1165,6 +1165,70 @@
             }
         }
 
+        /* =========================================================
+           FÖRKLARING AV FILTERKEDJAN
+           ---------------------------------------------------------
+           Dold som standard för att inte göra filterpanelen plottrig.
+           När den öppnas beskriver den först grundfiltret och därefter
+           varje historiskt lager i den ordning de faktiskt tillämpas.
+           ========================================================= */
+        .filter-explanation {
+            flex: 1 1 100%;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #d8dee7;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .filter-section .filter-explanation > summary {
+            padding: 0.7rem 0.9rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #374151;
+            background: transparent;
+            list-style-position: inside;
+        }
+
+        .filter-section .filter-explanation > summary:hover {
+            background: #f1f5f9;
+        }
+
+        .filter-explanation-content {
+            padding: 0 0.9rem 0.9rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .filter-explanation-step {
+            padding: 0.75rem 0;
+        }
+
+        .filter-explanation-step + .filter-explanation-step {
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .filter-explanation-step-title {
+            margin: 0 0 0.3rem;
+            font-size: 0.88rem;
+            font-weight: 650;
+            color: #374151;
+        }
+
+        .filter-explanation-step p {
+            margin: 0.18rem 0;
+            font-size: 0.88rem;
+            line-height: 1.45;
+            color: #4b5563;
+        }
+
+        .filter-explanation-count {
+            color: #1f2937;
+        }
+
+        .filter-explanation-missing {
+            color: #6b7280;
+        }
+
     </style>
 </head>
 
@@ -1465,6 +1529,13 @@
                                     </div>
                                     <div id="historical-filter-layers" class="historical-filter-layers"></div>
                                 </div>
+
+                                <!-- Förklarar hela filterkedjan: grundfilter + historiska lager.
+                                     Dold som standard för att inte belasta gränssnittet visuellt. -->
+                                <details id="filter-explanation" class="filter-explanation">
+                                    <summary>ⓘ Förklara urvalet</summary>
+                                    <div id="filter-explanation-content" class="filter-explanation-content"></div>
+                                </details>
 
                                 <div class="working-selection-bar">
                                     <span class="working-selection-text" id="working-selection-text">
@@ -5596,6 +5667,181 @@
             }
         }
 
+        // =========================================================
+        // TEXTFÖRKLARING AV FILTERKEDJAN
+        // =========================================================
+        // Den här delen påverkar INTE vilka rader som filtreras fram.
+        // Den översätter bara det redan beräknade filterläget till vanlig
+        // svenska och visar hur många rader som överlever varje steg.
+        // =========================================================
+        function joinSwedish(items, conjunction = 'och') {
+            const clean = (items || []).filter(Boolean);
+            if (clean.length === 0) return '';
+            if (clean.length === 1) return clean[0];
+            if (clean.length === 2) return `${clean[0]} ${conjunction} ${clean[1]}`;
+            return `${clean.slice(0, -1).join(', ')} ${conjunction} ${clean[clean.length - 1]}`;
+        }
+
+        function pluralizeRows(count) {
+            return `${count} ${count === 1 ? 'rad' : 'rader'}`;
+        }
+
+        function leagueNamesFromCodes(codes) {
+            return Array.from(codes || []).map(code => {
+                if (code === 'HA') return 'Hockeyallsvenskan';
+                if (code === 'SHL') return 'SHL';
+                return code;
+            });
+        }
+
+        function regularLabelsFromCategories(categories) {
+            const order = ['top6', 'middle', 'bottom2', 'unresolved'];
+            const labels = {
+                top6: 'plats 1–6',
+                middle: 'plats 7–12',
+                bottom2: 'plats 13–14',
+                unresolved: 'ej avgjort'
+            };
+            const set = categories instanceof Set ? categories : new Set(categories || []);
+            return order.filter(key => set.has(key)).map(key => labels[key]);
+        }
+
+        function playoffLabelsFromValues(values) {
+            const order = ['champion', 'final', 'semi', 'kvart', 'play_in', 'none', 'play_out', 'relegated', 'unresolved', ''];
+            const labels = {
+                champion: 'Mästare',
+                final: 'Final',
+                semi: 'Semi',
+                kvart: 'Kvart',
+                play_in: 'Play-in',
+                none: 'ingen slutspelsplats',
+                play_out: 'Play-out',
+                relegated: 'Åkte ur',
+                unresolved: 'ej avgjort',
+                '': 'ej avgjort'
+            };
+            const set = values instanceof Set ? values : new Set(values || []);
+            return order.filter(key => set.has(key)).map(key => labels[key]);
+        }
+
+        function buildCurrentFilterExplanationText(ctx) {
+            const parts = [];
+
+            if (ctx.activeLeagues.length === 0) {
+                parts.push('inga ligor');
+            } else if (ctx.activeLeagues.length < 2) {
+                parts.push(`lag i ${joinSwedish(leagueNamesFromCodes(ctx.activeLeagues), 'eller')}`);
+            } else {
+                parts.push('lag i Hockeyallsvenskan eller SHL');
+            }
+
+            if (ctx.hasSeasonFilters) {
+                if (ctx.activeSeasons.length === 0) {
+                    parts.push('inga valda säsonger');
+                } else if (ctx.activeSeasons.length === 1) {
+                    parts.push(`säsongen ${ctx.activeSeasons[0]}`);
+                } else if (ctx.activeSeasons.length < ctx.totalSeasonOptions) {
+                    parts.push(`säsongerna ${joinSwedish(ctx.activeSeasons, 'och')}`);
+                }
+            }
+
+            if (ctx.intervalActive) {
+                const pos = Array.from(ctx.intervalSet || []).sort((a, b) => a - b);
+                const numericText = pos.length
+                    ? `grundserieplacering ${joinSwedish(pos.map(String), 'eller')}`
+                    : 'ingen avgjord grundserieplacering';
+                if (ctx.includeRegularUnresolved) {
+                    parts.push(`${numericText}, eller en ännu inte avgjord grundserie`);
+                } else {
+                    parts.push(numericText);
+                }
+            } else if (ctx.regularIsRestricted) {
+                const labels = regularLabelsFromCategories(ctx.regularCategories);
+                if (labels.length) parts.push(`grundserieresultat ${joinSwedish(labels, 'eller')}`);
+            }
+
+            if (ctx.playoffActive) {
+                const labels = playoffLabelsFromValues(ctx.playoffSet || new Set());
+                if (labels.length) parts.push(`slutspelsutfall ${joinSwedish(labels, 'eller')}`);
+                else parts.push('inga valda slutspelsutfall');
+            }
+
+            if (!parts.length) return 'Grundfiltret omfattar alla rader i underlaget.';
+            return `Grundfiltret visar ${joinSwedish(parts, 'och')}.`;
+        }
+
+        function buildHistoricalFilterExplanationText(config) {
+            const when = config.offset === 1 ? '1 säsong tidigare' : `${config.offset} säsonger tidigare`;
+            const conditions = [];
+
+            if (config.leagues.size < 2) {
+                const leagues = leagueNamesFromCodes(config.leagues);
+                conditions.push(leagues.length ? `spelade i ${joinSwedish(leagues, 'eller')}` : 'inte kan matcha någon vald liga');
+            }
+
+            if (config.regular.size < 4) {
+                const regular = regularLabelsFromCategories(config.regular);
+                conditions.push(regular.length
+                    ? `hade grundserieresultat ${joinSwedish(regular, 'eller')}`
+                    : 'inte kan matcha något valt grundserieresultat');
+            }
+
+            if (config.playoff.size < 9) {
+                const playoff = playoffLabelsFromValues(config.playoff);
+                conditions.push(playoff.length
+                    ? `hade slutspelsutfall ${joinSwedish(playoff, 'eller')}`
+                    : 'inte kan matcha något valt slutspelsutfall');
+            }
+
+            if (!conditions.length) {
+                return `Av raderna som matchar föregående filter visas nu bara de där samma lag finns i underlaget ${when}.`;
+            }
+
+            return `Av raderna som matchar föregående filter visas nu bara de där samma lag ${when} ${joinSwedish(conditions, 'och')}.`;
+        }
+
+        function updateFilterExplanation(ctx) {
+            const host = document.getElementById('filter-explanation-content');
+            if (!host) return;
+
+            const steps = [];
+            steps.push(`
+                <div class="filter-explanation-step">
+                    <div class="filter-explanation-step-title">Grundfilter</div>
+                    <p>${buildCurrentFilterExplanationText(ctx.currentDescription)}</p>
+                    <p class="filter-explanation-count"><strong>${ctx.currentCount} av ${pluralizeRows(ctx.totalRows)} matchar detta filter.</strong></p>
+                </div>`);
+
+            ctx.historicalSteps.forEach((step, index) => {
+                const missingText = step.missing > 0
+                    ? `<p class="filter-explanation-missing">${pluralizeRows(step.missing)} kunde inte bedömas eftersom historiska data saknas.</p>`
+                    : '';
+
+                steps.push(`
+                    <div class="filter-explanation-step">
+                        <div class="filter-explanation-step-title">Historiskt filter ${index + 1} – ${step.config.offset === 1 ? '1 säsong tidigare' : `${step.config.offset} säsonger tidigare`}</div>
+                        <p>${buildHistoricalFilterExplanationText(step.config)}</p>
+                        <p class="filter-explanation-count"><strong>${step.after} av ${pluralizeRows(step.before)} återstår.</strong></p>
+                        ${missingText}
+                    </div>`);
+            });
+
+            host.innerHTML = steps.join('');
+
+            if (DEBUG_HISTORICAL_FILTERS) {
+                console.log('[HISTORIKFILTER][FÖRKLARING]', {
+                    current: { before: ctx.totalRows, after: ctx.currentCount },
+                    historicalSteps: ctx.historicalSteps.map(step => ({
+                        offset: step.config.offset,
+                        before: step.before,
+                        after: step.after,
+                        noMatch: step.noMatch,
+                        missing: step.missing
+                    }))
+                });
+            }
+        }
+
         function applyTableFilters() {
             const table = document.querySelector('.team-table');
             if (!table) return;
@@ -5790,6 +6036,7 @@
 
             // --- SJÄLVA RAD-FILTRET ---
             const rows = tbody.querySelectorAll('tr');
+            const currentFilterRows = [];
 
             rows.forEach(row => {
                 const league = row.dataset.league;
@@ -5885,6 +6132,7 @@
                 }
 
                 const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk;
+                if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
                 if (currentFiltersOk && historicalConfigs.length > 0) {
@@ -5910,6 +6158,74 @@
                 }
 
                 row.style.display = (currentFiltersOk && historicalOk) ? '' : 'none';
+            });
+
+            // --- FÖRKLARING: räkna tratten steg för steg ---
+            // Detta är separat från själva radvisningen ovan. Vi börjar med de rader
+            // som överlevde grundfiltret och prövar sedan ETT historiskt lager i taget.
+            // På så sätt kan vi skriva t.ex. "12 av 18 rader återstår" för varje steg.
+            let explanationSurvivors = currentFilterRows.slice();
+            const historicalExplanationSteps = [];
+
+            historicalConfigs.forEach(config => {
+                const before = explanationSurvivors.length;
+                const nextSurvivors = [];
+                let noMatch = 0;
+                let missing = 0;
+
+                explanationSurvivors.forEach(row => {
+                    const result = evaluateHistoricalFiltersForRow(
+                        row,
+                        [config],
+                        historicalLookup,
+                        historicalAvailableSeasons
+                    );
+
+                    if (result.status === 'match') {
+                        nextSurvivors.push(row);
+                    } else if (result.status === 'missing') {
+                        missing += 1;
+                    } else {
+                        noMatch += 1;
+                    }
+                });
+
+                historicalExplanationSteps.push({
+                    config,
+                    before,
+                    after: nextSurvivors.length,
+                    noMatch,
+                    missing
+                });
+
+                explanationSurvivors = nextSurvivors;
+            });
+
+            const regularCategoriesForExplanation = new Set();
+            if (useSpecificRegular) {
+                if (cbRegTop6.checked) regularCategoriesForExplanation.add('top6');
+                if (cbRegMiddle.checked) regularCategoriesForExplanation.add('middle');
+                if (cbRegBottom2.checked) regularCategoriesForExplanation.add('bottom2');
+                if (cbRegUnresolved.checked) regularCategoriesForExplanation.add('unresolved');
+            }
+
+            updateFilterExplanation({
+                totalRows: Array.from(rows).filter(row => row.dataset.league && row.dataset.seasonId).length,
+                currentCount: currentFilterRows.length,
+                currentDescription: {
+                    activeLeagues,
+                    hasSeasonFilters,
+                    activeSeasons,
+                    totalSeasonOptions: 6,
+                    intervalActive,
+                    intervalSet,
+                    includeRegularUnresolved: !!cbRegUnresolved?.checked,
+                    regularIsRestricted: !intervalActive && !!useSpecificRegular && !useRegularAll,
+                    regularCategories: regularCategoriesForExplanation,
+                    playoffActive,
+                    playoffSet
+                },
+                historicalSteps: historicalExplanationSteps
             });
 
             if (DEBUG_HISTORICAL_FILTERS && historicalConfigs.length > 0) {
