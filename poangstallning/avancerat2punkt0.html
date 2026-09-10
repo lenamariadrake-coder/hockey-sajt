@@ -5694,134 +5694,330 @@
             });
         }
 
-        function regularLabelsFromCategories(categories) {
-            const order = ['top6', 'middle', 'bottom2', 'unresolved'];
-            const labels = {
-                top6: 'plats 1–6',
-                middle: 'plats 7–12',
-                bottom2: 'plats 13–14',
-                unresolved: 'ej avgjort'
-            };
-            const set = categories instanceof Set ? categories : new Set(categories || []);
-            return order.filter(key => set.has(key)).map(key => labels[key]);
+        // ---------------------------------------------------------
+        // SPRÅKHJÄLP FÖR "FÖRKLARA URVALET"
+        // ---------------------------------------------------------
+        // Målet här är inte att återge kryssrutorna ord för ord, utan
+        // att beskriva det faktiska urvalet på naturlig svenska.
+        // Därför slår vi bland annat ihop sammanhängande placeringar
+        // till intervall och sammanhängande slutspelsutfall från toppen
+        // till uttryck som "nådde minst semifinal".
+
+        function seasonIdToDisplay(seasonId) {
+            return String(seasonId || '').replace('-', '/');
         }
 
-        function playoffLabelsFromValues(values) {
-            const order = ['champion', 'final', 'semi', 'kvart', 'play_in', 'none', 'play_out', 'relegated', 'unresolved', ''];
+        function seasonStartYear(seasonId) {
+            const match = String(seasonId || '').match(/^(\d{4})-(\d{4})$/);
+            return match ? Number(match[1]) : NaN;
+        }
+
+        function formatSeasonSelection(seasons) {
+            const sorted = Array.from(new Set(seasons || []))
+                .sort((a, b) => seasonStartYear(a) - seasonStartYear(b));
+
+            if (!sorted.length) return '';
+            if (sorted.length === 1) return seasonIdToDisplay(sorted[0]);
+
+            const groups = [];
+            let group = [sorted[0]];
+
+            for (let i = 1; i < sorted.length; i++) {
+                const prev = seasonStartYear(sorted[i - 1]);
+                const current = seasonStartYear(sorted[i]);
+                if (Number.isFinite(prev) && Number.isFinite(current) && current === prev + 1) {
+                    group.push(sorted[i]);
+                } else {
+                    groups.push(group);
+                    group = [sorted[i]];
+                }
+            }
+            groups.push(group);
+
+            const parts = [];
+            groups.forEach(g => {
+                if (g.length >= 3) {
+                    parts.push(`${seasonIdToDisplay(g[0])} till och med ${seasonIdToDisplay(g[g.length - 1])}`);
+                } else {
+                    g.forEach(s => parts.push(seasonIdToDisplay(s)));
+                }
+            });
+
+            return joinSwedish(parts, 'och');
+        }
+
+        function compressNumbersToRanges(values) {
+            const nums = Array.from(new Set(Array.from(values || []).map(Number)))
+                .filter(Number.isFinite)
+                .sort((a, b) => a - b);
+
+            if (!nums.length) return [];
+
+            const parts = [];
+            let start = nums[0];
+            let prev = nums[0];
+
+            for (let i = 1; i <= nums.length; i++) {
+                const current = nums[i];
+                if (i < nums.length && current === prev + 1) {
+                    prev = current;
+                    continue;
+                }
+
+                parts.push(start === prev ? String(start) : `${start}–${prev}`);
+                start = current;
+                prev = current;
+            }
+
+            return parts;
+        }
+
+        function formatPositions(values) {
+            return joinSwedish(compressNumbersToRanges(values), 'eller');
+        }
+
+        function positionsFromRegularCategories(categories) {
+            const set = categories instanceof Set ? categories : new Set(categories || []);
+            const maxRank = GLOBAL_MAX_REGULAR_RANK || 14;
+            const positions = new Set();
+
+            if (set.has('top6')) {
+                for (let n = 1; n <= Math.min(6, maxRank); n++) positions.add(n);
+            }
+            if (set.has('middle')) {
+                for (let n = 7; n <= Math.min(12, maxRank); n++) positions.add(n);
+            }
+            if (set.has('bottom2')) {
+                const bottomStart = Math.max(1, maxRank - 1);
+                for (let n = bottomStart; n <= maxRank; n++) positions.add(n);
+            }
+
+            return positions;
+        }
+
+        function buildRegularPredicateFromPositions(positions, includeUnresolved) {
+            const positionText = formatPositions(positions);
+
+            if (positionText && includeUnresolved) {
+                return `som slutade på plats ${positionText} i grundserien eller där säsongen inte är färdigspelad ännu`;
+            }
+            if (positionText) {
+                return `som slutade på plats ${positionText} i grundserien`;
+            }
+            if (includeUnresolved) {
+                return 'där säsongen inte är färdigspelad ännu';
+            }
+            return '';
+        }
+
+        function playoffExactOutcomePhrases(values) {
+            const order = ['champion', 'final', 'semi', 'kvart', 'play_in', 'none', 'play_out', 'relegated'];
             const labels = {
-                champion: 'Mästare',
-                final: 'Final',
-                semi: 'Semi',
-                kvart: 'Kvart',
-                play_in: 'Play-in',
-                none: 'ingen slutspelsplats',
-                play_out: 'Play-out',
-                relegated: 'Åkte ur',
-                unresolved: 'ej avgjort',
-                '': 'ej avgjort'
+                champion: 'vann mästerskapet',
+                final: 'förlorade i finalen',
+                semi: 'förlorade i semifinalen',
+                kvart: 'förlorade i kvartsfinalen',
+                play_in: 'förlorade i play-in',
+                none: 'missade slutspelet',
+                play_out: 'gick till play-out men klarade sig kvar',
+                relegated: 'åkte ur'
             };
             const set = values instanceof Set ? values : new Set(values || []);
             return order.filter(key => set.has(key)).map(key => labels[key]);
         }
 
-        function buildCurrentFilterExplanationText(ctx) {
-            const parts = [];
+        function playoffResolvedPhrase(values) {
+            const set = values instanceof Set ? values : new Set(values || []);
+            const resolved = new Set(Array.from(set).filter(v => v !== 'unresolved' && v !== ''));
 
-            if (ctx.activeLeagues.length === 0) {
-                parts.push('inga ligor');
-            } else if (ctx.activeLeagues.length < 2) {
-                parts.push(`lag i ${joinSwedish(leagueNamesFromCodes(ctx.activeLeagues), 'eller')}`);
-            } else {
-                parts.push('lag i Hockeyallsvenskan eller SHL');
+            // Sammanhängande kedja från mästare och nedåt kan uttryckas
+            // betydligt naturligare som "nådde minst ...".
+            const topChain = ['champion', 'final', 'semi', 'kvart'];
+            let prefixLength = 0;
+            while (prefixLength < topChain.length && resolved.has(topChain[prefixLength])) {
+                prefixLength++;
             }
 
-            if (ctx.hasSeasonFilters) {
-                if (ctx.activeSeasons.length === 0) {
-                    parts.push('inga valda säsonger');
-                } else if (ctx.activeSeasons.length === 1) {
-                    parts.push(`säsongen ${ctx.activeSeasons[0]}`);
-                } else if (ctx.activeSeasons.length < ctx.totalSeasonOptions) {
-                    parts.push(`säsongerna ${joinSwedish(ctx.activeSeasons, 'och')}`);
-                }
+            const onlyPrefix =
+                resolved.size === prefixLength &&
+                prefixLength >= 2;
+
+            if (onlyPrefix) {
+                const threshold = topChain[prefixLength - 1];
+                const thresholdLabel = {
+                    final: 'final',
+                    semi: 'semifinal',
+                    kvart: 'kvartsfinal'
+                }[threshold];
+                if (thresholdLabel) return `nådde minst ${thresholdLabel}`;
             }
 
-            if (ctx.intervalActive) {
-                const pos = Array.from(ctx.intervalSet || []).sort((a, b) => a - b);
-                const numericText = pos.length
-                    ? `grundserieplacering ${joinSwedish(pos.map(String), 'eller')}`
-                    : 'ingen avgjord grundserieplacering';
-                if (ctx.includeRegularUnresolved) {
-                    parts.push(`${numericText}, eller en ännu inte avgjord grundserie`);
-                } else {
-                    parts.push(numericText);
-                }
-            } else if (ctx.regularIsRestricted) {
-                const labels = regularLabelsFromCategories(ctx.regularCategories);
-                if (labels.length) parts.push(`grundserieresultat ${joinSwedish(labels, 'eller')}`);
-            }
-
-            if (ctx.playoffActive) {
-                const labels = playoffLabelsFromValues(ctx.playoffSet || new Set());
-                if (labels.length) parts.push(`slutspelsutfall ${joinSwedish(labels, 'eller')}`);
-                else parts.push('inga valda slutspelsutfall');
-            }
-
-            if (!parts.length) return 'Grundfiltret omfattar alla rader i underlaget.';
-            return `Grundfiltret visar ${joinSwedish(parts, 'och')}.`;
+            return joinSwedish(playoffExactOutcomePhrases(resolved), 'eller');
         }
 
-        function buildHistoricalFilterExplanationText(config) {
-            const when = config.offset === 1 ? '1 säsong tidigare' : `${config.offset} säsonger tidigare`;
-            const conditions = [];
+        function buildPlayoffPredicate(values) {
+            const set = values instanceof Set ? values : new Set(values || []);
+            const hasUnresolved = set.has('unresolved') || set.has('');
+            const resolvedPhrase = playoffResolvedPhrase(set);
 
-            if (config.leagues.size < 2) {
-                const leagues = leagueNamesFromCodes(config.leagues);
-                conditions.push(leagues.length ? `spelade i ${joinSwedish(leagues, 'eller')}` : 'inte kan matcha någon vald liga');
+            if (resolvedPhrase && hasUnresolved) {
+                return `som ${resolvedPhrase} eller där slutspelet ännu inte är avgjort`;
+            }
+            if (resolvedPhrase) return `som ${resolvedPhrase}`;
+            if (hasUnresolved) return 'där slutspelet ännu inte är avgjort';
+            return '';
+        }
+
+        function stripLeadingRelativeWord(predicate) {
+            return String(predicate || '')
+                .replace(/^som\s+/, '')
+                .replace(/^där\s+/, '');
+        }
+
+        function buildCurrentFilterExplanationText(ctx) {
+            if (ctx.activeLeagues.length === 0) {
+                return 'Välj minst en liga för att visa ett urval.';
             }
 
-            if (config.regular.size < 4) {
-                const regular = regularLabelsFromCategories(config.regular);
-                conditions.push(regular.length
-                    ? `hade grundserieresultat ${joinSwedish(regular, 'eller')}`
-                    : 'inte kan matcha något valt grundserieresultat');
+            if (ctx.hasSeasonFilters && ctx.activeSeasons.length === 0) {
+                return 'Välj minst en säsong för att visa ett urval.';
             }
 
-            if (config.playoff.size < 9) {
-                const playoff = playoffLabelsFromValues(config.playoff);
-                conditions.push(playoff.length
-                    ? `hade slutspelsutfall ${joinSwedish(playoff, 'eller')}`
-                    : 'inte kan matcha något valt slutspelsutfall');
+            if (ctx.playoffActive && (!ctx.playoffSet || ctx.playoffSet.size === 0)) {
+                return 'Välj minst ett slutspelsresultat för att visa ett urval.';
             }
 
-            if (!conditions.length) {
-                return `Av raderna som matchar föregående filter visas nu bara de där samma lag finns i underlaget ${when}.`;
+            // Basen beskriver alltid ligor + säsonger, även när allt är valt.
+            const leagueText = ctx.activeLeagues.length === 2
+                ? 'SHL och Hockeyallsvenskan'
+                : leagueNamesFromCodes(ctx.activeLeagues)[0];
+
+            const seasons = ctx.hasSeasonFilters ? ctx.activeSeasons : [];
+            const seasonText = formatSeasonSelection(seasons);
+            const seasonWord = seasons.length === 1 ? 'säsongen' : 'säsongerna';
+
+            let text = `Alla lag i ${leagueText}`;
+            if (seasonText) text += ` ${seasonWord} ${seasonText}`;
+
+            let regularPredicate = '';
+            if (ctx.intervalActive) {
+                regularPredicate = buildRegularPredicateFromPositions(
+                    ctx.intervalSet || new Set(),
+                    ctx.includeRegularUnresolved
+                );
+            } else if (ctx.regularIsRestricted) {
+                regularPredicate = buildRegularPredicateFromPositions(
+                    positionsFromRegularCategories(ctx.regularCategories),
+                    ctx.regularCategories?.has('unresolved')
+                );
             }
 
-            return `Av raderna som matchar föregående filter visas nu bara de där samma lag ${when} ${joinSwedish(conditions, 'och')}.`;
+            const playoffPredicate = ctx.playoffActive
+                ? buildPlayoffPredicate(ctx.playoffSet || new Set())
+                : '';
+
+            if (!regularPredicate && !playoffPredicate) {
+                return `${text}, oberoende av resultat.`;
+            }
+
+            if (regularPredicate) {
+                text += ` ${regularPredicate}`;
+            }
+
+            if (playoffPredicate) {
+                if (regularPredicate) {
+                    text += ` och ${stripLeadingRelativeWord(playoffPredicate)}`;
+                } else {
+                    text += ` ${playoffPredicate}`;
+                }
+            }
+
+            return `${text}.`;
+        }
+
+        function historicalWhen(offset) {
+            if (offset === 1) return 'säsongen före';
+            const words = { 2: 'två', 3: 'tre', 4: 'fyra', 5: 'fem', 6: 'sex', 7: 'sju', 8: 'åtta', 9: 'nio', 10: 'tio' };
+            return `${words[offset] || offset} säsonger tidigare`;
+        }
+
+        function buildHistoricalFilterExplanationText(config, beforeCount) {
+            const when = historicalWhen(config.offset);
+
+            if (config.leagues.size === 0) {
+                return 'Välj minst en liga i detta historiska filter.';
+            }
+            if (config.regular.size === 0) {
+                return 'Välj minst ett grundserieresultat i detta historiska filter.';
+            }
+            if (config.playoff.size === 0) {
+                return 'Välj minst ett slutspelsresultat i detta historiska filter.';
+            }
+
+            const leagueRestricted = config.leagues.size < 2;
+            const regularRestricted = config.regular.size < 4;
+            const playoffRestricted = config.playoff.size < 9;
+
+            if (!leagueRestricted && !regularRestricted && !playoffRestricted) {
+                return `Av dessa ${pluralizeRows(beforeCount)} återstår de där laget även spelade ${when}.`;
+            }
+
+            const actions = [];
+
+            if (leagueRestricted) {
+                const league = leagueNamesFromCodes(config.leagues)[0];
+                actions.push(`spelade i ${league}`);
+            }
+
+            if (regularRestricted) {
+                const regularPredicate = buildRegularPredicateFromPositions(
+                    positionsFromRegularCategories(config.regular),
+                    config.regular.has('unresolved')
+                );
+                if (regularPredicate) actions.push(stripLeadingRelativeWord(regularPredicate));
+            }
+
+            if (playoffRestricted) {
+                const playoffPredicate = buildPlayoffPredicate(config.playoff);
+                if (playoffPredicate) actions.push(stripLeadingRelativeWord(playoffPredicate));
+            }
+
+            const actionText = joinSwedish(actions, 'och');
+
+            if (config.offset === 1) {
+                return `Av dessa ${pluralizeRows(beforeCount)} återstår de där laget ${actionText} ${when}.`;
+            }
+
+            return `Av dessa ${pluralizeRows(beforeCount)} återstår de där laget ${when} ${actionText}.`;
         }
 
         function updateFilterExplanation(ctx) {
             const host = document.getElementById('filter-explanation-content');
             if (!host) return;
 
+            const warningHtml = (ctx.currentWarnings || []).map(warning =>
+                `<p class="filter-explanation-missing"><strong>Obs!</strong> ${warning}</p>`
+            ).join('');
+
             const steps = [];
             steps.push(`
                 <div class="filter-explanation-step">
-                    <div class="filter-explanation-step-title">Grundfilter</div>
+                    <div class="filter-explanation-step-title">Aktuellt urval</div>
                     <p>${buildCurrentFilterExplanationText(ctx.currentDescription)}</p>
                     <p class="filter-explanation-count"><strong>${ctx.currentCount} av ${pluralizeRows(ctx.totalRows)} matchar detta filter.</strong></p>
+                    ${warningHtml}
                 </div>`);
 
-            ctx.historicalSteps.forEach((step, index) => {
+            ctx.historicalSteps.forEach(step => {
                 const missingText = step.missing > 0
                     ? `<p class="filter-explanation-missing">${pluralizeRows(step.missing)} kunde inte bedömas eftersom historiska data saknas.</p>`
                     : '';
 
                 steps.push(`
                     <div class="filter-explanation-step">
-                        <div class="filter-explanation-step-title">Historiskt filter ${index + 1} – ${step.config.offset === 1 ? '1 säsong tidigare' : `${step.config.offset} säsonger tidigare`}</div>
-                        <p>${buildHistoricalFilterExplanationText(step.config)}</p>
-                        <p class="filter-explanation-count"><strong>${step.after} av ${pluralizeRows(step.before)} återstår.</strong></p>
+                        <div class="filter-explanation-step-title">${step.config.offset === 1 ? '1 säsong tidigare' : `${step.config.offset} säsonger tidigare`}</div>
+                        <p>${buildHistoricalFilterExplanationText(step.config, step.before)}</p>
+                        <p class="filter-explanation-count"><strong>${pluralizeRows(step.after)} återstår.</strong></p>
                         ${missingText}
                     </div>`);
             });
@@ -6209,9 +6405,49 @@
                 if (cbRegUnresolved.checked) regularCategoriesForExplanation.add('unresolved');
             }
 
+            // Separat språkvarning när valda liga/säsonger innehåller ofärdiga
+            // resultat som användarens resultatfilter uttryckligen utesluter.
+            const selectedScopeRows = Array.from(rows).filter(row => {
+                if (!row.dataset.league || !row.dataset.seasonId) return false;
+                return activeLeagues.includes(row.dataset.league) &&
+                    (!hasSeasonFilters || activeSeasons.includes(row.dataset.seasonId));
+            });
+
+            const currentWarnings = [];
+            const unfinishedRegularSeasons = new Set(
+                selectedScopeRows
+                    .filter(row => !Number.isFinite(parseInt(row.dataset.regularRank || '', 10)))
+                    .map(row => row.dataset.seasonId)
+            );
+            const unfinishedPlayoffSeasons = new Set(
+                selectedScopeRows
+                    .filter(row => (row.dataset.playoffResult || '') === '')
+                    .map(row => row.dataset.seasonId)
+            );
+
+            const regularUnresolvedExcluded =
+                (intervalActive || (!!useSpecificRegular && !useRegularAll)) &&
+                !cbRegUnresolved?.checked;
+            const playoffUnresolvedExcluded =
+                playoffActive && playoffSet && playoffSet.size > 0 && !playoffSet.has('');
+
+            const warningSeasonIds = new Set();
+            if (regularUnresolvedExcluded) unfinishedRegularSeasons.forEach(s => warningSeasonIds.add(s));
+            if (playoffUnresolvedExcluded) unfinishedPlayoffSeasons.forEach(s => warningSeasonIds.add(s));
+
+            if (warningSeasonIds.size > 0) {
+                const warningSeasons = formatSeasonSelection(Array.from(warningSeasonIds));
+                const singular = warningSeasonIds.size === 1;
+                currentWarnings.push(
+                    `${singular ? 'Säsongen' : 'Säsongerna'} ${warningSeasons} ${singular ? 'är' : 'är'} inte färdigspelad${singular ? '' : 'e'}. ` +
+                    `Lag vars resultat ännu inte är avgjort ingår därför inte i urvalet.`
+                );
+            }
+
             updateFilterExplanation({
                 totalRows: Array.from(rows).filter(row => row.dataset.league && row.dataset.seasonId).length,
                 currentCount: currentFilterRows.length,
+                currentWarnings,
                 currentDescription: {
                     activeLeagues,
                     hasSeasonFilters,
