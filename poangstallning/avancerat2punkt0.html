@@ -1159,6 +1159,24 @@
             font-size: 0.86rem;
         }
 
+        /* Intervall/sekvens i varje historiskt grundserieblock.
+           Själva intervallets state lagras per historiskt lager i JS. */
+        .historical-mini-block .filter-advanced {
+            margin-top: 0.5rem;
+            padding-top: 0.45rem;
+            border-top: 1px solid #eef2f7;
+            font-size: 0.82rem;
+            color: #6b7280;
+        }
+
+        .historical-mini-block .filter-advanced input {
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 0;
+            padding: 0.2rem 0.4rem;
+            font-size: 0.86rem;
+        }
+
         @media (max-width: 760px) {
             .historical-layer-grid {
                 grid-template-columns: 1fr;
@@ -5401,6 +5419,7 @@
         // Grundprincip:
         // - tabellens rad (lag + säsong) är nollpunkten
         // - varje historiskt lager anger N säsonger bakåt
+        // - varje lager har eget state för grundserieintervall/sekvens
         // - samma lag slås upp i season_summary för målsäsongen
         // - alla aktiva historiska lager måste matcha
         // - saknad historik är ett eget internt utfall och räknas INTE som träff
@@ -5408,6 +5427,9 @@
         // Vi skiljer i debug mellan:
         //   season_missing     = målsäsongen finns inte alls i vår data
         //   team_season_missing = säsongen finns, men inte detta lag
+        //
+        // "Ej avgjort" visas inte i bakåtblickande lager. Det är skilt från
+        // missing, som fortfarande betyder att historikmotorn saknar underlag.
         // =========================================================
         const DEBUG_HISTORICAL_FILTERS = true;
         let historicalFilterLayerCounter = 0;
@@ -5445,12 +5467,50 @@
                         .map(cb => cb.value)
                 );
 
+                // VIKTIGT: varje historiskt lager äger sitt eget intervall-state.
+                // Inget intervall här delas med grundfiltret eller med något annat lager.
+                const intervalState = layer._historicalRegularIntervalState || {
+                    savedValue: '1-14',
+                    hasBeenApplied: false
+                };
+
+                let regularIntervalActive = false;
+                let regularIntervalSet = null;
+
+                if (intervalState.hasBeenApplied) {
+                    const savedText = String(intervalState.savedValue ?? '').trim();
+
+                    if (savedText === '') {
+                        // Ett uttryckligen bekräftat tomt intervall betyder 0 numeriska placeringar.
+                        regularIntervalActive = true;
+                        regularIntervalSet = new Set();
+                    } else {
+                        const parsed = parseRegularIntervalText(savedText);
+                        const selection = Array.isArray(parsed) ? parsed.slice() : [];
+
+                        if (selection.length) {
+                            const isFullRange =
+                                selection.length === FILTER_MAX_REGULAR_RANK &&
+                                selection[0] === 1 &&
+                                selection[selection.length - 1] === FILTER_MAX_REGULAR_RANK;
+
+                            if (!isFullRange) {
+                                regularIntervalActive = true;
+                                regularIntervalSet = new Set(selection);
+                            }
+                        }
+                    }
+                }
+
                 return {
                     id: layer.dataset.layerId || '',
                     offset: Math.max(1, parseInt(layer.querySelector('.historical-offset')?.value || '1', 10)),
                     leagues: checkedValues('league'),
                     regular: checkedValues('regular'),
-                    playoff: checkedValues('playoff')
+                    playoff: checkedValues('playoff'),
+                    regularIntervalActive,
+                    regularIntervalSet,
+                    regularIntervalSavedValue: String(intervalState.savedValue ?? '1-14')
                 };
             });
         }
@@ -5505,7 +5565,21 @@
                 const candidateChecks = historyRows.map(historyRow => {
                     const leagueOk = config.leagues.has(historyRow.league);
                     const regularCategory = historicalRegularCategory(historyRow);
-                    const regularOk = config.regular.has(regularCategory);
+
+                    let regularOk = false;
+                    if (config.regularIntervalActive) {
+                        const rank = Number.isFinite(historyRow?.regularSeasonRank)
+                            ? Number(historyRow.regularSeasonRank)
+                            : null;
+
+                        regularOk =
+                            Number.isFinite(rank) &&
+                            !!config.regularIntervalSet &&
+                            config.regularIntervalSet.has(rank);
+                    } else {
+                        regularOk = config.regular.has(regularCategory);
+                    }
+
                     const playoffCode = historyRow.playoffResult || '';
                     const playoffValue = playoffCode === '' ? 'unresolved' : playoffCode;
                     const playoffOk = config.playoff.has(playoffValue);
@@ -5610,7 +5684,15 @@
                         <label><input type="checkbox" class="historical-option" data-group="regular" value="top6" checked> Topp sex (1-6)</label>
                         <label><input type="checkbox" class="historical-option" data-group="regular" value="middle" checked> Mitten (7-12)</label>
                         <label><input type="checkbox" class="historical-option" data-group="regular" value="bottom2" checked> Två sämsta (13-14)</label>
-                        <label><input type="checkbox" class="historical-option" data-group="regular" value="unresolved" checked> Ej avgjort</label>
+
+                        <div class="filter-advanced">
+                            <label>Intervall / sekvens:</label>
+                            <div class="interval-row">
+                                <input type="text" class="historical-regular-interval-input" value="1-14"
+                                    aria-label="Grundserieplacering, intervall eller sekvens">
+                                <button type="button" class="historical-regular-interval-apply">Använd intervall</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="historical-mini-block">
                         <h4>Slutspel</h4>
@@ -5623,12 +5705,55 @@
                         <label><input type="checkbox" class="historical-option" data-group="playoff" value="none" checked> -</label>
                         <label><input type="checkbox" class="historical-option" data-group="playoff" value="play_out" checked> Play-out</label>
                         <label><input type="checkbox" class="historical-option" data-group="playoff" value="relegated" checked> Åkte ur</label>
-                        <label><input type="checkbox" class="historical-option" data-group="playoff" value="unresolved" checked> Ej avgjort</label>
                     </div>
                 </div>`;
 
             host.appendChild(layer);
             ['league', 'regular', 'playoff'].forEach(group => bindHistoricalGroup(layer, group));
+
+            // Separat intervall-state per lager. Detta är avsiktligt INTE globalt.
+            layer._historicalRegularIntervalState = {
+                savedValue: '1-14',
+                hasBeenApplied: false,
+                isDirty: false
+            };
+
+            const historicalIntervalInput = layer.querySelector('.historical-regular-interval-input');
+            const historicalIntervalApply = layer.querySelector('.historical-regular-interval-apply');
+
+            historicalIntervalInput?.addEventListener('input', () => {
+                layer._historicalRegularIntervalState.isDirty =
+                    historicalIntervalInput.value !== layer._historicalRegularIntervalState.savedValue;
+            });
+
+            historicalIntervalInput?.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    historicalIntervalApply?.click();
+                }
+            });
+
+            historicalIntervalApply?.addEventListener('click', () => {
+                const state = layer._historicalRegularIntervalState;
+                state.savedValue = historicalIntervalInput ? historicalIntervalInput.value : '1-14';
+                state.hasBeenApplied = true;
+                state.isDirty = false;
+
+                if (historicalIntervalInput) {
+                    historicalIntervalInput.classList.add('interval-saved');
+                    window.setTimeout(() => historicalIntervalInput.classList.remove('interval-saved'), 300);
+                }
+
+                if (DEBUG_HISTORICAL_FILTERS) {
+                    console.log('[HISTORIKFILTER][INTERVALL]', {
+                        layer: layer.dataset.layerId,
+                        savedValue: state.savedValue,
+                        parsed: parseRegularIntervalText(state.savedValue)
+                    });
+                }
+
+                applyTableFilters();
+            });
 
             layer.querySelector('.historical-offset')?.addEventListener('change', () => {
                 if (DEBUG_HISTORICAL_FILTERS) {
@@ -6019,7 +6144,7 @@
             if (config.leagues.size === 0) {
                 return 'Välj minst en liga i detta historiska filter.';
             }
-            if (config.regular.size === 0) {
+            if (!config.regularIntervalActive && config.regular.size === 0) {
                 return 'Välj minst ett grundserieresultat i detta historiska filter.';
             }
             if (config.playoff.size === 0) {
@@ -6027,8 +6152,8 @@
             }
 
             const leagueRestricted = config.leagues.size < 2;
-            const regularRestricted = config.regular.size < 4;
-            const playoffRestricted = config.playoff.size < 9;
+            const regularRestricted = config.regularIntervalActive || config.regular.size < 3;
+            const playoffRestricted = config.playoff.size < 8;
 
             // Liga ska alltid nämnas i historikförklaringen. Annars låter "spelade
             // säsongen före" som om vilken liga som helst vore godkänd, vilket inte
@@ -6045,11 +6170,19 @@
             const actions = [`spelade i ${leagueText}`];
 
             if (regularRestricted) {
+                const positions = config.regularIntervalActive
+                    ? (config.regularIntervalSet || new Set())
+                    : positionsFromRegularCategories(config.regular);
+
                 const regularPredicate = buildRegularPredicateFromPositions(
-                    positionsFromRegularCategories(config.regular),
-                    config.regular.has('unresolved')
+                    positions,
+                    false
                 );
-                if (regularPredicate) actions.push(stripLeadingRelativeWord(regularPredicate));
+                if (regularPredicate) {
+                    actions.push(stripLeadingRelativeWord(regularPredicate));
+                } else if (config.regularIntervalActive) {
+                    actions.push('inte hade någon vald grundserieplacering');
+                }
             }
 
             if (playoffRestricted) {
