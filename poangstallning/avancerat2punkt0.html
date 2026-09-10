@@ -5827,45 +5827,94 @@
             return order.filter(key => set.has(key)).map(key => labels[key]);
         }
 
+        const PLAYOFF_ALL_VALUES = [
+            'champion', 'final', 'semi', 'kvart', 'play_in',
+            'none', 'play_out', 'relegated', 'unresolved'
+        ];
+
+        function playoffExclusionPhrases(values) {
+            const order = PLAYOFF_ALL_VALUES;
+            const labels = {
+                champion: 'de som vann mästerskapet',
+                final: 'de som förlorade i finalen',
+                semi: 'de som förlorade i semifinalen',
+                kvart: 'de som förlorade i kvartsfinalen',
+                play_in: 'de som förlorade i play-in',
+                none: 'de som missade slutspelet',
+                play_out: 'de som gick till play-out men klarade sig kvar',
+                relegated: 'de som åkte ur',
+                unresolved: 'de vars säsong ännu inte är färdigspelad'
+            };
+            const set = values instanceof Set ? values : new Set(values || []);
+            return order.filter(key => set.has(key)).map(key => labels[key]);
+        }
+
         function playoffResolvedPhrase(values) {
             const set = values instanceof Set ? values : new Set(values || []);
             const resolved = new Set(Array.from(set).filter(v => v !== 'unresolved' && v !== ''));
 
-            // Sammanhängande kedja från mästare och nedåt kan uttryckas
-            // betydligt naturligare som "nådde minst ...".
-            const topChain = ['champion', 'final', 'semi', 'kvart'];
+            // En sammanhängande kedja från mästare och nedåt kan beskrivas
+            // som "som sämst spelade X". Det fungerar även om det dessutom
+            // finns andra, fristående utfall i urvalet.
+            const topChain = ['champion', 'final', 'semi', 'kvart', 'play_in'];
             let prefixLength = 0;
             while (prefixLength < topChain.length && resolved.has(topChain[prefixLength])) {
                 prefixLength++;
             }
 
-            const onlyPrefix =
-                resolved.size === prefixLength &&
-                prefixLength >= 2;
+            const phrases = [];
+            const remaining = new Set(resolved);
 
-            if (onlyPrefix) {
+            if (prefixLength >= 2) {
                 const threshold = topChain[prefixLength - 1];
                 const thresholdLabel = {
                     final: 'final',
                     semi: 'semifinal',
-                    kvart: 'kvartsfinal'
+                    kvart: 'kvartsfinal',
+                    play_in: 'play-in'
                 }[threshold];
-                if (thresholdLabel) return `nådde minst ${thresholdLabel}`;
+
+                if (thresholdLabel) {
+                    phrases.push(`som sämst spelade ${thresholdLabel}`);
+                    topChain.slice(0, prefixLength).forEach(key => remaining.delete(key));
+                }
             }
 
-            return joinSwedish(playoffExactOutcomePhrases(resolved), 'eller');
+            phrases.push(...playoffExactOutcomePhrases(remaining));
+
+            // "alternativt" blir tydligare när en sammanfattad toppkedja
+            // kombineras med ett fristående utfall, t.ex. "som sämst spelade
+            // final alternativt åkte ur".
+            const conjunction = prefixLength >= 2 && phrases.length > 1 ? 'alternativt' : 'eller';
+            return joinSwedish(phrases, conjunction);
         }
 
-        function buildPlayoffPredicate(values) {
-            const set = values instanceof Set ? values : new Set(values || []);
-            const hasUnresolved = set.has('unresolved') || set.has('');
+        function buildPlayoffPredicate(values, options = {}) {
+            const set = values instanceof Set ? new Set(values) : new Set(values || []);
+            if (set.has('')) {
+                set.delete('');
+                set.add('unresolved');
+            }
+
+            const allowExcept = options.allowExcept !== false;
+
+            // Om högst tre av samtliga slutspelsutfall är bortvalda blir det
+            // oftast både kortare och tydligare att beskriva undantagen.
+            if (allowExcept) {
+                const excluded = new Set(PLAYOFF_ALL_VALUES.filter(value => !set.has(value)));
+                if (excluded.size >= 1 && excluded.size <= 3) {
+                    return `utom ${joinSwedish(playoffExclusionPhrases(excluded), 'eller')}`;
+                }
+            }
+
+            const hasUnresolved = set.has('unresolved');
             const resolvedPhrase = playoffResolvedPhrase(set);
 
             if (resolvedPhrase && hasUnresolved) {
-                return `som ${resolvedPhrase} eller där slutspelet ännu inte är avgjort`;
+                return `som ${resolvedPhrase} eller där säsongen ännu inte är färdigspelad`;
             }
             if (resolvedPhrase) return `som ${resolvedPhrase}`;
-            if (hasUnresolved) return 'där slutspelet ännu inte är avgjort';
+            if (hasUnresolved) return 'där säsongen ännu inte är färdigspelad';
             return '';
         }
 
@@ -5882,6 +5931,10 @@
 
             if (ctx.hasSeasonFilters && ctx.activeSeasons.length === 0) {
                 return 'Välj minst en säsong för att visa ett urval.';
+            }
+
+            if (ctx.regularSelectionEmpty) {
+                return 'Välj minst ett grundserieresultat för att visa ett urval.';
             }
 
             if (ctx.playoffActive && (!ctx.playoffSet || ctx.playoffSet.size === 0)) {
@@ -5914,7 +5967,7 @@
             }
 
             const playoffPredicate = ctx.playoffActive
-                ? buildPlayoffPredicate(ctx.playoffSet || new Set())
+                ? buildPlayoffPredicate(ctx.playoffSet || new Set(), { allowExcept: true })
                 : '';
 
             if (!regularPredicate && !playoffPredicate) {
@@ -5926,7 +5979,9 @@
             }
 
             if (playoffPredicate) {
-                if (regularPredicate) {
+                if (regularPredicate && playoffPredicate.startsWith('utom ')) {
+                    text += `, ${playoffPredicate}`;
+                } else if (regularPredicate) {
                     text += ` och ${stripLeadingRelativeWord(playoffPredicate)}`;
                 } else {
                     text += ` ${playoffPredicate}`;
@@ -5979,7 +6034,7 @@
             }
 
             if (playoffRestricted) {
-                const playoffPredicate = buildPlayoffPredicate(config.playoff);
+                const playoffPredicate = buildPlayoffPredicate(config.playoff, { allowExcept: false });
                 if (playoffPredicate) actions.push(stripLeadingRelativeWord(playoffPredicate));
             }
 
@@ -6309,9 +6364,9 @@
                         }
 
                     } else {
-                        // Varken "Alla" eller någon specifik ruta vald ? ingen extra begränsning
-                        // (Grundserie-filtret är i praktiken avstängt)
-                        regularOk = true;
+                        // Varken "Alla" eller någon specifik ruta vald => inget
+                        // grundserieresultat är valt, alltså ska inga rader visas.
+                        regularOk = false;
                     }
 
                 }
@@ -6439,8 +6494,9 @@
                 const warningSeasons = formatSeasonSelection(Array.from(warningSeasonIds));
                 const singular = warningSeasonIds.size === 1;
                 currentWarnings.push(
-                    `${singular ? 'Säsongen' : 'Säsongerna'} ${warningSeasons} ${singular ? 'är' : 'är'} inte färdigspelad${singular ? '' : 'e'}. ` +
-                    `Lag vars resultat ännu inte är avgjort ingår därför inte i urvalet.`
+                    singular
+                        ? `Eftersom resultat för säsongen ${warningSeasons} saknas är den säsongen inte med i urvalet.`
+                        : `Eftersom resultat för säsongerna ${warningSeasons} saknas är de säsongerna inte med i urvalet.`
                 );
             }
 
@@ -6459,6 +6515,9 @@
                     intervalActive,
                     intervalSet,
                     includeRegularUnresolved: !!cbRegUnresolved?.checked,
+                    regularSelectionEmpty: intervalActive
+                        ? (!(intervalSet && intervalSet.size > 0) && !cbRegUnresolved?.checked)
+                        : (!useRegularAll && !useSpecificRegular),
                     regularIsRestricted: !intervalActive && !!useSpecificRegular && !useRegularAll,
                     regularCategories: regularCategoriesForExplanation,
                     playoffActive,
