@@ -1897,7 +1897,8 @@
 
         let matches = []; // Lagrar den parsade matchdatan globalt
         let seasonSummaryByLabel = {}; // Ny: metadata per team_label från season_summary
-        let GLOBAL_MAX_REGULAR_RANK = 14; // Max grundserieplacering (uppdateras efter att tabellen byggts)
+        let GLOBAL_MAX_REGULAR_RANK = 14; // Max grundserieplacering i råunderlaget (används av äldre delar)
+        const FILTER_MAX_REGULAR_RANK = 14; // Avancerat-filtret gäller SHL/HA, som båda har 14 lag
         // NYTT: index för (lag, säsong)
         let teamSeasonIndex = {};     // key: `${team}::${seasonId}`
         let allTeamSeasonKeys = [];   // sorterad lista med alla nycklar
@@ -5362,7 +5363,7 @@
 
                 // --- NYTT: auto-sätt default-intervall om användaren inte använt intervallet ännu ---
                 if (!regularIntervalHasBeenApplied) {
-                    const defaultText = `1-${GLOBAL_MAX_REGULAR_RANK}`;
+                    const defaultText = `1-${FILTER_MAX_REGULAR_RANK}`;
                     const intervalInput = document.getElementById('regular-interval-input');
 
                     regularIntervalSavedValue = defaultText;
@@ -5376,10 +5377,10 @@
 
                     // NYTT: se till att grundserie-kryssen speglar default-intervallet
                     const fullPositions = [];
-                    for (let pos = 1; pos <= GLOBAL_MAX_REGULAR_RANK; pos++) {
+                    for (let pos = 1; pos <= FILTER_MAX_REGULAR_RANK; pos++) {
                         fullPositions.push(pos);
                     }
-                    applyCheckboxesFromInterval(fullPositions, GLOBAL_MAX_REGULAR_RANK);
+                    applyCheckboxesFromInterval(fullPositions, FILTER_MAX_REGULAR_RANK);
                 }
 
             }
@@ -5460,8 +5461,8 @@
             if (rank >= 1 && rank <= 6) return 'top6';
             if (rank >= 7 && rank <= 12) return 'middle';
 
-            const maxRank = GLOBAL_MAX_REGULAR_RANK || 14;
-            const bottomStart = Math.max(1, maxRank - 1);
+            const maxRank = FILTER_MAX_REGULAR_RANK;
+            const bottomStart = 13;
             if (rank >= bottomStart && rank <= maxRank) return 'bottom2';
 
             // Säker fallback om ligastorlek någon gång avviker från dagens kategorier.
@@ -5778,7 +5779,7 @@
 
         function positionsFromRegularCategories(categories) {
             const set = categories instanceof Set ? categories : new Set(categories || []);
-            const maxRank = GLOBAL_MAX_REGULAR_RANK || 14;
+            const maxRank = FILTER_MAX_REGULAR_RANK;
             const positions = new Set();
 
             if (set.has('top6')) {
@@ -5788,7 +5789,7 @@
                 for (let n = 7; n <= Math.min(12, maxRank); n++) positions.add(n);
             }
             if (set.has('bottom2')) {
-                const bottomStart = Math.max(1, maxRank - 1);
+                const bottomStart = 13;
                 for (let n = bottomStart; n <= maxRank; n++) positions.add(n);
             }
 
@@ -6096,7 +6097,7 @@
                 (cbRegTop6.checked || cbRegMiddle.checked || cbRegBottom2.checked || cbRegUnresolved.checked);
 
             // --- INTERVALL-LOGIK FÖR GRUNDSERIE ---
-            const MAX_RANK = GLOBAL_MAX_REGULAR_RANK || 14;
+            const MAX_RANK = FILTER_MAX_REGULAR_RANK;
 
             const savedIntervalTextRaw = (typeof regularIntervalSavedValue === 'string')
                 ? regularIntervalSavedValue
@@ -6182,7 +6183,7 @@
                 if (cbNone.checked) activeResults.push('none');
                 if (cbPlayOut.checked) activeResults.push('play_out');
                 if (cbRelegated.checked) activeResults.push('relegated');
-                if (cbUnresolved.checked) activeResults.push('');
+                if (cbUnresolved.checked) activeResults.push('unresolved');
                 const totalSegments = playoffCbs.length;
 
                 if (activeResults.length === 0) {
@@ -6240,6 +6241,7 @@
                 const rankStr = row.dataset.regularRank;
                 const rank = rankStr ? parseInt(rankStr, 10) : NaN;
                 const playoffCode = row.dataset.playoffResult || '';
+                const playoffValue = playoffCode === '' ? 'unresolved' : playoffCode;
 
                 // Om vi saknar data-attribut (någon specialrad): låt vara synlig
                 if (!league || !seasonId) {
@@ -6297,15 +6299,13 @@
                             regularOk = true;
                         }
 
-                        // Två sämsta: de två högsta placeringarna utifrån aktuellt MAX_RANK
+                        // Två sämsta i SHL/HA är alltid plats 13–14.
                         if (
                             cbRegBottom2.checked &&
-                            Number.isFinite(rank)
+                            Number.isFinite(rank) &&
+                            rank >= 13 && rank <= 14
                         ) {
-                            const bottomStart = Math.max(1, MAX_RANK - 1); // t.ex. 13 om MAX_RANK=14, 31 om MAX_RANK=32
-                            if (rank >= bottomStart && rank <= MAX_RANK) {
-                                regularOk = true;
-                            }
+                            regularOk = true;
                         }
 
                     } else {
@@ -6323,7 +6323,7 @@
                         // Aktivt filter men tom mängd => visa inga rader
                         playoffOk = false;
                     } else {
-                        playoffOk = playoffSet.has(playoffCode);
+                        playoffOk = playoffSet.has(playoffValue);
                     }
                 }
 
@@ -6429,7 +6429,7 @@
                 (intervalActive || (!!useSpecificRegular && !useRegularAll)) &&
                 !cbRegUnresolved?.checked;
             const playoffUnresolvedExcluded =
-                playoffActive && playoffSet && playoffSet.size > 0 && !playoffSet.has('');
+                playoffActive && playoffSet && playoffSet.size > 0 && !playoffSet.has('unresolved');
 
             const warningSeasonIds = new Set();
             if (regularUnresolvedExcluded) unfinishedRegularSeasons.forEach(s => warningSeasonIds.add(s));
@@ -6445,7 +6445,10 @@
             }
 
             updateFilterExplanation({
-                totalRows: Array.from(rows).filter(row => row.dataset.league && row.dataset.seasonId).length,
+                totalRows: Array.from(rows).filter(row =>
+                    (row.dataset.league === 'SHL' || row.dataset.league === 'HA') &&
+                    ['2021-2022', '2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027'].includes(row.dataset.seasonId)
+                ).length,
                 currentCount: currentFilterRows.length,
                 currentWarnings,
                 currentDescription: {
@@ -6618,143 +6621,85 @@
             const cbRegUnresolved = document.getElementById('filter-regular-unresolved');
             const intervalInput = document.getElementById('regular-interval-input');
 
-            // if (!cbRegAll || !cbRegTop6 || !cbRegMiddle || !cbRegBottom2 || !intervalInput) {
-            //     console.warn('Grundserie: kunde inte hitta alla kryssrutor / intervallfältet');
-            //     return;
-            // }
-
-            // Hjälpfunktion: bygg intervallet från segment-kryssen och sätt "Alla"-state
-            function updateIntervalFromSegments() {
-                const maxRank = GLOBAL_MAX_REGULAR_RANK || 14;
-                const positions = new Set();
-
-                // När användaren klickar segment-kryssen ska de inte längre vara "partial"
-                cbRegTop6.indeterminate = false;
-                cbRegMiddle.indeterminate = false;
-                cbRegBottom2.indeterminate = false;
-                cbRegUnresolved.indeterminate = false;
-
-                // Bygg unionen av alla valda segment
-                if (cbRegTop6.checked) {
-                    for (let pos = 1; pos <= Math.min(6, maxRank); pos++) positions.add(pos);
-                }
-                if (cbRegMiddle.checked) {
-                    for (let pos = 7; pos <= Math.min(12, maxRank); pos++) positions.add(pos);
-                }
-                if (cbRegBottom2.checked) {
-                    const start = Math.max(1, maxRank - 1);
-                    for (let pos = start; pos <= maxRank; pos++) positions.add(pos);
-                }
-
-                // Bestäm "Alla"-rutans state utifrån segmenten
-                const anySegmentChecked = cbRegTop6.checked || cbRegMiddle.checked || cbRegBottom2.checked || cbRegUnresolved.checked;
-                const allSegmentsChecked = cbRegTop6.checked && cbRegMiddle.checked && cbRegBottom2.checked && cbRegUnresolved.checked;
-
-                //                console.log('Grundserie: updateIntervalFromSegments - före All-state', {
-                //                    maxRank,
-                //                    top6: cbRegTop6.checked,
-                //                    middle: cbRegMiddle.checked,
-                //                    bottom2: cbRegBottom2.checked,
-                //                    positionsArray: Array.from(positions).sort((a, b) => a - b)
-                //                });
-
-                // Nollställ master-rutan innan vi bestämmer nytt läge
-                cbRegAll.checked = false;
-                cbRegAll.indeterminate = false;
-
-                if (!anySegmentChecked) {
-                    // Inget segment valt
-                    // console.log('Grundserie: Alla -> "inget segment valt"');
-                    cbRegAll.checked = false;
-                    cbRegAll.indeterminate = false;
-                } else {
-                    // Kolla om unionen täcker hela 1..maxRank
-                    let coversAll = true;
-                    for (let p = 1; p <= maxRank; p++) {
-                        if (!positions.has(p)) {
-                            coversAll = false;
-                            break;
-                        }
-                    }
-
-                    //console.log('Grundserie: täckning 1..maxRank', {
-                    //    coversAll,
-                    //    allSegmentsChecked,
-                    //    positionsArray: Array.from(positions).sort((a, b) => a - b)
-                    //});
-
-                    if (coversAll && allSegmentsChecked) {
-                        //console.log('Grundserie: Alla -> FULL (alla segment, täcker hela intervallet)');
-                        cbRegAll.checked = true;
-                        cbRegAll.indeterminate = false;
-                    } else {
-                        //console.log('Grundserie: Alla -> DELVIS (tri-state)');
-                        cbRegAll.checked = false;
-                        cbRegAll.indeterminate = true; // delvis - tri-state
-                    }
-                }
-
-                // Skriv om intervallfältet utifrån positions
-                let newText = '';
-                if (positions.size > 0) {
-                    newText = formatRegularIntervalSelection(Array.from(positions));
-                }
-
-                regularIntervalSavedValue = newText;
-                regularIntervalSelection = parseRegularIntervalText(newText);
-                regularIntervalHasBeenApplied = true;
-
-                intervalInput.value = newText;
-
-                // console.log('Grundserie (segment -> intervall):', {
-                //     top6: cbRegTop6.checked,
-                //     middle: cbRegMiddle.checked,
-                //     bottom2: cbRegBottom2.checked,
-                //     allCheckbox: {
-                //         checked: cbRegAll.checked,
-                //         indeterminate: cbRegAll.indeterminate
-                //     },
-                //     intervalText: newText,
-                //     positions: Array.from(positions).sort((a, b) => a - b)
-                // });
+            if (!cbRegAll || !cbRegTop6 || !cbRegMiddle || !cbRegBottom2 || !cbRegUnresolved || !intervalInput) {
+                return;
             }
 
+            const maxRank = FILTER_MAX_REGULAR_RANK;
 
-            // MASTER: lyssnare för "Alla"
+            function segmentPositions(cb) {
+                if (cb === cbRegTop6) return [1, 2, 3, 4, 5, 6];
+                if (cb === cbRegMiddle) return [7, 8, 9, 10, 11, 12];
+                if (cb === cbRegBottom2) return [13, 14];
+                return [];
+            }
+
+            function currentNumericPositions() {
+                // Intervallfältets senast BEKRÄFTADE värde är sanningen för numeriska platser.
+                // "Ej avgjort" ligger helt separat och får aldrig skriva om detta värde.
+                return parseRegularIntervalText(regularIntervalSavedValue || '');
+            }
+
+            function saveNumericPositions(positions) {
+                const normalized = Array.from(new Set(positions))
+                    .filter(pos => Number.isFinite(pos) && pos >= 1 && pos <= maxRank)
+                    .sort((a, b) => a - b);
+
+                const newText = formatRegularIntervalSelection(normalized);
+                regularIntervalSavedValue = newText;
+                regularIntervalSelection = normalized.slice();
+                regularIntervalHasBeenApplied = true;
+                regularIntervalIsDirty = false;
+                intervalInput.value = newText;
+
+                // Synka segmentens full/delvis/tom-state samt Alla-rutan.
+                // Funktionen lämnar cbRegUnresolved orörd.
+                applyCheckboxesFromInterval(normalized, maxRank);
+            }
+
+            // MASTER: Alla betyder alla numeriska placeringar + Ej avgjort.
             cbRegAll.addEventListener('change', () => {
                 const turningOn = cbRegAll.checked;
-                //console.log('Grundserie: Alla ändrad, turningOn =', turningOn);
+                cbRegUnresolved.checked = turningOn;
 
                 if (turningOn) {
-                    // Klicka i "Alla" -> slå PÅ alla segment
-                    cbRegTop6.checked = true;
-                    cbRegMiddle.checked = true;
-                    cbRegBottom2.checked = true;
-                    cbRegUnresolved.checked = true;
+                    const allPositions = [];
+                    for (let pos = 1; pos <= maxRank; pos++) allPositions.push(pos);
+                    saveNumericPositions(allPositions);
                 } else {
-                    // Klicka ur "Alla" -> slå AV alla segment
-                    cbRegTop6.checked = false;
-                    cbRegMiddle.checked = false;
-                    cbRegBottom2.checked = false;
-                    cbRegUnresolved.checked = false;
+                    saveNumericPositions([]);
                 }
 
-                updateIntervalFromSegments();
                 applyTableFilters();
             });
 
-            // Lyssnare för segment-kryssen
-            [cbRegTop6, cbRegMiddle, cbRegBottom2, cbRegUnresolved].forEach(cb => {
+            // Numeriska segment ändrar BARA sitt eget delintervall.
+            // Ett tidigare specialintervall, t.ex. 2–5, 7 eller 11, bevaras i övrigt.
+            [cbRegTop6, cbRegMiddle, cbRegBottom2].forEach(cb => {
                 cb.addEventListener('change', () => {
-                    //  console.log('Grundserie: segment ändrat:', cb.id, 'checked =', cb.checked);
-                    updateIntervalFromSegments();
+                    const positions = new Set(currentNumericPositions());
+                    const segment = segmentPositions(cb);
+
+                    if (cb.checked) {
+                        segment.forEach(pos => positions.add(pos));
+                    } else {
+                        segment.forEach(pos => positions.delete(pos));
+                    }
+
+                    saveNumericPositions(Array.from(positions));
                     applyTableFilters();
                 });
             });
 
-            // Init: se till att intervall + "Alla" speglar nuvarande kryss
-            // console.log('Grundserie: init av krysslyssnare');
-            updateIntervalFromSegments();
+            // Ej avgjort är en FRISTÅENDE kategori.
+            // Den får bara påverka Alla-rutans state och själva filtreringen – aldrig intervallet.
+            cbRegUnresolved.addEventListener('change', () => {
+                applyCheckboxesFromInterval(currentNumericPositions(), maxRank);
+                applyTableFilters();
+            });
+
+            // Init: spegla det redan sparade/defaultade intervallet utan att ändra det.
+            applyCheckboxesFromInterval(currentNumericPositions(), maxRank);
         }
 
         // === SLUTSPELSFILTRET - tri-state + master ===
@@ -6846,7 +6791,7 @@
 
 
 
-        function applyCheckboxesFromInterval(parsedPositions, maxRank) {
+        function applyCheckboxesFromInterval(parsedPositions, maxRank = FILTER_MAX_REGULAR_RANK) {
             const cbRegAll = document.getElementById('filter-regular-all');
             const cbRegTop6 = document.getElementById('filter-regular-top6');
             const cbRegMiddle = document.getElementById('filter-regular-middle');
@@ -6862,11 +6807,9 @@
             });
 
             if (!Array.isArray(parsedPositions) || parsedPositions.length === 0 || !Number.isFinite(maxRank) || maxRank < 1) {
-                // Inga positioner ? lämna allt tomt
-                //       console.log('Grundserie (interval -> checkboxes): tom eller ogiltig lista', {
-                //           parsedPositions,
-                //           maxRank
-                //       });
+                // Inga numeriska placeringar. Ej avgjort är separat och lämnas orörd.
+                cbRegAll.checked = false;
+                cbRegAll.indeterminate = !!cbRegUnresolved.checked;
                 return;
             }
 
@@ -7046,7 +6989,7 @@
                     //});
 
                     // Nollställ också kryssrutorna så att UI:t speglar intervallet
-                    applyCheckboxesFromInterval([], GLOBAL_MAX_REGULAR_RANK);
+                    applyCheckboxesFromInterval([], FILTER_MAX_REGULAR_RANK);
 
                     applyTableFilters();
 
@@ -7079,7 +7022,7 @@
                     input.value = formatRegularIntervalSelection(parsed);
 
                     // Synka kryssrutor + tabell
-                    applyCheckboxesFromInterval(parsed, GLOBAL_MAX_REGULAR_RANK);
+                    applyCheckboxesFromInterval(parsed, FILTER_MAX_REGULAR_RANK);
                     applyTableFilters();
 
                     input.classList.add('interval-saved');
@@ -7129,7 +7072,7 @@
                 return [];
             }
 
-            const MAX_RANK = GLOBAL_MAX_REGULAR_RANK || 14;
+            const MAX_RANK = FILTER_MAX_REGULAR_RANK;
             const resultSet = new Set();
 
             // Tillåt komma eller semikolon som separator
@@ -7228,7 +7171,7 @@
                 return "";
             }
 
-            const MAX_RANK = GLOBAL_MAX_REGULAR_RANK || 14;
+            const MAX_RANK = FILTER_MAX_REGULAR_RANK;
 
             // Normalisera: unika, sorterade och klippta till 1-MAX_RANK
             const normalized = Array.from(new Set(selection))
