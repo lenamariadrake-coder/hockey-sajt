@@ -4993,8 +4993,10 @@
 
         function formatSeasonIdForDisplay(seasonId) {
             if (!seasonId) return '';
-            // Byt ut första '-' mot '-' (en dash) för snyggare säsongsvisning
-            return seasonId.replace('-', '-');
+
+            // Säsongs-id:t behålls internt som t.ex. 2022-2023,
+            // men i gränssnittet visar vi konsekvent 2022/2023.
+            return String(seasonId).replace(/^(\d{4})[-–—/](\d{4})$/, '$1/$2');
         }
 
 
@@ -5410,7 +5412,10 @@
                 tr.appendChild(tdLeague);
 
                 // Kolumn 4: Säsong
+                // Även säsongskolumnen får historisk tooltip. Den är medvetet
+                // "ren": tooltipen visar bara de historiska säsongerna radvis.
                 const tdSeason = document.createElement('td');
+                tdSeason.className = 'historical-tooltip-target historical-tooltip-season';
                 tdSeason.textContent = formatSeasonIdForDisplay(row.seasonId);
                 tr.appendChild(tdSeason);
 
@@ -6555,11 +6560,18 @@
             const season = tooltipSeasonText(detail.targetSeason || historyRow.seasonId);
 
             if (cell.classList.contains('historical-tooltip-team')) {
-                return `${historyRow.teamLabel || historyRow.team || ''} ${season}`.trim();
+                // teamLabel innehåller redan den historiska säsongen när den finns.
+                // Lägg därför inte till säsongen en gång till här.
+                return String(historyRow.teamLabel || historyRow.team || '').trim();
             }
 
             if (cell.classList.contains('historical-tooltip-league')) {
-                return `${mapLeagueCodeToLabel(historyRow.league)} ${season}`.trim();
+                return `${season}: ${mapLeagueCodeToLabel(historyRow.league)}`.trim();
+            }
+
+            if (cell.classList.contains('historical-tooltip-season')) {
+                // Säsongskolumnen är avsiktligt helt ren.
+                return season;
             }
 
             if (cell.classList.contains('historical-tooltip-regular')) {
@@ -6567,12 +6579,12 @@
                     ? Number(historyRow.regularSeasonRank)
                     : null;
                 const regularText = Number.isFinite(rank) ? `Plats ${rank}` : 'Ingen avgjord placering';
-                return `${regularText} ${season}`.trim();
+                return `${season}: ${regularText}`.trim();
             }
 
             if (cell.classList.contains('historical-tooltip-playoff')) {
                 const playoffText = mapPlayoffResultToLabel(historyRow.playoffResult) || 'Inget avgjort slutspelsresultat';
-                return `${playoffText} ${season}`.trim();
+                return `${season}: ${playoffText}`.trim();
             }
 
             return '';
