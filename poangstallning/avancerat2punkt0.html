@@ -2580,6 +2580,31 @@
             return `${match[1]}${SEASON_DISPLAY_SEPARATOR}${match[2]}`;
         }
 
+
+        // Säsongsfiltrets value/id behåller den interna formen YYYY-YYYY,
+        // men den synliga texten använder samma centrala visningsregel
+        // som alla andra säsonger i gränssnittet.
+        function applySeasonDisplayFormatToFilterLabels() {
+            document.querySelectorAll('input[id^="filter-season-"][value]').forEach(input => {
+                const label = input.closest('label');
+                if (!label) return;
+
+                // Textnoden efter checkboxen är det som användaren ser.
+                // Själva value-attributet lämnas orört för filtreringslogiken.
+                const textNode = Array.from(label.childNodes).find(node =>
+                    node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== ''
+                );
+
+                if (textNode) {
+                    textNode.textContent = `
+                                        ${formatSeasonIdForDisplay(input.value)}
+                                    `;
+                }
+            });
+        }
+
+        applySeasonDisplayFormatToFilterLabels();
+
         // team_label kan själv innehålla säsongen, t.ex.
         // "Djurgården 2025-2026". Även den ska följa samma visningsregel.
         function formatSeasonTextInLabel(label) {
