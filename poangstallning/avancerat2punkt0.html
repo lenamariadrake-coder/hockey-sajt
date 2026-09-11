@@ -1036,6 +1036,65 @@
            Ett historiskt lager prövar samma lag N säsonger bakåt
            relativt VARJE rad i tabellen. Lagren kombineras med OCH.
            ========================================================= */
+
+
+        /* =========================================================
+           HISTORISKA TOOLTIPS I RESULTATTABELLEN
+           ========================================================= */
+        .historical-tooltip-cell {
+            cursor: help;
+            text-decoration: underline dotted rgba(70, 55, 90, 0.45);
+            text-underline-offset: 0.18em;
+        }
+
+        .historical-tooltip-cell:focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: -2px;
+        }
+
+        #historical-result-tooltip {
+            position: fixed;
+            z-index: 10000;
+            display: none;
+            box-sizing: border-box;
+            width: max-content;
+            max-width: min(360px, calc(100vw - 24px));
+            padding: 0.6rem 0.75rem;
+            border: 1px solid rgba(50, 35, 70, 0.22);
+            border-radius: 0.55rem;
+            background: #fff;
+            color: #222;
+            box-shadow: 0 8px 28px rgba(30, 20, 45, 0.22);
+            font-size: 0.88rem;
+            line-height: 1.35;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            pointer-events: auto;
+        }
+
+        #historical-result-tooltip.is-visible {
+            display: block;
+        }
+
+        #historical-result-tooltip .historical-tooltip-line + .historical-tooltip-line {
+            margin-top: 0.32rem;
+            padding-top: 0.32rem;
+            border-top: 1px solid rgba(50, 35, 70, 0.10);
+        }
+
+        @media (hover: none), (pointer: coarse) {
+            .historical-tooltip-cell {
+                cursor: pointer;
+            }
+
+            #historical-result-tooltip {
+                max-width: calc(100vw - 20px);
+                font-size: 0.92rem;
+                line-height: 1.4;
+            }
+        }
+
         .historical-filter-section {
             flex: 1 1 100%;
             width: 100%;
@@ -5340,11 +5399,13 @@
 
                 // Kolumn 2: Lag
                 const tdTeam = document.createElement('td');
+                tdTeam.className = 'historical-tooltip-target historical-tooltip-team';
                 tdTeam.textContent = row.teamLabel || row.team || '';
                 tr.appendChild(tdTeam);
 
                 // Kolumn 3: Liga
                 const tdLeague = document.createElement('td');
+                tdLeague.className = 'historical-tooltip-target historical-tooltip-league';
                 tdLeague.textContent = mapLeagueCodeToLabel(row.league);
                 tr.appendChild(tdLeague);
 
@@ -5355,6 +5416,7 @@
 
                 // Kolumn 5: Grundserie (placering)
                 const tdRegularRank = document.createElement('td');
+                tdRegularRank.className = 'historical-tooltip-target historical-tooltip-regular';
                 const rankVal = Number.isFinite(row.regularSeasonRank) ? Number(row.regularSeasonRank) : null;
                 tdRegularRank.textContent = Number.isFinite(rankVal)
                     ? String(rankVal)
@@ -5369,6 +5431,7 @@
 
                 // Kolumn 6: Slutspel (svensk etikett)
                 const tdPlayoff = document.createElement('td');
+                tdPlayoff.className = 'historical-tooltip-target historical-tooltip-playoff';
                 tdPlayoff.textContent = mapPlayoffResultToLabel(row.playoffResult);
                 tr.appendChild(tdPlayoff);
 
@@ -6425,7 +6488,288 @@
             }
         }
 
+
+        // =========================================================
+        // HISTORISKA TOOLTIPS I RESULTATTABELLEN
+        // =========================================================
+        // Varje synlig rad får tooltipdata från EXAKT den historiska kandidat
+        // som gjorde att raden matchade respektive historiskt filterlager.
+        // Det är viktigt när samma lagnamn förekommer i flera ligor samma säsong.
+        let historicalTooltipActiveCell = null;
+        let historicalTooltipHideTimer = null;
+
+        function ensureHistoricalResultTooltip() {
+            let tooltip = document.getElementById('historical-result-tooltip');
+            if (tooltip) return tooltip;
+
+            tooltip = document.createElement('div');
+            tooltip.id = 'historical-result-tooltip';
+            tooltip.setAttribute('role', 'tooltip');
+            tooltip.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(tooltip);
+            return tooltip;
+        }
+
+        function clearHistoricalTooltipFromRow(row) {
+            if (!row) return;
+            row._historicalTooltipDetails = [];
+            row.querySelectorAll('.historical-tooltip-target').forEach(cell => {
+                cell.classList.remove('historical-tooltip-cell');
+                cell.removeAttribute('tabindex');
+                cell.removeAttribute('aria-describedby');
+            });
+        }
+
+        function setHistoricalTooltipForRow(row, details) {
+            if (!row) return;
+
+            const usableDetails = Array.isArray(details)
+                ? details.filter(detail => detail && detail.status === 'match' && detail.historyRow)
+                : [];
+
+            row._historicalTooltipDetails = usableDetails;
+
+            row.querySelectorAll('.historical-tooltip-target').forEach(cell => {
+                const hasHistory = usableDetails.length > 0;
+                cell.classList.toggle('historical-tooltip-cell', hasHistory);
+
+                if (hasHistory) {
+                    cell.setAttribute('tabindex', '0');
+                    cell.setAttribute('aria-describedby', 'historical-result-tooltip');
+                } else {
+                    cell.removeAttribute('tabindex');
+                    cell.removeAttribute('aria-describedby');
+                }
+            });
+        }
+
+        function tooltipSeasonText(seasonId) {
+            const display = formatSeasonIdForDisplay(seasonId || '');
+            return String(display || seasonId || '').replace(/-/g, '/');
+        }
+
+        function historicalTooltipLineForCell(cell, detail) {
+            const historyRow = detail?.historyRow;
+            if (!historyRow) return '';
+
+            const season = tooltipSeasonText(detail.targetSeason || historyRow.seasonId);
+
+            if (cell.classList.contains('historical-tooltip-team')) {
+                return `${historyRow.teamLabel || historyRow.team || ''} ${season}`.trim();
+            }
+
+            if (cell.classList.contains('historical-tooltip-league')) {
+                return `${mapLeagueCodeToLabel(historyRow.league)} ${season}`.trim();
+            }
+
+            if (cell.classList.contains('historical-tooltip-regular')) {
+                const rank = Number.isFinite(historyRow.regularSeasonRank)
+                    ? Number(historyRow.regularSeasonRank)
+                    : null;
+                const regularText = Number.isFinite(rank) ? `Plats ${rank}` : 'Ingen avgjord placering';
+                return `${regularText} ${season}`.trim();
+            }
+
+            if (cell.classList.contains('historical-tooltip-playoff')) {
+                const playoffText = mapPlayoffResultToLabel(historyRow.playoffResult) || 'Inget avgjort slutspelsresultat';
+                return `${playoffText} ${season}`.trim();
+            }
+
+            return '';
+        }
+
+        function positionHistoricalResultTooltip(cell, tooltip) {
+            if (!cell || !tooltip) return;
+
+            const margin = 10;
+            const gap = 7;
+            const viewport = window.visualViewport;
+            const viewportWidth = viewport ? viewport.width : window.innerWidth;
+            const viewportHeight = viewport ? viewport.height : window.innerHeight;
+            const viewportLeft = viewport ? viewport.offsetLeft : 0;
+            const viewportTop = viewport ? viewport.offsetTop : 0;
+
+            // Tillåt aldrig tooltipen att bli högre än den synliga viewporten.
+            tooltip.style.maxHeight = `${Math.max(80, viewportHeight - margin * 2)}px`;
+            tooltip.style.left = `${viewportLeft + margin}px`;
+            tooltip.style.top = `${viewportTop + margin}px`;
+
+            const cellRect = cell.getBoundingClientRect();
+            const tipRect = tooltip.getBoundingClientRect();
+
+            const visibleTop = viewportTop + margin;
+            const visibleBottom = viewportTop + viewportHeight - margin;
+            const visibleLeft = viewportLeft + margin;
+            const visibleRight = viewportLeft + viewportWidth - margin;
+
+            const spaceBelow = visibleBottom - cellRect.bottom - gap;
+            const spaceAbove = cellRect.top - visibleTop - gap;
+
+            // På små skärmar får den sida som har mest plats styra maxhöjden.
+            // Om tooltipen ändå är större får den intern scroll i stället för att
+            // fortsätta utanför skärmen.
+            const preferBelow = spaceBelow >= Math.min(tipRect.height, 180) || spaceBelow >= spaceAbove;
+            const sideSpace = Math.max(80, preferBelow ? spaceBelow : spaceAbove);
+            tooltip.style.maxHeight = `${Math.min(viewportHeight - margin * 2, sideSpace)}px`;
+
+            const resizedRect = tooltip.getBoundingClientRect();
+
+            let left = cellRect.left;
+            if (left + resizedRect.width > visibleRight) {
+                left = visibleRight - resizedRect.width;
+            }
+            left = Math.max(visibleLeft, left);
+
+            let top;
+            if (preferBelow) {
+                top = cellRect.bottom + gap;
+                if (top + resizedRect.height > visibleBottom) {
+                    top = visibleBottom - resizedRect.height;
+                }
+            } else {
+                top = cellRect.top - gap - resizedRect.height;
+                if (top < visibleTop) top = visibleTop;
+            }
+
+            tooltip.style.left = `${Math.round(left)}px`;
+            tooltip.style.top = `${Math.round(top)}px`;
+        }
+
+        function showHistoricalResultTooltip(cell) {
+            const row = cell?.closest('tr');
+            const details = row?._historicalTooltipDetails || [];
+            if (!details.length) return;
+
+            if (historicalTooltipHideTimer) {
+                clearTimeout(historicalTooltipHideTimer);
+                historicalTooltipHideTimer = null;
+            }
+
+            const tooltip = ensureHistoricalResultTooltip();
+            const lines = details
+                .map(detail => historicalTooltipLineForCell(cell, detail))
+                .filter(Boolean);
+
+            if (!lines.length) return;
+
+            tooltip.replaceChildren(...lines.map(line => {
+                const div = document.createElement('div');
+                div.className = 'historical-tooltip-line';
+                div.textContent = line;
+                return div;
+            }));
+
+            tooltip.classList.add('is-visible');
+            tooltip.setAttribute('aria-hidden', 'false');
+            historicalTooltipActiveCell = cell;
+            positionHistoricalResultTooltip(cell, tooltip);
+        }
+
+        function hideHistoricalResultTooltip() {
+            const tooltip = document.getElementById('historical-result-tooltip');
+            if (tooltip) {
+                tooltip.classList.remove('is-visible');
+                tooltip.setAttribute('aria-hidden', 'true');
+            }
+            historicalTooltipActiveCell = null;
+        }
+
+        function scheduleHistoricalTooltipHide() {
+            if (historicalTooltipHideTimer) clearTimeout(historicalTooltipHideTimer);
+            historicalTooltipHideTimer = setTimeout(() => {
+                const tooltip = document.getElementById('historical-result-tooltip');
+                if (tooltip?.matches(':hover')) return;
+                hideHistoricalResultTooltip();
+            }, 80);
+        }
+
+        function setupHistoricalResultTooltips() {
+            if (document.body.dataset.historicalTooltipsReady === '1') return;
+
+            const table = document.querySelector('.team-table');
+            if (!table) return;
+
+            document.body.dataset.historicalTooltipsReady = '1';
+
+            // Desktop: hover/fokus.
+            table.addEventListener('mouseover', event => {
+                if (!window.matchMedia('(hover: hover)').matches) return;
+                const cell = event.target.closest('.historical-tooltip-cell');
+                if (cell && table.contains(cell)) showHistoricalResultTooltip(cell);
+            });
+
+            table.addEventListener('mouseout', event => {
+                if (!window.matchMedia('(hover: hover)').matches) return;
+                const cell = event.target.closest('.historical-tooltip-cell');
+                if (!cell) return;
+                if (cell.contains(event.relatedTarget)) return;
+                scheduleHistoricalTooltipHide();
+            });
+
+            table.addEventListener('focusin', event => {
+                const cell = event.target.closest('.historical-tooltip-cell');
+                if (cell) showHistoricalResultTooltip(cell);
+            });
+
+            table.addEventListener('focusout', event => {
+                const cell = event.target.closest('.historical-tooltip-cell');
+                if (!cell) return;
+                scheduleHistoricalTooltipHide();
+            });
+
+            // Touch/mobil: tryck för att öppna/stänga. Ett tryck på en annan cell
+            // byter innehåll. Tryck utanför stänger tooltipen.
+            table.addEventListener('click', event => {
+                const cell = event.target.closest('.historical-tooltip-cell');
+                if (!cell || !table.contains(cell)) return;
+
+                const coarsePointer = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+                if (!coarsePointer) return;
+
+                event.stopPropagation();
+                if (historicalTooltipActiveCell === cell) {
+                    hideHistoricalResultTooltip();
+                } else {
+                    showHistoricalResultTooltip(cell);
+                }
+            });
+
+            document.addEventListener('click', event => {
+                const tooltip = document.getElementById('historical-result-tooltip');
+                if (!historicalTooltipActiveCell) return;
+                if (tooltip?.contains(event.target)) return;
+                if (event.target.closest('.historical-tooltip-cell')) return;
+                hideHistoricalResultTooltip();
+            });
+
+            const tooltip = ensureHistoricalResultTooltip();
+            tooltip.addEventListener('mouseenter', () => {
+                if (historicalTooltipHideTimer) {
+                    clearTimeout(historicalTooltipHideTimer);
+                    historicalTooltipHideTimer = null;
+                }
+            });
+            tooltip.addEventListener('mouseleave', scheduleHistoricalTooltipHide);
+
+            // Håll tooltipen helt inom den synliga delen av skärmen även efter
+            // rotation, zoom eller viewportförändring på mobil.
+            const reposition = () => {
+                if (historicalTooltipActiveCell && tooltip.classList.contains('is-visible')) {
+                    positionHistoricalResultTooltip(historicalTooltipActiveCell, tooltip);
+                }
+            };
+            window.addEventListener('resize', reposition);
+            window.addEventListener('scroll', reposition, true);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', reposition);
+                window.visualViewport.addEventListener('scroll', reposition);
+            }
+        }
+
         function applyTableFilters() {
+            setupHistoricalResultTooltips();
+            hideHistoricalResultTooltip();
+
             const table = document.querySelector('.team-table');
             if (!table) return;
             const tbody = table.querySelector('tbody');
@@ -6628,6 +6972,8 @@
             const currentFilterRows = [];
 
             rows.forEach(row => {
+                clearHistoricalTooltipFromRow(row);
+
                 const league = row.dataset.league;
                 const seasonId = row.dataset.seasonId;
                 const rankStr = row.dataset.regularRank;
@@ -6723,6 +7069,7 @@
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
+                let historicalResultForTooltip = null;
                 if (currentFiltersOk && historicalConfigs.length > 0) {
                     const historicalResult = evaluateHistoricalFiltersForRow(
                         row,
@@ -6734,6 +7081,7 @@
                     historicalStats.total += 1;
                     if (historicalResult.status === 'match') {
                         historicalStats.match += 1;
+                        historicalResultForTooltip = historicalResult;
                     } else if (historicalResult.status === 'missing') {
                         historicalStats.missing += 1;
                         if (historicalResult.reason === 'season_missing') historicalStats.seasonMissing += 1;
@@ -6745,7 +7093,12 @@
                     }
                 }
 
-                row.style.display = (currentFiltersOk && historicalOk) ? '' : 'none';
+                const rowVisible = currentFiltersOk && historicalOk;
+                row.style.display = rowVisible ? '' : 'none';
+
+                if (rowVisible && historicalResultForTooltip?.status === 'match') {
+                    setHistoricalTooltipForRow(row, historicalResultForTooltip.details);
+                }
             });
 
             // --- FÖRKLARING: räkna tratten steg för steg ---
