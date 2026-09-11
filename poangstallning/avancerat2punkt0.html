@@ -5425,7 +5425,7 @@
                 const rankVal = Number.isFinite(row.regularSeasonRank) ? Number(row.regularSeasonRank) : null;
                 tdRegularRank.textContent = Number.isFinite(rankVal)
                     ? String(rankVal)
-                    : '';
+                    : 'Ej avgjort';
                 tr.appendChild(tdRegularRank);
 
                 // Håll koll på högsta upptäckta grundserieplacering (för intervall/sekvens-logik)
@@ -5526,6 +5526,58 @@
 
             if (!years.length) return 1;
             return Math.max(1, Math.max(...years) - Math.min(...years));
+        }
+
+        // Varje relativ historisk säsong får bara användas av ett lager åt gången.
+        // Exempel: två lager får inte båda vara "1 säsong tidigare".
+        function getUsedHistoricalOffsets(excludeLayer = null) {
+            return new Set(
+                Array.from(document.querySelectorAll('.historical-filter-layer'))
+                    .filter(layer => layer !== excludeLayer)
+                    .map(layer => parseInt(layer.querySelector('.historical-offset')?.value || '', 10))
+                    .filter(Number.isFinite)
+            );
+        }
+
+        function getFirstAvailableHistoricalOffset(excludeLayer = null) {
+            const used = getUsedHistoricalOffsets(excludeLayer);
+            const maxOffset = getHistoricalMaxOffset();
+
+            for (let offset = 1; offset <= maxOffset; offset++) {
+                if (!used.has(offset)) return offset;
+            }
+
+            return null;
+        }
+
+        function refreshHistoricalOffsetAvailability() {
+            const layers = Array.from(document.querySelectorAll('.historical-filter-layer'));
+
+            layers.forEach(layer => {
+                const select = layer.querySelector('.historical-offset');
+                if (!select) return;
+
+                const currentOffset = parseInt(select.value || '', 10);
+                const usedByOthers = getUsedHistoricalOffsets(layer);
+
+                Array.from(select.options).forEach(option => {
+                    const value = parseInt(option.value || '', 10);
+                    // Det egna nuvarande värdet ska alltid förbli valbart.
+                    option.disabled =
+                        Number.isFinite(value) &&
+                        value !== currentOffset &&
+                        usedByOthers.has(value);
+                });
+            });
+
+            const addBtn = document.getElementById('add-historical-filter');
+            if (addBtn) {
+                const hasFreeOffset = getFirstAvailableHistoricalOffset() !== null;
+                addBtn.disabled = !hasFreeOffset;
+                addBtn.title = hasFreeOffset
+                    ? ''
+                    : 'Alla tillgängliga historiska säsongsavstånd används redan.';
+            }
         }
 
         function getHistoricalFilterConfigs() {
@@ -5939,6 +5991,18 @@
             const host = document.getElementById('historical-filter-layers');
             if (!host) return null;
 
+            const usedOffsets = getUsedHistoricalOffsets();
+            const requestedOffset = Math.max(1, parseInt(defaultOffset, 10) || 1);
+            const actualOffset = !usedOffsets.has(requestedOffset)
+                ? requestedOffset
+                : getFirstAvailableHistoricalOffset();
+
+            // Alla möjliga relativa säsonger används redan.
+            if (actualOffset === null) {
+                refreshHistoricalOffsetAvailability();
+                return null;
+            }
+
             historicalFilterLayerCounter += 1;
             const layer = document.createElement('div');
             layer.className = 'historical-filter-layer';
@@ -5946,7 +6010,7 @@
 
             const maxOffset = getHistoricalMaxOffset();
             const offsetOptions = Array.from({ length: maxOffset }, (_, i) => i + 1)
-                .map(n => `<option value="${n}"${n === defaultOffset ? ' selected' : ''}>${n} ${n === 1 ? 'säsong' : 'säsonger'} tidigare</option>`)
+                .map(n => `<option value="${n}"${n === actualOffset ? ' selected' : ''}>${n} ${n === 1 ? 'säsong' : 'säsonger'} tidigare</option>`)
                 .join('');
 
             layer.innerHTML = `
@@ -6003,6 +6067,8 @@
             setupHistoricalRegularFilterLayer(layer);
 
             layer.querySelector('.historical-offset')?.addEventListener('change', () => {
+                refreshHistoricalOffsetAvailability();
+
                 if (DEBUG_HISTORICAL_FILTERS) {
                     console.log('[HISTORIKFILTER][OFFSET]', {
                         layer: layer.dataset.layerId,
@@ -6016,11 +6082,14 @@
                 const id = layer.dataset.layerId;
                 layer.remove();
                 refreshHistoricalLayerTitles();
+                refreshHistoricalOffsetAvailability();
                 if (DEBUG_HISTORICAL_FILTERS) console.log('[HISTORIKFILTER][REMOVE]', id);
                 applyTableFilters();
             });
 
             refreshHistoricalLayerTitles();
+            refreshHistoricalOffsetAvailability();
+
             if (DEBUG_HISTORICAL_FILTERS) {
                 console.log('[HISTORIKFILTER][ADD]', {
                     layer: layer.dataset.layerId,
@@ -6034,6 +6103,7 @@
         function resetHistoricalFilters() {
             const host = document.getElementById('historical-filter-layers');
             if (host) host.innerHTML = '';
+            refreshHistoricalOffsetAvailability();
             if (DEBUG_HISTORICAL_FILTERS) console.log('[HISTORIKFILTER][RESET] Alla historiska lager borttagna');
         }
 
@@ -6043,9 +6113,17 @@
 
             addBtn.dataset.bound = '1';
             addBtn.addEventListener('click', () => {
-                createHistoricalFilterLayer(1);
+                const nextOffset = getFirstAvailableHistoricalOffset();
+                if (nextOffset === null) {
+                    refreshHistoricalOffsetAvailability();
+                    return;
+                }
+
+                createHistoricalFilterLayer(nextOffset);
                 applyTableFilters();
             });
+
+            refreshHistoricalOffsetAvailability();
 
             if (DEBUG_HISTORICAL_FILTERS) {
                 console.log('[HISTORIKFILTER][INIT]', {
@@ -6578,7 +6656,7 @@
                 const rank = Number.isFinite(historyRow.regularSeasonRank)
                     ? Number(historyRow.regularSeasonRank)
                     : null;
-                const regularText = Number.isFinite(rank) ? `Plats ${rank}` : 'Ingen avgjord placering';
+                const regularText = Number.isFinite(rank) ? `Plats ${rank}` : 'Ej avgjort';
                 return `${season}: ${regularText}`.trim();
             }
 
