@@ -5642,6 +5642,224 @@
             updateHistoricalAllCheckboxState(layer, group);
         }
 
+        // Grundserieblocket i ett historiskt lager fungerar med samma princip som
+        // grundfiltret: kryssrutorna och intervallfältet är två vyer av SAMMA urval.
+        // State ligger på själva lagret så att flera historiska lager är helt oberoende.
+        function setupHistoricalRegularFilterLayer(layer) {
+            const cbAll = layer.querySelector('input.historical-all[data-group="regular"]');
+            const cbTop6 = layer.querySelector('input.historical-option[data-group="regular"][value="top6"]');
+            const cbMiddle = layer.querySelector('input.historical-option[data-group="regular"][value="middle"]');
+            const cbBottom2 = layer.querySelector('input.historical-option[data-group="regular"][value="bottom2"]');
+            const input = layer.querySelector('.historical-regular-interval-input');
+            const applyBtn = layer.querySelector('.historical-regular-interval-apply');
+
+            if (!cbAll || !cbTop6 || !cbMiddle || !cbBottom2 || !input || !applyBtn) return;
+
+            const maxRank = FILTER_MAX_REGULAR_RANK;
+            const initialValue = input.value.trim();
+
+            const state = layer._historicalRegularIntervalState = {
+                savedValue: initialValue,
+                selection: parseRegularIntervalText(initialValue),
+                hasBeenApplied: false,
+                isDirty: false,
+                justConfirmed: false
+            };
+
+            let pendingValue = state.savedValue;
+            let pendingDirty = false;
+
+            function segmentPositions(cb) {
+                if (cb === cbTop6) return [1, 2, 3, 4, 5, 6];
+                if (cb === cbMiddle) return [7, 8, 9, 10, 11, 12];
+                if (cb === cbBottom2) return [13, 14];
+                return [];
+            }
+
+            function currentNumericPositions() {
+                return parseRegularIntervalText(state.savedValue || '');
+            }
+
+            function applyCheckboxesFromHistoricalInterval(parsedPositions) {
+                [cbAll, cbTop6, cbMiddle, cbBottom2].forEach(cb => {
+                    cb.checked = false;
+                    cb.indeterminate = false;
+                });
+
+                const uniqueSorted = Array.from(new Set(parsedPositions || []))
+                    .filter(pos => Number.isFinite(pos) && pos >= 1 && pos <= maxRank)
+                    .sort((a, b) => a - b);
+
+                if (!uniqueSorted.length) return;
+
+                const posSet = new Set(uniqueSorted);
+
+                function segmentState(positions) {
+                    const hit = positions.filter(pos => posSet.has(pos)).length;
+                    if (hit === 0) return 'none';
+                    if (hit === positions.length) return 'full';
+                    return 'partial';
+                }
+
+                function applyState(cb, segment) {
+                    const s = segmentState(segment);
+                    cb.checked = s === 'full';
+                    cb.indeterminate = s === 'partial';
+                }
+
+                const allPositions = Array.from({ length: maxRank }, (_, i) => i + 1);
+                const isFullRange =
+                    uniqueSorted.length === allPositions.length &&
+                    uniqueSorted[0] === 1 &&
+                    uniqueSorted[uniqueSorted.length - 1] === maxRank;
+
+                if (isFullRange) {
+                    cbAll.checked = true;
+                    cbTop6.checked = true;
+                    cbMiddle.checked = true;
+                    cbBottom2.checked = true;
+                    return;
+                }
+
+                applyState(cbTop6, [1, 2, 3, 4, 5, 6]);
+                applyState(cbMiddle, [7, 8, 9, 10, 11, 12]);
+                applyState(cbBottom2, [13, 14]);
+                cbAll.indeterminate = true;
+            }
+
+            function saveNumericPositions(positions) {
+                const normalized = Array.from(new Set(positions))
+                    .filter(pos => Number.isFinite(pos) && pos >= 1 && pos <= maxRank)
+                    .sort((a, b) => a - b);
+
+                const newText = formatRegularIntervalSelection(normalized);
+                state.savedValue = newText;
+                state.selection = normalized.slice();
+                state.hasBeenApplied = true;
+                state.isDirty = false;
+                input.value = newText;
+                pendingValue = newText;
+                pendingDirty = false;
+
+                applyCheckboxesFromHistoricalInterval(normalized);
+            }
+
+            // Alla = alla numeriska grundserieplaceringar.
+            cbAll.addEventListener('change', () => {
+                if (cbAll.checked) {
+                    saveNumericPositions(Array.from({ length: maxRank }, (_, i) => i + 1));
+                } else {
+                    saveNumericPositions([]);
+                }
+                applyTableFilters();
+            });
+
+            // Segmentkryssen lägger till/tar bort endast sitt segment ur det aktuella intervallet.
+            [cbTop6, cbMiddle, cbBottom2].forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const positions = new Set(currentNumericPositions());
+                    const segment = segmentPositions(cb);
+
+                    if (cb.checked) {
+                        segment.forEach(pos => positions.add(pos));
+                    } else {
+                        segment.forEach(pos => positions.delete(pos));
+                    }
+
+                    saveNumericPositions(Array.from(positions));
+                    applyTableFilters();
+                });
+            });
+
+            input.addEventListener('focus', () => {
+                pendingValue = input.value.trim();
+                pendingDirty = false;
+            });
+
+            input.addEventListener('input', () => {
+                pendingValue = input.value.trim();
+                pendingDirty = true;
+                state.isDirty = true;
+            });
+
+            applyBtn.addEventListener('mousedown', () => {
+                state.justConfirmed = true;
+            });
+
+            applyBtn.addEventListener('click', event => {
+                event.preventDefault();
+
+                const cleaned = pendingValue.trim();
+                const parsed = parseRegularIntervalText(cleaned);
+
+                if (cleaned === '') {
+                    state.savedValue = '';
+                    state.selection = [];
+                    state.hasBeenApplied = true;
+                    state.isDirty = false;
+                    input.value = '';
+                    pendingValue = '';
+                    pendingDirty = false;
+
+                    applyCheckboxesFromHistoricalInterval([]);
+                    applyTableFilters();
+
+                    input.classList.add('interval-saved');
+                    window.setTimeout(() => input.classList.remove('interval-saved'), 200);
+                    return;
+                }
+
+                if (parsed.length > 0) {
+                    const normalizedText = formatRegularIntervalSelection(parsed);
+                    state.savedValue = normalizedText;
+                    state.selection = parsed.slice();
+                    state.hasBeenApplied = true;
+                    state.isDirty = false;
+                    input.value = normalizedText;
+                    pendingValue = normalizedText;
+                    pendingDirty = false;
+
+                    applyCheckboxesFromHistoricalInterval(parsed);
+                    applyTableFilters();
+
+                    input.classList.add('interval-saved');
+                    window.setTimeout(() => input.classList.remove('interval-saved'), 200);
+                    return;
+                }
+
+                // Ogiltig text: precis som originalet återgår vi till senast sparade värde.
+                input.value = state.savedValue;
+                pendingValue = state.savedValue;
+                pendingDirty = false;
+                state.isDirty = false;
+                state.justConfirmed = false;
+            });
+
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    state.justConfirmed = true;
+                    applyBtn.click();
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                if (state.justConfirmed) {
+                    state.justConfirmed = false;
+                    return;
+                }
+                if (!pendingDirty) return;
+
+                input.value = state.savedValue;
+                pendingValue = state.savedValue;
+                pendingDirty = false;
+                state.isDirty = false;
+            });
+
+            // Startläget ska spegla 1-14 i både fält och kryssrutor.
+            applyCheckboxesFromHistoricalInterval(currentNumericPositions());
+        }
+
         function refreshHistoricalLayerTitles() {
             document.querySelectorAll('.historical-filter-layer').forEach((layer, index) => {
                 const title = layer.querySelector('.historical-layer-title');
@@ -5709,51 +5927,12 @@
                 </div>`;
 
             host.appendChild(layer);
-            ['league', 'regular', 'playoff'].forEach(group => bindHistoricalGroup(layer, group));
 
-            // Separat intervall-state per lager. Detta är avsiktligt INTE globalt.
-            layer._historicalRegularIntervalState = {
-                savedValue: '1-14',
-                hasBeenApplied: false,
-                isDirty: false
-            };
+            // Liga och slutspel är vanliga checkboxgrupper.
+            ['league', 'playoff'].forEach(group => bindHistoricalGroup(layer, group));
 
-            const historicalIntervalInput = layer.querySelector('.historical-regular-interval-input');
-            const historicalIntervalApply = layer.querySelector('.historical-regular-interval-apply');
-
-            historicalIntervalInput?.addEventListener('input', () => {
-                layer._historicalRegularIntervalState.isDirty =
-                    historicalIntervalInput.value !== layer._historicalRegularIntervalState.savedValue;
-            });
-
-            historicalIntervalInput?.addEventListener('keydown', event => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    historicalIntervalApply?.click();
-                }
-            });
-
-            historicalIntervalApply?.addEventListener('click', () => {
-                const state = layer._historicalRegularIntervalState;
-                state.savedValue = historicalIntervalInput ? historicalIntervalInput.value : '1-14';
-                state.hasBeenApplied = true;
-                state.isDirty = false;
-
-                if (historicalIntervalInput) {
-                    historicalIntervalInput.classList.add('interval-saved');
-                    window.setTimeout(() => historicalIntervalInput.classList.remove('interval-saved'), 300);
-                }
-
-                if (DEBUG_HISTORICAL_FILTERS) {
-                    console.log('[HISTORIKFILTER][INTERVALL]', {
-                        layer: layer.dataset.layerId,
-                        savedValue: state.savedValue,
-                        parsed: parseRegularIntervalText(state.savedValue)
-                    });
-                }
-
-                applyTableFilters();
-            });
+            // Grundserien har samma tvåvägssynk mellan kryss och intervallfält som originalfiltret.
+            setupHistoricalRegularFilterLayer(layer);
 
             layer.querySelector('.historical-offset')?.addEventListener('change', () => {
                 if (DEBUG_HISTORICAL_FILTERS) {
