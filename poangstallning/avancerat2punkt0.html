@@ -5425,7 +5425,7 @@
                 const rankVal = Number.isFinite(row.regularSeasonRank) ? Number(row.regularSeasonRank) : null;
                 tdRegularRank.textContent = Number.isFinite(rankVal)
                     ? String(rankVal)
-                    : 'Ej avgjort';
+                    : 'ej avgjort';
                 tr.appendChild(tdRegularRank);
 
                 // Håll koll på högsta upptäckta grundserieplacering (för intervall/sekvens-logik)
@@ -6656,7 +6656,7 @@
                 const rank = Number.isFinite(historyRow.regularSeasonRank)
                     ? Number(historyRow.regularSeasonRank)
                     : null;
-                const regularText = Number.isFinite(rank) ? `Plats ${rank}` : 'Ej avgjort';
+                const regularText = Number.isFinite(rank) ? `Plats ${rank}` : 'ej avgjort';
 
                 // Resultatkolumnerna visar även vilken liga den historiska raden gäller.
                 // Hockeyallsvenskan förkortas till HA för att hålla tooltipen kompakt.
