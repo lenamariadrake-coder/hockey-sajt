@@ -2563,6 +2563,43 @@
                 .join('\n');
         }
 
+        // =========================================================
+        // SÄSONGSFORMAT: visning från Google Sheet, stabil intern nyckel
+        // =========================================================
+        // season_id får skrivas t.ex. 2025-2026, 2025–2026, 2025 / 2026
+        // eller med mellanslag runt avskiljaren. Det användaren har skrivit
+        // sparas som displaySeasonId och visas i gränssnittet. Internt
+        // normaliseras samma säsong alltid till formen 2025-2026 så att
+        // jämförelser, historiska filter och lag+säsong-nycklar är stabila.
+        function parseSeasonId(seasonText) {
+            const display = String(seasonText || '').trim();
+            const match = display.match(/^(\d{4})\s*[-–—/]\s*(\d{4})$/);
+
+            if (!match) {
+                return {
+                    key: display,
+                    display,
+                    startYear: NaN,
+                    endYear: NaN
+                };
+            }
+
+            return {
+                key: `${match[1]}-${match[2]}`,
+                display,
+                startYear: Number(match[1]),
+                endYear: Number(match[2])
+            };
+        }
+
+        function normalizeSeasonId(seasonText) {
+            return parseSeasonId(seasonText).key;
+        }
+
+        function seasonDisplayText(seasonId, displaySeasonId = '') {
+            return String(displaySeasonId || seasonId || '').trim();
+        }
+
         // --- // --- FUNKTION FÖR ATT LADDA OCH BEARBETA DATA ---
         async function loadAndProcessData() {
             try {
@@ -2606,7 +2643,9 @@
                     }
 
                     // Plocka ut säsong och liga från games-arket
-                    const seasonId = parts[8].trim();   // season_id
+                    const seasonSource = parseSeasonId(parts[8]);
+                    const seasonId = seasonSource.key;          // intern nyckel: alltid YYYY-YYYY
+                    const displaySeasonId = seasonSource.display; // exakt visning från Google Sheet
                     const league = parts[9].trim();   // league
 
                     // OBS: Ingen filtrering här längre - vi tar in alla HA+SHL-rader
@@ -2653,6 +2692,7 @@
                         homePoints,
                         awayPoints,
                         seasonId,
+                        displaySeasonId,
                         league,
                         // Ny metadata för datum-läget
                         dateNoYear,       // t.ex. "24 sep."
@@ -2815,9 +2855,17 @@
                     // }
 
                     const league = parts[0].trim();              // league
-                    const seasonId = parts[1].trim();            // season_id
+                    const seasonSource = parseSeasonId(parts[1]);
+                    const seasonId = seasonSource.key;                 // intern nyckel
+                    const displaySeasonId = seasonSource.display;      // exakt visning från Google Sheet
                     const team = parts[2].trim();                // team
-                    const teamLabel = parts[3].trim();           // team_label
+                    let teamLabel = parts[3].trim();                 // team_label
+                    // Om team_label innehåller säsongen, låt season_id bestämma hur
+                    // själva säsongsdelen visas även där.
+                    const seasonInLabel = teamLabel.match(/\d{4}\s*[-–—/]\s*\d{4}/);
+                    if (seasonInLabel && displaySeasonId) {
+                        teamLabel = teamLabel.replace(seasonInLabel[0], displaySeasonId);
+                    }
                     const regularSeasonRank = parseInt(parts[4]);
                     const regularSeasonPoints = parseInt(parts[5]);
                     const goalDifference = parseInt(parts[6]);
@@ -2830,6 +2878,7 @@
                     const rowObj = {
                         league,
                         seasonId,
+                        displaySeasonId,
                         team,
                         teamLabel,
                         teamSeasonKey, // NYTT fält
@@ -4991,12 +5040,10 @@
 
 
 
-        function formatSeasonIdForDisplay(seasonId) {
-            if (!seasonId) return '';
-
-            // Säsongs-id:t behålls internt som t.ex. 2022-2023,
-            // men i gränssnittet visar vi konsekvent 2022/2023.
-            return String(seasonId).replace(/^(\d{4})[-–—/](\d{4})$/, '$1/$2');
+        function formatSeasonIdForDisplay(seasonId, displaySeasonId = '') {
+            // Visningen ska följa exakt det format som står i Google Sheet.
+            // seasonId är däremot den normaliserade interna nyckeln.
+            return seasonDisplayText(seasonId, displaySeasonId);
         }
 
 
@@ -5416,7 +5463,7 @@
                 // "ren": tooltipen visar bara de historiska säsongerna radvis.
                 const tdSeason = document.createElement('td');
                 tdSeason.className = 'historical-tooltip-target historical-tooltip-season';
-                tdSeason.textContent = formatSeasonIdForDisplay(row.seasonId);
+                tdSeason.textContent = formatSeasonIdForDisplay(row.seasonId, row.displaySeasonId);
                 tr.appendChild(tdSeason);
 
                 // Kolumn 5: Grundserie (placering)
@@ -5503,7 +5550,8 @@
         let historicalFilterLayerCounter = 0;
 
         function shiftSeasonIdBack(seasonId, seasonsBack) {
-            const match = String(seasonId || '').match(/^(\d{4})-(\d{4})$/);
+            const normalized = normalizeSeasonId(seasonId);
+            const match = normalized.match(/^(\d{4})-(\d{4})$/);
             if (!match) return null;
 
             const startYear = parseInt(match[1], 10);
@@ -5519,8 +5567,7 @@
 
             const years = seasonSummaryRows
                 .map(row => {
-                    const m = String(row.seasonId || '').match(/^(\d{4})-/);
-                    return m ? parseInt(m[1], 10) : NaN;
+                    return parseSeasonId(row.seasonId).startYear;
                 })
                 .filter(Number.isFinite);
 
@@ -6171,12 +6218,12 @@
         // till uttryck som "nådde minst semifinal".
 
         function seasonIdToDisplay(seasonId) {
-            return String(seasonId || '').replace('-', '/');
+            const row = (seasonSummaryRows || []).find(r => r.seasonId === normalizeSeasonId(seasonId));
+            return seasonDisplayText(normalizeSeasonId(seasonId), row?.displaySeasonId);
         }
 
         function seasonStartYear(seasonId) {
-            const match = String(seasonId || '').match(/^(\d{4})-(\d{4})$/);
-            return match ? Number(match[1]) : NaN;
+            return parseSeasonId(seasonId).startYear;
         }
 
         function formatSeasonSelection(seasons) {
@@ -6627,8 +6674,9 @@
         }
 
         function tooltipSeasonText(seasonId) {
-            const display = formatSeasonIdForDisplay(seasonId || '');
-            return String(display || seasonId || '').replace(/-/g, '/');
+            const normalized = normalizeSeasonId(seasonId);
+            const row = (seasonSummaryRows || []).find(r => r.seasonId === normalized);
+            return formatSeasonIdForDisplay(normalized, row?.displaySeasonId);
         }
 
         function historicalTooltipLineForCell(cell, detail) {
