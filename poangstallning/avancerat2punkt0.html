@@ -6657,12 +6657,29 @@
                     ? Number(historyRow.regularSeasonRank)
                     : null;
                 const regularText = Number.isFinite(rank) ? `Plats ${rank}` : 'Ej avgjort';
-                return `${season}: ${regularText}`.trim();
+
+                // Resultatkolumnerna visar även vilken liga den historiska raden gäller.
+                // Hockeyallsvenskan förkortas till HA för att hålla tooltipen kompakt.
+                const leagueLabelRaw = mapLeagueCodeToLabel(historyRow.league);
+                const leagueLabel = String(leagueLabelRaw || historyRow.league || '')
+                    .replace(/^Hockeyallsvenskan$/i, 'HA')
+                    .trim();
+                const leagueSuffix = leagueLabel ? ` (${leagueLabel})` : '';
+
+                return `${season}: ${regularText}${leagueSuffix}`.trim();
             }
 
             if (cell.classList.contains('historical-tooltip-playoff')) {
                 const playoffText = mapPlayoffResultToLabel(historyRow.playoffResult) || 'Inget avgjort slutspelsresultat';
-                return `${season}: ${playoffText}`.trim();
+
+                // Samma ligatillägg i slutspelsresultatet.
+                const leagueLabelRaw = mapLeagueCodeToLabel(historyRow.league);
+                const leagueLabel = String(leagueLabelRaw || historyRow.league || '')
+                    .replace(/^Hockeyallsvenskan$/i, 'HA')
+                    .trim();
+                const leagueSuffix = leagueLabel ? ` (${leagueLabel})` : '';
+
+                return `${season}: ${playoffText}${leagueSuffix}`.trim();
             }
 
             return '';
