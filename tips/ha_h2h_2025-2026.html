@@ -3405,8 +3405,24 @@ Södertälje</pre>
 
         function updateCustomOpenButtonIcon() {
             const icon = openCustomBtn?.querySelector('.custom-open-icon');
-            if (!icon || !customPanel) return;
-            icon.textContent = customPanel.classList.contains('open') ? '−' : '＋';
+            if (!icon || !customPanel || !openCustomBtn) return;
+
+            const panelOpen = customPanel.classList.contains('open');
+            const hasSavedTips = H2H_CUSTOM_TIPS_BY_PARTICIPANT.size > 0;
+
+            if (panelOpen) {
+                icon.textContent = '−';
+                openCustomBtn.setAttribute('aria-label', 'Stäng eget H2H-tips');
+                openCustomBtn.title = 'Stäng eget H2H-tips';
+            } else if (hasSavedTips) {
+                icon.textContent = '✎';
+                openCustomBtn.setAttribute('aria-label', 'Redigera eget H2H-tips');
+                openCustomBtn.title = 'Redigera eget H2H-tips';
+            } else {
+                icon.textContent = '＋';
+                openCustomBtn.setAttribute('aria-label', 'Lägg till eget H2H-tips');
+                openCustomBtn.title = 'Lägg till eget H2H-tips';
+            }
         }
 
         function toggleCustomPanel(forceOpen, { persist = true } = {}) {
@@ -4544,6 +4560,7 @@ Södertälje</pre>
                     }
                     if (event.key === LS_H2H_CUSTOM_TIPS_KEY) {
                         loadH2HCustomTips();
+                        updateCustomOpenButtonIcon();
                         if (!H2H_CUSTOM_TIPS_BY_PARTICIPANT.size) {
                             state.tipsSources.custom = false;
                             if (tipsSourceCustom) tipsSourceCustom.checked = false;
