@@ -3224,28 +3224,30 @@ Södertälje</pre>
                 const index = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, Number(activeValue) || 0));
                 if (index <= 0) return '';
 
-                // På senaste verkliga tabelläget fortsätter dagräkningen genom pausen fram till idag.
+                const dateKey = DATE_TIMELINE_KEYS[index - 1] || '';
+
+                // På den senaste matchdagen i en PÅGÅENDE säsong fortsätter den aktuella
+                // tabellställningen att gälla fram till idag. När säsongen däremot är
+                // avslutad ska dagräkningen stanna på den sista riktiga matchdagen.
                 if (index === DATE_TIMELINE_KEYS.length) {
-                    return todayDateKey();
+                    const finalDateSnapshot = DATE_STANDING_SNAPSHOTS.get(dateKey);
+                    const isCompletedSeason = finalDateSnapshot?.length > 0 &&
+                        finalDateSnapshot.every(row => Number(row.g) === 52);
+
+                    return isCompletedSeason ? dateKey : todayDateKey();
                 }
 
-                return DATE_TIMELINE_KEYS[index - 1] || '';
+                return dateKey;
             }
 
-            // I "Spelade matcher" är själva tabellen konstruerad. Dagarna räknas ändå
-            // bara från verkliga tabeller. För ett avslutat slutläge (alla lag har spelat
-            // 52 matcher) ska den sista verkliga tabellställningen fortsätta gälla efter
-            // sista matchdagen, precis som i datumläget, i stället för att dagräkningen
-            // stanna på själva slutspelsdatumet.
+            // I "Spelade matcher" är själva tabellen konstruerad, men dagräkningen
+            // bygger alltid på verkliga kalenderdatum. Även efter en avslutad säsong
+            // stannar därför räknaren på datumet för den sista relevanta matchdagen;
+            // sommaren efteråt ska inte räknas som extra "rätt"-dagar.
             const realDateKey = getRealDateForMatchSnapshot(activeValue);
             if (!realDateKey) return '';
 
-            const finalSnapshot = STANDING_SNAPSHOTS.get(Number(activeValue) || 0);
-            const isCompletedSeason = Number(activeValue) === Number(state.latestRound) &&
-                finalSnapshot?.length > 0 &&
-                finalSnapshot.every(row => Number(row.g) === 52);
-
-            return isCompletedSeason ? todayDateKey() : realDateKey;
+            return realDateKey;
         }
 
         function getFinalPointSpread(standings) {
