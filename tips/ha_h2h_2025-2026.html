@@ -503,6 +503,36 @@
         .timeline-mode-controls label { display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap; cursor:pointer; }
         .timeline-mode-controls input { margin:0; }
         .timeline-mode-help { margin:0; text-align:left; color:var(--text-muted); font-size:.85rem; }
+
+        /* Kort historikförklaring på samma kontrollrad. Summaryn är avsiktligt
+           typografiskt diskret så att den inte flyttar tidslinjen i grundläget. */
+        .h2h-history-help {
+            margin:0;
+            font-family:inherit;
+            font-size:.9rem;
+            line-height:inherit;
+            color:var(--text-muted);
+        }
+        .h2h-history-help summary {
+            cursor:pointer;
+            user-select:none;
+            font-family:inherit;
+            font-size:inherit;
+            font-weight:400;
+            white-space:nowrap;
+        }
+        .h2h-history-help__body {
+            flex-basis:100%;
+            width:100%;
+            max-width:900px;
+            margin:.35rem 0 0;
+            font-size:.9rem;
+            line-height:1.45;
+            color:var(--text-muted);
+        }
+        .h2h-history-help__body p { margin:.35rem 0; }
+        .h2h-history-help[open] { flex-basis:100%; }
+
         @media (max-width:700px) { .timeline-mode-row { align-items:flex-start; } .timeline-mode-help { flex-basis:100%; } }
 
         /* =========================================================
@@ -2224,11 +2254,6 @@
             </div>
         </header>
 
-        <p class="source" style="max-width: 760px; margin-top: 0; margin-bottom: .85rem;">
-            Alla genererade H2H-tips för 2025/26 har skapats i efterhand från vanliga tabelltips enligt principen ”Välj jämnt”.
-            Äkta H2H-tips, om sådana finns för säsongen, visas i samma topplista.
-        </p>
-
         <div class="custom-panel" id="custom-panel" aria-label="Inmatning av eget H2H-tips">
             <div class="custom-content-centered">
                 <div class="custom-row">
@@ -2281,6 +2306,16 @@ Södertälje</pre>
                         <span>Visa tabellrörelser</span>
                     </label>
                 </div>
+
+                <details class="h2h-history-help">
+                    <summary>Vad är detta?</summary>
+                    <div class="h2h-history-help__body">
+                        <p>Det fanns inga riktiga H2H-tips 2025/26. Alla H2H-tips här är därför genererade i efterhand från de vanliga tabelltipsen.</p>
+                        <p>För varje tabelltips skapas varianter med 2–14 lag. Lagen väljs så jämnt och symmetriskt över den tippade tabellen som möjligt: med två lag blir det ettan och fjortondeplatsen, med tre lag ettan, ett lag i mitten och fjortondeplatsen, och så vidare.</p>
+                        <p>Det gör det möjligt att i efterhand se hur ett vanligt tabelltips hade klarat sig med H2H-formatets risk och belöning. Jämförelsen är förstås inte exakt samma sak som att faktiskt lämna ett H2H-tips: den som väljer lagen själv kan till exempel vilja undvika ett väntat getingbo i en del av tabellen – eller tvärtom våga välja fler lag där om hen tror sig kunna skilja dem åt.</p>
+                    </div>
+                </details>
+
                 <p id="timelineModeHelp" class="timeline-mode-help">Jämförelsen utgår från varje lags första X matcher.</p>
             </div>
         </section>
@@ -2763,22 +2798,27 @@ Södertälje</pre>
             const blocks = splitSheetDataIntoBlocks(dataLines);
             const participants = [];
             blocks.forEach((lines, blockIndex) => {
-                // namn + 2–14 lag + utslagsfråga = totalt 4–16 innehållsrader.
-                if (lines.length < 4 || lines.length > 16) {
-                    throw new Error(`Äkta H2H-tips, block ${blockIndex + 1}: måste innehålla namn, 2–14 lag och utslagsfråga (totalt 4–16 rader). Här hittades ${lines.length}.`);
+                // Utslagsfrågan är valfri i indata. Saknas den helt används 0.
+                // Därför kan blocket bestå av namn + 2–14 lag (3–15 rader),
+                // eller namn + 2–14 lag + utslagsfråga (4–16 rader).
+                if (lines.length < 3 || lines.length > 16) {
+                    throw new Error(`Äkta H2H-tips, block ${blockIndex + 1}: måste innehålla namn och 2–14 lag, plus eventuell utslagsfråga. Här hittades ${lines.length} innehållsrader.`);
                 }
                 const displayName = lines[0].trim();
                 if (!displayName) throw new Error(`Äkta H2H-tips, block ${blockIndex + 1}: namnrad saknar text.`);
 
-                const teamLines = lines.slice(1, -1);
+                // Om sista raden är ett heltal är den utslagsfrågan. Annars behandlas
+                // resten som lagrader och poängdifferensen får standardvärdet 0.
+                const rawLastLine = lines.at(-1).trim();
+                const parsedLastLine = Number(rawLastLine);
+                const hasPointSpread = rawLastLine !== '' && Number.isInteger(parsedLastLine);
+                const teamLines = hasPointSpread ? lines.slice(1, -1) : lines.slice(1);
+                const h2hPointSpreadTip = hasPointSpread ? parsedLastLine : 0;
+
                 if (teamLines.length < 2 || teamLines.length > 14) {
                     throw new Error(`Äkta H2H-tips, block ${blockIndex + 1}: måste innehålla 2–14 lag.`);
                 }
                 const picks = parseExternalTeamLines(teamLines, `Äkta H2H-tips, block ${blockIndex + 1}`);
-
-                const rawPointSpread = lines.at(-1);
-                const parsedPointSpread = Number(rawPointSpread);
-                const h2hPointSpreadTip = Number.isInteger(parsedPointSpread) ? parsedPointSpread : 0;
 
                 participants.push({
                     participant_id: `real_${blockIndex + 1}`,
