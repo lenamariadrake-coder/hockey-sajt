@@ -6535,9 +6535,9 @@
         function historicalWhen(offset) {
             const distance = Math.abs(offset);
             const direction = offset > 0 ? 'före' : 'efter';
-            if (distance === 1) return `säsongen ${direction}`;
+            if (distance === 1) return `säsongen ${direction} den aktuella säsongen`;
             const words = { 2: 'två', 3: 'tre', 4: 'fyra', 5: 'fem', 6: 'sex', 7: 'sju', 8: 'åtta', 9: 'nio', 10: 'tio' };
-            return `${words[distance] || distance} säsonger ${direction}`;
+            return `${words[distance] || distance} säsonger ${direction} den aktuella säsongen`;
         }
 
         function comparisonOffsetTitle(offset) {
@@ -6546,7 +6546,7 @@
             return `${distance} ${distance === 1 ? 'säsong' : 'säsonger'} ${direction}`;
         }
 
-        function buildHistoricalFilterExplanationText(config, beforeCount) {
+        function buildHistoricalFilterExplanationText(config, beforeCount, afterCount) {
             const when = historicalWhen(config.offset);
 
             if (config.leagues.size === 0) {
@@ -6572,7 +6572,7 @@
             const leagueText = joinSwedish(historicalLeagueNames, 'eller');
 
             if (!regularRestricted && !playoffRestricted) {
-                return `Av dessa ${pluralizeRows(beforeCount)} återstår de där laget även spelade i ${leagueText} ${when}.`;
+                return `Av dessa ${pluralizeRows(beforeCount)} återstår ${afterCount} där laget spelade i ${leagueText} ${when}.`;
             }
 
             const actions = [`spelade i ${leagueText}`];
@@ -6600,7 +6600,19 @@
 
             const actionText = joinSwedish(actions, 'och');
 
-            return `Av dessa ${pluralizeRows(beforeCount)} återstår de där laget ${actionText} ${when}.`;
+            return `Av dessa ${pluralizeRows(beforeCount)} återstår ${afterCount} där laget ${actionText} ${when}.`;
+        }
+
+        function countDistinctTeams(rows) {
+            return new Set(
+                rows
+                    .map(row => row.dataset.teamId || row.dataset.team || row.dataset.teamName || '')
+                    .filter(Boolean)
+            ).size;
+        }
+
+        function distinctTeamsText(count) {
+            return `${count} olika lag ingår i urvalet.`;
         }
 
         function updateFilterExplanation(ctx) {
@@ -6617,6 +6629,7 @@
                     <div class="filter-explanation-step-title">Aktuellt urval</div>
                     <p>${buildCurrentFilterExplanationText(ctx.currentDescription)}</p>
                     <p class="filter-explanation-count"><strong>${ctx.currentCount} av ${pluralizeRows(ctx.totalRows)} matchar detta filter.</strong></p>
+                    <p class="filter-explanation-count"><strong>${distinctTeamsText(ctx.currentTeamCount)}</strong></p>
                     ${warningHtml}
                 </div>`);
 
@@ -6628,8 +6641,9 @@
                 steps.push(`
                     <div class="filter-explanation-step">
                         <div class="filter-explanation-step-title">${comparisonOffsetTitle(step.config.offset)}</div>
-                        <p>${buildHistoricalFilterExplanationText(step.config, step.before)}</p>
+                        <p>${buildHistoricalFilterExplanationText(step.config, step.before, step.after)}</p>
                         <p class="filter-explanation-count"><strong>${pluralizeRows(step.after)} återstår.</strong></p>
+                        <p class="filter-explanation-count"><strong>${distinctTeamsText(step.teamCount)}</strong></p>
                         ${missingText}
                     </div>`);
             });
@@ -7320,6 +7334,7 @@
                     config,
                     before,
                     after: nextSurvivors.length,
+                    teamCount: countDistinctTeams(nextSurvivors),
                     noMatch,
                     missing
                 });
@@ -7381,6 +7396,7 @@
                     ['2021-2022', '2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027'].includes(row.dataset.seasonId)
                 ).length,
                 currentCount: currentFilterRows.length,
+                currentTeamCount: countDistinctTeams(currentFilterRows),
                 currentWarnings,
                 currentDescription: {
                     activeLeagues,
