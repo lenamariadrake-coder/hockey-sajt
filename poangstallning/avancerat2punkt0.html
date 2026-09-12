@@ -1588,26 +1588,27 @@
 
 
                                 <!-- =====================================================
-                                     HISTORISKA FILTERLAGER
+                                     JÄMFÖRANDE FILTERLAGER
                                      Varje lager gäller relativt respektive lag+säsongsrad.
-                                     Exempel: "2 säsonger tidigare" betyder 2024-2025 för
-                                     raden 2026-2027, men 2022-2023 för raden 2024-2025.
+                                     Exempel: "2 säsonger före" betyder 2024-2025 för
+                                     raden 2026-2027, medan "2 säsonger efter" betyder
+                                     2026-2027 för raden 2024-2025.
                                      ===================================================== -->
                                 <div class="historical-filter-section">
                                     <div class="historical-filter-header">
                                         <div>
-                                            <h3>Historiska filter</h3>
+                                            <h3>Jämförande filter</h3>
                                             <p class="historical-filter-help">
-                                                Lägg kriterier på samma lag en eller flera säsonger tidigare.
+                                                Lägg kriterier på samma lag en eller flera säsonger före eller efter.
                                                 Varje lager räknas relativt den aktuella raden och alla lager måste matcha.
                                             </p>
                                         </div>
-                                        <button type="button" id="add-historical-filter">+ Lägg till historiskt filter</button>
+                                        <button type="button" id="add-historical-filter">+ Lägg till jämförande filter</button>
                                     </div>
                                     <div id="historical-filter-layers" class="historical-filter-layers"></div>
                                 </div>
 
-                                <!-- Förklarar hela filterkedjan: grundfilter + historiska lager.
+                                <!-- Förklarar hela filterkedjan: grundfilter + jämförande lager.
                                      Dold som standard för att inte belasta gränssnittet visuellt. -->
                                 <details id="filter-explanation" class="filter-explanation">
                                     <summary>ⓘ Förklara urvalet</summary>
@@ -3985,7 +3986,7 @@
             setupRegularFilterListeners(); // grundserie-kryss
             setupRegularIntervalUI();      // intervall/sekvens UI
             setupPlayoffFilterListeners(); // slutspelsfilter
-            setupHistoricalFilters();      // historiska lager (relativa per lag+säsongsrad)
+            setupHistoricalFilters();      // jämförande lager (relativa per lag+säsongsrad)
 
             // 6) Slider + första rendering
             // updateSliderRange(); // Sätt maxvärde på slidern
@@ -5527,34 +5528,39 @@
         // Gemensam funktion som läser av kryssrutorna och filtrerar tabellen
 
         // =========================================================
-        // HISTORISKA FILTERLAGER
+        // JÄMFÖRANDE FILTERLAGER
         // =========================================================
         // Grundprincip:
         // - tabellens rad (lag + säsong) är nollpunkten
-        // - varje historiskt lager anger N säsonger bakåt
+        // - varje jämförande lager anger N säsonger före eller efter
         // - varje lager har eget state för grundserieintervall/sekvens
         // - samma lag slås upp i season_summary för målsäsongen
-        // - alla aktiva historiska lager måste matcha
-        // - saknad historik är ett eget internt utfall och räknas INTE som träff
+        // - alla aktiva jämförande lager måste matcha
+        // - saknade jämförelsedata är ett eget internt utfall och räknas INTE som träff
         //
         // Vi skiljer i debug mellan:
         //   season_missing     = målsäsongen finns inte alls i vår data
         //   team_season_missing = säsongen finns, men inte detta lag
         //
-        // "Ej avgjort" visas inte i bakåtblickande lager. Det är skilt från
-        // missing, som fortfarande betyder att historikmotorn saknar underlag.
+        // "Ej avgjort" finns fortfarande inte som val i jämförande lager. Det är skilt från
+        // missing, som betyder att jämförelsemotorn saknar underlag för målsäsongen.
         // =========================================================
         const DEBUG_HISTORICAL_FILTERS = true;
         let historicalFilterLayerCounter = 0;
 
-        function shiftSeasonIdBack(seasonId, seasonsBack) {
+        // Relativt säsongsavstånd för jämförande filter.
+        // VIKTIGT för bakåtkompatibilitet med den tidigare historiklogiken:
+        //   positivt värde = säsonger FÖRE den aktuella raden
+        //   negativt värde = säsonger EFTER den aktuella raden
+        // Exempel: 2 flyttar 2026-2027 till 2024-2025, -2 flyttar den till 2028-2029.
+        function shiftSeasonIdByComparisonOffset(seasonId, comparisonOffset) {
             const match = String(seasonId || '').match(/^(\d{4})-(\d{4})$/);
             if (!match) return null;
 
             const startYear = parseInt(match[1], 10);
             const endYear = parseInt(match[2], 10);
-            const offset = parseInt(seasonsBack, 10);
-            if (!Number.isFinite(startYear) || !Number.isFinite(endYear) || !Number.isFinite(offset)) return null;
+            const offset = parseInt(comparisonOffset, 10);
+            if (!Number.isFinite(startYear) || !Number.isFinite(endYear) || !Number.isFinite(offset) || offset === 0) return null;
 
             return `${startYear - offset}-${endYear - offset}`;
         }
@@ -5572,8 +5578,9 @@
             return Math.max(1, Math.max(...years) - Math.min(...years));
         }
 
-        // Varje relativ historisk säsong får bara användas av ett lager åt gången.
-        // Exempel: två lager får inte båda vara "1 säsong tidigare".
+        // Varje relativ jämförelsesäsong får bara användas av ett lager åt gången.
+        // Exempel: två lager får inte båda vara "1 säsong före", men
+        // "1 säsong före" och "1 säsong efter" är två olika avstånd.
         function getUsedHistoricalOffsets(excludeLayer = null) {
             return new Set(
                 Array.from(document.querySelectorAll('.historical-filter-layer'))
@@ -5583,11 +5590,22 @@
             );
         }
 
+        function getComparisonOffsets() {
+            const maxOffset = getHistoricalMaxOffset();
+            const offsets = [];
+
+            // Behåll den gamla, bakåtblickande riktningen först i listan.
+            for (let offset = 1; offset <= maxOffset; offset++) offsets.push(offset);
+            // Negativa värden betyder efter den aktuella raden.
+            for (let offset = 1; offset <= maxOffset; offset++) offsets.push(-offset);
+
+            return offsets;
+        }
+
         function getFirstAvailableHistoricalOffset(excludeLayer = null) {
             const used = getUsedHistoricalOffsets(excludeLayer);
-            const maxOffset = getHistoricalMaxOffset();
 
-            for (let offset = 1; offset <= maxOffset; offset++) {
+            for (const offset of getComparisonOffsets()) {
                 if (!used.has(offset)) return offset;
             }
 
@@ -5620,7 +5638,7 @@
                 addBtn.disabled = !hasFreeOffset;
                 addBtn.title = hasFreeOffset
                     ? ''
-                    : 'Alla tillgängliga historiska säsongsavstånd används redan.';
+                    : 'Alla tillgängliga jämförande säsongsavstånd används redan.';
             }
         }
 
@@ -5668,7 +5686,7 @@
 
                 return {
                     id: layer.dataset.layerId || '',
-                    offset: Math.max(1, parseInt(layer.querySelector('.historical-offset')?.value || '1', 10)),
+                    offset: parseInt(layer.querySelector('.historical-offset')?.value || '1', 10) || 1,
                     leagues: checkedValues('league'),
                     regular: checkedValues('regular'),
                     playoff: checkedValues('playoff'),
@@ -5703,7 +5721,7 @@
             let missingReason = null;
 
             for (const config of configs) {
-                const targetSeason = shiftSeasonIdBack(currentSeason, config.offset);
+                const targetSeason = shiftSeasonIdByComparisonOffset(currentSeason, config.offset);
 
                 if (!targetSeason || !availableSeasons.has(targetSeason)) {
                     hasMissing = true;
@@ -6027,7 +6045,7 @@
         function refreshHistoricalLayerTitles() {
             document.querySelectorAll('.historical-filter-layer').forEach((layer, index) => {
                 const title = layer.querySelector('.historical-layer-title');
-                if (title) title.textContent = `Historiskt filter ${index + 1}`;
+                if (title) title.textContent = `Jämförande filter ${index + 1}`;
             });
         }
 
@@ -6036,7 +6054,10 @@
             if (!host) return null;
 
             const usedOffsets = getUsedHistoricalOffsets();
-            const requestedOffset = Math.max(1, parseInt(defaultOffset, 10) || 1);
+            const parsedRequestedOffset = parseInt(defaultOffset, 10);
+            const requestedOffset = Number.isFinite(parsedRequestedOffset) && parsedRequestedOffset !== 0
+                ? parsedRequestedOffset
+                : 1;
             const actualOffset = !usedOffsets.has(requestedOffset)
                 ? requestedOffset
                 : getFirstAvailableHistoricalOffset();
@@ -6053,15 +6074,25 @@
             layer.dataset.layerId = `history-${historicalFilterLayerCounter}`;
 
             const maxOffset = getHistoricalMaxOffset();
-            const offsetOptions = Array.from({ length: maxOffset }, (_, i) => i + 1)
-                .map(n => `<option value="${n}"${n === actualOffset ? ' selected' : ''}>${n} ${n === 1 ? 'säsong' : 'säsonger'} tidigare</option>`)
+            // I rullgardinen visas tidslinjen naturligt från längst bak till längst fram:
+            // ... 3 före, 2 före, 1 före, 1 efter, 2 efter, 3 efter ...
+            const offsetOptions = [
+                ...Array.from({ length: maxOffset }, (_, i) => maxOffset - i),
+                ...Array.from({ length: maxOffset }, (_, i) => -(i + 1))
+            ]
+                .map(offset => {
+                    const distance = Math.abs(offset);
+                    const direction = offset > 0 ? 'före' : 'efter';
+                    const seasonWord = distance === 1 ? 'säsong' : 'säsonger';
+                    return `<option value="${offset}"${offset === actualOffset ? ' selected' : ''}>${distance} ${seasonWord} ${direction}</option>`;
+                })
                 .join('');
 
             layer.innerHTML = `
                 <div class="historical-layer-header">
                     <div class="historical-layer-title-row">
-                        <span class="historical-layer-title">Historiskt filter</span>
-                        <select class="historical-offset" aria-label="Antal säsonger bakåt">${offsetOptions}</select>
+                        <span class="historical-layer-title">Jämförande filter</span>
+                        <select class="historical-offset" aria-label="Jämför med säsong före eller efter">${offsetOptions}</select>
                     </div>
                     <button type="button" class="historical-remove-layer">Ta bort</button>
                 </div>
@@ -6502,22 +6533,30 @@
         }
 
         function historicalWhen(offset) {
-            if (offset === 1) return 'säsongen före';
+            const distance = Math.abs(offset);
+            const direction = offset > 0 ? 'före' : 'efter';
+            if (distance === 1) return `säsongen ${direction}`;
             const words = { 2: 'två', 3: 'tre', 4: 'fyra', 5: 'fem', 6: 'sex', 7: 'sju', 8: 'åtta', 9: 'nio', 10: 'tio' };
-            return `${words[offset] || offset} säsonger tidigare`;
+            return `${words[distance] || distance} säsonger ${direction}`;
+        }
+
+        function comparisonOffsetTitle(offset) {
+            const distance = Math.abs(offset);
+            const direction = offset > 0 ? 'före' : 'efter';
+            return `${distance} ${distance === 1 ? 'säsong' : 'säsonger'} ${direction}`;
         }
 
         function buildHistoricalFilterExplanationText(config, beforeCount) {
             const when = historicalWhen(config.offset);
 
             if (config.leagues.size === 0) {
-                return 'Välj minst en liga i detta historiska filter.';
+                return 'Välj minst en liga i detta jämförande filter.';
             }
             if (!config.regularIntervalActive && config.regular.size === 0) {
-                return 'Välj minst ett grundserieresultat i detta historiska filter.';
+                return 'Välj minst ett grundserieresultat i detta jämförande filter.';
             }
             if (config.playoff.size === 0) {
-                return 'Välj minst ett slutspelsresultat i detta historiska filter.';
+                return 'Välj minst ett slutspelsresultat i detta jämförande filter.';
             }
 
             const leagueRestricted = config.leagues.size < 2;
@@ -6561,11 +6600,7 @@
 
             const actionText = joinSwedish(actions, 'och');
 
-            if (config.offset === 1) {
-                return `Av dessa ${pluralizeRows(beforeCount)} återstår de där laget ${actionText} ${when}.`;
-            }
-
-            return `Av dessa ${pluralizeRows(beforeCount)} återstår de där laget ${when} ${actionText}.`;
+            return `Av dessa ${pluralizeRows(beforeCount)} återstår de där laget ${actionText} ${when}.`;
         }
 
         function updateFilterExplanation(ctx) {
@@ -6587,12 +6622,12 @@
 
             ctx.historicalSteps.forEach(step => {
                 const missingText = step.missing > 0
-                    ? `<p class="filter-explanation-missing">${pluralizeRows(step.missing)} kunde inte bedömas eftersom historiska data saknas.</p>`
+                    ? `<p class="filter-explanation-missing">${pluralizeRows(step.missing)} kunde inte bedömas eftersom data för jämförelsesäsongen saknas.</p>`
                     : '';
 
                 steps.push(`
                     <div class="filter-explanation-step">
-                        <div class="filter-explanation-step-title">${step.config.offset === 1 ? '1 säsong tidigare' : `${step.config.offset} säsonger tidigare`}</div>
+                        <div class="filter-explanation-step-title">${comparisonOffsetTitle(step.config.offset)}</div>
                         <p>${buildHistoricalFilterExplanationText(step.config, step.before)}</p>
                         <p class="filter-explanation-count"><strong>${pluralizeRows(step.after)} återstår.</strong></p>
                         ${missingText}
