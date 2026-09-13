@@ -1805,6 +1805,24 @@
             color: var(--text);
         }
 
+        .h2h-season-record {
+            margin: .55rem auto 0;
+            width: fit-content;
+            max-width: 100%;
+            color: var(--text-muted);
+            font-size: .9rem;
+            text-align: center;
+            line-height: 1.45;
+        }
+
+        .h2h-season-record strong {
+            color: var(--text);
+        }
+
+        .h2h-season-record-holder {
+            display: block;
+        }
+
         /* Behåll tydlig luft mellan raden med aktuell ordning och tabellerna. */
         .h2h-tables-layout {
             padding-top: .35rem;
@@ -2361,6 +2379,7 @@ Södertälje</pre>
                 <div id="dataError" class="data-error hidden" role="alert"></div>
 
                 <div id="h2hSummary" class="h2h-summary" aria-live="polite"></div>
+                <div id="h2hSeasonRecord" class="h2h-season-record" aria-live="polite" hidden></div>
 
                 <div class="h2h-tables-layout">
                     <div class="h2h-table-panel h2h-league-panel" aria-label="Aktuell HA-tabell">
@@ -2444,6 +2463,7 @@ Södertälje</pre>
         const loadingBox = document.getElementById('tableLoading');
         const dataError = document.getElementById('dataError');
         const h2hSummary = document.getElementById('h2hSummary');
+        const h2hSeasonRecord = document.getElementById('h2hSeasonRecord');
         const pointSpreadSummary = document.getElementById('pointSpreadSummary');
         const h2hTablesLayout = document.querySelector('.h2h-tables-layout');
         const timelineModeMatches = document.getElementById('timelineModeMatches');
@@ -3140,6 +3160,121 @@ Södertälje</pre>
             }
 
             return true;
+        }
+
+        function getSeasonRecordParticipants() {
+            const participants = [];
+
+            if (state.tipsSources.tips) {
+                H2H_TIPS_BY_PARTICIPANT.forEach(participant => participants.push(participant));
+            }
+
+            if (state.tipsSources.custom) {
+                H2H_CUSTOM_TIPS_BY_PARTICIPANT.forEach(participant => participants.push(participant));
+            }
+
+            return participants;
+        }
+
+        function calculateSeasonRecordThroughCurrentSnapshot(activeValue) {
+            const participants = getSeasonRecordParticipants();
+            if (!participants.length) return null;
+
+            const isDateMode = state.timelineMode === 'date';
+            const limit = Number(activeValue) || 0;
+            if (limit <= 0) return null;
+
+            const hitsByParticipant = new Map();
+            let recordTeamCount = 0;
+
+            const evaluateSnapshot = (snapshotIndex, standings) => {
+                if (!standings?.length) return;
+                const actualRankByTeamId = buildActualRankByTeamId(standings);
+
+                participants.forEach(participant => {
+                    const picks = participant.picks || [];
+                    const teamCount = picks.length;
+                    if (teamCount < 2 || !isH2HTipCorrect(picks, actualRankByTeamId)) return;
+
+                    if (teamCount > recordTeamCount) recordTeamCount = teamCount;
+
+                    const key = participant.participant_id;
+                    let entry = hitsByParticipant.get(key);
+                    if (!entry) {
+                        entry = {
+                            participant_id: key,
+                            display_name: participant.display_name || key,
+                            teamCount,
+                            hits: []
+                        };
+                        hitsByParticipant.set(key, entry);
+                    }
+                    entry.hits.push(snapshotIndex);
+                });
+            };
+
+            if (isDateMode) {
+                const maxIndex = Math.min(limit, DATE_TIMELINE_KEYS.length);
+                for (let index = 1; index <= maxIndex; index += 1) {
+                    const dateKey = DATE_TIMELINE_KEYS[index - 1];
+                    evaluateSnapshot(index, DATE_STANDING_SNAPSHOTS.get(dateKey));
+                }
+            } else {
+                const maxRound = Math.min(limit, Number(state.latestRound || 0));
+                for (let round = 1; round <= maxRound; round += 1) {
+                    evaluateSnapshot(round, STANDING_SNAPSHOTS.get(round));
+                }
+            }
+
+            if (recordTeamCount < 2) return null;
+
+            const holders = Array.from(hitsByParticipant.values())
+                .filter(entry => entry.teamCount === recordTeamCount && entry.hits.length)
+                .map(entry => ({
+                    ...entry,
+                    firstOccurrence: entry.hits[0],
+                    occurrenceCount: entry.hits.length
+                }))
+                .sort((a, b) => {
+                    if (b.occurrenceCount !== a.occurrenceCount) return b.occurrenceCount - a.occurrenceCount;
+                    if (a.firstOccurrence !== b.firstOccurrence) return a.firstOccurrence - b.firstOccurrence;
+                    return a.display_name.localeCompare(b.display_name, 'sv');
+                });
+
+            return { recordTeamCount, holders };
+        }
+
+        function renderSeasonRecord(activeValue, isStartMode) {
+            if (!h2hSeasonRecord) return;
+
+            h2hSeasonRecord.replaceChildren();
+            h2hSeasonRecord.hidden = true;
+
+            if (isStartMode) return;
+
+            const record = calculateSeasonRecordThroughCurrentSnapshot(activeValue);
+            if (!record?.holders?.length) return;
+
+            const heading = document.createElement('div');
+            const strong = document.createElement('strong');
+            strong.textContent = `🏆 Säsongsrekord hittills: ${record.recordTeamCount} lag`;
+            heading.appendChild(strong);
+            h2hSeasonRecord.appendChild(heading);
+
+            record.holders.forEach(holder => {
+                const line = document.createElement('span');
+                line.className = 'h2h-season-record-holder';
+
+                const firstText = state.timelineMode === 'date'
+                    ? `första gången ${formatTimelineDate(DATE_TIMELINE_KEYS[holder.firstOccurrence - 1])}`
+                    : `första gången efter ${holder.firstOccurrence} matcher`;
+                const snapshotWord = holder.occurrenceCount === 1 ? 'snapshot' : 'snapshots';
+
+                line.textContent = `${holder.display_name} – ${firstText} · ${holder.occurrenceCount} ${snapshotWord}`;
+                h2hSeasonRecord.appendChild(line);
+            });
+
+            h2hSeasonRecord.hidden = false;
         }
 
         function getDisplayTeamName(teamId) {
@@ -4045,6 +4180,7 @@ Södertälje</pre>
             const rows = buildParticipantRows(actualRankByTeamId, standings, isStartMode, round);
 
             renderSummary(standings, isStartMode, movementByTeam);
+            renderSeasonRecord(activeValue, isStartMode);
 
             const finalTiebreak = getFinalTiebreakInfo(rows, standings, round);
             if (finalTiebreak && h2hSummary) {
