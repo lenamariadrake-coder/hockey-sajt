@@ -3466,55 +3466,108 @@ Södertälje</pre>
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         }
 
-        // Tiebreakern bygger ENBART på den faktiska tabellen över kalendern.
-        // Ett tabelläge efter en matchdag gäller fram till dagen före nästa matchdag.
-        // Om vi står på den senaste verkliga matchdagen räknas den pågående perioden
-        // vidare till och med idag.
+        // Dagar-beräkningen används som utslagsmått och bygger ENBART på den
+        // faktiska tabellen över kalendern. Eftersom samma tips och samma
+        // matchdagar annars räknas om vid varje sliderrörelse cacheas både
+        // rank-mapparna och varje tips successiva rätt/fel-resultat.
+        const DATE_RANK_BY_KEY_CACHE = new Map();
+        const CORRECT_DAYS_PROGRESS_CACHE = new Map();
+        const MATCH_SNAPSHOT_REAL_DATE_CACHE = new Map();
+
+        function getDateRankByTeamId(dateKey) {
+            if (DATE_RANK_BY_KEY_CACHE.has(dateKey)) return DATE_RANK_BY_KEY_CACHE.get(dateKey);
+            const standings = DATE_STANDING_SNAPSHOTS.get(dateKey);
+            const rankMap = standings?.length ? buildActualRankByTeamId(standings) : new Map();
+            DATE_RANK_BY_KEY_CACHE.set(dateKey, rankMap);
+            return rankMap;
+        }
+
+        function getPicksProgressCacheKey(picks) {
+            return picks.map(pick => `${pick.team_id}:${Number(pick.pick_rank) || 0}`).join('|');
+        }
+
+        function getDateIndexAtOrBefore(dateKey) {
+            let low = 0;
+            let high = DATE_TIMELINE_KEYS.length - 1;
+            let found = -1;
+
+            while (low <= high) {
+                const mid = (low + high) >> 1;
+                if (DATE_TIMELINE_KEYS[mid] <= dateKey) {
+                    found = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            return found;
+        }
+
+        function fullCalendarIntervalDays(index) {
+            const startKey = DATE_TIMELINE_KEYS[index];
+            const nextKey = DATE_TIMELINE_KEYS[index + 1];
+            if (!startKey || !nextKey) return 0;
+            const start = parseDateKeyLocal(startKey);
+            const next = parseDateKeyLocal(nextKey);
+            if (!start || !next || next <= start) return 0;
+            return Math.round((next - start) / 86400000);
+        }
+
         function countCorrectDaysThroughDate(picks, throughDateKey) {
             if (!Array.isArray(picks) || picks.length < 2 || !throughDateKey || !DATE_TIMELINE_KEYS.length) return 0;
 
-            let correctDays = 0;
+            const targetIndex = getDateIndexAtOrBefore(throughDateKey);
+            if (targetIndex < 0) return 0;
 
-            for (let i = 0; i < DATE_TIMELINE_KEYS.length; i++) {
-                const startKey = DATE_TIMELINE_KEYS[i];
-                if (startKey > throughDateKey) break;
-
-                const standings = DATE_STANDING_SNAPSHOTS.get(startKey);
-                if (!standings?.length) continue;
-
-                const nextKey = DATE_TIMELINE_KEYS[i + 1] || null;
-                let endKey = throughDateKey;
-
-                if (nextKey && nextKey <= throughDateKey) {
-                    const nextDate = parseDateKeyLocal(nextKey);
-                    if (nextDate) {
-                        nextDate.setDate(nextDate.getDate() - 1);
-                        endKey = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
-                    }
-                }
-
-                if (isH2HTipCorrect(picks, buildActualRankByTeamId(standings))) {
-                    correctDays += daysInclusive(startKey, endKey);
-                }
-
-                if (!nextKey || nextKey > throughDateKey) break;
+            const picksKey = getPicksProgressCacheKey(picks);
+            let cache = CORRECT_DAYS_PROGRESS_CACHE.get(picksKey);
+            if (!cache) {
+                cache = {
+                    processedThrough: -1,
+                    correctAt: [],
+                    prefixBefore: [0]
+                };
+                CORRECT_DAYS_PROGRESS_CACHE.set(picksKey, cache);
             }
 
-            return correctDays;
+            // Ett tips testas högst en gång mot varje verklig matchdag.
+            for (let i = cache.processedThrough + 1; i <= targetIndex; i += 1) {
+                const dateKey = DATE_TIMELINE_KEYS[i];
+                const rankMap = getDateRankByTeamId(dateKey);
+                const correct = rankMap.size > 0 && isH2HTipCorrect(picks, rankMap);
+                cache.correctAt[i] = correct;
+
+                if (i < DATE_TIMELINE_KEYS.length - 1) {
+                    const previousPrefix = Number(cache.prefixBefore[i]) || 0;
+                    cache.prefixBefore[i + 1] = previousPrefix + (correct ? fullCalendarIntervalDays(i) : 0);
+                }
+
+                cache.processedThrough = i;
+            }
+
+            const completedPreviousIntervals = Number(cache.prefixBefore[targetIndex]) || 0;
+            if (!cache.correctAt[targetIndex]) return completedPreviousIntervals;
+
+            return completedPreviousIntervals + daysInclusive(DATE_TIMELINE_KEYS[targetIndex], throughDateKey);
         }
 
         function getRealDateForMatchSnapshot(round) {
             const target = Number(round) || 0;
             if (target <= 0) return '';
+            if (MATCH_SNAPSHOT_REAL_DATE_CACHE.has(target)) return MATCH_SNAPSHOT_REAL_DATE_CACHE.get(target);
 
+            let result = '';
             for (const dateKey of DATE_TIMELINE_KEYS) {
                 const standings = DATE_STANDING_SNAPSHOTS.get(dateKey);
                 if (standings?.length && standings.every(row => Number(row.g) >= target)) {
-                    return dateKey;
+                    result = dateKey;
+                    break;
                 }
             }
 
-            return '';
+            MATCH_SNAPSHOT_REAL_DATE_CACHE.set(target, result);
+            return result;
         }
 
         function getTiebreakThroughDate(activeValue, isStartMode) {
