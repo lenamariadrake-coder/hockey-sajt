@@ -1841,29 +1841,26 @@
             text-align: left;
         }
 
-        .h2h-record-row {
-            margin: .55rem auto 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
+        .h2h-table-filter-row {
+            margin: .8rem auto .15rem;
             width: fit-content;
             max-width: 100%;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: .9rem;
         }
 
-        .h2h-record-row .h2h-season-record {
-            margin: 0;
-        }
-
-        .h2h-current-correct-filter {
+        .h2h-table-filter-label {
             display: inline-flex;
             align-items: center;
             gap: .35rem;
-            color: var(--text-muted);
-            font-size: .9rem;
-            white-space: nowrap;
+            color: var(--text);
             cursor: pointer;
+        }
+
+        .h2h-table-filter-note {
+            margin-left: .35rem;
+            color: var(--text-muted);
         }
 
         .h2h-season-record-holder .h2h-pick-list--relative {
@@ -2428,15 +2425,19 @@ Södertälje</pre>
                 <div id="dataError" class="data-error hidden" role="alert"></div>
 
                 <div id="h2hSummary" class="h2h-summary" aria-live="polite"></div>
-                <div class="h2h-record-row">
-                    <details id="h2hSeasonRecord" class="h2h-season-record" hidden>
-                        <summary id="h2hSeasonRecordSummary">🏆 Säsongsrekord hittills</summary>
-                        <div id="h2hSeasonRecordBody" class="h2h-season-record-body" aria-live="polite"></div>
-                    </details>
-                    <label class="h2h-current-correct-filter" title="Visa bara H2H-tips som är helt rätt i det aktuella tabelläget">
-                        <input id="showOnlyCorrect" type="checkbox" checked>
-                        Bara rätt just nu
+
+                <details id="h2hSeasonRecord" class="h2h-season-record" hidden>
+                    <summary id="h2hSeasonRecordSummary">🏆 Säsongsrekord hittills</summary>
+                    <div id="h2hSeasonRecordBody" class="h2h-season-record-body" aria-live="polite"></div>
+                </details>
+
+                <div class="h2h-table-filter-row" aria-label="Visning av tipstabellen">
+                    <label class="h2h-table-filter-label"
+                        title="Visa även H2H-tips som inte är helt rätt i det aktuella tabelläget">
+                        <input id="showOnlyCorrect" type="checkbox">
+                        Visa även tips som är fel just nu
                     </label>
+                    <span class="h2h-table-filter-note">– kan göra sidan märkbart trögare</span>
                 </div>
 
                 <div class="h2h-tables-layout">
@@ -4990,7 +4991,7 @@ Södertälje</pre>
                 });
 
                 showOnlyCorrect?.addEventListener('change', () => {
-                    state.showOnlyCorrect = !!showOnlyCorrect.checked;
+                    state.showOnlyCorrect = !showOnlyCorrect.checked;
                     renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
                 });
 
