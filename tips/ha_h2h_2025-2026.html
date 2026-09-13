@@ -1831,6 +1831,16 @@
             display: block;
         }
 
+        .h2h-season-record-holder .tipper-tooltip-wrap {
+            font-weight: 700;
+            text-decoration: underline dotted;
+            text-underline-offset: 2px;
+        }
+
+        .h2h-season-record-holder .tipper-tooltip {
+            text-align: left;
+        }
+
         /* Behåll tydlig luft mellan raden med aktuell ordning och tabellerna. */
         .h2h-tables-layout {
             padding-top: .35rem;
@@ -2269,6 +2279,13 @@
                                 </label>
                             </span>
 
+                            <span class="source-item">
+                                <label title="Visa bara H2H-tips som är helt rätt i det aktuella tabelläget">
+                                    <input id="showOnlyCorrect" type="checkbox">
+                                    Bara rätt just nu
+                                </label>
+                            </span>
+
                             <button class="btn-icon-plain" id="btn-open-custom" type="button"
                                 aria-label="Lägg till eget H2H-tips" title="Lägg till eget H2H-tips">
                                 <span class="custom-open-icon" aria-hidden="true">＋</span>
@@ -2458,6 +2475,7 @@ Södertälje</pre>
         const timelineSlider = document.getElementById('timeline-slider');
         const tipsSourceTips = document.getElementById('tipsSourceTips');
         const tipsSourceCustom = document.getElementById('tipsSourceCustom');
+        const showOnlyCorrect = document.getElementById('showOnlyCorrect');
         const openCustomBtn = document.getElementById('btn-open-custom');
         const customPanel = document.getElementById('custom-panel');
         const customInput = document.getElementById('custom-input');
@@ -2588,6 +2606,7 @@ Södertälje</pre>
             _matchTimelineValue: 0,
             showMovements: true,
             tipsSources: { tips: true, custom: false },
+            showOnlyCorrect: false,
             rowColorMode: false,
             rowColors: new Map(),
             _rowColorActiveTeam: null
@@ -3378,6 +3397,37 @@ Södertälje</pre>
             return cache.resultBySnapshot.get(target) || [];
         }
 
+        function getSeasonRecordParticipantById(participantId) {
+            if (state.tipsSources.tips && H2H_TIPS_BY_PARTICIPANT.has(participantId)) {
+                return H2H_TIPS_BY_PARTICIPANT.get(participantId);
+            }
+            if (state.tipsSources.custom && H2H_CUSTOM_TIPS_BY_PARTICIPANT.has(participantId)) {
+                return H2H_CUSTOM_TIPS_BY_PARTICIPANT.get(participantId);
+            }
+            return null;
+        }
+
+        function buildSeasonRecordTipTooltip(participant) {
+            const box = document.createElement('div');
+            box.className = 'tipper-tooltip';
+            box.setAttribute('role', 'tooltip');
+
+            const heading = document.createElement('div');
+            heading.className = 'tt-head';
+            heading.textContent = 'Tippad ordning';
+            box.appendChild(heading);
+
+            const ol = document.createElement('ol');
+            ol.className = 'h2h-pick-list';
+            (participant?.picks || []).forEach(pick => {
+                const li = document.createElement('li');
+                li.textContent = getDisplayTeamName(pick.team_id);
+                ol.appendChild(li);
+            });
+            box.appendChild(ol);
+            return box;
+        }
+
         function renderSeasonRecordDetails(activeValue, recordTeamCount) {
             if (!h2hSeasonRecordBody) return;
             h2hSeasonRecordBody.replaceChildren();
@@ -3394,7 +3444,23 @@ Södertälje</pre>
                     : `första gången efter ${holder.firstOccurrence} matcher`;
                 const snapshotWord = holder.occurrenceCount === 1 ? 'snapshot' : 'snapshots';
 
-                line.textContent = `${holder.display_name} – ${firstText} · ${holder.occurrenceCount} ${snapshotWord}`;
+                const participant = getSeasonRecordParticipantById(holder.participant_id);
+                if (participant) {
+                    const wrap = document.createElement('span');
+                    wrap.className = 'tipper-tooltip-wrap';
+                    wrap.tabIndex = 0;
+                    wrap.setAttribute('role', 'button');
+                    wrap.setAttribute('aria-label', `Visa tipset för ${holder.display_name}`);
+
+                    const name = document.createElement('span');
+                    name.textContent = holder.display_name;
+                    wrap.append(name, buildSeasonRecordTipTooltip(participant));
+                    line.appendChild(wrap);
+                } else {
+                    line.appendChild(document.createTextNode(holder.display_name));
+                }
+
+                line.appendChild(document.createTextNode(` – ${firstText} · ${holder.occurrenceCount} ${snapshotWord}`));
                 h2hSeasonRecordBody.appendChild(line);
             });
         }
@@ -3414,10 +3480,7 @@ Södertälje</pre>
                 return;
             }
 
-            const actionText = h2hSeasonRecord.open
-                ? 'dölj detaljer'
-                : 'visa detaljer – kan göra reglaget trögare';
-            h2hSeasonRecordSummary.textContent = `🏆 Säsongsrekord hittills: ${record.recordTeamCount} lag · ${actionText}`;
+            h2hSeasonRecordSummary.textContent = `🏆 Säsongsrekord hittills: ${record.recordTeamCount} lag`;
             h2hSeasonRecord.hidden = false;
 
             if (h2hSeasonRecord.open) {
@@ -3872,6 +3935,11 @@ Södertälje</pre>
 
                 const picks = participant.picks || [];
                 const pointSpreadTip = participant.h2h_point_spread_tip;
+                const correct = isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId);
+
+                // Prestandafilter: om användaren bara vill se rätta tips
+                // stoppar vi felaktiga tips innan Dagar räknas och innan raden byggs.
+                if (!isStartMode && state.showOnlyCorrect && correct !== true) return;
 
                 rows.push({
                     participant_id: participant.participant_id,
@@ -3884,7 +3952,7 @@ Södertälje</pre>
                         ? Math.abs(pointSpreadTip - actualPointSpread)
                         : null,
                     teamCount: picks.length,
-                    correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId),
+                    correct,
                     correctDays: isStartMode ? 0 : countCorrectDaysThroughDate(picks, tiebreakThroughDate),
                     tiebreakThroughDate
                 });
@@ -4888,6 +4956,11 @@ Södertälje</pre>
                     }
                     state.tipsSources.custom = !!tipsSourceCustom.checked;
                     saveH2HCustomVisibility();
+                    renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                });
+
+                showOnlyCorrect?.addEventListener('change', () => {
+                    state.showOnlyCorrect = !!showOnlyCorrect.checked;
                     renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
                 });
 
