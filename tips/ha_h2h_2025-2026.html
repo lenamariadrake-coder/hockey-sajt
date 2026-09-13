@@ -1902,10 +1902,10 @@
             opacity: .52;
         }
 
-        /* Själva popupen ska fortfarande vara fullt läsbar. */
+        /* Själva popupen ska fortfarande använda den vanliga tooltip-logiken
+           för synlighet; ingen egen opacity här, annars visas den hela tiden. */
         .h2h-subordinate-correct-tip .tipper-tooltip {
             color: var(--text);
-            opacity: 1;
         }
 
         .h2h-status {
