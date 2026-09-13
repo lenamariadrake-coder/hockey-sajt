@@ -5684,12 +5684,24 @@
                     }
                 }
 
+                const offset = parseInt(layer.querySelector('.historical-offset')?.value || '1', 10) || 1;
+                const regular = checkedValues('regular');
+                const playoff = checkedValues('playoff');
+
+                // "Ej avgjort" är bara relevant i framåtblickande jämförelser.
+                // Kryssen får behålla sitt UI-state när man växlar riktning, men
+                // bakåtblickande filter ska aldrig påverkas av ett dolt unresolved-val.
+                if (offset > 0) {
+                    regular.delete('unresolved');
+                    playoff.delete('unresolved');
+                }
+
                 return {
                     id: layer.dataset.layerId || '',
-                    offset: parseInt(layer.querySelector('.historical-offset')?.value || '1', 10) || 1,
+                    offset,
                     leagues: checkedValues('league'),
-                    regular: checkedValues('regular'),
-                    playoff: checkedValues('playoff'),
+                    regular,
+                    playoff,
                     regularIntervalActive,
                     regularIntervalSet,
                     regularIntervalSavedValue: String(intervalState.savedValue ?? '1-14')
@@ -5762,10 +5774,13 @@
                             ? Number(historyRow.regularSeasonRank)
                             : null;
 
-                        regularOk =
-                            Number.isFinite(rank) &&
-                            !!config.regularIntervalSet &&
-                            config.regularIntervalSet.has(rank);
+                        // Ett numeriskt intervall begränsar avgjorda placeringar,
+                        // men ett synligt/valt "Ej avgjort" ska fortfarande kunna matcha.
+                        regularOk = regularCategory === 'unresolved'
+                            ? config.regular.has('unresolved')
+                            : Number.isFinite(rank) &&
+                                !!config.regularIntervalSet &&
+                                config.regularIntervalSet.has(rank);
                     } else {
                         regularOk = config.regular.has(regularCategory);
                     }
@@ -5840,10 +5855,11 @@
             const cbTop6 = layer.querySelector('input.historical-option[data-group="regular"][value="top6"]');
             const cbMiddle = layer.querySelector('input.historical-option[data-group="regular"][value="middle"]');
             const cbBottom2 = layer.querySelector('input.historical-option[data-group="regular"][value="bottom2"]');
+            const cbUnresolved = layer.querySelector('input.historical-option[data-group="regular"][value="unresolved"]');
             const input = layer.querySelector('.historical-regular-interval-input');
             const applyBtn = layer.querySelector('.historical-regular-interval-apply');
 
-            if (!cbAll || !cbTop6 || !cbMiddle || !cbBottom2 || !input || !applyBtn) return;
+            if (!cbAll || !cbTop6 || !cbMiddle || !cbBottom2 || !cbUnresolved || !input || !applyBtn) return;
 
             const maxRank = FILTER_MAX_REGULAR_RANK;
             const initialValue = input.value.trim();
@@ -5937,8 +5953,10 @@
             // Alla = alla numeriska grundserieplaceringar.
             cbAll.addEventListener('change', () => {
                 if (cbAll.checked) {
+                    cbUnresolved.checked = true;
                     saveNumericPositions(Array.from({ length: maxRank }, (_, i) => i + 1));
                 } else {
+                    cbUnresolved.checked = false;
                     saveNumericPositions([]);
                 }
                 applyTableFilters();
@@ -5959,6 +5977,18 @@
                     saveNumericPositions(Array.from(positions));
                     applyTableFilters();
                 });
+            });
+
+            cbUnresolved.addEventListener('change', () => {
+                // I framåtläge är "Alla" bara helt valt om både 1-14 och Ej avgjort ingår.
+                const offset = parseInt(layer.querySelector('.historical-offset')?.value || '1', 10) || 1;
+                if (offset < 0) {
+                    const positions = currentNumericPositions();
+                    const fullNumeric = positions.length === maxRank;
+                    cbAll.checked = fullNumeric && cbUnresolved.checked;
+                    cbAll.indeterminate = !cbAll.checked && (fullNumeric || cbUnresolved.checked || positions.length > 0);
+                }
+                applyTableFilters();
             });
 
             input.addEventListener('focus', () => {
@@ -6057,6 +6087,26 @@
             });
         }
 
+        function updateHistoricalUnresolvedVisibility(layer) {
+            const offset = parseInt(layer.querySelector('.historical-offset')?.value || '1', 10) || 1;
+            const showUnresolved = offset < 0; // negativa offset = säsong(er) efter
+
+            layer.querySelectorAll('.historical-unresolved-option').forEach(label => {
+                label.style.display = showUnresolved ? '' : 'none';
+            });
+
+            // Synka "Alla" i grundserieblocket med vad som faktiskt är synligt/relevant.
+            const cbAll = layer.querySelector('input.historical-all[data-group="regular"]');
+            const cbUnresolved = layer.querySelector('input.historical-option[data-group="regular"][value="unresolved"]');
+            const state = layer._historicalRegularIntervalState;
+            if (cbAll && cbUnresolved && state) {
+                const positions = parseRegularIntervalText(state.savedValue || '');
+                const fullNumeric = positions.length === FILTER_MAX_REGULAR_RANK;
+                cbAll.checked = fullNumeric && (!showUnresolved || cbUnresolved.checked);
+                cbAll.indeterminate = !cbAll.checked && (fullNumeric || positions.length > 0 || (showUnresolved && cbUnresolved.checked));
+            }
+        }
+
         function createHistoricalFilterLayer(defaultOffset = 1) {
             const host = document.getElementById('historical-filter-layers');
             if (!host) return null;
@@ -6117,6 +6167,7 @@
                         <label><input type="checkbox" class="historical-option" data-group="regular" value="top6" checked> Topp sex (1-6)</label>
                         <label><input type="checkbox" class="historical-option" data-group="regular" value="middle" checked> Mitten (7-12)</label>
                         <label><input type="checkbox" class="historical-option" data-group="regular" value="bottom2" checked> Två sämsta (13-14)</label>
+                        <label class="historical-unresolved-option"><input type="checkbox" class="historical-option" data-group="regular" value="unresolved" checked> Ej avgjort</label>
 
                         <div class="filter-advanced">
                             <label>Intervall / sekvens:</label>
@@ -6138,6 +6189,7 @@
                         <label><input type="checkbox" class="historical-option" data-group="playoff" value="none" checked> -</label>
                         <label><input type="checkbox" class="historical-option" data-group="playoff" value="play_out" checked> Play-out</label>
                         <label><input type="checkbox" class="historical-option" data-group="playoff" value="relegated" checked> Åkte ur</label>
+                        <label class="historical-unresolved-option"><input type="checkbox" class="historical-option" data-group="playoff" value="unresolved" checked> Ej avgjort</label>
                     </div>
                 </div>`;
 
@@ -6148,8 +6200,10 @@
 
             // Grundserien har samma tvåvägssynk mellan kryss och intervallfält som originalfiltret.
             setupHistoricalRegularFilterLayer(layer);
+            updateHistoricalUnresolvedVisibility(layer);
 
             layer.querySelector('.historical-offset')?.addEventListener('change', () => {
+                updateHistoricalUnresolvedVisibility(layer);
                 refreshHistoricalOffsetAvailability();
 
                 if (DEBUG_HISTORICAL_FILTERS) {
