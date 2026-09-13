@@ -5735,10 +5735,18 @@
                 // ALLA kandidatrader för lag+säsong, inte bara den sist inlagda.
                 const historyRows = lookup.get(`${team}::${targetSeason}`) || [];
                 if (!historyRows.length) {
-                    hasMissing = true;
-                    missingReason = missingReason || 'team_season_missing';
-                    details.push({ layer: config.id, offset: config.offset, targetSeason, status: 'missing', reason: 'team_season_missing' });
-                    continue;
+                    // Jämförelsesäsongen finns i underlaget, men laget har ingen rad den
+                    // säsongen. Det är ett säkert nej för detta filterlager, inte saknad
+                    // data för själva säsongen. Typfall: ett lag har lämnat SHL/HA.
+                    details.push({
+                        layer: config.id,
+                        offset: config.offset,
+                        targetSeason,
+                        status: 'no_match',
+                        reason: 'team_season_absent',
+                        candidates: []
+                    });
+                    return { status: 'no_match', details };
                 }
 
                 // Historiklagret matchar om MINST EN kandidatrad uppfyller samtliga
@@ -6612,7 +6620,9 @@
         }
 
         function distinctTeamsText(count) {
-            return `${count} olika lag ingår i urvalet.`;
+            return count === 1
+                ? '1 lag ingår i urvalet.'
+                : `${count} olika lag ingår i urvalet.`;
         }
 
         function updateFilterExplanation(ctx) {
