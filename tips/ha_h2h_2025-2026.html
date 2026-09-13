@@ -1841,6 +1841,37 @@
             text-align: left;
         }
 
+        .h2h-record-row {
+            margin: .55rem auto 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            width: fit-content;
+            max-width: 100%;
+        }
+
+        .h2h-record-row .h2h-season-record {
+            margin: 0;
+        }
+
+        .h2h-current-correct-filter {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            color: var(--text-muted);
+            font-size: .9rem;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .h2h-season-record-holder .h2h-pick-list--relative {
+            list-style: none;
+            padding-left: 0;
+            margin-left: 0;
+        }
+
         /* Behåll tydlig luft mellan raden med aktuell ordning och tabellerna. */
         .h2h-tables-layout {
             padding-top: .35rem;
@@ -2279,13 +2310,6 @@
                                 </label>
                             </span>
 
-                            <span class="source-item">
-                                <label title="Visa bara H2H-tips som är helt rätt i det aktuella tabelläget">
-                                    <input id="showOnlyCorrect" type="checkbox">
-                                    Bara rätt just nu
-                                </label>
-                            </span>
-
                             <button class="btn-icon-plain" id="btn-open-custom" type="button"
                                 aria-label="Lägg till eget H2H-tips" title="Lägg till eget H2H-tips">
                                 <span class="custom-open-icon" aria-hidden="true">＋</span>
@@ -2404,10 +2428,16 @@ Södertälje</pre>
                 <div id="dataError" class="data-error hidden" role="alert"></div>
 
                 <div id="h2hSummary" class="h2h-summary" aria-live="polite"></div>
-                <details id="h2hSeasonRecord" class="h2h-season-record" hidden>
-                    <summary id="h2hSeasonRecordSummary">🏆 Säsongsrekord hittills</summary>
-                    <div id="h2hSeasonRecordBody" class="h2h-season-record-body" aria-live="polite"></div>
-                </details>
+                <div class="h2h-record-row">
+                    <details id="h2hSeasonRecord" class="h2h-season-record" hidden>
+                        <summary id="h2hSeasonRecordSummary">🏆 Säsongsrekord hittills</summary>
+                        <div id="h2hSeasonRecordBody" class="h2h-season-record-body" aria-live="polite"></div>
+                    </details>
+                    <label class="h2h-current-correct-filter" title="Visa bara H2H-tips som är helt rätt i det aktuella tabelläget">
+                        <input id="showOnlyCorrect" type="checkbox" checked>
+                        Bara rätt just nu
+                    </label>
+                </div>
 
                 <div class="h2h-tables-layout">
                     <div class="h2h-table-panel h2h-league-panel" aria-label="Aktuell HA-tabell">
@@ -2606,7 +2636,7 @@ Södertälje</pre>
             _matchTimelineValue: 0,
             showMovements: true,
             tipsSources: { tips: true, custom: false },
-            showOnlyCorrect: false,
+            showOnlyCorrect: true,
             rowColorMode: false,
             rowColors: new Map(),
             _rowColorActiveTeam: null
@@ -3417,14 +3447,14 @@ Södertälje</pre>
             heading.textContent = 'Tippad ordning';
             box.appendChild(heading);
 
-            const ol = document.createElement('ol');
-            ol.className = 'h2h-pick-list';
+            const ul = document.createElement('ul');
+            ul.className = 'h2h-pick-list h2h-pick-list--relative';
             (participant?.picks || []).forEach(pick => {
                 const li = document.createElement('li');
                 li.textContent = getDisplayTeamName(pick.team_id);
-                ol.appendChild(li);
+                ul.appendChild(li);
             });
-            box.appendChild(ol);
+            box.appendChild(ul);
             return box;
         }
 
