@@ -1997,6 +1997,18 @@
             font-weight: 600;
         }
 
+        .tipper-tooltip .h2h-subordinate-note {
+            margin: .65rem 0 0;
+            padding-top: .55rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: .8rem;
+            font-style: italic;
+            font-weight: 500;
+            line-height: 1.35;
+            max-width: 22rem;
+        }
+
         .tipper-tooltip .h2h-point-spread-tip {
             margin: .7rem 0 0;
             padding-top: .6rem;
@@ -4112,6 +4124,15 @@ Södertälje</pre>
            DETALJVY – återanvänder originalets tooltip/popup
            =========================================================== */
 
+        function appendSubordinateCorrectNote(box, row) {
+            if (!box || row?.isSubordinateCorrectTip !== true) return;
+
+            const note = document.createElement('p');
+            note.className = 'h2h-subordinate-note';
+            note.textContent = 'Nedtonat eftersom samma tippare har ett större tips som också är rätt.';
+            box.appendChild(note);
+        }
+
         function buildTipperTooltipElement(row, standings, actualRankByTeamId, isStartMode) {
             const box = document.createElement('div');
             box.className = 'tipper-tooltip';
@@ -4148,6 +4169,7 @@ Södertälje</pre>
                     box.appendChild(pointSpreadTip);
                 }
 
+                appendSubordinateCorrectNote(box, row);
                 return box;
             }
 
@@ -4237,6 +4259,7 @@ Södertälje</pre>
                     box.appendChild(pointSpreadTip);
                 }
 
+            appendSubordinateCorrectNote(box, row);
             return box;
         }
 
