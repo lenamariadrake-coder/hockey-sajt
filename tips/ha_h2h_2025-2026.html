@@ -1887,6 +1887,27 @@
             border-top: 3px solid var(--border);
         }
 
+        /* Om samma tippare har flera rätta varianter framhävs bara den
+           största. Mindre, fortfarande rätta varianter finns kvar men dämpas. */
+        .h2h-subordinate-correct-tip > td {
+            color: var(--text-muted);
+        }
+
+        .h2h-subordinate-correct-tip .tipper-tooltip-wrap > span:first-child {
+            opacity: .52;
+        }
+
+        .h2h-subordinate-correct-tip > td.num,
+        .h2h-subordinate-correct-tip > td .h2h-status {
+            opacity: .52;
+        }
+
+        /* Själva popupen ska fortfarande vara fullt läsbar. */
+        .h2h-subordinate-correct-tip .tipper-tooltip {
+            color: var(--text);
+            opacity: 1;
+        }
+
         .h2h-status {
             font-weight: 800;
         }
@@ -3975,6 +3996,9 @@ Södertälje</pre>
                 rows.push({
                     participant_id: participant.participant_id,
                     display_name: participant.display_name || participant.participant_id,
+                    tipper_group_id: participant.is_generated_h2h === true
+                        ? String(participant.participant_id || '').replace(/_\d+$/, '')
+                        : participant.participant_id,
                     picks,
                     h2h_point_spread_tip: pointSpreadTip,
                     is_real_h2h: participant.is_real_h2h === true,
@@ -3991,6 +4015,28 @@ Södertälje</pre>
 
             H2H_TIPS_BY_PARTICIPANT.forEach(participant => addParticipant(participant, 'official'));
             H2H_CUSTOM_TIPS_BY_PARTICIPANT.forEach(participant => addParticipant(participant, 'custom'));
+
+            if (!isStartMode) {
+                const bestCorrectTeamCountByTipper = new Map();
+
+                rows.forEach(row => {
+                    if (row.correct !== true) return;
+                    const key = row.tipper_group_id || row.participant_id;
+                    const previousBest = bestCorrectTeamCountByTipper.get(key) || 0;
+                    if (row.teamCount > previousBest) {
+                        bestCorrectTeamCountByTipper.set(key, row.teamCount);
+                    }
+                });
+
+                rows.forEach(row => {
+                    const key = row.tipper_group_id || row.participant_id;
+                    const best = bestCorrectTeamCountByTipper.get(key);
+                    row.isSubordinateCorrectTip =
+                        row.correct === true &&
+                        Number.isFinite(best) &&
+                        row.teamCount < best;
+                });
+            }
 
             if (isStartMode) {
                 rows.sort((a, b) => a.display_name.localeCompare(b.display_name, 'sv'));
@@ -4531,6 +4577,10 @@ Södertälje</pre>
 
             rows.forEach((row, index) => {
                 const tr = document.createElement('tr');
+
+                if (row.isSubordinateCorrectTip === true) {
+                    tr.classList.add('h2h-subordinate-correct-tip');
+                }
 
                 if (!isStartMode && row.correct === false && !dividerInserted && correctSeen > 0) {
                     tr.classList.add('h2h-divider');
