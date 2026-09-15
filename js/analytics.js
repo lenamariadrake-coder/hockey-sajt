@@ -278,7 +278,7 @@
 
         banner.innerHTML = `
             <h2 id="avbytarbank-cookie-title">
-                ?? Är det någon på läktaren?
+                🏒 Är det någon på läktaren?
             </h2>
 
             <p>
@@ -290,7 +290,7 @@
             <p>
                 Du är precis lika välkommen även om du tackar nej –
                 då får jag helt enkelt fortsätta undra vem som sitter
-                där uppe på läktaren. ??
+                där uppe på läktaren. 😄
             </p>
 
             <a
