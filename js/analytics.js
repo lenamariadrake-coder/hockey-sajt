@@ -4,12 +4,13 @@
     /*
      * Avbytarnas avbytarbänk
      * Samtyckeshantering för besöksstatistik.
-     *
-     * I denna första testversion laddas INTE Google Analytics.
      */
 
     const CONSENT_KEY = "avbytarbank_analytics_consent";
     const PRIVACY_PAGE = "/kakor-och-statistik.html";
+    const GA_MEASUREMENT_ID = "G-S407P71TGY";
+
+    let analyticsLoaded = false;
 
     /*
      * Hämta tidigare val.
@@ -30,8 +31,39 @@
     }
 
     /*
-     * Skapa lite CSS för bannern och den permanenta länken.
-     * Då behöver ingen separat CSS-fil läggas till på varje sida.
+     * Ladda Google Analytics.
+     *
+     * Den här funktionen anropas ENDAST när besökaren
+     * har godkänt statistik.
+     */
+    function loadGoogleAnalytics() {
+        if (analyticsLoaded) {
+            return;
+        }
+
+        analyticsLoaded = true;
+
+        window.dataLayer = window.dataLayer || [];
+
+        window.gtag = function () {
+            window.dataLayer.push(arguments);
+        };
+
+        window.gtag("js", new Date());
+        window.gtag("config", GA_MEASUREMENT_ID);
+
+        const script = document.createElement("script");
+
+        script.async = true;
+        script.src =
+            "https://www.googletagmanager.com/gtag/js?id=" +
+            encodeURIComponent(GA_MEASUREMENT_ID);
+
+        document.head.appendChild(script);
+    }
+
+    /*
+     * Skapa CSS för bannern och den permanenta länken.
      */
     function addStyles() {
         if (document.getElementById("avbytarbank-analytics-styles")) {
@@ -202,7 +234,10 @@
         banner.id = "avbytarbank-cookie-banner";
         banner.className = "avbytarbank-cookie-banner";
         banner.setAttribute("role", "dialog");
-        banner.setAttribute("aria-labelledby", "avbytarbank-cookie-title");
+        banner.setAttribute(
+            "aria-labelledby",
+            "avbytarbank-cookie-title"
+        );
 
         banner.innerHTML = `
             <h2 id="avbytarbank-cookie-title">
@@ -256,14 +291,9 @@
                     setConsent(choice);
                     removeBanner();
 
-                    /*
-                     * Senare:
-                     *
-                     * Om choice === "granted"
-                     * startar vi Google Analytics här.
-                     *
-                     * I testversionen händer inget mer.
-                     */
+                    if (choice === "granted") {
+                        loadGoogleAnalytics();
+                    }
                 });
             });
 
@@ -294,8 +324,7 @@
     }
 
     /*
-     * Gör funktionen tillgänglig för
-     * "Ändra mitt val" på informationssidan.
+     * Funktioner som informationssidan kan använda.
      */
     window.avbytarbankCookieSettings = {
         getConsent: getConsent,
@@ -315,20 +344,14 @@
 
         const consent = getConsent();
 
-        if (
-            consent !== "granted" &&
-            consent !== "denied"
-        ) {
-            showBanner();
+        if (consent === "granted") {
+            loadGoogleAnalytics();
+            return;
         }
 
-        /*
-         * Senare:
-         *
-         * if (consent === "granted") {
-         *     loadGoogleAnalytics();
-         * }
-         */
+        if (consent !== "denied") {
+            showBanner();
+        }
     }
 
     init();
