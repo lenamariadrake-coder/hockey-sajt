@@ -424,7 +424,7 @@
       </p>
       <button type="button" class="btn" id="change-cookie-choice">Ändra mitt val</button>
       <p class="small-note" id="cookie-choice-note">
-        Knappen kopplas till samtyckesfunktionen när webbplatsens statistikscript läggs in.
+        Här kan du när som helst ändra ditt val.
       </p>
     </div>
 
@@ -492,18 +492,19 @@
       </div>
 
       <p class="small-note">
-        Webbplatsen behöver dessutom komma ihåg om du har tackat ja eller nej till statistik, så att du
-        inte får samma fråga på varje sida. Den tekniska lösningen för detta dokumenteras här när den är
-        färdigbyggd.
+        Webbplatsen sparar dessutom ditt val om statistik i webbläsarens lokala lagring
+        (<code>localStorage</code>). Där sparas endast om du har valt <em>ja</em> eller <em>nej</em>,
+        så att du inte får samma fråga på varje sida. Valet ligger kvar i webbläsaren tills du ändrar det
+        här eller rensar webbplatsens lagrade data.
       </p>
     </section>
 
     <section class="privacy-card" aria-labelledby="choice-heading">
       <h2 id="choice-heading">Om du tackar nej</h2>
       <p>
-        Då ska Google Analytics inte aktiveras för ditt besök. Du kan fortfarande använda webbplatsen,
-        spelen och övriga funktioner som vanligt. Det enda som händer är att ditt besök inte bidrar till
-        min Analytics-statistik.
+        Då aktiveras inte Google Analytics. Om du tidigare har tackat ja och sedan ändrar dig stoppas
+        fortsatt Analytics-mätning och Analytics-kakorna tas bort från webbplatsen i din webbläsare.
+        Du kan fortfarande använda webbplatsen, spelen och övriga funktioner som vanligt.
       </p>
       <p>
         Om du inte gör något val ska statistik inte heller aktiveras.
@@ -514,18 +515,18 @@
   <h2 id="storage-heading">Hur länge sparas uppgifterna?</h2>
 
   <p>
-    I Google Analytics är lagringstiden för händelsedata inställd på
-    <strong>2 månader</strong>. Google Analytics använder dessutom kakor
-    i din webbläsare med egna lagringstider, som framgår ovan.
+    I Google Analytics är lagringstiden för <strong>händelsedata inställd på 2 månader</strong>
+    och lagringstiden för <strong>användaruppgifter på 14 månader</strong>. Google Analytics använder
+    dessutom kakor i din webbläsare med egna lagringstider, som framgår ovan.
   </p>
 </section>
 
     <section class="privacy-card" aria-labelledby="change-heading">
       <h2 id="change-heading">Du kan ändra dig</h2>
       <p>
-        Ett ja behöver inte vara för evigt. Du ska när som helst kunna öppna den här sidan och ändra
-        ditt val. Möjligheten att ändra valet kommer också att vara lätt att nå från webbplatsens övriga
-        sidor.
+        Ett ja behöver inte vara för evigt. Du kan när som helst öppna den här sidan och ändra
+        ditt val. Länken <strong>Kakor och statistik</strong> finns också på de sidor där
+        statistikscriptet används, så att du enkelt kan komma tillbaka hit.
       </p>
     </section>
 
@@ -546,10 +547,6 @@
     </footer>
   </main>
 
-  <!--
-    analytics.js läggs in här när samtyckeshanteringen är färdig.
-    Google Analytics ska inte laddas direkt på denna sida före samtycke.
-  -->
   <script>
     document
       .getElementById("back-button")
