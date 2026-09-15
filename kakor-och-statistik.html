@@ -4,8 +4,33 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <script src="js/analytics.js" defer></script>
   <title>Kakor och statistik – Avbytarnas avbytarbänk</title>
+  <script src="js/analytics.js" defer></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const button =
+            document.getElementById("change-cookie-choice");
+
+        const note =
+            document.getElementById("cookie-choice-note");
+
+        if (
+            button &&
+            window.avbytarbankCookieSettings
+        ) {
+            button.addEventListener("click", function () {
+                window
+                    .avbytarbankCookieSettings
+                    .changeConsent();
+            });
+
+            if (note) {
+                note.textContent =
+                    "Här kan du när som helst ändra ditt val.";
+            }
+        }
+    });
+</script>
   <style>
 
     /* Samma grundtema som tidigare sida */
