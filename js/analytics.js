@@ -9,6 +9,11 @@
     const CONSENT_KEY = "avbytarbank_analytics_consent";
     const PRIVACY_PAGE = "/kakor-och-statistik.html";
     const GA_MEASUREMENT_ID = "G-S407P71TGY";
+    const PRODUCTION_HOST =
+        "avbytarnas-avbytarbank.netlify.app";
+
+    const IS_PRODUCTION =
+        window.location.hostname === PRODUCTION_HOST;
 
     let analyticsLoaded = false;
 
@@ -73,6 +78,10 @@
      * har godkänt statistik.
      */
     function loadGoogleAnalytics() {
+        if (!IS_PRODUCTION) {
+            return;
+        }
+
         if (analyticsLoaded) {
             return;
         }
