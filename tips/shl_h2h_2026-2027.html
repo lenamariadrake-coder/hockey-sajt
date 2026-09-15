@@ -5,6 +5,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Tippartopplista "H2H" 2026/2027 (SHL)</title>
+    <script src="../js/analytics.js" defer></script>
+
 
     <!-- html2canvas för export av aktiv vy -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -503,6 +505,36 @@
         .timeline-mode-controls label { display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap; cursor:pointer; }
         .timeline-mode-controls input { margin:0; }
         .timeline-mode-help { margin:0; text-align:left; color:var(--text-muted); font-size:.85rem; }
+
+        /* Kort historikförklaring på samma kontrollrad. Summaryn är avsiktligt
+           typografiskt diskret så att den inte flyttar tidslinjen i grundläget. */
+        .h2h-history-help {
+            margin:0;
+            font-family:inherit;
+            font-size:.9rem;
+            line-height:inherit;
+            color:var(--text-muted);
+        }
+        .h2h-history-help summary {
+            cursor:pointer;
+            user-select:none;
+            font-family:inherit;
+            font-size:inherit;
+            font-weight:400;
+            white-space:nowrap;
+        }
+        .h2h-history-help__body {
+            flex-basis:100%;
+            width:100%;
+            max-width:900px;
+            margin:.35rem 0 0;
+            font-size:.9rem;
+            line-height:1.45;
+            color:var(--text-muted);
+        }
+        .h2h-history-help__body p { margin:.35rem 0; }
+        .h2h-history-help[open] { flex-basis:100%; }
+
         @media (max-width:700px) { .timeline-mode-row { align-items:flex-start; } .timeline-mode-help { flex-basis:100%; } }
 
         /* =========================================================
@@ -1070,8 +1102,9 @@
  Synlighet styrs i sektion 9 (BAS) och kan tvingas i sektion 23 (OVERRIDE).
  ========================================================= */
         #sourceFilter {
-            /* Kontrollraden reserverar samma höjd som systersidorna,
-               så Amatörer/Experter/Eget H2H-tips ligger stabilt i topbaren. */
+            /* Tippartopplistan får 42 px kontrollhöjd av Eget H2H-tips-knappen.
+               H2H saknar den medvetet, så vi reserverar samma höjd här
+               för att filtren ska hamna på exakt samma nivå. */
             min-height: var(--ui-row-h, 42px);
 
             /* Gör sourceFilter mer “mobilstabilt”: låt det wrappa men inte bli oändligt högt */
@@ -1774,6 +1807,70 @@
             color: var(--text);
         }
 
+        .h2h-season-record {
+            margin: .55rem auto 0;
+            width: fit-content;
+            max-width: 100%;
+            color: var(--text-muted);
+            font-size: .9rem;
+            text-align: left;
+            line-height: 1.45;
+        }
+
+        .h2h-season-record summary {
+            color: var(--text);
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .h2h-season-record-body {
+            margin-top: .3rem;
+            text-align: center;
+        }
+
+        .h2h-season-record-holder {
+            display: block;
+        }
+
+        .h2h-season-record-holder .tipper-tooltip-wrap {
+            font-weight: 700;
+            text-decoration: underline dotted;
+            text-underline-offset: 2px;
+        }
+
+        .h2h-season-record-holder .tipper-tooltip {
+            text-align: left;
+        }
+
+        .h2h-table-filter-row {
+            margin: .8rem auto .15rem;
+            width: fit-content;
+            max-width: 100%;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: .9rem;
+        }
+
+        .h2h-table-filter-label {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .h2h-table-filter-note {
+            margin-left: .35rem;
+            color: var(--text-muted);
+        }
+
+        .h2h-season-record-holder .h2h-pick-list--relative {
+            list-style: none;
+            padding-left: 0;
+            margin-left: 0;
+        }
+
         /* Behåll tydlig luft mellan raden med aktuell ordning och tabellerna. */
         .h2h-tables-layout {
             padding-top: .35rem;
@@ -1790,6 +1887,27 @@
 
         .h2h-divider td {
             border-top: 3px solid var(--border);
+        }
+
+        /* Om samma tippare har flera rätta varianter framhävs bara den
+           största. Mindre, fortfarande rätta varianter finns kvar men dämpas. */
+        .h2h-subordinate-correct-tip > td {
+            color: var(--text-muted);
+        }
+
+        .h2h-subordinate-correct-tip .tipper-tooltip-wrap > span:first-child {
+            opacity: .52;
+        }
+
+        .h2h-subordinate-correct-tip > td.num,
+        .h2h-subordinate-correct-tip > td .h2h-status {
+            opacity: .52;
+        }
+
+        /* Själva popupen ska fortfarande använda den vanliga tooltip-logiken
+           för synlighet; ingen egen opacity här, annars visas den hela tiden. */
+        .h2h-subordinate-correct-tip .tipper-tooltip {
+            color: var(--text);
         }
 
         .h2h-status {
@@ -1814,8 +1932,8 @@
         }
 
         .tipper-tooltip {
-            padding: .675rem;
-            font-size: .828rem;
+            padding: .5rem;
+            font-size: .78rem;
         }
 
         /* Test: detaljpopupen är 90 % av tidigare storlek. */
@@ -1844,12 +1962,12 @@
         .tipper-tooltip .h2h-actual-table {
             margin: 0;
             width: max-content;
-            font-size: .792rem;
+            font-size: .72rem;
         }
 
         .tipper-tooltip .h2h-actual-table th,
         .tipper-tooltip .h2h-actual-table td {
-            padding: .306rem .495rem;
+            padding: .05rem .40rem;
         }
 
         .tipper-tooltip .h2h-actual-table .selected-team {
@@ -1879,6 +1997,21 @@
             color: var(--text-muted);
             font-size: .82rem;
             font-weight: 600;
+        }
+
+        .tipper-tooltip .h2h-subordinate-note {
+            margin: .65rem 0 0;
+            padding-top: .55rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: .8rem;
+            font-style: italic;
+            font-weight: 500;
+            line-height: 1.35;
+            width: 18rem;
+            max-width: 100%;
+            white-space: normal;
+            overflow-wrap: break-word;
         }
 
         .tipper-tooltip .h2h-point-spread-tip {
@@ -2179,12 +2312,8 @@
                     <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
                         <span class="season-select-label">Säsong</span>
                         <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
-<!--                             <option value="inbordes_2021-2022.html">2021/2022</option>
-                            <option value="inbordes_2022-2023.html">2022/2023</option>
-                            <option value="inbordes_2023-2024.html">2023/2024</option>
-                            <option value="inbordes_2024-2025.html">2024/2025</option>
-                            <option value="inbordes_2025-2026.html">2025/2026</option>
- -->                            <option value="" selected>2026/2027</option>
+                            <option value="shl_h2h_2025-2026.html">2025/2026</option>
+                            <option value="" selected>2026/2027</option>
                         </select>
                     </div>
 
@@ -2197,53 +2326,23 @@
                 </div>
             </div>
 
-            <!-- Reserverad kontrollrad: Amatörer / Experter, visuellt endast i detta steg -->
+            <!-- Kontrollrad: Tips / Eget tips -->
             <div class="topbar-row topbar-row--controls" aria-label="Vy-specifika kontroller">
                 <div class="view-controls-stack">
                     <div id="sourceFilter" aria-label="Filter för tipskällor">
                         <span class="source-options" aria-label="Vilka tips som visas">
                             <span class="source-item">
-                                <label
-                                    title="Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum inför säsongen)">
-                                    <input id="tipsSourceHobby" type="checkbox" checked>
-                                    Amatörer
+                                <label title="Visa/dölj tips från Google Sheet">
+                                    <input id="tipsSourceTips" type="checkbox" checked>
+                                    Tips
                                 </label>
-
-                                <details class="m-tip" aria-label="Mer info om Amatörer">
-                                    <summary aria-label="Mer info">ℹ️</summary>
-                                    <div class="m-tip__box" role="tooltip">
-                                        Visa/dölj amatörtips (ihopsamlade från ett antal tippare på HockeySnacks forum
-                                        inför säsongen)
-                                    </div>
-                                </details>
-                            </span>
-
-                            <span class="source-item">
-                                <label
-                                    title="Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor där journalister offentliggjort sina tips)">
-                                    <input id="tipsSourceExpert" type="checkbox" checked>
-                                    Experter
-                                </label>
-
-                                <details class="m-tip" aria-label="Mer info om Experter">
-                                    <summary aria-label="Mer info">ℹ️</summary>
-                                    <div class="m-tip__box" role="tooltip">
-                                        Visa/dölj experttips (ihopsamlade från TV4, kvällspress, officiella hockeysidor
-                                        där journalister offentliggjort sina tips)
-                                    </div>
-                                </details>
                             </span>
 
                             <span class="source-item">
                                 <label title="Visa/dölj eget H2H-tips">
                                     <input id="tipsSourceCustom" type="checkbox">
-                                    Eget H2H-tips
+                                    Eget tips
                                 </label>
-
-                                <details class="m-tip" aria-label="Mer info om Eget H2H-tips">
-                                    <summary aria-label="Mer info">ℹ️</summary>
-                                    <div class="m-tip__box" role="tooltip">Visa/dölj eget H2H-tips</div>
-                                </details>
                             </span>
 
                             <button class="btn-icon-plain" id="btn-open-custom" type="button"
@@ -2280,18 +2379,18 @@
                             <li>Varje block ska innehålla <strong>2–14 olika lag</strong> i den ordning du tippar dem.</li>
                             <li>Lämna <strong>en tom rad</strong> mellan block.</li>
                             <li>Om första raden är ett lagnamn räknas hela blocket som lag. Då döps tipparen automatiskt, till exempel <strong>Tippare 1 (eget tips)</strong>.</li>
-                            <li>Om första raden inte är ett lagnamn används den som tipparens namn och resten av blocket som lag. I tabellen läggs <strong>(eget tips)</strong> automatiskt till efter namnet.</li>
+                            <li>Om första raden inte är ett lagnamn används den som tipparens namn och resten av blocket som lag.</li>
                             <li>Vanliga namnformer och registrerade alias accepteras. Numrering som <strong>1. Lag</strong> går också bra.</li>
                         </ul>
                         <p><strong>Exempel:</strong></p>
                         <pre class="custom-help__ex">Mitt H2H-tips
-Brynäs
-Djurgården
-Frölunda
+AIK
+Björklöven
+Karlskoga
 
-Luleå
-Rögle
-Skellefteå</pre>
+MoDo
+AIK
+Södertälje</pre>
                     </div>
                 </details>
             </div>
@@ -2309,6 +2408,24 @@ Skellefteå</pre>
                         <span>Visa tabellrörelser</span>
                     </label>
                 </div>
+
+                <details class="h2h-history-help">
+                    <summary>Vad är detta?</summary>
+                    <div class="h2h-history-help__body">
+<p>I ett H2H-tips väljer du själv ett antal lag (minst två) och tippar deras <strong>inbördes ordning</strong> när säsongen är slut. Det spelar alltså ingen roll var lagen hamnar i hela tabellen, utan bara hur de placerar sig i förhållande till varandra.</p>
+
+<p>Väljer du exempelvis Skellefteå, Djurgården och Timrå får du rätt om de slutar i just den ordningen sinsemellan, oavsett om deras faktiska tabellplaceringar blir exempelvis 2, 5 och 11 eller 7, 9 och 14.</p>
+
+<p><strong>Hur skulle då ett vanligt tabelltips klara sig om man plockade ut några av lagen och gjorde ett H2H-tips av dem?</strong> För att undersöka det skapas automatiskt varianter med 2–14 lag från varje vanligt tabelltips. Lagen väljs så jämnt och symmetriskt över den tippade tabellen som möjligt: med två lag blir det ettan och jumbon, med tre lag ettan, sjuan och jumbon, etc.</p>
+
+<p>De autogenererade tipsen är framför allt ett sätt att illustrera <strong>hur svårt H2H faktiskt är</strong>. Ett tabelltips som ser ganska bra ut kan ändå misslyckas med att få ens några få utspridda lag i rätt inbördes ordning. Och ett lyckat H2H-tips med exempelvis fem lag kan ha varit hårfint från att misslyckas. Kanske avgjordes ordningen mellan två lag först på en tiebreaker. Kanske låg fyra av lagen inom ett mycket litet poängspann.</p>
+
+<p>De riktiga H2H-tipsen får trängas med en stor mängd sådana autogenererade varianter, men de autogenererade är lite av fusktips. Varje vanligt tabelltips får ju automatiskt en variant för varje antal lag från 2 till 14. <strong>Den riktiga H2H-tipparen får däremot bara ett försök</strong> och måste själv bestämma hur många lag det försöket ska innehålla.</p>
+
+<p>Den riktiga tipparen har samtidigt en fördel. Genom att välja lag fritt har man exempelvis en möjlighet att undvika förväntade "getingbon". Man kan dessutom ta med sitt favoritlag för att göra det hela roligare.</p>
+                    </div>
+                </details>
+
                 <p id="timelineModeHelp" class="timeline-mode-help">Jämförelsen utgår från varje lags första X matcher.</p>
             </div>
         </section>
@@ -2354,6 +2471,20 @@ Skellefteå</pre>
                 <div id="dataError" class="data-error hidden" role="alert"></div>
 
                 <div id="h2hSummary" class="h2h-summary" aria-live="polite"></div>
+
+                <details id="h2hSeasonRecord" class="h2h-season-record" hidden>
+                    <summary id="h2hSeasonRecordSummary">🏆 Säsongsrekord hittills</summary>
+                    <div id="h2hSeasonRecordBody" class="h2h-season-record-body" aria-live="polite"></div>
+                </details>
+
+                <div class="h2h-table-filter-row" aria-label="Visning av tipstabellen">
+                    <label class="h2h-table-filter-label"
+                        title="Visa även H2H-tips som inte är helt rätt i det aktuella tabelläget">
+                        <input id="showOnlyCorrect" type="checkbox">
+                        Visa även tips som är fel just nu
+                    </label>
+                    <span class="h2h-table-filter-note">– kan göra sidan märkbart trögare</span>
+                </div>
 
                 <div class="h2h-tables-layout">
                     <div class="h2h-table-panel h2h-league-panel" aria-label="Aktuell SHL-tabell">
@@ -2407,7 +2538,7 @@ Skellefteå</pre>
 
     <script>
         /* ===========================================================
-           H2H SHL 2026/27 – byggd från originalsidans struktur.
+           H2H SHL 2026/27 – ordinarie säsongssida.
            Behållet: matchinläsning, standings-snapshots, tidslinje,
            play/pause, long-press, export och grundlayout.
            =========================================================== */
@@ -2419,9 +2550,9 @@ Skellefteå</pre>
         const seasonSelectWrap = document.getElementById('seasonSelectWrap');
         const seasonSelect = document.getElementById('seasonSelect');
         const timelineSlider = document.getElementById('timeline-slider');
-        const tipsSourceHobby = document.getElementById('tipsSourceHobby');
-        const tipsSourceExpert = document.getElementById('tipsSourceExpert');
+        const tipsSourceTips = document.getElementById('tipsSourceTips');
         const tipsSourceCustom = document.getElementById('tipsSourceCustom');
+        const showOnlyCorrect = document.getElementById('showOnlyCorrect');
         const openCustomBtn = document.getElementById('btn-open-custom');
         const customPanel = document.getElementById('custom-panel');
         const customInput = document.getElementById('custom-input');
@@ -2438,6 +2569,9 @@ Skellefteå</pre>
         const loadingBox = document.getElementById('tableLoading');
         const dataError = document.getElementById('dataError');
         const h2hSummary = document.getElementById('h2hSummary');
+        const h2hSeasonRecord = document.getElementById('h2hSeasonRecord');
+        const h2hSeasonRecordSummary = document.getElementById('h2hSeasonRecordSummary');
+        const h2hSeasonRecordBody = document.getElementById('h2hSeasonRecordBody');
         const pointSpreadSummary = document.getElementById('pointSpreadSummary');
         const h2hTablesLayout = document.querySelector('.h2h-tables-layout');
         const timelineModeMatches = document.getElementById('timelineModeMatches');
@@ -2496,20 +2630,22 @@ Skellefteå</pre>
                 ]
             },
 
-            h2hTips: {
-                key: 'h2hTips',
-                label: 'H2H-tips',
+            generatedH2HTips: {
+                key: 'generatedH2HTips',
+                label: 'Genererade H2H-tips',
                 spreadsheetId: '1fsWVsiCnwFzge3xf5p0cReiTAkcpdLcuvmWSyDUmDhI',
-                gid: '530439256',
-                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=530439256&single=true&output=tsv',
-                requiredColumns: [
-                    'participant_id',
-                    'display_name',
-                    'tip_type',
-                    'team_id',
-                    'pick_rank',
-                    'h2h_point_spread_tip'
-                ]
+                gid: '1654509716',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=1654509716&single=true&output=tsv',
+                requiredColumns: ['season', 'data']
+            },
+
+            realH2HTips: {
+                key: 'realH2HTips',
+                label: 'Äkta H2H-tips',
+                spreadsheetId: '1fsWVsiCnwFzge3xf5p0cReiTAkcpdLcuvmWSyDUmDhI',
+                gid: '365516203',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTdciZFc2htp9p0JXuGLqj9kjTANbZ8uTkgNz0mlnHYalLnao3lvSZDWS-q9qVsAlGAv_eam99UtdaU/pub?gid=365516203&single=true&output=tsv',
+                requiredColumns: ['season', 'data']
             }
         };
 
@@ -2517,8 +2653,8 @@ Skellefteå</pre>
         const MATCH_SEASON_ID = '2026-2027';
         const MATCH_LEAGUE = 'SHL';
 
-        // Historikläge: sätt hela H2H-källan till null om tips inte ska läsas.
-        const H2H_TIPS_SOURCE = DATA_SOURCES.h2hTips;
+        const GENERATED_H2H_TIPS_SOURCE = DATA_SOURCES.generatedH2HTips;
+        const REAL_H2H_TIPS_SOURCE = DATA_SOURCES.realH2HTips;
 
         // Delas med Tabell/Värmekarta och Tippartopplistan.
         const ROUND_STORAGE_KEY = 'round_shl_2026_2027';
@@ -2546,7 +2682,8 @@ Skellefteå</pre>
             currentDateIndex: 0,
             _matchTimelineValue: 0,
             showMovements: true,
-            tipsSources: { hobby: true, expert: true, custom: false },
+            tipsSources: { tips: true, custom: false },
+            showOnlyCorrect: true,
             rowColorMode: false,
             rowColors: new Map(),
             _rowColorActiveTeam: null
@@ -2622,12 +2759,28 @@ Skellefteå</pre>
             });
         }
 
+        const EVEN_PICK_POSITIONS = {
+            2: [1, 14],
+            3: [1, 7, 14],
+            4: [1, 5, 10, 14],
+            5: [1, 4, 7, 11, 14],
+            6: [1, 4, 6, 9, 11, 14],
+            7: [1, 3, 5, 7, 10, 12, 14],
+            8: [1, 3, 5, 7, 8, 10, 12, 14],
+            9: [1, 3, 4, 6, 7, 9, 11, 12, 14],
+            10: [1, 2, 4, 5, 7, 8, 10, 11, 13, 14],
+            11: [1, 2, 4, 5, 6, 7, 9, 10, 11, 13, 14],
+            12: [1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 13, 14],
+            13: [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14],
+            14: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+        };
+
         function readH2HTipsCache() {
             try {
                 const raw = localStorage.getItem(SHL_H2H_TIPS_CACHE_KEY);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
-                if (!data || data.version !== 1 || data.season !== '2026_2027' || data.league !== 'shl') return null;
+                if (!data || data.version !== 2 || data.season !== '2026_2027' || data.league !== 'shl') return null;
                 if (!isShlCacheFresh(data) || !Array.isArray(data.participants)) return null;
                 return data;
             } catch (error) {
@@ -2643,9 +2796,11 @@ Skellefteå</pre>
                 H2H_TIPS_BY_PARTICIPANT.set(participant.participant_id, {
                     participant_id: participant.participant_id,
                     display_name: participant.display_name || participant.participant_id,
-                    h2h_point_spread_tip: Number.isFinite(Number(participant.h2h_point_spread_tip))
+                    h2h_point_spread_tip: participant.h2h_point_spread_tip !== null && participant.h2h_point_spread_tip !== '' && Number.isFinite(Number(participant.h2h_point_spread_tip))
                         ? Number(participant.h2h_point_spread_tip)
                         : null,
+                    is_real_h2h: participant.is_real_h2h === true,
+                    is_generated_h2h: participant.is_generated_h2h === true,
                     picks: participant.picks.map(pick => ({
                         team_id: pick.team_id,
                         pick_rank: Number(pick.pick_rank)
@@ -2657,7 +2812,7 @@ Skellefteå</pre>
         function writeH2HTipsCache() {
             try {
                 localStorage.setItem(SHL_H2H_TIPS_CACHE_KEY, JSON.stringify({
-                    version: 1,
+                    version: 2,
                     savedAt: new Date().toISOString(),
                     season: '2026_2027',
                     league: 'shl',
@@ -2668,78 +2823,169 @@ Skellefteå</pre>
             }
         }
 
-        async function loadH2HTips(source) {
+        function sheetRowsForSeason(rows, sourceLabel) {
+            if (!rows.length) throw new Error(`${sourceLabel}: inga rader hittades.`);
+            const hdr = rows[0].map(h => String(h || '').trim());
+            const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+            const iSeason = idx('season');
+            const iData = idx('data');
+            if (iSeason === -1 || iData === -1) {
+                throw new Error(`${sourceLabel}: kolumnerna season och data måste finnas.`);
+            }
+
+            // Filtrera på säsong FÖRST. Tom data-rad är fortfarande blockavskiljare
+            // även när season är ifylld på samma rad.
+            return rows.slice(1)
+                .filter(r => String(r[iSeason] || '').trim() === MATCH_SEASON_ID)
+                .map(r => String(r[iData] ?? '').trim());
+        }
+
+        function splitSheetDataIntoBlocks(dataLines) {
+            const blocks = [];
+            let current = [];
+            for (const line of dataLines) {
+                if (!line) {
+                    if (current.length) blocks.push(current);
+                    current = [];
+                } else {
+                    current.push(line);
+                }
+            }
+            if (current.length) blocks.push(current);
+            return blocks;
+        }
+
+        function parseExternalTeamLines(teamLines, contextLabel) {
+            const picks = [];
+            const usedTeamIds = new Set();
+            for (let i = 0; i < teamLines.length; i++) {
+                const match = findTeamIdFromCustomLine(teamLines[i]);
+                if (!match.teamId) {
+                    const reason = match.ambiguous ? 'tvetydigt' : 'okänt eller inte med i SHL-säsongen';
+                    throw new Error(`${contextLabel}, lagrad ${i + 1}: ${reason} lag "${teamLines[i]}".`);
+                }
+                if (usedTeamIds.has(match.teamId)) {
+                    throw new Error(`${contextLabel}: samma lag får bara förekomma en gång.`);
+                }
+                usedTeamIds.add(match.teamId);
+                picks.push({ team_id: match.teamId, pick_rank: i + 1 });
+            }
+            return picks;
+        }
+
+        function parseGeneratedH2HBlocks(dataLines) {
+            const blocks = splitSheetDataIntoBlocks(dataLines);
+            const participants = [];
+            blocks.forEach((lines, blockIndex) => {
+                // Tillåtet enligt Sheet-upplägget: 14 rader utan namn eller 15 med namn.
+                if (lines.length !== 14 && lines.length !== 15) {
+                    throw new Error(`Genererade H2H-tips, block ${blockIndex + 1}: måste innehålla 14 eller 15 innehållsrader. Här hittades ${lines.length}.`);
+                }
+
+                let baseName;
+                let teamLines;
+                if (lines.length === 15) {
+                    baseName = lines[0].trim();
+                    teamLines = lines.slice(1);
+                    if (!baseName) throw new Error(`Genererade H2H-tips, block ${blockIndex + 1}: namnrad saknar text.`);
+                } else {
+                    // 14 rader betyder 14 lag utan namn. Om första raden inte är ett giltigt
+                    // säsongslag är blocket felaktigt, inte ett 13-lagstips med namn.
+                    const first = findTeamIdFromCustomLine(lines[0]);
+                    if (!first.teamId) {
+                        throw new Error(`Genererade H2H-tips, block ${blockIndex + 1}: 14-radersblock måste bestå av 14 lag. Första raden kunde inte tolkas som ett säsongslag.`);
+                    }
+                    baseName = `Tippare ${blockIndex + 1}`;
+                    teamLines = lines;
+                }
+
+                const fullPicks = parseExternalTeamLines(teamLines, `Genererade H2H-tips, block ${blockIndex + 1}`);
+                if (fullPicks.length !== 14) {
+                    throw new Error(`Genererade H2H-tips, block ${blockIndex + 1}: exakt 14 lag krävs.`);
+                }
+
+                for (let teamCount = 2; teamCount <= 14; teamCount++) {
+                    const positions = EVEN_PICK_POSITIONS[teamCount];
+                    const picks = positions.map((position, index) => ({
+                        team_id: fullPicks[position - 1].team_id,
+                        pick_rank: index + 1
+                    }));
+                    participants.push({
+                        participant_id: `generated_${blockIndex + 1}_${teamCount}`,
+                        display_name: `${baseName} (${teamCount} lag)`,
+                        h2h_point_spread_tip: null,
+                        is_real_h2h: false,
+                        is_generated_h2h: true,
+                        picks
+                    });
+                }
+            });
+            return participants;
+        }
+
+        function parseRealH2HBlocks(dataLines) {
+            const blocks = splitSheetDataIntoBlocks(dataLines);
+            const participants = [];
+            blocks.forEach((lines, blockIndex) => {
+                // Utslagsfrågan är valfri i indata. Saknas den helt används 0.
+                // Därför kan blocket bestå av namn + 2–14 lag (3–15 rader),
+                // eller namn + 2–14 lag + utslagsfråga (4–16 rader).
+                if (lines.length < 3 || lines.length > 16) {
+                    throw new Error(`Äkta H2H-tips, block ${blockIndex + 1}: måste innehålla namn och 2–14 lag, plus eventuell utslagsfråga. Här hittades ${lines.length} innehållsrader.`);
+                }
+                const displayName = lines[0].trim();
+                if (!displayName) throw new Error(`Äkta H2H-tips, block ${blockIndex + 1}: namnrad saknar text.`);
+
+                // Om sista raden är ett heltal är den utslagsfrågan. Annars behandlas
+                // resten som lagrader och poängdifferensen får standardvärdet 0.
+                const rawLastLine = lines.at(-1).trim();
+                const parsedLastLine = Number(rawLastLine);
+                const hasPointSpread = rawLastLine !== '' && Number.isInteger(parsedLastLine);
+                const teamLines = hasPointSpread ? lines.slice(1, -1) : lines.slice(1);
+                const h2hPointSpreadTip = hasPointSpread ? parsedLastLine : 0;
+
+                if (teamLines.length < 2 || teamLines.length > 14) {
+                    throw new Error(`Äkta H2H-tips, block ${blockIndex + 1}: måste innehålla 2–14 lag.`);
+                }
+                const picks = parseExternalTeamLines(teamLines, `Äkta H2H-tips, block ${blockIndex + 1}`);
+
+                participants.push({
+                    participant_id: `real_${blockIndex + 1}`,
+                    display_name: displayName,
+                    h2h_point_spread_tip: h2hPointSpreadTip,
+                    is_real_h2h: true,
+                    is_generated_h2h: false,
+                    picks
+                });
+            });
+            return participants;
+        }
+
+        async function loadH2HTips(generatedSource, realSource) {
             const cached = readH2HTipsCache();
             if (cached) {
                 hydrateH2HTipsCache(cached);
                 if (H2H_TIPS_BY_PARTICIPANT.size) return 'cache';
             }
 
-            const { rows } = await GoogleSheetsData.fetchRows(source);
-            if (!rows.length) throw new Error('H2H-tips: inga rader hittades.');
+            const [{ rows: generatedRows }, { rows: realRows }] = await Promise.all([
+                GoogleSheetsData.fetchRows(generatedSource),
+                GoogleSheetsData.fetchRows(realSource)
+            ]);
 
-            const hdr = rows[0].map(h => h.trim());
-            const idx = name => hdr.findIndex(h => h.toLowerCase() === name.toLowerCase());
+            const generatedLines = sheetRowsForSeason(generatedRows, 'Genererade H2H-tips');
+            const realLines = sheetRowsForSeason(realRows, 'Äkta H2H-tips');
 
-            const iParticipant = idx('participant_id');
-            const iDisplay = idx('display_name');
-            const iType = idx('tip_type');
-            const iTeam = idx('team_id');
-            const iRank = idx('pick_rank');
-            const iPointSpreadTip = idx('h2h_point_spread_tip');
-
-            const missing = [
-                ['participant_id', iParticipant],
-                ['display_name', iDisplay],
-                ['tip_type', iType],
-                ['team_id', iTeam],
-                ['pick_rank', iRank],
-                ['h2h_point_spread_tip', iPointSpreadTip]
-            ].filter(([, i]) => i === -1).map(([name]) => name);
-
-            if (missing.length) {
-                throw new Error(`H2H-tips: saknar kolumn(er): ${missing.join(', ')}.`);
-            }
+            const participants = [
+                ...parseGeneratedH2HBlocks(generatedLines),
+                ...parseRealH2HBlocks(realLines)
+            ];
 
             H2H_TIPS_BY_PARTICIPANT.clear();
-
-            rows.slice(1).forEach(r => {
-                if (String(r[iType] || '').toLowerCase() !== 'h2h') return;
-
-                const participant_id = r[iParticipant];
-                const display_name = r[iDisplay] || participant_id;
-                const team_id = r[iTeam];
-                const pick_rank = Number(r[iRank]);
-                const pointSpreadRaw = r[iPointSpreadTip];
-                const h2h_point_spread_tip = pointSpreadRaw === '' ? null : Number(pointSpreadRaw);
-
-                if (!participant_id || !team_id || !Number.isFinite(pick_rank)) return;
-
-                if (!H2H_TIPS_BY_PARTICIPANT.has(participant_id)) {
-                    H2H_TIPS_BY_PARTICIPANT.set(participant_id, {
-                        participant_id,
-                        display_name,
-                        h2h_point_spread_tip: Number.isFinite(h2h_point_spread_tip)
-                            ? h2h_point_spread_tip
-                            : null,
-                        picks: []
-                    });
-                }
-
-                const participant = H2H_TIPS_BY_PARTICIPANT.get(participant_id);
-                if (!participant.display_name && display_name) participant.display_name = display_name;
-                if (participant.h2h_point_spread_tip === null && Number.isFinite(h2h_point_spread_tip)) {
-                    participant.h2h_point_spread_tip = h2h_point_spread_tip;
-                }
-                participant.picks.push({ team_id, pick_rank });
-            });
-
-            H2H_TIPS_BY_PARTICIPANT.forEach(participant => {
-                participant.picks.sort((a, b) => a.pick_rank - b.pick_rank);
-            });
+            participants.forEach(participant => H2H_TIPS_BY_PARTICIPANT.set(participant.participant_id, participant));
 
             if (!H2H_TIPS_BY_PARTICIPANT.size) {
-                throw new Error('H2H-tips: inga rader med tip_type = h2h hittades.');
+                throw new Error(`H2H-tips: inga tips hittades för säsongen ${MATCH_SEASON_ID}.`);
             }
 
             writeH2HTipsCache();
@@ -3025,6 +3271,317 @@ Skellefteå</pre>
             return true;
         }
 
+        const SEASON_RECORD_HEADLINE_CACHE = new Map();
+        const SEASON_RECORD_DETAILS_CACHE = new Map();
+
+        function invalidateSeasonRecordCache() {
+            SEASON_RECORD_HEADLINE_CACHE.clear();
+            SEASON_RECORD_DETAILS_CACHE.clear();
+        }
+
+        function getSeasonRecordParticipants() {
+            const participants = [];
+
+            if (state.tipsSources.tips) {
+                H2H_TIPS_BY_PARTICIPANT.forEach(participant => participants.push(participant));
+            }
+
+            if (state.tipsSources.custom) {
+                H2H_CUSTOM_TIPS_BY_PARTICIPANT.forEach(participant => participants.push(participant));
+            }
+
+            return participants;
+        }
+
+        function getSeasonRecordCacheKey() {
+            return `${state.timelineMode}|tips:${state.tipsSources.tips ? 1 : 0}|custom:${state.tipsSources.custom ? 1 : 0}`;
+        }
+
+        function getSeasonRecordTarget(activeValue) {
+            const limit = Number(activeValue) || 0;
+            if (limit <= 0) return 0;
+
+            const maxAvailable = state.timelineMode === 'date'
+                ? DATE_TIMELINE_KEYS.length
+                : Number(state.latestRound || 0);
+
+            return Math.max(0, Math.min(limit, maxAvailable));
+        }
+
+        function getSeasonRecordStandings(snapshotIndex) {
+            return state.timelineMode === 'date'
+                ? DATE_STANDING_SNAPSHOTS.get(DATE_TIMELINE_KEYS[snapshotIndex - 1])
+                : STANDING_SNAPSHOTS.get(snapshotIndex);
+        }
+
+        function buildSeasonRecordParticipantsByTeamCount(participants) {
+            const byTeamCount = new Map();
+
+            participants.forEach(participant => {
+                const teamCount = Array.isArray(participant.picks) ? participant.picks.length : 0;
+                if (teamCount < 2) return;
+                if (!byTeamCount.has(teamCount)) byTeamCount.set(teamCount, []);
+                byTeamCount.get(teamCount).push(participant);
+            });
+
+            return byTeamCount;
+        }
+
+        /*
+         * Billig rekordberäkning för själva rubriken.
+         * När rekordet väl är t.ex. 7 lag behöver ett nytt snapshot bara
+         * testas mot 8–14 lag. Mindre tips kan inte längre höja rekordet.
+         */
+        function calculateSeasonRecordHeadline(activeValue) {
+            const participants = getSeasonRecordParticipants();
+            if (!participants.length) return null;
+
+            const target = getSeasonRecordTarget(activeValue);
+            if (target <= 0) return null;
+
+            const cacheKey = getSeasonRecordCacheKey();
+            let cache = SEASON_RECORD_HEADLINE_CACHE.get(cacheKey);
+
+            if (!cache) {
+                cache = {
+                    processedThrough: 0,
+                    recordTeamCount: 0,
+                    recordBySnapshot: new Map(),
+                    participantsByTeamCount: buildSeasonRecordParticipantsByTeamCount(participants),
+                    maxTeamCount: Math.max(0, ...participants.map(participant =>
+                        Array.isArray(participant.picks) ? participant.picks.length : 0
+                    ))
+                };
+                SEASON_RECORD_HEADLINE_CACHE.set(cacheKey, cache);
+            }
+
+            if (cache.recordBySnapshot.has(target)) {
+                const cachedRecordTeamCount = cache.recordBySnapshot.get(target);
+                return Number.isFinite(cachedRecordTeamCount) && cachedRecordTeamCount >= 2
+                    ? { recordTeamCount: cachedRecordTeamCount, target }
+                    : null;
+            }
+
+            for (let snapshotIndex = cache.processedThrough + 1; snapshotIndex <= target; snapshotIndex += 1) {
+                const standings = getSeasonRecordStandings(snapshotIndex);
+
+                if (standings?.length && cache.recordTeamCount < cache.maxTeamCount) {
+                    const actualRankByTeamId = buildActualRankByTeamId(standings);
+
+                    outer:
+                    for (let teamCount = cache.maxTeamCount; teamCount > cache.recordTeamCount; teamCount -= 1) {
+                        const candidates = cache.participantsByTeamCount.get(teamCount);
+                        if (!candidates?.length) continue;
+
+                        for (const participant of candidates) {
+                            if (isH2HTipCorrect(participant.picks || [], actualRankByTeamId)) {
+                                cache.recordTeamCount = teamCount;
+                                break outer;
+                            }
+                        }
+                    }
+                }
+
+                cache.recordBySnapshot.set(snapshotIndex, cache.recordTeamCount || null);
+                cache.processedThrough = snapshotIndex;
+            }
+
+            const recordTeamCount = cache.recordBySnapshot.get(target);
+            return Number.isFinite(recordTeamCount) && recordTeamCount >= 2
+                ? { recordTeamCount, target }
+                : null;
+        }
+
+        function snapshotSeasonRecordDetails(recordTeamCount, hitsByParticipant) {
+            const holders = Array.from(hitsByParticipant.values())
+                .filter(entry => entry.hits.length)
+                .map(entry => ({
+                    participant_id: entry.participant_id,
+                    display_name: entry.display_name,
+                    teamCount: recordTeamCount,
+                    firstOccurrence: entry.hits[0],
+                    occurrenceCount: entry.hits.length
+                }))
+                .sort((a, b) => {
+                    if (b.occurrenceCount !== a.occurrenceCount) return b.occurrenceCount - a.occurrenceCount;
+                    if (a.firstOccurrence !== b.firstOccurrence) return a.firstOccurrence - b.firstOccurrence;
+                    return a.display_name.localeCompare(b.display_name, 'sv');
+                });
+
+            return holders;
+        }
+
+        /*
+         * Den dyrare delen körs bara när detaljrutan faktiskt är öppen.
+         * Då behöver vi dessutom bara kontrollera tips som har exakt
+         * samma antal lag som det aktuella rekordet.
+         */
+        function calculateSeasonRecordDetails(activeValue, recordTeamCount) {
+            const target = getSeasonRecordTarget(activeValue);
+            if (target <= 0 || !Number.isFinite(recordTeamCount) || recordTeamCount < 2) return [];
+
+            const participants = getSeasonRecordParticipants().filter(participant =>
+                Array.isArray(participant.picks) && participant.picks.length === recordTeamCount
+            );
+            if (!participants.length) return [];
+
+            const detailsKey = `${getSeasonRecordCacheKey()}|record:${recordTeamCount}`;
+            let cache = SEASON_RECORD_DETAILS_CACHE.get(detailsKey);
+
+            if (!cache) {
+                cache = {
+                    processedThrough: 0,
+                    hitsByParticipant: new Map(),
+                    resultBySnapshot: new Map()
+                };
+                SEASON_RECORD_DETAILS_CACHE.set(detailsKey, cache);
+            }
+
+            if (cache.resultBySnapshot.has(target)) {
+                return cache.resultBySnapshot.get(target);
+            }
+
+            for (let snapshotIndex = cache.processedThrough + 1; snapshotIndex <= target; snapshotIndex += 1) {
+                const standings = getSeasonRecordStandings(snapshotIndex);
+
+                if (standings?.length) {
+                    const actualRankByTeamId = buildActualRankByTeamId(standings);
+
+                    participants.forEach(participant => {
+                        if (!isH2HTipCorrect(participant.picks || [], actualRankByTeamId)) return;
+
+                        const key = participant.participant_id;
+                        let entry = cache.hitsByParticipant.get(key);
+                        if (!entry) {
+                            entry = {
+                                participant_id: key,
+                                display_name: participant.display_name || key,
+                                hits: []
+                            };
+                            cache.hitsByParticipant.set(key, entry);
+                        }
+                        entry.hits.push(snapshotIndex);
+                    });
+                }
+
+                cache.resultBySnapshot.set(
+                    snapshotIndex,
+                    snapshotSeasonRecordDetails(recordTeamCount, cache.hitsByParticipant)
+                );
+                cache.processedThrough = snapshotIndex;
+            }
+
+            return cache.resultBySnapshot.get(target) || [];
+        }
+
+        function getSeasonRecordParticipantById(participantId) {
+            if (state.tipsSources.tips && H2H_TIPS_BY_PARTICIPANT.has(participantId)) {
+                return H2H_TIPS_BY_PARTICIPANT.get(participantId);
+            }
+            if (state.tipsSources.custom && H2H_CUSTOM_TIPS_BY_PARTICIPANT.has(participantId)) {
+                return H2H_CUSTOM_TIPS_BY_PARTICIPANT.get(participantId);
+            }
+            return null;
+        }
+
+        function buildSeasonRecordTipTooltip(participant) {
+            const box = document.createElement('div');
+            box.className = 'tipper-tooltip';
+            box.setAttribute('role', 'tooltip');
+
+            const heading = document.createElement('div');
+            heading.className = 'tt-head';
+            heading.textContent = 'Tippad ordning';
+            box.appendChild(heading);
+
+            const ul = document.createElement('ul');
+            ul.className = 'h2h-pick-list h2h-pick-list--relative';
+            (participant?.picks || []).forEach(pick => {
+                const li = document.createElement('li');
+                li.textContent = getDisplayTeamName(pick.team_id);
+                ul.appendChild(li);
+            });
+            box.appendChild(ul);
+            return box;
+        }
+
+        function renderSeasonRecordDetails(activeValue, recordTeamCount) {
+            if (!h2hSeasonRecordBody) return;
+            h2hSeasonRecordBody.replaceChildren();
+
+            const holders = calculateSeasonRecordDetails(activeValue, recordTeamCount);
+            if (!holders.length) return;
+
+            holders.forEach(holder => {
+                const line = document.createElement('span');
+                line.className = 'h2h-season-record-holder';
+
+                const firstText = state.timelineMode === 'date'
+                    ? `första gången ${formatTimelineDate(DATE_TIMELINE_KEYS[holder.firstOccurrence - 1])}`
+                    : `första gången efter ${holder.firstOccurrence} matcher`;
+                const snapshotWord = holder.occurrenceCount === 1 ? 'snapshot' : 'snapshots';
+
+                const participant = getSeasonRecordParticipantById(holder.participant_id);
+                if (participant) {
+                    const wrap = document.createElement('span');
+                    wrap.className = 'tipper-tooltip-wrap';
+                    wrap.tabIndex = 0;
+                    wrap.setAttribute('role', 'button');
+                    wrap.setAttribute('aria-label', `Visa tipset för ${holder.display_name}`);
+
+                    const name = document.createElement('span');
+                    name.textContent = holder.display_name;
+                    wrap.append(name, buildSeasonRecordTipTooltip(participant));
+                    line.appendChild(wrap);
+                } else {
+                    line.appendChild(document.createTextNode(holder.display_name));
+                }
+
+                line.appendChild(document.createTextNode(` – ${firstText} · ${holder.occurrenceCount} ${snapshotWord}`));
+                h2hSeasonRecordBody.appendChild(line);
+            });
+        }
+
+        function renderSeasonRecord(activeValue, isStartMode) {
+            if (!h2hSeasonRecord || !h2hSeasonRecordSummary || !h2hSeasonRecordBody) return;
+
+            h2hSeasonRecord.hidden = true;
+            if (isStartMode) {
+                h2hSeasonRecordBody.replaceChildren();
+                return;
+            }
+
+            const record = calculateSeasonRecordHeadline(activeValue);
+            if (!record) {
+                h2hSeasonRecordBody.replaceChildren();
+                return;
+            }
+
+            h2hSeasonRecordSummary.textContent = `🏆 Säsongsrekord hittills: ${record.recordTeamCount} lag`;
+            h2hSeasonRecord.hidden = false;
+
+            if (h2hSeasonRecord.open) {
+                renderSeasonRecordDetails(activeValue, record.recordTeamCount);
+            }
+        }
+
+        function getCurrentSeasonRecordPosition() {
+            if (state.timelineMode === 'date') {
+                const activeValue = Number(state.currentDateIndex) || 0;
+                return { activeValue, isStartMode: activeValue === 0 };
+            }
+
+            const activeValue = Number(state.currentRound) || 0;
+            return { activeValue, isStartMode: state.currentRound === null };
+        }
+
+        if (h2hSeasonRecord) {
+            h2hSeasonRecord.addEventListener('toggle', () => {
+                const { activeValue, isStartMode } = getCurrentSeasonRecordPosition();
+                renderSeasonRecord(activeValue, isStartMode);
+            });
+        }
+
         function getDisplayTeamName(teamId) {
             const team = TEAM_BY_ID.get(teamId);
             return team?.team_name_short || team?.team_name_long || teamId;
@@ -3049,55 +3606,108 @@ Skellefteå</pre>
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         }
 
-        // Tiebreakern bygger ENBART på den faktiska tabellen över kalendern.
-        // Ett tabelläge efter en matchdag gäller fram till dagen före nästa matchdag.
-        // Om vi står på den senaste verkliga matchdagen räknas den pågående perioden
-        // vidare till och med idag.
+        // Dagar-beräkningen används som utslagsmått och bygger ENBART på den
+        // faktiska tabellen över kalendern. Eftersom samma tips och samma
+        // matchdagar annars räknas om vid varje sliderrörelse cacheas både
+        // rank-mapparna och varje tips successiva rätt/fel-resultat.
+        const DATE_RANK_BY_KEY_CACHE = new Map();
+        const CORRECT_DAYS_PROGRESS_CACHE = new Map();
+        const MATCH_SNAPSHOT_REAL_DATE_CACHE = new Map();
+
+        function getDateRankByTeamId(dateKey) {
+            if (DATE_RANK_BY_KEY_CACHE.has(dateKey)) return DATE_RANK_BY_KEY_CACHE.get(dateKey);
+            const standings = DATE_STANDING_SNAPSHOTS.get(dateKey);
+            const rankMap = standings?.length ? buildActualRankByTeamId(standings) : new Map();
+            DATE_RANK_BY_KEY_CACHE.set(dateKey, rankMap);
+            return rankMap;
+        }
+
+        function getPicksProgressCacheKey(picks) {
+            return picks.map(pick => `${pick.team_id}:${Number(pick.pick_rank) || 0}`).join('|');
+        }
+
+        function getDateIndexAtOrBefore(dateKey) {
+            let low = 0;
+            let high = DATE_TIMELINE_KEYS.length - 1;
+            let found = -1;
+
+            while (low <= high) {
+                const mid = (low + high) >> 1;
+                if (DATE_TIMELINE_KEYS[mid] <= dateKey) {
+                    found = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            return found;
+        }
+
+        function fullCalendarIntervalDays(index) {
+            const startKey = DATE_TIMELINE_KEYS[index];
+            const nextKey = DATE_TIMELINE_KEYS[index + 1];
+            if (!startKey || !nextKey) return 0;
+            const start = parseDateKeyLocal(startKey);
+            const next = parseDateKeyLocal(nextKey);
+            if (!start || !next || next <= start) return 0;
+            return Math.round((next - start) / 86400000);
+        }
+
         function countCorrectDaysThroughDate(picks, throughDateKey) {
             if (!Array.isArray(picks) || picks.length < 2 || !throughDateKey || !DATE_TIMELINE_KEYS.length) return 0;
 
-            let correctDays = 0;
+            const targetIndex = getDateIndexAtOrBefore(throughDateKey);
+            if (targetIndex < 0) return 0;
 
-            for (let i = 0; i < DATE_TIMELINE_KEYS.length; i++) {
-                const startKey = DATE_TIMELINE_KEYS[i];
-                if (startKey > throughDateKey) break;
-
-                const standings = DATE_STANDING_SNAPSHOTS.get(startKey);
-                if (!standings?.length) continue;
-
-                const nextKey = DATE_TIMELINE_KEYS[i + 1] || null;
-                let endKey = throughDateKey;
-
-                if (nextKey && nextKey <= throughDateKey) {
-                    const nextDate = parseDateKeyLocal(nextKey);
-                    if (nextDate) {
-                        nextDate.setDate(nextDate.getDate() - 1);
-                        endKey = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
-                    }
-                }
-
-                if (isH2HTipCorrect(picks, buildActualRankByTeamId(standings))) {
-                    correctDays += daysInclusive(startKey, endKey);
-                }
-
-                if (!nextKey || nextKey > throughDateKey) break;
+            const picksKey = getPicksProgressCacheKey(picks);
+            let cache = CORRECT_DAYS_PROGRESS_CACHE.get(picksKey);
+            if (!cache) {
+                cache = {
+                    processedThrough: -1,
+                    correctAt: [],
+                    prefixBefore: [0]
+                };
+                CORRECT_DAYS_PROGRESS_CACHE.set(picksKey, cache);
             }
 
-            return correctDays;
+            // Ett tips testas högst en gång mot varje verklig matchdag.
+            for (let i = cache.processedThrough + 1; i <= targetIndex; i += 1) {
+                const dateKey = DATE_TIMELINE_KEYS[i];
+                const rankMap = getDateRankByTeamId(dateKey);
+                const correct = rankMap.size > 0 && isH2HTipCorrect(picks, rankMap);
+                cache.correctAt[i] = correct;
+
+                if (i < DATE_TIMELINE_KEYS.length - 1) {
+                    const previousPrefix = Number(cache.prefixBefore[i]) || 0;
+                    cache.prefixBefore[i + 1] = previousPrefix + (correct ? fullCalendarIntervalDays(i) : 0);
+                }
+
+                cache.processedThrough = i;
+            }
+
+            const completedPreviousIntervals = Number(cache.prefixBefore[targetIndex]) || 0;
+            if (!cache.correctAt[targetIndex]) return completedPreviousIntervals;
+
+            return completedPreviousIntervals + daysInclusive(DATE_TIMELINE_KEYS[targetIndex], throughDateKey);
         }
 
         function getRealDateForMatchSnapshot(round) {
             const target = Number(round) || 0;
             if (target <= 0) return '';
+            if (MATCH_SNAPSHOT_REAL_DATE_CACHE.has(target)) return MATCH_SNAPSHOT_REAL_DATE_CACHE.get(target);
 
+            let result = '';
             for (const dateKey of DATE_TIMELINE_KEYS) {
                 const standings = DATE_STANDING_SNAPSHOTS.get(dateKey);
                 if (standings?.length && standings.every(row => Number(row.g) >= target)) {
-                    return dateKey;
+                    result = dateKey;
+                    break;
                 }
             }
 
-            return '';
+            MATCH_SNAPSHOT_REAL_DATE_CACHE.set(target, result);
+            return result;
         }
 
         function getTiebreakThroughDate(activeValue, isStartMode) {
@@ -3107,28 +3717,30 @@ Skellefteå</pre>
                 const index = Math.max(0, Math.min(DATE_TIMELINE_KEYS.length, Number(activeValue) || 0));
                 if (index <= 0) return '';
 
-                // På senaste verkliga tabelläget fortsätter dagräkningen genom pausen fram till idag.
+                const dateKey = DATE_TIMELINE_KEYS[index - 1] || '';
+
+                // På den senaste matchdagen i en PÅGÅENDE säsong fortsätter den aktuella
+                // tabellställningen att gälla fram till idag. När säsongen däremot är
+                // avslutad ska dagräkningen stanna på den sista riktiga matchdagen.
                 if (index === DATE_TIMELINE_KEYS.length) {
-                    return todayDateKey();
+                    const finalDateSnapshot = DATE_STANDING_SNAPSHOTS.get(dateKey);
+                    const isCompletedSeason = finalDateSnapshot?.length > 0 &&
+                        finalDateSnapshot.every(row => Number(row.g) === 52);
+
+                    return isCompletedSeason ? dateKey : todayDateKey();
                 }
 
-                return DATE_TIMELINE_KEYS[index - 1] || '';
+                return dateKey;
             }
 
-            // I "Spelade matcher" är själva tabellen konstruerad. Dagarna räknas ändå
-            // bara från verkliga tabeller. För ett avslutat slutläge (alla lag har spelat
-            // 52 matcher) ska den sista verkliga tabellställningen fortsätta gälla efter
-            // sista matchdagen, precis som i datumläget, i stället för att dagräkningen
-            // stanna på själva slutspelsdatumet.
+            // I "Spelade matcher" är själva tabellen konstruerad, men dagräkningen
+            // bygger alltid på verkliga kalenderdatum. Även efter en avslutad säsong
+            // stannar därför räknaren på datumet för den sista relevanta matchdagen;
+            // sommaren efteråt ska inte räknas som extra "rätt"-dagar.
             const realDateKey = getRealDateForMatchSnapshot(activeValue);
             if (!realDateKey) return '';
 
-            const finalSnapshot = STANDING_SNAPSHOTS.get(Number(activeValue) || 0);
-            const isCompletedSeason = Number(activeValue) === Number(state.latestRound) &&
-                finalSnapshot?.length > 0 &&
-                finalSnapshot.every(row => Number(row.g) === 52);
-
-            return isCompletedSeason ? todayDateKey() : realDateKey;
+            return realDateKey;
         }
 
         function getFinalPointSpread(standings) {
@@ -3136,19 +3748,16 @@ Skellefteå</pre>
             return standings[0].points - standings[standings.length - 1].points;
         }
 
-        function isExpertDisplayName(displayName) {
-            return /^SHL-exp\b/i.test(String(displayName || '').trim());
-        }
-
         function loadTipsSourcesFromLocalStorage() {
             try {
                 const raw = localStorage.getItem(LS_TIPS_SOURCES_KEY);
                 if (!raw) return null;
                 const obj = JSON.parse(raw);
-                return {
-                    hobby: obj.hobby !== false,
-                    expert: obj.expert !== false
-                };
+                // Bakåtkompatibelt: äldre hobby/expert-state motsvarar nu ett gemensamt Tips-val.
+                const tips = typeof obj.tips === 'boolean'
+                    ? obj.tips
+                    : !(obj.hobby === false && obj.expert === false);
+                return { tips };
             } catch (error) {
                 console.warn('[tipsSources][LS] kunde inte läsa:', error);
                 return null;
@@ -3157,15 +3766,8 @@ Skellefteå</pre>
 
         function saveTipsSourcesToLocalStorage() {
             try {
-                let existing = {};
-                try {
-                    const raw = localStorage.getItem(LS_TIPS_SOURCES_KEY);
-                    if (raw) existing = JSON.parse(raw) || {};
-                } catch { }
                 localStorage.setItem(LS_TIPS_SOURCES_KEY, JSON.stringify({
-                    ...existing,
-                    hobby: !!state.tipsSources.hobby,
-                    expert: !!state.tipsSources.expert
+                    tips: !!state.tipsSources.tips
                 }));
             } catch (error) {
                 console.warn('[tipsSources][LS] kunde inte spara:', error);
@@ -3190,13 +3792,9 @@ Skellefteå</pre>
 
         function restoreTipsSourcesFromLocalStorage() {
             const saved = loadTipsSourcesFromLocalStorage();
-            if (saved) {
-                state.tipsSources.hobby = !!saved.hobby;
-                state.tipsSources.expert = !!saved.expert;
-            }
+            if (saved) state.tipsSources.tips = !!saved.tips;
             state.tipsSources.custom = loadH2HCustomVisibility();
-            if (tipsSourceHobby) tipsSourceHobby.checked = !!state.tipsSources.hobby;
-            if (tipsSourceExpert) tipsSourceExpert.checked = !!state.tipsSources.expert;
+            if (tipsSourceTips) tipsSourceTips.checked = !!state.tipsSources.tips;
             if (tipsSourceCustom) tipsSourceCustom.checked = !!state.tipsSources.custom;
         }
 
@@ -3276,11 +3874,8 @@ Skellefteå</pre>
 
                 let displayName;
                 if (hasNameLine) {
-                    const rawDisplayName = lines[0].trim();
-                    if (!rawDisplayName) return { ok: false, error: `Block ${bi + 1}: namnrad saknar text.` };
-                    displayName = /\(eget tips\)\s*$/i.test(rawDisplayName)
-                        ? rawDisplayName
-                        : `${rawDisplayName} (eget tips)`;
+                    displayName = lines[0].trim();
+                    if (!displayName) return { ok: false, error: `Block ${bi + 1}: namnrad saknar text.` };
                 } else {
                     unnamedCounter += 1;
                     displayName = `Tippare ${unnamedCounter} (eget tips)`;
@@ -3307,17 +3902,22 @@ Skellefteå</pre>
             const icon = openCustomBtn?.querySelector('.custom-open-icon');
             if (!icon || !customPanel || !openCustomBtn) return;
 
-            const isOpen = customPanel.classList.contains('open');
-            const hasCustomTips = H2H_CUSTOM_TIPS_BY_PARTICIPANT.size > 0;
+            const panelOpen = customPanel.classList.contains('open');
+            const hasSavedTips = H2H_CUSTOM_TIPS_BY_PARTICIPANT.size > 0;
 
-            icon.textContent = isOpen ? '−' : (hasCustomTips ? '✎' : '＋');
-
-            const actionText = isOpen
-                ? 'Stäng Eget H2H-tips'
-                : (hasCustomTips ? 'Redigera Eget H2H-tips' : 'Lägg till Eget H2H-tips');
-
-            openCustomBtn.setAttribute('aria-label', actionText);
-            openCustomBtn.title = actionText;
+            if (panelOpen) {
+                icon.textContent = '−';
+                openCustomBtn.setAttribute('aria-label', 'Stäng eget H2H-tips');
+                openCustomBtn.title = 'Stäng eget H2H-tips';
+            } else if (hasSavedTips) {
+                icon.textContent = '✎';
+                openCustomBtn.setAttribute('aria-label', 'Redigera eget H2H-tips');
+                openCustomBtn.title = 'Redigera eget H2H-tips';
+            } else {
+                icon.textContent = '＋';
+                openCustomBtn.setAttribute('aria-label', 'Lägg till eget H2H-tips');
+                openCustomBtn.title = 'Lägg till eget H2H-tips';
+            }
         }
 
         function toggleCustomPanel(forceOpen, { persist = true } = {}) {
@@ -3342,27 +3942,19 @@ Skellefteå</pre>
             H2H_CUSTOM_TEXT = '';
             try {
                 const raw = localStorage.getItem(LS_H2H_CUSTOM_TIPS_KEY);
-                if (!raw) {
-                    updateCustomOpenButtonIcon();
-                    return false;
-                }
+                if (!raw) return false;
                 const payload = JSON.parse(raw);
-                if (Number(payload?.version) !== 1 || typeof payload?.tips !== 'string') {
-                    updateCustomOpenButtonIcon();
-                    return false;
-                }
+                if (Number(payload?.version) !== 1 || typeof payload?.tips !== 'string') return false;
                 const parsed = parseH2HCustomText(payload.tips);
                 if (!parsed.ok) throw new Error(parsed.error || 'Ogiltigt eget H2H-tips.');
                 parsed.participants.forEach(participant => H2H_CUSTOM_TIPS_BY_PARTICIPANT.set(participant.participant_id, participant));
                 H2H_CUSTOM_TEXT = payload.tips;
                 if (fillTextarea && customInput) customInput.value = payload.tips;
-                updateCustomOpenButtonIcon();
                 return H2H_CUSTOM_TIPS_BY_PARTICIPANT.size > 0;
             } catch (error) {
                 console.warn('[h2h-custom] kunde inte läsa sparade tips:', error);
                 H2H_CUSTOM_TIPS_BY_PARTICIPANT.clear();
                 H2H_CUSTOM_TEXT = '';
-                updateCustomOpenButtonIcon();
                 return false;
             }
         }
@@ -3373,6 +3965,7 @@ Skellefteå</pre>
                 localStorage.removeItem(LS_H2H_CUSTOM_TIPS_KEY);
                 H2H_CUSTOM_TIPS_BY_PARTICIPANT.clear();
                 H2H_CUSTOM_TEXT = '';
+                invalidateSeasonRecordCache();
                 state.tipsSources.custom = false;
                 if (tipsSourceCustom) tipsSourceCustom.checked = false;
                 saveH2HCustomVisibility();
@@ -3395,6 +3988,7 @@ Skellefteå</pre>
             H2H_CUSTOM_TIPS_BY_PARTICIPANT.clear();
             parsed.participants.forEach(participant => H2H_CUSTOM_TIPS_BY_PARTICIPANT.set(participant.participant_id, participant));
             H2H_CUSTOM_TEXT = raw;
+            invalidateSeasonRecordCache();
             state.tipsSources.custom = true;
             if (tipsSourceCustom) tipsSourceCustom.checked = true;
             saveH2HCustomVisibility();
@@ -3412,25 +4006,33 @@ Skellefteå</pre>
             const addParticipant = (participant, sourceType) => {
                 if (sourceType === 'custom') {
                     if (!state.tipsSources.custom) return;
-                } else {
-                    const expert = isExpertDisplayName(participant.display_name);
-                    if (expert && !state.tipsSources.expert) return;
-                    if (!expert && !state.tipsSources.hobby) return;
+                } else if (!state.tipsSources.tips) {
+                    return;
                 }
 
                 const picks = participant.picks || [];
                 const pointSpreadTip = participant.h2h_point_spread_tip;
+                const correct = isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId);
+
+                // Prestandafilter: om användaren bara vill se rätta tips
+                // stoppar vi felaktiga tips innan Dagar räknas och innan raden byggs.
+                if (!isStartMode && state.showOnlyCorrect && correct !== true) return;
 
                 rows.push({
                     participant_id: participant.participant_id,
                     display_name: participant.display_name || participant.participant_id,
+                    tipper_group_id: participant.is_generated_h2h === true
+                        ? String(participant.participant_id || '').replace(/_\d+$/, '')
+                        : participant.participant_id,
                     picks,
                     h2h_point_spread_tip: pointSpreadTip,
-                    pointSpreadDiff: isFinalRound && Number.isFinite(pointSpreadTip) && Number.isFinite(actualPointSpread)
+                    is_real_h2h: participant.is_real_h2h === true,
+                    is_generated_h2h: participant.is_generated_h2h === true,
+                    pointSpreadDiff: isFinalRound && participant.is_real_h2h === true && Number.isFinite(pointSpreadTip) && Number.isFinite(actualPointSpread)
                         ? Math.abs(pointSpreadTip - actualPointSpread)
                         : null,
                     teamCount: picks.length,
-                    correct: isStartMode ? null : isH2HTipCorrect(picks, actualRankByTeamId),
+                    correct,
                     correctDays: isStartMode ? 0 : countCorrectDaysThroughDate(picks, tiebreakThroughDate),
                     tiebreakThroughDate
                 });
@@ -3438,6 +4040,28 @@ Skellefteå</pre>
 
             H2H_TIPS_BY_PARTICIPANT.forEach(participant => addParticipant(participant, 'official'));
             H2H_CUSTOM_TIPS_BY_PARTICIPANT.forEach(participant => addParticipant(participant, 'custom'));
+
+            if (!isStartMode) {
+                const bestCorrectTeamCountByTipper = new Map();
+
+                rows.forEach(row => {
+                    if (row.correct !== true) return;
+                    const key = row.tipper_group_id || row.participant_id;
+                    const previousBest = bestCorrectTeamCountByTipper.get(key) || 0;
+                    if (row.teamCount > previousBest) {
+                        bestCorrectTeamCountByTipper.set(key, row.teamCount);
+                    }
+                });
+
+                rows.forEach(row => {
+                    const key = row.tipper_group_id || row.participant_id;
+                    const best = bestCorrectTeamCountByTipper.get(key);
+                    row.isSubordinateCorrectTip =
+                        row.correct === true &&
+                        Number.isFinite(best) &&
+                        row.teamCount < best;
+                });
+            }
 
             if (isStartMode) {
                 rows.sort((a, b) => a.display_name.localeCompare(b.display_name, 'sv'));
@@ -3455,45 +4079,29 @@ Skellefteå</pre>
                 return a.display_name.localeCompare(b.display_name, 'sv');
             });
 
-            // Utslagsfrågan används endast efter omgång 52 och endast om
-            // förstaplatsen fortfarande är delad efter Lag + Dagar.
+            // Utslagsfrågan tillhör bara den riktiga H2H-tävlingen.
+            // Genererade jämförelsetips och lokala "Eget tips" får aldrig en påhittad utslagsfråga.
             if (isFinalRound) {
-                const correctRows = rows.filter(row => row.correct === true);
-
-                if (correctRows.length > 1) {
-                    const bestTeamCount = correctRows[0].teamCount;
-                    const bestCorrectDays = correctRows[0].correctDays;
-
-                    const tiedForFirst = correctRows.filter(row =>
-                        row.teamCount === bestTeamCount &&
-                        row.correctDays === bestCorrectDays
+                const realCorrectRows = rows.filter(row => row.correct === true && row.is_real_h2h === true);
+                if (realCorrectRows.length > 1) {
+                    const bestTeamCount = Math.max(...realCorrectRows.map(row => row.teamCount));
+                    const bestCorrectDays = Math.max(...realCorrectRows
+                        .filter(row => row.teamCount === bestTeamCount)
+                        .map(row => row.correctDays));
+                    const tiedRealFirst = realCorrectRows.filter(row =>
+                        row.teamCount === bestTeamCount && row.correctDays === bestCorrectDays
                     );
 
-                    if (tiedForFirst.length > 1 && tiedForFirst.every(row => Number.isFinite(row.pointSpreadDiff))) {
-                        tiedForFirst.sort((a, b) => {
-                            const aDiff = Number.isFinite(a.pointSpreadDiff) ? a.pointSpreadDiff : Infinity;
-                            const bDiff = Number.isFinite(b.pointSpreadDiff) ? b.pointSpreadDiff : Infinity;
-
-                            if (aDiff !== bDiff) return aDiff - bDiff;
+                    if (tiedRealFirst.length > 1) {
+                        tiedRealFirst.sort((a, b) => {
+                            if (a.pointSpreadDiff !== b.pointSpreadDiff) return a.pointSpreadDiff - b.pointSpreadDiff;
                             return a.display_name.localeCompare(b.display_name, 'sv');
                         });
-
-                        const firstIds = new Set(tiedForFirst.map(row => row.participant_id));
-                        const reordered = [];
-                        let inserted = false;
-
-                        rows.forEach(row => {
-                            if (firstIds.has(row.participant_id)) {
-                                if (!inserted) {
-                                    reordered.push(...tiedForFirst);
-                                    inserted = true;
-                                }
-                            } else {
-                                reordered.push(row);
-                            }
-                        });
-
-                        return reordered;
+                        const tiedIds = new Set(tiedRealFirst.map(row => row.participant_id));
+                        const originalIndexes = rows
+                            .map((row, index) => tiedIds.has(row.participant_id) ? index : -1)
+                            .filter(index => index >= 0);
+                        originalIndexes.forEach((rowIndex, i) => { rows[rowIndex] = tiedRealFirst[i]; });
                     }
                 }
             }
@@ -3504,36 +4112,39 @@ Skellefteå</pre>
         function getFinalTiebreakInfo(rows, standings, round) {
             if (!Array.isArray(standings) || !standings.length || !standings.every(row => Number(row.g) === 52)) return null;
 
-            const correctRows = rows.filter(row => row.correct === true);
+            const correctRows = rows.filter(row => row.correct === true && row.is_real_h2h === true);
             if (correctRows.length < 2) return null;
 
-            const bestTeamCount = correctRows[0].teamCount;
-            const bestCorrectDays = correctRows[0].correctDays;
+            const bestTeamCount = Math.max(...correctRows.map(row => row.teamCount));
+            const bestCorrectDays = Math.max(...correctRows
+                .filter(row => row.teamCount === bestTeamCount)
+                .map(row => row.correctDays));
             const finalists = correctRows.filter(row =>
-                row.teamCount === bestTeamCount &&
-                row.correctDays === bestCorrectDays
+                row.teamCount === bestTeamCount && row.correctDays === bestCorrectDays
             );
-
             if (finalists.length < 2) return null;
 
             const actualPointSpread = getFinalPointSpread(standings);
-            const validFinalists = finalists.filter(row => Number.isFinite(row.pointSpreadDiff));
-            if (!Number.isFinite(actualPointSpread) || validFinalists.length !== finalists.length) return null;
+            if (!Number.isFinite(actualPointSpread)) return null;
 
             const bestDiff = Math.min(...finalists.map(row => row.pointSpreadDiff));
             const winners = finalists.filter(row => row.pointSpreadDiff === bestDiff);
 
-            return {
-                actualPointSpread,
-                finalists,
-                winners,
-                bestDiff
-            };
+            return { actualPointSpread, finalists, winners, bestDiff };
         }
 
         /* ===========================================================
            DETALJVY – återanvänder originalets tooltip/popup
            =========================================================== */
+
+        function appendSubordinateCorrectNote(box, row) {
+            if (!box || row?.isSubordinateCorrectTip !== true) return;
+
+            const note = document.createElement('p');
+            note.className = 'h2h-subordinate-note';
+            note.textContent = 'Tipparens namn är nedtonat i tabellen eftersom samma tippare har ett större tips högre upp som också är rätt.';
+            box.appendChild(note);
+        }
 
         function buildTipperTooltipElement(row, standings, actualRankByTeamId, isStartMode) {
             const box = document.createElement('div');
@@ -3564,14 +4175,14 @@ Skellefteå</pre>
                 colPick.appendChild(ol);
                 grid.appendChild(colPick);
                 box.appendChild(grid);
+                if (row.is_real_h2h) {
+                    const pointSpreadTip = document.createElement('p');
+                    pointSpreadTip.className = 'h2h-point-spread-tip';
+                    pointSpreadTip.textContent = `Utslagsfråga: ${row.h2h_point_spread_tip} poäng`;
+                    box.appendChild(pointSpreadTip);
+                }
 
-                const pointSpreadTip = document.createElement('p');
-                pointSpreadTip.className = 'h2h-point-spread-tip';
-                pointSpreadTip.textContent = Number.isFinite(row.h2h_point_spread_tip)
-                    ? `Utslagsfråga: ${row.h2h_point_spread_tip} poäng`
-                    : 'Utslagsfråga: —';
-                box.appendChild(pointSpreadTip);
-
+                appendSubordinateCorrectNote(box, row);
                 return box;
             }
 
@@ -3654,14 +4265,14 @@ Skellefteå</pre>
             }
 
             box.appendChild(grid);
+                if (row.is_real_h2h) {
+                    const pointSpreadTip = document.createElement('p');
+                    pointSpreadTip.className = 'h2h-point-spread-tip';
+                    pointSpreadTip.textContent = `Utslagsfråga: ${row.h2h_point_spread_tip} poäng`;
+                    box.appendChild(pointSpreadTip);
+                }
 
-            const pointSpreadTip = document.createElement('p');
-            pointSpreadTip.className = 'h2h-point-spread-tip';
-            pointSpreadTip.textContent = Number.isFinite(row.h2h_point_spread_tip)
-                ? `Utslagsfråga: ${row.h2h_point_spread_tip} poäng`
-                : 'Utslagsfråga: —';
-            box.appendChild(pointSpreadTip);
-
+            appendSubordinateCorrectNote(box, row);
             return box;
         }
 
@@ -3970,6 +4581,7 @@ Skellefteå</pre>
             const rows = buildParticipantRows(actualRankByTeamId, standings, isStartMode, round);
 
             renderSummary(standings, isStartMode, movementByTeam);
+            renderSeasonRecord(activeValue, isStartMode);
 
             const finalTiebreak = getFinalTiebreakInfo(rows, standings, round);
             if (finalTiebreak && h2hSummary) {
@@ -4002,6 +4614,10 @@ Skellefteå</pre>
             rows.forEach((row, index) => {
                 const tr = document.createElement('tr');
 
+                if (row.isSubordinateCorrectTip === true) {
+                    tr.classList.add('h2h-subordinate-correct-tip');
+                }
+
                 if (!isStartMode && row.correct === false && !dividerInserted && correctSeen > 0) {
                     tr.classList.add('h2h-divider');
                     dividerInserted = true;
@@ -4019,8 +4635,8 @@ Skellefteå</pre>
                     // Efter omgång 52 skiljer utslagsfrågan endast dem som låg
                     // på delad förstaplats efter Lag + Dagar. Lika avstånd ger
                     // fortsatt delad placering.
-                    if (standings.length && standings.every(r => Number(r.g) === 52) && Number.isFinite(row.pointSpreadDiff)) {
-                        const firstCorrect = rows.find(r => r.correct === true);
+                    if (standings.length && standings.every(r => Number(r.g) === 52) && row.is_real_h2h && Number.isFinite(row.pointSpreadDiff)) {
+                        const firstCorrect = row.is_real_h2h ? rows.find(r => r.correct === true && r.is_real_h2h) : rows.find(r => r.correct === true);
                         const tiedForOrdinaryFirst = firstCorrect &&
                             row.teamCount === firstCorrect.teamCount &&
                             row.correctDays === firstCorrect.correctDays;
@@ -4405,28 +5021,16 @@ Skellefteå</pre>
 
         async function init() {
             try {
-                const historicalMode = !H2H_TIPS_SOURCE;
-
-                if (historicalMode) {
-                    h2hTablesLayout?.classList.add('historical-mode');
-                    const loadingText = loadingBox?.querySelector('div:last-child');
-                    if (loadingText) loadingText.textContent = 'Laddar tabell…';
-                }
-
                 await loadStandingsCacheFirst();
 
                 // Delad ställningscache kan vara skapad av en äldre systersida utan aliasfält.
-                // Hämta då all_teams en gång så Eget tips får samma aliasmatchning som de klassiska sidorna.
+                // Hämta då all_teams en gång så Eget H2H-tips får samma aliasmatchning som de klassiska sidorna.
                 const missingAliasField = ALL_TEAM_IDS.some(teamId => !Object.prototype.hasOwnProperty.call(TEAM_BY_ID.get(teamId) || {}, 'team_aliases'));
                 if (missingAliasField) await loadTeams(DATA_SOURCES.allTeams);
 
                 loadH2HCustomTips();
 
-                if (!historicalMode) {
-                    await loadH2HTips(H2H_TIPS_SOURCE);
-                } else {
-                    H2H_TIPS_BY_PARTICIPANT.clear();
-                }
+                await loadH2HTips(GENERATED_H2H_TIPS_SOURCE, REAL_H2H_TIPS_SOURCE);
 
                 // Läs delat state FÖRE första riktiga renderingen för att undvika blinkning.
                 restoreTimelineStateFromLocalStorage();
@@ -4453,14 +5057,8 @@ Skellefteå</pre>
                     renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
                 });
 
-                tipsSourceHobby?.addEventListener('change', () => {
-                    state.tipsSources.hobby = !!tipsSourceHobby.checked;
-                    saveTipsSourcesToLocalStorage();
-                    renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
-                });
-
-                tipsSourceExpert?.addEventListener('change', () => {
-                    state.tipsSources.expert = !!tipsSourceExpert.checked;
+                tipsSourceTips?.addEventListener('change', () => {
+                    state.tipsSources.tips = !!tipsSourceTips.checked;
                     saveTipsSourcesToLocalStorage();
                     renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
                 });
@@ -4475,6 +5073,11 @@ Skellefteå</pre>
                     }
                     state.tipsSources.custom = !!tipsSourceCustom.checked;
                     saveH2HCustomVisibility();
+                    renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                });
+
+                showOnlyCorrect?.addEventListener('change', () => {
+                    state.showOnlyCorrect = !showOnlyCorrect.checked;
                     renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
                 });
 
@@ -4505,6 +5108,7 @@ Skellefteå</pre>
                     }
                     if (event.key === LS_H2H_CUSTOM_TIPS_KEY) {
                         loadH2HCustomTips();
+                        updateCustomOpenButtonIcon();
                         if (!H2H_CUSTOM_TIPS_BY_PARTICIPANT.size) {
                             state.tipsSources.custom = false;
                             if (tipsSourceCustom) tipsSourceCustom.checked = false;
@@ -4536,7 +5140,7 @@ Skellefteå</pre>
                 renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
 
                 loadingBox?.classList.add('hidden');
-                tableStand?.classList.toggle('hidden', historicalMode);
+                tableStand?.classList.remove('hidden');
                 leagueStand?.classList.remove('hidden');
             } catch (error) {
                 console.error('[init]', error);

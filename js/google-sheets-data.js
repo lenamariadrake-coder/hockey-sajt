@@ -119,7 +119,7 @@
         const spreadsheetId = encodeURIComponent(String(source.spreadsheetId).trim());
         const gid = encodeURIComponent(String(source.gid).trim());
 
-        return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
+        return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&gid=${gid}&headers=1`;
     }
 
     async function fetchRows(source, options = {}) {

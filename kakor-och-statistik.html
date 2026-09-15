@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="sv">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kakor och statistik – Avbytarnas avbytarbänk</title>
+  <script src="js/analytics.js" defer></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const button =
+            document.getElementById("change-cookie-choice");
+
+        const note =
+            document.getElementById("cookie-choice-note");
+
+        if (
+            button &&
+            window.avbytarbankCookieSettings
+        ) {
+            button.addEventListener("click", function () {
+                window
+                    .avbytarbankCookieSettings
+                    .changeConsent();
+            });
+
+            if (note) {
+                note.textContent =
+                    "Här kan du när som helst ändra ditt val.";
+            }
+        }
+    });
+</script>
+  <style>
+
+    /* Samma grundtema som tidigare sida */
+    :root {
+      --bg: #f7f8fa;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #6b7280;
+      --accent: #0b6efd;
+      --maxw: 900px;
+    }
+
+    /* Grund */
+    html,
+    body {
+      height: 100%
+    }
+
+    body {
+      margin: 0;
+      padding: 2rem 1rem;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      line-height: 1.45;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* Huvudbehållare */
+    .wrap {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem;
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid rgba(15, 17, 34, 0.04);
+      box-shadow: 0 8px 24px rgba(15, 17, 34, 0.06);
+    }
+
+    /* Typografi */
+    h1 {
+      margin: 0 0 0.6rem 0;
+      font-size: 2rem;
+    }
+
+    p.lead {
+      margin: 0 0 0.9rem 0;
+      color: var(--text);
+    }
+
+    h2.section-heading {
+      margin: 2rem 0 0.9rem 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    /* Länkar */
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    a:focus {
+      outline: 3px solid rgba(11, 110, 253, 0.12);
+      outline-offset: 3px;
+    }
+
+    /* Reuse av “pill-knappar” för snabbnav */
+    .team-links {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 0.4rem 0 1.1rem 0;
+    }
+
+    .team-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.36rem 0.7rem;
+      font-size: 0.95rem;
+      line-height: 1;
+      text-decoration: none;
+      border-radius: 999px;
+      border: 1px solid rgba(11, 110, 253, 0.12);
+      background: rgba(11, 110, 253, 0.06);
+      color: var(--accent);
+      transition: background-color .12s ease, transform .06s ease, box-shadow .12s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .team-link:hover,
+    .team-link:focus {
+      background: rgba(11, 110, 253, 0.12);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .team-link:focus-visible {
+      box-shadow: 0 0 0 3px rgba(11, 110, 253, 0.12);
+      border-color: rgba(11, 110, 253, 0.22);
+    }
+
+    /* Kort / moduler */
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    .card {
+      border: 1px solid rgba(15, 17, 34, 0.06);
+      border-radius: 12px;
+      padding: 1rem;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(15, 17, 34, 0.05);
+    }
+
+    .card h3 {
+      margin: 0 0 0.4rem 0;
+      font-size: 1.05rem;
+    }
+
+    .card p {
+      margin: 0 0 0.7rem 0;
+      color: var(--text);
+    }
+
+    .card .meta {
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    /* Sekundärknappar inuti kort (samma “pill”-stil) */
+    .card .actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.4rem;
+    }
+
+    .actions-separator {
+      width: 1px;
+      height: 1.7rem;
+      background: rgba(15, 17, 34, 0.18);
+      margin: 0 0.15rem;
+      align-self: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.42rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid rgba(11, 110, 253, 0.12);
+      background: rgba(11, 110, 253, 0.06);
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: background-color .12s ease, transform .06s ease, box-shadow .12s ease;
+    }
+
+    .btn:hover,
+    .btn:focus {
+      background: rgba(11, 110, 253, 0.12);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .btn:focus-visible {
+      box-shadow: 0 0 0 3px rgba(11, 110, 253, 0.12);
+      border-color: rgba(11, 110, 253, 0.22);
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 1.4rem;
+      padding-top: 0.9rem;
+      border-top: 1px solid rgba(15, 17, 34, 0.06);
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* Mobiljustering */
+    @media (max-width:640px) {
+      body {
+        padding: 1rem;
+      }
+
+      .wrap {
+        padding: 1rem;
+        border-radius: 10px;
+      }
+
+      .btn {
+        padding: 0.5rem 0.9rem;
+        font-size: 1rem;
+      }
+    }
+
+    /* Respektera reducerad rörelse */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+
+    .contact-footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(15, 17, 34, 0.04);
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .contact-footer a {
+      color: var(--muted);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .contact-footer a:hover {
+      color: var(--accent);
+    }
+  
+
+    /* Tillägg för sidan Kakor och statistik */
+    .privacy-intro {
+      margin-bottom: 1.4rem;
+    }
+
+    .privacy-card {
+      border: 1px solid rgba(15, 17, 34, 0.06);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(15, 17, 34, 0.05);
+      margin: 1rem 0;
+    }
+
+    .privacy-card h2 {
+      margin: 0 0 0.65rem 0;
+      font-size: 1.15rem;
+    }
+
+    .privacy-card h3 {
+      margin: 1.15rem 0 0.4rem 0;
+      font-size: 1rem;
+    }
+
+    .privacy-card p:last-child,
+    .privacy-card ul:last-child {
+      margin-bottom: 0;
+    }
+
+    .privacy-card ul {
+      padding-left: 1.25rem;
+    }
+
+    .privacy-card li {
+      margin: 0.35rem 0;
+    }
+
+    .cookie-table-wrap {
+      overflow-x: auto;
+      margin-top: 0.8rem;
+    }
+
+    .cookie-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.94rem;
+    }
+
+    .cookie-table th,
+    .cookie-table td {
+      padding: 0.65rem;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid rgba(15, 17, 34, 0.08);
+    }
+
+    .cookie-table th {
+      font-weight: 600;
+    }
+
+    .choice-box {
+      margin: 1rem 0 1.4rem 0;
+      padding: 1rem;
+      border-radius: 12px;
+      background: rgba(11, 110, 253, 0.06);
+      border: 1px solid rgba(11, 110, 253, 0.12);
+    }
+
+    .choice-box p {
+      margin-top: 0;
+    }
+
+    .choice-box .btn {
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .small-note {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+
+    /* Sidnavigation: hem eller tillbaka till föregående sida */
+    .page-navigation {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .home-link,
+    .back-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 42px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .home-link {
+      width: 42px;
+      padding: 0;
+      font-size: 1.15rem;
+      text-decoration: none;
+    }
+
+    .back-button {
+      padding: 0 0.75rem;
+      font-weight: 600;
+    }
+
+    .home-link:hover,
+    .home-link:focus,
+    .back-button:hover,
+    .back-button:focus {
+      background: rgba(15, 23, 42, 0.06);
+      transform: none;
+      outline: none;
+    }
+
+    .home-link:focus-visible,
+    .back-button:focus-visible {
+      box-shadow: 0 0 0 3px rgba(11, 110, 253, 0.12);
+    }
+
+  </style>
+</head>
+
+<body>
+  <main class="wrap" role="main" aria-labelledby="page-title">
+    <nav class="page-navigation" aria-label="Sidnavigation">
+      <a class="home-link" href="index.html" aria-label="Till startsidan" title="Till startsidan">🏠</a>
+      <button type="button" class="back-button" id="back-button">← Tillbaka</button>
+    </nav>
+
+    <h1 id="page-title">Kakor och statistik</h1>
+
+    <p class="lead privacy-intro">
+      Avbytarnas avbytarbänk är ett hobbyprojekt som drivs av mig, Lena. Jag använder frivillig besöksstatistik för att få en
+      uppfattning om webbplatsen faktiskt har några besökare – och vilka delar av sidan som används.
+      Du är precis lika välkommen hit om du inte vill bidra till statistiken.
+    </p>
+
+    <div class="choice-box">
+      <p><strong>Ditt val</strong></p>
+      <p>
+        Statistik är frivillig. Om du inte godkänner statistik ska Google Analytics inte aktiveras.
+        Du kan ändra ditt val när som helst.
+      </p>
+      <button type="button" class="btn" id="change-cookie-choice">Ändra mitt val</button>
+      <p class="small-note" id="cookie-choice-note">
+        Här kan du när som helst ändra ditt val.
+      </p>
+    </div>
+
+    <section class="privacy-card" aria-labelledby="why-heading">
+      <h2 id="why-heading">Varför jag vill ha statistik</h2>
+      <p>
+        Till att börja med är jag mest nyfiken på om någon annan än jag själv faktiskt hänger här på
+        Avbytarnas avbytarbänk. Statistiken kan också hjälpa mig att se vilka sidor som används och om
+        det finns aktiva besökare när jag funderar på att uppdatera webbplatsen.
+      </p>
+      <p>
+        I framtiden kan jag vilja mäta användningen av exempelvis spelen mer detaljerat. Om sådan mätning
+        införs kommer informationen på den här sidan att uppdateras så att det framgår vad som mäts.
+      </p>
+    </section>
+
+    <section class="privacy-card" aria-labelledby="analytics-heading">
+      <h2 id="analytics-heading">Google Analytics</h2>
+      <p>
+        Webbplatsen använder Google Analytics 4 (GA4), en statistiktjänst från Google, men bara för
+        besökare som har godkänt statistik.
+      </p>
+      <p>
+        Google Analytics kan bland annat ge sammanställd information om sidvisningar, besök och hur
+        webbplatsen används. Den förbättrade mätningen i GA4 kan även registrera vissa vanliga
+        interaktioner, till exempel scrollningar och utgående klick.
+      </p>
+      <p>
+        Jag använder inte Google Analytics för att försöka ta reda på vem du är. För besökare inom EU
+        uppger Google att enskilda IP-adresser inte registreras eller lagras i Analytics. IP-adressen
+        används vid insamlingen bland annat för att härleda ungefärlig geografisk information och
+        kasseras därefter.
+      </p>
+    </section>
+
+    <section class="privacy-card" aria-labelledby="cookies-heading">
+      <h2 id="cookies-heading">Vilka kakor används?</h2>
+      <p>
+        När du godkänner statistik använder Google Analytics förstapartskakor för att skilja mellan
+        besökare och besökssessioner.
+      </p>
+
+      <div class="cookie-table-wrap">
+        <table class="cookie-table">
+          <thead>
+            <tr>
+              <th>Kaka</th>
+              <th>Syfte</th>
+              <th>Normal maximal lagringstid</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>_ga</code></td>
+              <td>Används av Google Analytics för att skilja mellan besökare.</td>
+              <td>2 år</td>
+            </tr>
+            <tr>
+              <td><code>_ga_*</code></td>
+              <td>Används av Google Analytics för att bevara information om en besökssession.</td>
+              <td>2 år</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="small-note">
+        Webbplatsen sparar dessutom ditt val om statistik i webbläsarens lokala lagring
+        (<code>localStorage</code>). Där sparas endast om du har valt <em>ja</em> eller <em>nej</em>,
+        så att du inte får samma fråga på varje sida. Valet ligger kvar i webbläsaren tills du ändrar det
+        här eller rensar webbplatsens lagrade data.
+      </p>
+    </section>
+
+    <section class="privacy-card" aria-labelledby="choice-heading">
+      <h2 id="choice-heading">Om du tackar nej</h2>
+      <p>
+        Då aktiveras inte Google Analytics. Om du tidigare har tackat ja och sedan ändrar dig stoppas
+        fortsatt Analytics-mätning och Analytics-kakorna tas bort från webbplatsen i din webbläsare.
+        Du kan fortfarande använda webbplatsen, spelen och övriga funktioner som vanligt.
+      </p>
+      <p>
+        Om du inte gör något val ska statistik inte heller aktiveras.
+      </p>
+    </section>
+
+<section class="privacy-card" aria-labelledby="storage-heading">
+  <h2 id="storage-heading">Hur länge sparas uppgifterna?</h2>
+
+  <p>
+    I Google Analytics är lagringstiden för <strong>händelsedata inställd på 2 månader</strong>
+    och lagringstiden för <strong>användaruppgifter på 14 månader</strong>. Google Analytics använder
+    dessutom kakor i din webbläsare med egna lagringstider, som framgår ovan.
+  </p>
+</section>
+
+    <section class="privacy-card" aria-labelledby="change-heading">
+      <h2 id="change-heading">Du kan ändra dig</h2>
+      <p>
+        Ett ja behöver inte vara för evigt. Du kan när som helst öppna den här sidan och ändra
+        ditt val. Länken <strong>Kakor och statistik</strong> finns också på de sidor där
+        statistikscriptet används, så att du enkelt kan komma tillbaka hit.
+      </p>
+    </section>
+
+    <section class="privacy-card" aria-labelledby="contact-heading">
+      <h2 id="contact-heading">Frågor</h2>
+      <p>
+        Har du frågor om webbplatsens användning av kakor eller statistik går det bra att mejla
+        <a href="mailto:avbytarnasavbytarbank@gmail.com">avbytarnasavbytarbank@gmail.com</a>.
+      </p>
+    </section>
+
+    <footer class="contact-footer">
+      <p>
+        Avbytarnas avbytarbänk är 100% ett hobbyprojekt och kanske inte uppdateras blixtsnabbt.<br>
+        Vill du komma i kontakt går det bra att mejla
+        <a href="mailto:avbytarnasavbytarbank@gmail.com">avbytarnasavbytarbank@gmail.com</a>.
+      </p>
+    </footer>
+  </main>
+
+  <script>
+    document
+      .getElementById("back-button")
+      .addEventListener("click", function () {
+        if (history.length > 1) {
+          history.back();
+        } else {
+          window.location.href = "index.html";
+        }
+      });
+  </script>
+
+</body>
+
+</html>
