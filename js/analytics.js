@@ -31,6 +31,42 @@
     }
 
     /*
+     * Ta bort Google Analytics-kakor som ligger på den aktuella domänen.
+     * Detta används när besökaren går från ja till nej.
+     */
+    function deleteAnalyticsCookies() {
+        document.cookie.split(";").forEach(function (cookie) {
+            const name = cookie.split("=")[0].trim();
+
+            if (name === "_ga" || name.indexOf("_ga_") === 0) {
+                document.cookie =
+                    name +
+                    "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax";
+            }
+        });
+    }
+
+    /*
+     * Stoppa fortsatt Analytics-mätning på den aktuella sidan.
+     *
+     * Ett redan inläst script kan inte tas bort på ett meningsfullt sätt,
+     * men Googles ga-disable-flagga stoppar fortsatta träffar för detta
+     * mät-ID. Vid nästa sidladdning laddas Analytics inte alls eftersom
+     * samtycket då är "denied".
+     */
+    function disableGoogleAnalytics() {
+        window["ga-disable-" + GA_MEASUREMENT_ID] = true;
+        deleteAnalyticsCookies();
+    }
+
+    /*
+     * Tillåt Analytics igen efter ett nytt ja.
+     */
+    function enableGoogleAnalytics() {
+        window["ga-disable-" + GA_MEASUREMENT_ID] = false;
+    }
+
+    /*
      * Ladda Google Analytics.
      *
      * Den här funktionen anropas ENDAST när besökaren
@@ -42,6 +78,7 @@
         }
 
         analyticsLoaded = true;
+        enableGoogleAnalytics();
 
         window.dataLayer = window.dataLayer || [];
 
@@ -241,7 +278,7 @@
 
         banner.innerHTML = `
             <h2 id="avbytarbank-cookie-title">
-                🏒 Är det någon på läktaren?
+                ?? Är det någon på läktaren?
             </h2>
 
             <p>
@@ -253,7 +290,7 @@
             <p>
                 Du är precis lika välkommen även om du tackar nej –
                 då får jag helt enkelt fortsätta undra vem som sitter
-                där uppe på läktaren. 😄
+                där uppe på läktaren. ??
             </p>
 
             <a
@@ -292,7 +329,10 @@
                     removeBanner();
 
                     if (choice === "granted") {
+                        enableGoogleAnalytics();
                         loadGoogleAnalytics();
+                    } else {
+                        disableGoogleAnalytics();
                     }
                 });
             });
@@ -330,7 +370,6 @@
         getConsent: getConsent,
 
         changeConsent: function () {
-            localStorage.removeItem(CONSENT_KEY);
             showBanner();
         }
     };
@@ -349,9 +388,12 @@
             return;
         }
 
-        if (consent !== "denied") {
-            showBanner();
+        if (consent === "denied") {
+            disableGoogleAnalytics();
+            return;
         }
+
+        showBanner();
     }
 
     init();
