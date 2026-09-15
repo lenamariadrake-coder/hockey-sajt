@@ -323,11 +323,65 @@
       font-size: 0.92em;
     }
 
+
+    /* Sidnavigation: hem eller tillbaka till föregående sida */
+    .page-navigation {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .home-link,
+    .back-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 42px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .home-link {
+      width: 42px;
+      padding: 0;
+      font-size: 1.15rem;
+      text-decoration: none;
+    }
+
+    .back-button {
+      padding: 0 0.75rem;
+      font-weight: 600;
+    }
+
+    .home-link:hover,
+    .home-link:focus,
+    .back-button:hover,
+    .back-button:focus {
+      background: rgba(15, 23, 42, 0.06);
+      transform: none;
+      outline: none;
+    }
+
+    .home-link:focus-visible,
+    .back-button:focus-visible {
+      box-shadow: 0 0 0 3px rgba(11, 110, 253, 0.12);
+    }
+
   </style>
 </head>
 
 <body>
   <main class="wrap" role="main" aria-labelledby="page-title">
+    <nav class="page-navigation" aria-label="Sidnavigation">
+      <a class="home-link" href="index.html" aria-label="Till startsidan" title="Till startsidan">🏠</a>
+      <button type="button" class="back-button" id="back-button">← Tillbaka</button>
+    </nav>
+
     <h1 id="page-title">Kakor och statistik</h1>
 
     <p class="lead privacy-intro">
@@ -457,10 +511,6 @@
       </p>
     </section>
 
-    <div class="actions">
-      <a class="btn" href="index.html">Tillbaka till startsidan</a>
-    </div>
-
     <footer class="contact-footer">
       <p>
         Avbytarnas avbytarbänk är 100% ett hobbyprojekt och kanske inte uppdateras blixtsnabbt.<br>
@@ -474,6 +524,18 @@
     analytics.js läggs in här när samtyckeshanteringen är färdig.
     Google Analytics ska inte laddas direkt på denna sida före samtycke.
   -->
+  <script>
+    document
+      .getElementById("back-button")
+      .addEventListener("click", function () {
+        if (history.length > 1) {
+          history.back();
+        } else {
+          window.location.href = "index.html";
+        }
+      });
+  </script>
+
 </body>
 
 </html>
