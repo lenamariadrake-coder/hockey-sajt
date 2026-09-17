@@ -377,7 +377,7 @@
         }
 
         /* Kompaktare ligatabell */
-/* #tableStandings {
+        /* #tableStandings {
     font-size: 0.8rem;
 }
 
@@ -1811,33 +1811,31 @@ title="Till sammanfattningen">📄</a> -->
                 <!-- Huvudnavigation: samma ordning och placering som på Tabell/Värmekarta -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
 
-                    <a id="tabTabell" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_ha_2025-2026.html#tabell"
+                    <a id="tabTabell" class="tab-btn tab-btn-link" href="tabell_och_varmekarta_ha_2025-2026.html#tabell"
                         aria-label="Tabell" title="Tabell">Tabell</a>
 
                     <a id="tabVarmekarta" class="tab-btn tab-btn-link"
-                        href="tabell_och_varmekarta_ha_2025-2026.html#varmekarta"
-                        aria-label="Värmekarta" title="Värmekarta">Värmekarta</a>
+                        href="tabell_och_varmekarta_ha_2025-2026.html#varmekarta" aria-label="Värmekarta"
+                        title="Värmekarta">Värmekarta</a>
 
-                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="ha-tips_2025-2026.html"
-                        aria-label="Snitt" title="Snitt">Snitt</a>
+                    <a id="tabSnitt" class="tab-btn tab-btn-link" href="ha-tips_2025-2026.html" aria-label="Snitt"
+                        title="Snitt">Snitt</a>
 
                     <button id="tabTable" class="tab-btn" role="tab" aria-selected="true"
                         aria-controls="viewTable">Klassiskt tips</button>
 
-                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="#"
-                        aria-hidden="true" tabindex="-1"
-                        style="visibility: hidden; pointer-events: none;"
-                        aria-label="H2H" title="Inbördes">H2H</a>
+                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="ha_h2h_2025-2026.html" 
+                        aria-label="H2H" title="H2H">H2H</a>
 
                     <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
                         <span class="season-select-label">Säsong</span>
                         <select id="seasonSelect" class="season-select" aria-label="Välj säsong">
-<!--                             <option value="ha_tippartopplista_2021-2022.html">2021/2022</option>
+                            <!--                             <option value="ha_tippartopplista_2021-2022.html">2021/2022</option>
                             <option value="ha_tippartopplista_2022-2023.html">2022/2023</option>
                             <option value="ha_tippartopplista_2023-2024.html">2023/2024</option>
                             <option value="ha_tippartopplista_2024-2025.html">2024/2025</option>
- -->                            <option value="" selected>2025/2026</option>
+ -->
+                            <option value="" selected>2025/2026</option>
                             <option value="ha_tippartopplista_2026-2027.html">2026/2027</option>
                         </select>
                     </div>
@@ -1950,7 +1948,8 @@ title="Till sammanfattningen">📄</a> -->
                         Datum
                     </label>
                 </div>
-                <p id="timelineModeHelp" class="timeline-mode-help">Jämförelsen utgår från varje lags första X matcher.</p>
+                <p id="timelineModeHelp" class="timeline-mode-help">Jämförelsen utgår från varje lags första X matcher.
+                </p>
             </div>
 
             <!-- Flytande mini-palett -->
@@ -2050,31 +2049,35 @@ Lag 14</pre>
                                 aria-label="Stäng anpassning" title="Stäng">✕</button>
                         </div>
 
-<div class="rank-panel-help-body">
-    <p>
-        Här kan du välja vilka kolumner som ska visas i tabellen och i vilken ordning
-        de används för rankingen. Ordningen är viktig: kolumnerna används uppifrån
-        och ned som prioriterade tiebreakers.
-    </p>
+                        <div class="rank-panel-help-body">
+                            <p>
+                                Här kan du välja vilka kolumner som ska visas i tabellen och i vilken ordning
+                                de används för rankingen. Ordningen är viktig: kolumnerna används uppifrån
+                                och ned som prioriterade tiebreakers.
+                            </p>
 
-    <p>
-        Du kan visa och dölja kolumner fritt, men för att kunna spara måste minst
-        <b>en</b> kolumn vara vald.
-    </p>
+                            <p>
+                                Du kan visa och dölja kolumner fritt, men för att kunna spara måste minst
+                                <b>en</b> kolumn vara vald.
+                            </p>
 
-    <ul>
-        <li><b>Felsteg</b> – Hur långt ifrån korrekt slutplacering tipset är totalt. Lägre värde är bättre.</li>
-        <li><b>Plumpar</b> – Antal grova fel (lag som hamnar mycket fel). Lägre värde är bättre.</li>
-        <li><b>Största plump</b> – Det enskilda lag som gav flest felsteg.</li>
-        <li><b>Spikar</b> – Antal perfekta träffar, där ett lag tippats på exakt rätt plats. Högre värde är bättre.</li>
-        <li><b>Kvadrerat</b> – Felsteg där stora missar väger tyngre än små. Ger extra straff för extrema avvikelser.</li>
-    </ul>
+                            <ul>
+                                <li><b>Felsteg</b> – Hur långt ifrån korrekt slutplacering tipset är totalt. Lägre värde
+                                    är bättre.</li>
+                                <li><b>Plumpar</b> – Antal grova fel (lag som hamnar mycket fel). Lägre värde är bättre.
+                                </li>
+                                <li><b>Största plump</b> – Det enskilda lag som gav flest felsteg.</li>
+                                <li><b>Spikar</b> – Antal perfekta träffar, där ett lag tippats på exakt rätt plats.
+                                    Högre värde är bättre.</li>
+                                <li><b>Kvadrerat</b> – Felsteg där stora missar väger tyngre än små. Ger extra straff
+                                    för extrema avvikelser.</li>
+                            </ul>
 
-    <p>
-        <b>Tippare</b> är alltid längst till vänster och påverkar aldrig rankingen.
-        Vid helt lika sorteras det på namn.
-    </p>
-</div>
+                            <p>
+                                <b>Tippare</b> är alltid längst till vänster och påverkar aldrig rankingen.
+                                Vid helt lika sorteras det på namn.
+                            </p>
+                        </div>
 
 
                         <div class="rank-panel-body">
@@ -2278,8 +2281,8 @@ Lag 14</pre>
                 next[shortName] = longName;
             }
             NAME_MAP = next;
-            NAME_MAP_LONG_TO_SHORT = Object.fromEntries(Object.entries(NAME_MAP).map(([shortN,longN]) => [longN, shortN]));
-            TEAM_KEYS = Object.keys(NAME_MAP).sort((a,b) => NAME_MAP[a].localeCompare(NAME_MAP[b], 'sv'));
+            NAME_MAP_LONG_TO_SHORT = Object.fromEntries(Object.entries(NAME_MAP).map(([shortN, longN]) => [longN, shortN]));
+            TEAM_KEYS = Object.keys(NAME_MAP).sort((a, b) => NAME_MAP[a].localeCompare(NAME_MAP[b], 'sv'));
         }
 
 
@@ -2789,7 +2792,7 @@ Lag 14</pre>
             return best.canonical;
         }
 
-        
+
         function parseCustomTippers(rawText) {
 
             // ==============================================
@@ -4448,8 +4451,8 @@ Lag 14</pre>
             const iAwayPts = idx('away_points');
             const iSeason = idx('season_id');
             const iLeague = idx('league');
-            const required = [['date',iDate],['home_team_id',iHomeTeamId],['away_team_id',iAwayTeamId],['home_goals',iHomeGoals],['away_goals',iAwayGoals],['home_points',iHomePts],['away_points',iAwayPts],['season_id',iSeason],['league',iLeague]]
-                .filter(([,i]) => i === -1).map(([name]) => name);
+            const required = [['date', iDate], ['home_team_id', iHomeTeamId], ['away_team_id', iAwayTeamId], ['home_goals', iHomeGoals], ['away_goals', iAwayGoals], ['home_points', iHomePts], ['away_points', iAwayPts], ['season_id', iSeason], ['league', iLeague]]
+                .filter(([, i]) => i === -1).map(([name]) => name);
             if (required.length) throw new Error(`Matchdata: saknar kolumn(er): ${required.join(', ')}.`);
 
             const dataRows = rows.slice(1).filter(r =>
@@ -4485,7 +4488,7 @@ Lag 14</pre>
             ALL_TEAMS_LONG = allTeamIds.map(getTeamLongName);
 
             const hist = new Map();
-            allTeamIds.forEach(teamId => hist.set(teamId, [{g:0,points:0,gf:0,ga:0,gd:0}]));
+            allTeamIds.forEach(teamId => hist.set(teamId, [{ g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]));
 
             // Bara spelade matcher räknas i tabell/tidslinje.
             const playedRows = dataRows.filter(r => {
@@ -4493,15 +4496,15 @@ Lag 14</pre>
                 const agRaw = String(r[iAwayGoals] ?? '').trim();
                 return hgRaw !== '' && agRaw !== '' && isNum(toInt(hgRaw)) && isNum(toInt(agRaw));
             }).map((row, sourceIndex) => ({ row, sourceIndex }))
-              .sort((a,b) => {
-                  const dateDiff = new Date(a.row[iDate]) - new Date(b.row[iDate]);
-                  return dateDiff || a.sourceIndex - b.sourceIndex;
-              });
+                .sort((a, b) => {
+                    const dateDiff = new Date(a.row[iDate]) - new Date(b.row[iDate]);
+                    return dateDiff || a.sourceIndex - b.sourceIndex;
+                });
 
             MATCHES_BY_ROUND = new Map();
             const gamesPlayedByTeam = new Map(allTeamIds.map(teamId => [teamId, 0]));
 
-            for (const { row:r } of playedRows) {
+            for (const { row: r } of playedRows) {
                 const homeId = String(r[iHomeTeamId] || '').trim();
                 const awayId = String(r[iAwayTeamId] || '').trim();
                 if (!hist.has(homeId) || !hist.has(awayId)) continue;
@@ -4536,24 +4539,24 @@ Lag 14</pre>
                 });
 
                 const hHist = hist.get(homeId), aHist = hist.get(awayId);
-                const prevH = hHist[hHist.length-1], prevA = aHist[aHist.length-1];
-                const nextH = {g:prevH.g+1, points:prevH.points+(hp ?? 0), gf:prevH.gf+(hg ?? 0), ga:prevH.ga+(ag ?? 0)};
-                nextH.gd = nextH.gf-nextH.ga;
-                const nextA = {g:prevA.g+1, points:prevA.points+(ap ?? 0), gf:prevA.gf+(ag ?? 0), ga:prevA.ga+(hg ?? 0)};
-                nextA.gd = nextA.gf-nextA.ga;
+                const prevH = hHist[hHist.length - 1], prevA = aHist[aHist.length - 1];
+                const nextH = { g: prevH.g + 1, points: prevH.points + (hp ?? 0), gf: prevH.gf + (hg ?? 0), ga: prevH.ga + (ag ?? 0) };
+                nextH.gd = nextH.gf - nextH.ga;
+                const nextA = { g: prevA.g + 1, points: prevA.points + (ap ?? 0), gf: prevA.gf + (ag ?? 0), ga: prevA.ga + (hg ?? 0) };
+                nextA.gd = nextA.gf - nextA.ga;
                 hHist.push(nextH); aHist.push(nextA);
             }
 
             const minTotalGames = allTeamIds.length ? Math.min(...allTeamIds.map(id => hist.get(id).length - 1)) : 0;
             STANDING_SNAPSHOTS = new Map();
             state.roundsAvailable = new Set();
-            for (let m=0; m<=minTotalGames; m++) {
+            for (let m = 0; m <= minTotalGames; m++) {
                 const arr = allTeamIds.map(teamId => {
                     const x = hist.get(teamId)[m];
-                    return {team_id:teamId,g:x.g,points:x.points,gf:x.gf,ga:x.ga,gd:x.gd};
+                    return { team_id: teamId, g: x.g, points: x.points, gf: x.gf, ga: x.ga, gd: x.gd };
                 }).sort(standingsComparator);
-                STANDING_SNAPSHOTS.set(m,arr);
-                if (m>0) state.roundsAvailable.add(m);
+                STANDING_SNAPSHOTS.set(m, arr);
+                if (m > 0) state.roundsAvailable.add(m);
             }
             // Datum-snapshots byggs separat. Matchstegssnapshots ovan lämnas oförändrade:
             // där jämförs alla lag efter exakt X matcher var. Här tas i stället ett
@@ -4585,7 +4588,7 @@ Lag 14</pre>
                 DATE_TIMELINE_KEYS.push(dateKey);
             }
 
-            for (const { row:r } of playedRows) {
+            for (const { row: r } of playedRows) {
                 const dateKey = normalizeGameDateKey(r[iDate]);
                 if (!dateKey) continue;
 
@@ -4685,8 +4688,8 @@ Lag 14</pre>
             const iType = idx('tip_type');
             const iTeam = idx('team_id');
             const iRank = idx('pick_rank');
-            const missing = [['participant_id',iParticipant],['display_name',iDisplay],['tip_type',iType],['team_id',iTeam],['pick_rank',iRank]]
-                .filter(([,i]) => i === -1).map(([name]) => name);
+            const missing = [['participant_id', iParticipant], ['display_name', iDisplay], ['tip_type', iType], ['team_id', iTeam], ['pick_rank', iRank]]
+                .filter(([, i]) => i === -1).map(([name]) => name);
             if (missing.length) throw new Error(`Tipsdata: saknar kolumn(er): ${missing.join(', ')}.`);
 
             TIPPER_BY_ID.clear();
@@ -4717,8 +4720,8 @@ Lag 14</pre>
                 target.get(participantId).push({ team_id: teamId, pick_rank: pickRank });
             }
 
-            TIPS_BY_TIPPER_HOBBY.forEach(arr => arr.sort((a,b) => a.pick_rank - b.pick_rank));
-            TIPS_BY_TIPPER_EXPERT.forEach(arr => arr.sort((a,b) => a.pick_rank - b.pick_rank));
+            TIPS_BY_TIPPER_HOBBY.forEach(arr => arr.sort((a, b) => a.pick_rank - b.pick_rank));
+            TIPS_BY_TIPPER_EXPERT.forEach(arr => arr.sort((a, b) => a.pick_rank - b.pick_rank));
         }
 
 
@@ -5949,13 +5952,13 @@ Lag 14</pre>
         function _mapToObject(map) {
             const obj = {};
             if (!map || typeof map.forEach !== 'function') return obj;
-            map.forEach((v,k) => { obj[k]=v; });
+            map.forEach((v, k) => { obj[k] = v; });
             return obj;
         }
         function _objectToMap(obj) {
             const m = new Map();
             if (!obj || typeof obj !== 'object') return m;
-            Object.keys(obj).forEach(k => m.set(k,obj[k]));
+            Object.keys(obj).forEach(k => m.set(k, obj[k]));
             return m;
         }
         function isShlCacheFresh(payload) {
@@ -6085,7 +6088,7 @@ Lag 14</pre>
                 if (team?.team_name_long) TEAM_ID_BY_LONGNAME.set(team.team_name_long, teamId);
             });
             rebuildTeamNameIndexes();
-            ALL_TEAMS_LONG = Array.from(SEASON_TEAM_IDS).map(getTeamLongName).sort((a,b) => a.localeCompare(b,'sv'));
+            ALL_TEAMS_LONG = Array.from(SEASON_TEAM_IDS).map(getTeamLongName).sort((a, b) => a.localeCompare(b, 'sv'));
             console.log('[cache] ställning HIT', { savedAt: cache.savedAt, latestRound: state.latestRound });
         }
 
@@ -6173,7 +6176,7 @@ Lag 14</pre>
                 dateTimelineKeys: DATE_TIMELINE_KEYS.slice(),
                 allTeamsLong: ALL_TEAMS_LONG.slice()
             };
-refreshGamesBtn.disabled = true;
+            refreshGamesBtn.disabled = true;
             refreshGamesBtn.setAttribute('aria-busy', 'true');
             refreshGamesBtn.textContent = '⏳';
             refreshGamesBtn.title = 'Hämtar färska matchdata…';
@@ -6269,12 +6272,12 @@ refreshGamesBtn.disabled = true;
             bindRankCustomizePanelUI();
 
             seasonSelect?.addEventListener('change', () => {
-            const target = seasonSelect.value;
-            if (!target) return;
-            location.href = target;
-        });
+                const target = seasonSelect.value;
+                if (!target) return;
+                location.href = target;
+            });
 
-        refreshGamesBtn?.addEventListener('click', () => {
+            refreshGamesBtn?.addEventListener('click', () => {
                 refreshGamesOnly();
             });
 

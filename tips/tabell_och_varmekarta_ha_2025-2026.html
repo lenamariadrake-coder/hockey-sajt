@@ -172,13 +172,6 @@
             background: var(--btn-gray-hover);
         }
 
-        /* Historiksida 2025/2026: H2H fanns inte ännu.
-           visibility:hidden behåller knappens exakta layoututrymme. */
-        .tab-btn-placeholder {
-            visibility: hidden;
-            pointer-events: none;
-        }
-
         /* Allt extra i tab-raden (heatSort + rowColorControls) */
         .tabs #heatSort {
             display: inline-flex;
@@ -365,7 +358,7 @@
         /* Kompaktare ligatabell */
 
         /* Ligatabell: 80 % */
-/*         #tableStandings {
+        /*         #tableStandings {
             font-size: 0.8rem;
         }
 
@@ -425,7 +418,7 @@
             margin-top: 1rem;
         }
 
-        .standings-results-layout > table {
+        .standings-results-layout>table {
             justify-self: center;
             margin-top: 0;
             margin-left: 0;
@@ -491,9 +484,7 @@
         .round-results-list li {
             display: grid;
             grid-template-columns:
-                .72rem minmax(9.6rem, max-content)
-                .72rem minmax(9.6rem, max-content)
-                max-content;
+                .72rem minmax(9.6rem, max-content) .72rem minmax(9.6rem, max-content) max-content;
             column-gap: .22rem;
             align-items: baseline;
             padding: 0;
@@ -520,9 +511,7 @@
         @media (max-width: 700px) {
             .round-results-list li {
                 grid-template-columns:
-                    .72rem minmax(8.5rem, max-content)
-                    .72rem minmax(8.5rem, max-content)
-                    max-content;
+                    .72rem minmax(8.5rem, max-content) .72rem minmax(8.5rem, max-content) max-content;
                 column-gap: .18rem;
             }
 
@@ -548,7 +537,7 @@
                 margin-right: auto;
             }
 
-            .standings-results-layout > table,
+            .standings-results-layout>table,
             .round-results {
                 justify-self: start;
             }
@@ -563,7 +552,7 @@
                 justify-items: stretch;
             }
 
-            .standings-results-layout > table {
+            .standings-results-layout>table {
                 width: 100%;
                 min-width: 100%;
                 margin-left: 0;
@@ -1065,7 +1054,7 @@
         /* Knappen får inte bestämma radhöjden.
            Radhöjden ska fortfarande bestämmas helt av de ordinarie
            tabellcellerna; palettknappen centreras bara ovanpå den höjden. */
-        td.rowcolor-cell > .rowcolor-icon-btn {
+        td.rowcolor-cell>.rowcolor-icon-btn {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -1781,10 +1770,8 @@
                     <a id="tabTopplista" class="tab-btn tab-btn-link" href="ha_tippartopplista_2025-2026.html"
                         aria-label="Klassiskt tips" title="Klassiskt tips">Klassiskt tips</a>
 
-                    <!-- H2H fanns inte 2025/2026.
-                         Behåll exakt samma plats i navigationsraden så säsongsväljaren inte flyttar sig. -->
-                    <span id="tabInbordesPlaceholder" class="tab-btn tab-btn-link tab-btn-placeholder"
-                        aria-hidden="true">H2H</span>
+                    <a id="tabInbordes" class="tab-btn tab-btn-link" href="ha_h2h_2025-2026.html" aria-label="H2H"
+                        title="H2H">H2H</a>
 
                     <div id="seasonSelectWrap" class="season-select-wrap" aria-label="Välj säsong">
                         <span class="season-select-label">Säsong</span>
@@ -1914,7 +1901,8 @@
                         <span>Visa tabellrörelser</span>
                     </label>
                 </div>
-                <p id="timelineModeHelp" class="timeline-mode-help">Jämförelsen utgår från varje lags första X matcher.</p>
+                <p id="timelineModeHelp" class="timeline-mode-help">Jämförelsen utgår från varje lags första X matcher.
+                </p>
             </div>
             <!-- Radfärger (endast tabell-läget) – höjdstabil kontrollrad -->
 
@@ -2035,7 +2023,11 @@ Lag 14</pre>
                     </table>
 
                     <aside id="roundResults" class="round-results hidden" aria-live="polite">
-                        <p class="round-results-explanation">Här visas de matcher som tar respektive lag till det aktuella antalet spelade matcher. Det lag vars aktuella match det är markeras med fetstil. Eftersom lagen kan ligga olika långt i spelschemat kan en match räknas för det ena laget men inte för det andra. Ett lag kan därför förekomma i mer än en match. Vinnande lag markeras med en gul stjärna.</p>
+                        <p class="round-results-explanation">Här visas de matcher som tar respektive lag till det
+                            aktuella antalet spelade matcher. Det lag vars aktuella match det är markeras med fetstil.
+                            Eftersom lagen kan ligga olika långt i spelschemat kan en match räknas för det ena laget men
+                            inte för det andra. Ett lag kan därför förekomma i mer än en match. Vinnande lag markeras
+                            med en gul stjärna.</p>
                         <ul id="roundResultsList" class="round-results-list"></ul>
                     </aside>
                 </div>
@@ -2054,7 +2046,8 @@ Lag 14</pre>
                     </thead>
                     <tbody><!-- fylls i JS --></tbody>
                 </table>
-                <div class="source">Tips-spridning. Neutralt läge = enbart tipsfärger; vid vald tidpunkt markeras verklig
+                <div class="source">Tips-spridning. Neutralt läge = enbart tipsfärger; vid vald tidpunkt markeras
+                    verklig
                     placering med röd skala + diskret cirkel.</div>
             </section>
         </div>
