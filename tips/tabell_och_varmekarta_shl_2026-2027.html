@@ -1742,7 +1742,7 @@
                 <button id="exportBtn" class="btn btn-icon" aria-label="Spara aktiv vy som bild"
                     title="Spara aktiv vy som bild">📸</button>
                 <button id="refreshGamesBtn" class="btn btn-icon-plain" type="button"
-                    aria-label="Hämta färska matchdata" title="Hämta färska matchdata från games">🔄</button>
+                    aria-label="Hämta färska data" title="Hämta färska data">🔄</button>
 
                 <!-- Huvudnavigation: samma ordning på systersidorna -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
@@ -6257,12 +6257,22 @@ function stripCustomTeamLinePrefix(line) {
 
 
 
-        async function refreshGamesOnly() {
+        async function refreshAllData() {
             if (!refreshGamesBtn || refreshGamesBtn.disabled) return;
 
             const previousTitle = refreshGamesBtn.title;
             const previousIcon = refreshGamesBtn.textContent;
             const wantedRound = Number(timelineSlider?.value || 0);
+
+            // Spara fungerande tipsdata också, så en misslyckad manuell hämtning
+            // aldrig lämnar sidan i ett halvt uppdaterat läge.
+            const previousTips = {
+                matrixHobby: window.TIPS_MATRIX_HOBBY,
+                matrixExpert: window.TIPS_MATRIX_EXPERT,
+                tipperById: new Map(TIPPER_BY_ID),
+                hobby: new Map(Array.from(TIPS_BY_TIPPER_HOBBY, ([key, value]) => [key, Array.isArray(value) ? value.slice() : value])),
+                expert: new Map(Array.from(TIPS_BY_TIPPER_EXPERT, ([key, value]) => [key, Array.isArray(value) ? value.slice() : value]))
+            };
 
             // Spara fungerande ställningsdata. En misslyckad manuell hämtning
             // får aldrig ersätta eller gömma den tabell/värmekarta som redan visas.
@@ -6281,13 +6291,15 @@ function stripCustomTeamLinePrefix(line) {
             refreshGamesBtn.disabled = true;
             refreshGamesBtn.setAttribute('aria-busy', 'true');
             refreshGamesBtn.textContent = '⏳';
-            refreshGamesBtn.title = 'Hämtar färska matchdata…';
-            stopPlayback?.('refresh games');
+            refreshGamesBtn.title = 'Hämtar färska data…';
+            stopPlayback?.('refresh data');
 
             try {
                 // Manuell uppdatering går direkt till nätverket via samma GViz -> TSV-fallback.
-                // Tips, eget tips, färger, filter, omgång och övriga inställningar lämnas helt orörda.
+                // Både matchdata och klassiska tips hämtas på nytt; eget tips, färger,
+                // filter, omgång och övriga inställningar lämnas helt orörda.
                 await loadAndPrepareStandings(DATA_SOURCES.games);
+                await refreshTipsFromSheets();
                 writeSharedShlStandingsCache();
 
                 const maxRound = Number(state.latestRound || 0);
@@ -6308,9 +6320,9 @@ function stripCustomTeamLinePrefix(line) {
 
                 // Matchdatan har byggts om även om användaren står kvar på samma omgång.
                 state._lastAppliedRoundValue = undefined;
-                applyRoundFromSliderValue('refresh-games');
+                applyRoundFromSliderValue('refresh-data');
 
-                refreshGamesBtn.title = 'Matchdata uppdaterad';
+                refreshGamesBtn.title = 'Data uppdaterad';
             } catch (error) {
                 // Manuell uppdatering är icke-destruktiv: återställ fungerande data.
                 STANDING_SNAPSHOTS = previousStandings.snapshots;
@@ -6324,13 +6336,19 @@ function stripCustomTeamLinePrefix(line) {
                 TEAM_BY_ID = new Map(previousStandings.teamById);
                 rebuildTeamNameIndexes();
 
+                window.TIPS_MATRIX_HOBBY = previousTips.matrixHobby;
+                window.TIPS_MATRIX_EXPERT = previousTips.matrixExpert;
+                TIPPER_BY_ID = new Map(previousTips.tipperById);
+                TIPS_BY_TIPPER_HOBBY = new Map(previousTips.hobby);
+                TIPS_BY_TIPPER_EXPERT = new Map(previousTips.expert);
+
                 const isTimeout = /längre än 10 sekunder|tog för lång tid/i.test(String(error?.message || error));
                 const isAbort = false;
-                console.warn('[games][refresh] misslyckades – behåller befintlig data', error);
+                console.warn('[data][refresh] misslyckades – behåller befintlig data', error);
 
                 refreshGamesBtn.title = (isTimeout || isAbort)
-                    ? 'Kunde inte hämta matchdata i tid – befintlig data visas'
-                    : 'Kunde inte hämta matchdata – befintlig data visas';
+                    ? 'Kunde inte hämta data i tid – befintlig data visas'
+                    : 'Kunde inte hämta data – befintlig data visas';
 
                 if (timelineSlider) {
                     if (state.timelineMode === 'date') {
@@ -6346,7 +6364,7 @@ function stripCustomTeamLinePrefix(line) {
                 // Viktigt: inget showFatalDataError() här. Ett nätverksproblem vid
                 // manuell uppdatering är inte ett fel i den data som redan visas.
                 state._lastAppliedRoundValue = undefined;
-                applyRoundFromSliderValue('refresh-games-failed');
+                applyRoundFromSliderValue('refresh-data-failed');
             } finally {
                 refreshGamesBtn.disabled = false;
                 refreshGamesBtn.removeAttribute('aria-busy');
@@ -6395,7 +6413,7 @@ function stripCustomTeamLinePrefix(line) {
             });
 
             refreshGamesBtn?.addEventListener('click', () => {
-                refreshGamesOnly();
+                refreshAllData();
             });
 
             // ---------------------------------------------------------
