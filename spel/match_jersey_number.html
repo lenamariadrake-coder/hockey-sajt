@@ -589,6 +589,9 @@ input[type="checkbox"] {
 .player-change-name{font-weight:700;}
 .player-change-meta{font-size:13px; color:var(--muted); margin-top:2px;}
 .player-change-row button{flex-shrink:0; padding:7px 10px;}
+.player-changes-footer{display:flex; justify-content:flex-end; margin-top:14px; padding-top:12px; border-top:1px solid #2a3343;}
+.player-changes-footer .hidden{display:none;}
+.start-player-changes{display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; margin:4px 0 14px;}
 
 </style>
   <script src="../js/google-sheets-data.js"></script>
@@ -685,6 +688,11 @@ input[type="checkbox"] {
 </fieldset>
 
 
+      <div class="start-player-changes">
+        <button id="startChangesBtn" class="study-changes-btn" type="button">Ändringar</button>
+        <span id="startChangesNote" class="study-changes-note hidden"></span>
+      </div>
+
       <div class="start-actions">
         <button id="startBtn" class="btn-green">Sätt igång!</button>
       </div>
@@ -768,6 +776,9 @@ input[type="checkbox"] {
     </div>
     <p class="muted" style="margin-top:0;">Dolda spelare tas inte med när du pluggar eller spelar. Inställningen sparas bara i den här webbläsaren.</p>
     <div id="playerChangesList" class="player-changes-list"></div>
+    <div class="player-changes-footer">
+      <button id="restoreAllPlayersBtn" type="button" class="hidden">Återställ alla</button>
+    </div>
   </div>
 </div>
 
@@ -1264,9 +1275,12 @@ const sortByNameBtn = $("#sortByNameBtn");
 const sortByNumberBtn = $("#sortByNumberBtn");
 const studyChangesBtn = $("#studyChangesBtn");
 const studyChangesNote = $("#studyChangesNote");
+const startChangesBtn = $("#startChangesBtn");
+const startChangesNote = $("#startChangesNote");
 const playerChangesModal = $("#playerChangesModal");
 const playerChangesList = $("#playerChangesList");
 const closePlayerChangesBtn = $("#closePlayerChanges");
+const restoreAllPlayersBtn = $("#restoreAllPlayersBtn");
 const studyListEl  = $("#studyList");
 const startBtn     = $("#startBtn");
 const backToStart  = $("#backToStart");
@@ -1406,23 +1420,37 @@ function restoreHiddenPlayer(id) {
   savePlayerChanges(changes);
 }
 
+function restoreAllHiddenPlayersForCurrentSeason() {
+  const changes = loadPlayerChanges();
+  changes.hiddenPlayers = changes.hiddenPlayers.filter(item => item.season !== currentSeasonId);
+  savePlayerChanges(changes);
+}
+
 function getCurrentSeasonHiddenPlayers() {
   return loadPlayerChanges().hiddenPlayers.filter(item => item.season === currentSeasonId);
 }
 
 function updateStudyChangesIndicator() {
-  if (!studyChangesBtn || !studyChangesNote) return;
   const hiddenCount = getCurrentSeasonHiddenPlayers().length;
-  studyChangesBtn.classList.toggle('has-changes', hiddenCount > 0);
-  studyChangesBtn.textContent = hiddenCount > 0 ? `Ändringar (${hiddenCount})` : 'Ändringar';
-  studyChangesNote.classList.toggle('hidden', hiddenCount === 0);
-  studyChangesNote.textContent = hiddenCount > 0 ? `${hiddenCount} spelare dolda` : '';
+
+  [studyChangesBtn, startChangesBtn].forEach(btn => {
+    if (!btn) return;
+    btn.classList.toggle('has-changes', hiddenCount > 0);
+    btn.textContent = hiddenCount > 0 ? `Ändringar (${hiddenCount})` : 'Ändringar';
+  });
+
+  [studyChangesNote, startChangesNote].forEach(note => {
+    if (!note) return;
+    note.classList.toggle('hidden', hiddenCount === 0);
+    note.textContent = hiddenCount > 0 ? `${hiddenCount} spelare dolda` : '';
+  });
 }
 
 function renderPlayerChangesModal() {
   if (!playerChangesList) return;
   const hidden = getCurrentSeasonHiddenPlayers();
   playerChangesList.innerHTML = '';
+  restoreAllPlayersBtn?.classList.toggle('hidden', hidden.length === 0);
 
   if (hidden.length === 0) {
     playerChangesList.innerHTML = '<p class="muted">Du har inte dolt några spelare den här säsongen.</p>';
@@ -1451,9 +1479,13 @@ function renderPlayerChangesModal() {
       restore.textContent = 'Återställ';
       restore.addEventListener('click', () => {
         restoreHiddenPlayer(item.id);
-        renderPlayerChangesModal();
         renderStudyList();
         updateMixedCounters();
+        if (getCurrentSeasonHiddenPlayers().length === 0) {
+          closePlayerChangesModal();
+        } else {
+          renderPlayerChangesModal();
+        }
       });
 
       row.append(main, restore);
@@ -1850,6 +1882,16 @@ sortByNumberBtn.addEventListener('click', () => {
 });
 
 studyChangesBtn?.addEventListener('click', openPlayerChangesModal);
+startChangesBtn?.addEventListener('click', openPlayerChangesModal);
+restoreAllPlayersBtn?.addEventListener('click', () => {
+  const hiddenCount = getCurrentSeasonHiddenPlayers().length;
+  if (hiddenCount === 0) return;
+  if (!confirm(`Återställa alla ${hiddenCount} dolda spelare för den här säsongen?`)) return;
+  restoreAllHiddenPlayersForCurrentSeason();
+  renderStudyList();
+  updateMixedCounters();
+  closePlayerChangesModal();
+});
 closePlayerChangesBtn?.addEventListener('click', closePlayerChangesModal);
 playerChangesModal?.addEventListener('click', (event) => {
   if (event.target === playerChangesModal) closePlayerChangesModal();
