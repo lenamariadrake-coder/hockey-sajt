@@ -557,6 +557,39 @@ input[type="checkbox"] {
 .study-actions .back-btn { display: none !important; }
 
 
+
+/* --- Personliga spelarändringar i Plugga-läget --- */
+.study-row-actions{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+.study-hide-player{
+  min-width:32px; min-height:32px; padding:4px 9px; border-radius:8px;
+  font-size:18px; line-height:1; color:#cbd5e1; background:#172033;
+}
+.study-hide-player:hover{background:#2a3447; color:#fff;}
+.study-changes-btn.has-changes{border-color:var(--warn); color:#fde68a;}
+.study-changes-note{font-size:13px; color:var(--muted); align-self:center;}
+
+.player-changes-modal{
+  position:fixed; inset:0; z-index:2000; display:flex; align-items:center; justify-content:center;
+  padding:18px; background:rgba(0,0,0,.68);
+}
+.player-changes-modal.hidden{display:none;}
+.player-changes-dialog{
+  width:min(620px,100%); max-height:min(80vh,720px); overflow:auto;
+  background:var(--card); border:1px solid #2a3343; border-radius:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.55); padding:18px;
+}
+.player-changes-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+.player-changes-head h3{margin:0; font-size:19px;}
+.player-changes-list{display:flex; flex-direction:column; gap:8px;}
+.player-change-row{
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  padding:10px; border:1px solid #1b2647; border-radius:9px; background:#0f1a33;
+}
+.player-change-main{min-width:0;}
+.player-change-name{font-weight:700;}
+.player-change-meta{font-size:13px; color:var(--muted); margin-top:2px;}
+.player-change-row button{flex-shrink:0; padding:7px 10px;}
+
 </style>
   <script src="../js/google-sheets-data.js"></script>
 </head>
@@ -712,6 +745,8 @@ input[type="checkbox"] {
 <div class="study-actions" style="display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 12px;">
   <button id="sortByNameBtn">Bokstavsordning</button>
   <button id="sortByNumberBtn">Nummerordning</button>
+  <button id="studyChangesBtn" class="study-changes-btn" type="button">Ändringar</button>
+  <span id="studyChangesNote" class="study-changes-note hidden"></span>
 
   <button id="closeStudy" class="back-btn" aria-hidden="true" tabindex="-1">Tillbaka</button>
 
@@ -724,6 +759,17 @@ input[type="checkbox"] {
     </div>
   </div>
 </section>
+
+<div id="playerChangesModal" class="player-changes-modal hidden" role="dialog" aria-modal="true" aria-labelledby="playerChangesTitle">
+  <div class="player-changes-dialog">
+    <div class="player-changes-head">
+      <h3 id="playerChangesTitle">Dolda spelare</h3>
+      <button id="closePlayerChanges" type="button">Stäng</button>
+    </div>
+    <p class="muted" style="margin-top:0;">Dolda spelare tas inte med när du pluggar eller spelar. Inställningen sparas bara i den här webbläsaren.</p>
+    <div id="playerChangesList" class="player-changes-list"></div>
+  </div>
+</div>
 
 
 </div>
@@ -743,6 +789,7 @@ const screenLoading = document.getElementById('screenLoading');
 // =================================================================
 let teamsConfig = {};
 let playersAll = [];
+let currentSeasonId = null;
 
 // --- NY OFFLINE-SWITCH ---
 // Sätt till 'true' för att ladda från lokala .txt-filer (kräver Live Server)
@@ -957,7 +1004,8 @@ function buildPlayersAll(playersList) {
     return playersList.map(p => ({
         name: p.player_name,
         number: parseInt(p.number, 10), // Konvertera sträng "3" till siffra 3
-        team: p.team_id
+        team: p.team_id,
+        season: p.season_id
     }));
 }
 
@@ -1104,10 +1152,12 @@ async function initializeApp() {
 
         const teamsList = prepared.teamsList;
         playersList = prepared.playersList;
+        currentSeasonId = prepared.currentSeason;
 
         // --- BYGG DE GLOBALA DATA-OBJEKTEN ---
         teamsConfig = buildTeamsConfig(teamsList);
         playersAll = buildPlayersAll(playersList);
+        updateStudyChangesIndicator();
 
         // Fyll hjälp-listorna.
         allTeamsFlat = Object.values(teamsConfig).flatMap(teamArray => teamArray);
@@ -1212,6 +1262,11 @@ const studyBtn     = $("#studyBtn");
 const closeStudyBtn = $("#closeStudy");
 const sortByNameBtn = $("#sortByNameBtn");
 const sortByNumberBtn = $("#sortByNumberBtn");
+const studyChangesBtn = $("#studyChangesBtn");
+const studyChangesNote = $("#studyChangesNote");
+const playerChangesModal = $("#playerChangesModal");
+const playerChangesList = $("#playerChangesList");
+const closePlayerChangesBtn = $("#closePlayerChanges");
 const studyListEl  = $("#studyList");
 const startBtn     = $("#startBtn");
 const backToStart  = $("#backToStart");
@@ -1289,11 +1344,137 @@ function showScreen(which){
 
 function getSelected(name){ return document.querySelector(`input[name="${name}"]:checked`)?.value; }
 
+// --- Personliga spelarändringar: steg 1 (dölj/återställ) ---
+const PLAYER_CHANGES_STORAGE_KEY = 'avbytarnasAvbytarbank.matchJerseyNumber.playerChanges.v1';
+
+function loadPlayerChanges() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PLAYER_CHANGES_STORAGE_KEY) || '{}');
+    return {
+      hiddenPlayers: Array.isArray(parsed.hiddenPlayers) ? parsed.hiddenPlayers : [],
+      customPlayers: Array.isArray(parsed.customPlayers) ? parsed.customPlayers : []
+    };
+  } catch (err) {
+    console.warn('Kunde inte läsa personliga spelarändringar:', err);
+    return { hiddenPlayers: [], customPlayers: [] };
+  }
+}
+
+function savePlayerChanges(changes) {
+  localStorage.setItem(PLAYER_CHANGES_STORAGE_KEY, JSON.stringify(changes));
+  updateStudyChangesIndicator();
+}
+
+function playerStorageId(p) {
+  return [p.season || currentSeasonId || '', p.team, p.name, String(p.number)].join('\u0000');
+}
+
+function isPlayerHidden(p) {
+  const id = playerStorageId(p);
+  return loadPlayerChanges().hiddenPlayers.some(item => item.id === id);
+}
+
+function getEffectivePlayers() {
+  const changes = loadPlayerChanges();
+  const hiddenIds = new Set(changes.hiddenPlayers.map(item => item.id));
+  const originals = playersAll.filter(p => !hiddenIds.has(playerStorageId(p)));
+  // customPlayers används i nästa steg; strukturen finns redan nu.
+  const custom = changes.customPlayers
+    .filter(p => !p.season || p.season === currentSeasonId)
+    .map(p => ({ ...p, custom: true }));
+  return originals.concat(custom);
+}
+
+function hidePlayer(p) {
+  const changes = loadPlayerChanges();
+  const id = playerStorageId(p);
+  if (!changes.hiddenPlayers.some(item => item.id === id)) {
+    changes.hiddenPlayers.push({
+      id,
+      season: p.season || currentSeasonId,
+      team: p.team,
+      name: p.name,
+      number: p.number
+    });
+    savePlayerChanges(changes);
+  }
+}
+
+function restoreHiddenPlayer(id) {
+  const changes = loadPlayerChanges();
+  changes.hiddenPlayers = changes.hiddenPlayers.filter(item => item.id !== id);
+  savePlayerChanges(changes);
+}
+
+function getCurrentSeasonHiddenPlayers() {
+  return loadPlayerChanges().hiddenPlayers.filter(item => item.season === currentSeasonId);
+}
+
+function updateStudyChangesIndicator() {
+  if (!studyChangesBtn || !studyChangesNote) return;
+  const hiddenCount = getCurrentSeasonHiddenPlayers().length;
+  studyChangesBtn.classList.toggle('has-changes', hiddenCount > 0);
+  studyChangesBtn.textContent = hiddenCount > 0 ? `Ändringar (${hiddenCount})` : 'Ändringar';
+  studyChangesNote.classList.toggle('hidden', hiddenCount === 0);
+  studyChangesNote.textContent = hiddenCount > 0 ? `${hiddenCount} spelare dolda` : '';
+}
+
+function renderPlayerChangesModal() {
+  if (!playerChangesList) return;
+  const hidden = getCurrentSeasonHiddenPlayers();
+  playerChangesList.innerHTML = '';
+
+  if (hidden.length === 0) {
+    playerChangesList.innerHTML = '<p class="muted">Du har inte dolt några spelare den här säsongen.</p>';
+    return;
+  }
+
+  hidden
+    .slice()
+    .sort((a, b) => (getTeamNameById(a.team) + a.name).localeCompare(getTeamNameById(b.team) + b.name, 'sv'))
+    .forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'player-change-row';
+
+      const main = document.createElement('div');
+      main.className = 'player-change-main';
+      const name = document.createElement('div');
+      name.className = 'player-change-name';
+      name.textContent = `${item.name}  #${item.number}`;
+      const meta = document.createElement('div');
+      meta.className = 'player-change-meta';
+      meta.textContent = getTeamNameById(item.team);
+      main.append(name, meta);
+
+      const restore = document.createElement('button');
+      restore.type = 'button';
+      restore.textContent = 'Återställ';
+      restore.addEventListener('click', () => {
+        restoreHiddenPlayer(item.id);
+        renderPlayerChangesModal();
+        renderStudyList();
+        updateMixedCounters();
+      });
+
+      row.append(main, restore);
+      playerChangesList.appendChild(row);
+    });
+}
+
+function openPlayerChangesModal() {
+  renderPlayerChangesModal();
+  playerChangesModal?.classList.remove('hidden');
+}
+
+function closePlayerChangesModal() {
+  playerChangesModal?.classList.add('hidden');
+}
+
 function buildPlayerList(){
   // DENNA FUNKTION KOMMER BEHÖVA BYGGAS OM I STEG 2E
   // Just nu hanterar den bara "Ett lag"-läget
   const team = teamSelect.value; 
-  return playersAll.filter(p => p.team === team);
+  return getEffectivePlayers().filter(p => p.team === team);
 }
 function getDifficulty(){
   const key = getSelected("difficulty") || "training";
@@ -1322,7 +1503,7 @@ function getMixedSelection() {
 
 // Räkna hur många spelare som matchar valda lag och uppdatera räknare
 function updateMixedCounters() {
-  const all = playersAll.filter(p => mixedState.teams.has(p.team));
+  const all = getEffectivePlayers().filter(p => mixedState.teams.has(p.team));
   mixedState.availableCount = all.length;
   const el = document.getElementById('totalAvailablePlayers');
   if (el) el.textContent = String(mixedState.availableCount);
@@ -1340,7 +1521,7 @@ function validateMixed() {
 // Bygger lista för spel utifrån blandat-valen
 function buildMixedPlayerList() {
   // 1) filtrera
-  const pool = playersAll.filter(p => mixedState.teams.has(p.team));
+  const pool = getEffectivePlayers().filter(p => mixedState.teams.has(p.team));
   // 2) blanda
   shuffle(pool);
   // 3) begränsa antal frågor till min(qCount, pool)
@@ -1668,6 +1849,17 @@ sortByNumberBtn.addEventListener('click', () => {
   updateSortButtons();
 });
 
+studyChangesBtn?.addEventListener('click', openPlayerChangesModal);
+closePlayerChangesBtn?.addEventListener('click', closePlayerChangesModal);
+playerChangesModal?.addEventListener('click', (event) => {
+  if (event.target === playerChangesModal) closePlayerChangesModal();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !playerChangesModal?.classList.contains('hidden')) {
+    closePlayerChangesModal();
+  }
+});
+
 // --- Hjälpfunktioner som saknas ---
 // Fisher-Yates-blandning
 const shuffle = (arr) => { // Ändrad till const arrow function
@@ -1732,9 +1924,9 @@ function resetGameForNewRun(){
 
 
 function renderStudyList() {
-  const team = getStudyTeam(); 
+  const team = getStudyTeam();
   const list = playersAll.filter(p => p.team === team);
-  if (!team || list.length === 0){ 
+  if (!team || list.length === 0){
     studyListEl.innerHTML = '<p class="muted">Välj ett lag för att se spelare.</p>';
     return;
   }
@@ -1745,20 +1937,40 @@ function renderStudyList() {
   }
   const frag = document.createDocumentFragment();
   list.forEach(p => {
+    if (isPlayerHidden(p)) return;
+
     const row = document.createElement('div');
     row.className = 'study-row';
     const name = document.createElement('div');
     name.className = 'study-name';
     name.textContent = p.name;
+
+    const actions = document.createElement('div');
+    actions.className = 'study-row-actions';
     const num = document.createElement('div');
     num.className = 'study-num';
     num.textContent = '#' + p.number;
-    row.appendChild(name); row.appendChild(num);
+
+    const hideBtn = document.createElement('button');
+    hideBtn.type = 'button';
+    hideBtn.className = 'study-hide-player';
+    hideBtn.textContent = '×';
+    hideBtn.title = `Dölj ${p.name}`;
+    hideBtn.setAttribute('aria-label', `Dölj ${p.name}`);
+    hideBtn.addEventListener('click', () => {
+      hidePlayer(p);
+      renderStudyList();
+      updateMixedCounters();
+    });
+
+    actions.append(num, hideBtn);
+    row.append(name, actions);
     frag.appendChild(row);
   });
   studyListEl.innerHTML = '';
   studyListEl.appendChild(frag);
 }
+
 
 toggleSound.addEventListener("click", () => {
   isMuted = !isMuted;
