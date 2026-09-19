@@ -565,6 +565,11 @@ input[type="checkbox"] {
   font-size:18px; line-height:1; color:#cbd5e1; background:#172033;
 }
 .study-hide-player:hover{background:#2a3447; color:#fff;}
+.study-hide-player{font-size:13px; min-width:auto; padding:6px 9px;}
+.team-editor{margin:10px 0 14px; padding:12px; border:1px solid #1b2647; border-radius:10px; background:#0f172a;}
+.team-editor textarea{width:100%; min-height:150px; box-sizing:border-box; resize:vertical; padding:10px 12px; background:#0b1220; color:var(--text); border:1px solid #2a3343; border-radius:9px; font:14px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;}
+.team-editor-actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;}
+.team-editor-note{font-size:13px; color:var(--muted);}
 .study-changes-btn.has-changes{border-color:var(--warn); color:#fde68a;}
 .study-changes-note{font-size:13px; color:var(--muted); align-self:center;}
 
@@ -759,6 +764,15 @@ input[type="checkbox"] {
   <button id="closeStudy" class="back-btn" aria-hidden="true" tabindex="-1">Tillbaka</button>
 
 </div>
+
+    <div class="team-editor">
+      <label for="teamEditorText" style="display:block;font-weight:700;margin-bottom:7px;">Redigera lag</label>
+      <textarea id="teamEditorText" spellcheck="false" aria-describedby="teamEditorHelp"></textarea>
+      <div class="team-editor-actions">
+        <button id="saveTeamEditorBtn" type="button">Spara lag</button>
+        <span id="teamEditorHelp" class="team-editor-note">En spelare per rad: Namn,nummer. Sätt - framför en rad för att dölja spelaren. Första raden kan vara ett eget lagnamn.</span>
+      </div>
+    </div>
 
     <div class="study-panel">
       <div id="studyList" class="study-list" aria-live="polite">
@@ -1282,6 +1296,8 @@ const playerChangesList = $("#playerChangesList");
 const closePlayerChangesBtn = $("#closePlayerChanges");
 const restoreAllPlayersBtn = $("#restoreAllPlayersBtn");
 const studyListEl  = $("#studyList");
+const teamEditorText = $("#teamEditorText");
+const saveTeamEditorBtn = $("#saveTeamEditorBtn");
 const startBtn     = $("#startBtn");
 const backToStart  = $("#backToStart");
 const playAgainBtn = $("#playAgain");
@@ -1366,11 +1382,13 @@ function loadPlayerChanges() {
     const parsed = JSON.parse(localStorage.getItem(PLAYER_CHANGES_STORAGE_KEY) || '{}');
     return {
       hiddenPlayers: Array.isArray(parsed.hiddenPlayers) ? parsed.hiddenPlayers : [],
-      customPlayers: Array.isArray(parsed.customPlayers) ? parsed.customPlayers : []
+      customPlayers: Array.isArray(parsed.customPlayers) ? parsed.customPlayers : [],
+      hiddenCustomPlayers: Array.isArray(parsed.hiddenCustomPlayers) ? parsed.hiddenCustomPlayers : [],
+      teamNames: parsed.teamNames && typeof parsed.teamNames === 'object' ? parsed.teamNames : {}
     };
   } catch (err) {
     console.warn('Kunde inte läsa personliga spelarändringar:', err);
-    return { hiddenPlayers: [], customPlayers: [] };
+    return { hiddenPlayers: [], customPlayers: [], hiddenCustomPlayers: [], teamNames: {} };
   }
 }
 
@@ -1393,8 +1411,9 @@ function getEffectivePlayers() {
   const hiddenIds = new Set(changes.hiddenPlayers.map(item => item.id));
   const originals = playersAll.filter(p => !hiddenIds.has(playerStorageId(p)));
   // customPlayers används i nästa steg; strukturen finns redan nu.
+  const hiddenCustomIds = new Set(changes.hiddenCustomPlayers || []);
   const custom = changes.customPlayers
-    .filter(p => !p.season || p.season === currentSeasonId)
+    .filter(p => (!p.season || p.season === currentSeasonId) && !hiddenCustomIds.has(playerStorageId(p)))
     .map(p => ({ ...p, custom: true }));
   return originals.concat(custom);
 }
@@ -1402,16 +1421,12 @@ function getEffectivePlayers() {
 function hidePlayer(p) {
   const changes = loadPlayerChanges();
   const id = playerStorageId(p);
-  if (!changes.hiddenPlayers.some(item => item.id === id)) {
-    changes.hiddenPlayers.push({
-      id,
-      season: p.season || currentSeasonId,
-      team: p.team,
-      name: p.name,
-      number: p.number
-    });
-    savePlayerChanges(changes);
+  if (p.custom) {
+    if (!changes.hiddenCustomPlayers.includes(id)) changes.hiddenCustomPlayers.push(id);
+  } else if (!changes.hiddenPlayers.some(item => item.id === id)) {
+    changes.hiddenPlayers.push({ id, season: p.season || currentSeasonId, team: p.team, name: p.name, number: p.number });
   }
+  savePlayerChanges(changes);
 }
 
 function restoreHiddenPlayer(id) {
@@ -1500,6 +1515,91 @@ function openPlayerChangesModal() {
 
 function closePlayerChangesModal() {
   playerChangesModal?.classList.add('hidden');
+}
+
+function looksLikePlayerLine(line) {
+  return /^-?\s*.+\s*,\s*\d+\s*$/.test(line);
+}
+
+function getTeamDisplayName(teamId) {
+  const changes = loadPlayerChanges();
+  return changes.teamNames?.[teamId] || getTeamNameById(teamId);
+}
+
+function renderTeamEditor() {
+  if (!teamEditorText) return;
+  const team = getStudyTeam();
+  if (!team) { teamEditorText.value = ''; return; }
+  const changes = loadPlayerChanges();
+  const customName = changes.teamNames?.[team] || '';
+  const hiddenOriginalIds = new Set(changes.hiddenPlayers.map(x => x.id));
+  const hiddenCustomIds = new Set(changes.hiddenCustomPlayers || []);
+  const originals = playersAll.filter(p => p.team === team);
+  const custom = changes.customPlayers.filter(p => p.team === team && (!p.season || p.season === currentSeasonId)).map(p => ({...p, custom:true}));
+  const lines = [];
+  if (customName) lines.push(customName);
+  originals.forEach(p => lines.push(`${hiddenOriginalIds.has(playerStorageId(p)) ? '- ' : ''}${p.name},${p.number}`));
+  custom.forEach(p => lines.push(`${hiddenCustomIds.has(playerStorageId(p)) ? '- ' : ''}${p.name},${p.number}`));
+  teamEditorText.value = lines.join('\n');
+}
+
+function saveTeamEditor() {
+  const team = getStudyTeam();
+  if (!team) return;
+  const rawLines = teamEditorText.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const changes = loadPlayerChanges();
+  changes.teamNames ||= {};
+  changes.hiddenCustomPlayers ||= [];
+
+  let lines = rawLines.slice();
+  if (lines.length && !looksLikePlayerLine(lines[0])) {
+    changes.teamNames[team] = lines.shift().replace(/^-\s*/, '').trim();
+  } else {
+    delete changes.teamNames[team];
+  }
+
+  const originals = playersAll.filter(p => p.team === team);
+  const originalByKey = new Map(originals.map(p => [`${p.name.toLocaleLowerCase('sv')}\u0000${p.number}`, p]));
+  const oldCustomOtherTeams = changes.customPlayers.filter(p => p.team !== team || (p.season && p.season !== currentSeasonId));
+  const newCustom = [];
+  const wantedHiddenOriginalIds = new Set();
+  const wantedHiddenCustomIds = new Set();
+
+  for (const line of lines) {
+    const hidden = /^-/.test(line);
+    const clean = line.replace(/^-\s*/, '').trim();
+    const m = clean.match(/^(.+?)\s*,\s*(\d+)$/);
+    if (!m) continue;
+    const name = m[1].trim();
+    const number = Number(m[2]);
+    const key = `${name.toLocaleLowerCase('sv')}\u0000${number}`;
+    const original = originalByKey.get(key);
+    if (original) {
+      if (hidden) wantedHiddenOriginalIds.add(playerStorageId(original));
+    } else {
+      const p = { name, number, team, season: currentSeasonId };
+      newCustom.push(p);
+      if (hidden) wantedHiddenCustomIds.add(playerStorageId(p));
+    }
+  }
+
+  changes.hiddenPlayers = changes.hiddenPlayers.filter(item => item.team !== team || item.season !== currentSeasonId || wantedHiddenOriginalIds.has(item.id));
+  originals.forEach(p => {
+    const id = playerStorageId(p);
+    if (wantedHiddenOriginalIds.has(id) && !changes.hiddenPlayers.some(x => x.id === id)) {
+      changes.hiddenPlayers.push({ id, season: currentSeasonId, team, name: p.name, number: p.number });
+    }
+  });
+  changes.customPlayers = oldCustomOtherTeams.concat(newCustom);
+  changes.hiddenCustomPlayers = (changes.hiddenCustomPlayers || []).filter(id => {
+    const p = changes.customPlayers.find(cp => playerStorageId(cp) === id);
+    return p && (p.team !== team || p.season !== currentSeasonId);
+  }).concat([...wantedHiddenCustomIds]);
+
+  savePlayerChanges(changes);
+  renderStudyList();
+  renderTeamEditor();
+  updateMixedCounters();
 }
 
 function buildPlayerList(){
@@ -1777,7 +1877,8 @@ function populateStudyTeams(leagueKey) {
 
   studyTeamSelectWrapper.style.display = "block";
   
-  renderStudyList(); 
+  renderStudyList();
+  renderTeamEditor(); 
 }
 
 // ÅTERINFÖRD: Funktion för att bygga "Blandat"-väljarens HTML (Nya Steg 2C)
@@ -1967,7 +2068,7 @@ function resetGameForNewRun(){
 
 function renderStudyList() {
   const team = getStudyTeam();
-  const list = playersAll.filter(p => p.team === team);
+  const list = getEffectivePlayers().filter(p => p.team === team);
   if (!team || list.length === 0){
     studyListEl.innerHTML = '<p class="muted">Välj ett lag för att se spelare.</p>';
     return;
@@ -1979,8 +2080,6 @@ function renderStudyList() {
   }
   const frag = document.createDocumentFragment();
   list.forEach(p => {
-    if (isPlayerHidden(p)) return;
-
     const row = document.createElement('div');
     row.className = 'study-row';
     const name = document.createElement('div');
@@ -1996,13 +2095,14 @@ function renderStudyList() {
     const hideBtn = document.createElement('button');
     hideBtn.type = 'button';
     hideBtn.className = 'study-hide-player';
-    hideBtn.textContent = '×';
+    hideBtn.textContent = 'Dölj';
     hideBtn.title = `Dölj ${p.name}`;
     hideBtn.setAttribute('aria-label', `Dölj ${p.name}`);
     hideBtn.addEventListener('click', () => {
       hidePlayer(p);
       renderStudyList();
       updateMixedCounters();
+      renderTeamEditor();
     });
 
     actions.append(num, hideBtn);
@@ -2119,6 +2219,7 @@ studyBtn.addEventListener("click", () => {
     showScreen(screenStudy);
     currentSortMode = 'name'; // Återställ alltid till namn-sortering
     renderStudyList();      // Rendera listan baserat på de nya valen
+    renderTeamEditor();
     updateSortButtons();    // Se till att knapparna matchar
     
 } else {
@@ -2140,7 +2241,10 @@ studyTeamSelect.addEventListener('change', () => {
 
   // Befintlig logik:
   renderStudyList();
+  renderTeamEditor();
 });
+
+saveTeamEditorBtn?.addEventListener('click', saveTeamEditor);
 
 // NY LYSSNARE: Uppdatera minnet när användaren byter lag på startskärmen
 teamSelect.addEventListener('change', () => {
