@@ -771,7 +771,7 @@ input[type="checkbox"] {
       <textarea id="teamEditorText" spellcheck="false" aria-describedby="teamEditorHelp"></textarea>
       <div class="team-editor-actions">
         <button id="saveTeamEditorBtn" type="button">Spara lag</button>
-        <span id="teamEditorHelp" class="team-editor-note">En spelare per rad: Namn,värde. Sätt - framför en rad för att dölja spelaren. Första raden kan vara ett eget lagnamn. Spelare från den ordinarie truppen visas först; egna tillagda spelare läggs längst ner.</span>
+        <span id="teamEditorHelp" class="team-editor-note">En spelare per rad: Namn,värde. Sätt - framför en rad för att dölja spelaren. Första raden kan vara ett eget lagnamn. Spelare från den ordinarie truppen visas först; egna tillagda spelare läggs längst ner. Om du raderar en ordinarie spelarrad döljs spelaren och raden kommer tillbaka med - nästa gång. Raderar du en egen tillagd spelarrad tas den bort helt. Om du tömmer listan döljs därför alla ordinarie spelare medan de egna tas bort. Du kan återställa allt via Ändringar → Återställ alla.</span>
       </div>
     </div>
 
@@ -1611,8 +1611,16 @@ function saveTeamEditor() {
   const norm=x=>String(x).trim().toLocaleLowerCase('sv');
   for(const p of originals){
     const match=parsedRows.find(r=>!r.used && norm(r.name)===norm(p.name) && norm(r.number)===norm(p.number));
-    if(match){ match.used=true; if(match.hidden) wantedHiddenOriginalIds.add(playerStorageId(p)); }
-    else wantedHiddenOriginalIds.add(playerStorageId(p));
+    if(match){
+      match.used=true;
+      if(match.hidden) wantedHiddenOriginalIds.add(playerStorageId(p));
+    } else {
+      // Om en rad med samma namn finns kvar men värdet har ändrats
+      // (t.ex. 16 -> 16A), behandlas den ändrade raden som en egen
+      // tillagd variant. Originalspelaren ska då INTE döljas.
+      const sameNameVariant = parsedRows.some(r => !r.used && norm(r.name) === norm(p.name));
+      if(!sameNameVariant) wantedHiddenOriginalIds.add(playerStorageId(p));
+    }
   }
   changes.hiddenPlayers=changes.hiddenPlayers.filter(item=>item.team!==team || item.season!==currentSeasonId);
   originals.forEach(p=>{ const id=playerStorageId(p); if(wantedHiddenOriginalIds.has(id)) changes.hiddenPlayers.push({id,season:currentSeasonId,team,name:p.name,number:p.number}); });
