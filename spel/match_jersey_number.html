@@ -567,6 +567,7 @@ input[type="checkbox"] {
 .study-hide-player:hover{background:#2a3447; color:#fff;}
 .study-hide-player{font-size:13px; min-width:auto; padding:6px 9px;}
 .team-editor{margin:10px 0 14px; padding:12px; border:1px solid #1b2647; border-radius:10px; background:#0f172a;}
+.team-editor-toggle[aria-expanded="true"]{background:#1e3a8a; border-color:#3b82f6; color:#fff;}
 .team-editor textarea{width:100%; min-height:150px; box-sizing:border-box; resize:vertical; padding:10px 12px; background:#0b1220; color:var(--text); border:1px solid #2a3343; border-radius:9px; font:14px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;}
 .team-editor-actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;}
 .team-editor-note{font-size:13px; color:var(--muted);}
@@ -759,6 +760,7 @@ input[type="checkbox"] {
 <div class="study-actions" style="display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 12px;">
   <button id="sortByNameBtn">Bokstavsordning</button>
   <button id="sortByNumberBtn">Nummerordning</button>
+  <button id="toggleTeamEditorBtn" class="team-editor-toggle" type="button" aria-expanded="false" aria-controls="teamEditorPanel">Redigera lag</button>
   <button id="studyChangesBtn" class="study-changes-btn" type="button">Ändringar</button>
   <span id="studyChangesNote" class="study-changes-note hidden"></span>
 
@@ -766,7 +768,7 @@ input[type="checkbox"] {
 
 </div>
 
-    <div class="team-editor">
+    <div id="teamEditorPanel" class="team-editor hidden">
       <label for="teamEditorText" style="display:block;font-weight:700;margin-bottom:7px;">Redigera lag</label>
       <textarea id="teamEditorText" spellcheck="false" aria-describedby="teamEditorHelp"></textarea>
       <div class="team-editor-actions">
@@ -1306,6 +1308,8 @@ const restoreAllPlayersBtn = $("#restoreAllPlayersBtn");
 const studyListEl  = $("#studyList");
 const teamEditorText = $("#teamEditorText");
 const saveTeamEditorBtn = $("#saveTeamEditorBtn");
+const toggleTeamEditorBtn = $("#toggleTeamEditorBtn");
+const teamEditorPanel = $("#teamEditorPanel");
 const startBtn     = $("#startBtn");
 const backToStart  = $("#backToStart");
 const playAgainBtn = $("#playAgain");
@@ -1495,7 +1499,23 @@ function updateStudyChangesIndicator() {
   });
 }
 
+function refreshTeamDisplayNames() {
+  // Uppdatera bara visningstext. team_id och alla interna värden lämnas orörda.
+  [teamSelect, studyTeamSelect].forEach(select => {
+    if (!select) return;
+    [...select.options].forEach(option => {
+      if (option.value) option.textContent = getTeamNameById(option.value);
+    });
+  });
+
+  document.querySelectorAll('#leagueCheckboxList input.team-checkbox').forEach(cb => {
+    const label = document.querySelector(`label[for="${CSS.escape(cb.id)}"]`);
+    if (label) label.textContent = getTeamNameById(cb.value);
+  });
+}
+
 function refreshAfterLocalChange() {
+  refreshTeamDisplayNames();
   renderStudyList();
   renderTeamEditor();
   updateMixedCounters();
@@ -1632,7 +1652,20 @@ function saveTeamEditor() {
   changes.customPlayers=oldOther.concat(newCustom);
   changes.hiddenCustomPlayers=(changes.hiddenCustomPlayers||[]).filter(id=>!oldTeamCustomIds.has(id)).concat([...wantedHiddenCustomIds]);
   savePlayerChanges(changes); refreshAfterLocalChange();
+  setTeamEditorOpen(false);
 }
+
+function setTeamEditorOpen(open) {
+  if (!teamEditorPanel || !toggleTeamEditorBtn) return;
+  teamEditorPanel.classList.toggle('hidden', !open);
+  toggleTeamEditorBtn.setAttribute('aria-expanded', String(open));
+  toggleTeamEditorBtn.textContent = open ? 'Stäng redigering' : 'Redigera lag';
+  if (open) renderTeamEditor();
+}
+
+toggleTeamEditorBtn?.addEventListener('click', () => {
+  setTeamEditorOpen(teamEditorPanel?.classList.contains('hidden'));
+});
 
 studyChangesBtn?.addEventListener('click', openPlayerChangesModal);
 startChangesBtn?.addEventListener('click', openPlayerChangesModal);
@@ -2508,7 +2541,8 @@ function returnToStartScreen() {
   // 4. Om vi ÄR i "Blandat"-läget, gör ingenting med valen.
   //    Vi bara visar skärmen.
 
-  // 5. Visa startskärmen
+  // 5. Stäng eventuell öppen lagredigering och visa startskärmen
+  setTeamEditorOpen(false);
   showScreen(screenStart);
 }
 // SLUT PÅ NY FUNKTION
