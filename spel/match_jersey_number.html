@@ -343,8 +343,7 @@ select.team-select-dropdown {
 }
 /* Ta bort pilarna i Firefox */
 .mixed-input-number[type=number] {
-    appearance: textfield;
-    -moz-appearance: textfield;
+  -moz-appearance: textfield;
 }
 .mixed-section-toggle {
   display: flex;
@@ -586,6 +585,7 @@ input[type="checkbox"] {
 }
 .player-changes-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
 .player-changes-head h3{margin:0; font-size:19px;}
+.player-changes-head-actions{display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap;}
 .player-changes-list{display:flex; flex-direction:column; gap:8px;}
 .player-change-row{
   display:flex; justify-content:space-between; align-items:center; gap:12px;
@@ -771,7 +771,7 @@ input[type="checkbox"] {
       <textarea id="teamEditorText" spellcheck="false" aria-describedby="teamEditorHelp"></textarea>
       <div class="team-editor-actions">
         <button id="saveTeamEditorBtn" type="button">Spara lag</button>
-        <span id="teamEditorHelp" class="team-editor-note">En spelare per rad: Namn,värde. Sätt - framför en rad för att dölja spelaren. Första raden kan vara ett eget lagnamn.</span>
+        <span id="teamEditorHelp" class="team-editor-note">En spelare per rad: Namn,värde. Sätt - framför en rad för att dölja spelaren. Första raden kan vara ett eget lagnamn. Spelare från den ordinarie truppen visas först; egna tillagda spelare läggs längst ner.</span>
       </div>
     </div>
 
@@ -787,13 +787,13 @@ input[type="checkbox"] {
   <div class="player-changes-dialog">
     <div class="player-changes-head">
       <h3 id="playerChangesTitle">Dolda spelare</h3>
-      <button id="closePlayerChanges" type="button">Stäng</button>
+      <div class="player-changes-head-actions">
+        <button id="restoreAllPlayersBtn" type="button" class="hidden">Återställ alla</button>
+        <button id="closePlayerChanges" type="button">Stäng</button>
+      </div>
     </div>
     <p class="muted" style="margin-top:0;">Dolda spelare tas inte med när du pluggar eller spelar. Inställningen sparas bara i den här webbläsaren.</p>
     <div id="playerChangesList" class="player-changes-list"></div>
-    <div class="player-changes-footer">
-      <button id="restoreAllPlayersBtn" type="button" class="hidden">Återställ alla</button>
-    </div>
   </div>
 </div>
 
@@ -1588,6 +1588,24 @@ function saveTeamEditor() {
 
   const parsedRows=[];
   for(const row of rows){ const parsed=parseRosterPlayerLine(row.text); if(!parsed){ alert(`Kan inte tolka rad ${row.line}: ${row.text}\n\nAnvänd formen Namn,värde.`); return; } parsedRows.push({...parsed, used:false}); }
+
+  // Dubbletter är tillåtna och fungerar som extra "lotter" i urvalet,
+  // men vi varnar så att de inte råkar skapas av misstag. Endast aktiva
+  // rader räknas här; flera dolda kopior påverkar ändå inte spelet.
+  const duplicateMap = new Map();
+  parsedRows.filter(r => !r.hidden).forEach(r => {
+    const key = `${r.name.trim().toLocaleLowerCase('sv')}\u0000${String(r.number).trim().toLocaleLowerCase('sv')}`;
+    const item = duplicateMap.get(key) || { name: r.name, number: r.number, count: 0 };
+    item.count += 1;
+    duplicateMap.set(key, item);
+  });
+  const duplicates = [...duplicateMap.values()].filter(item => item.count > 1);
+  if (duplicates.length) {
+    const details = duplicates.map(item => `${item.name},${item.number} förekommer ${item.count} gånger`).join('\n');
+    const ok = confirm(`Det finns identiska aktiva rader:\n\n${details}\n\nDubbletter är tillåtna och gör att spelaren/värdet kan förekomma oftare i spelet. Vill du spara ändå?`);
+    if (!ok) return;
+  }
+
   const originals=playersAll.filter(p=>p.team===team);
   const wantedHiddenOriginalIds=new Set();
   const norm=x=>String(x).trim().toLocaleLowerCase('sv');
@@ -2083,6 +2101,11 @@ function resetGameForNewRun(){
 }
 
 
+function formatPlayerValue(value) {
+  const text = String(value ?? '').trim();
+  return /^\d+$/.test(text) ? '#' + text : text;
+}
+
 function renderStudyList() {
   const team = getStudyTeam();
   const list = getEffectivePlayers().filter(p => p.team === team);
@@ -2114,7 +2137,7 @@ function renderStudyList() {
     }
     const num = document.createElement('div');
     num.className = 'study-num';
-    num.textContent = '#' + p.number;
+    num.textContent = formatPlayerValue(p.number);
 
     const hideBtn = document.createElement('button');
     hideBtn.type = 'button';
@@ -2354,7 +2377,7 @@ function nextRound(){
     isCorrect = (val) => currentList.some(pl => pl.name === p.name && pl.number === val);
   } else {
     // Nummer ? Namn: acceptera alla namn som förekommer för detta nummer i currentList
-    nameEl.textContent = "#" + p.number;
+    nameEl.textContent = formatPlayerValue(p.number);
     hintEl.textContent = "Klicka på rätt namn innan tiden tar slut";
     opts = makeOptions(p.name);
     isCorrect = (val) => currentList.some(pl => pl.number === p.number && pl.name === val);
