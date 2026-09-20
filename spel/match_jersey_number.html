@@ -595,6 +595,11 @@ input[type="checkbox"] {
 .player-change-main{min-width:0;}
 .player-change-name{font-weight:700;}
 .player-change-meta{font-size:13px; color:var(--muted); margin-top:2px;}
+.player-change-team-link{
+  color:#93c5fd; text-decoration:underline; text-underline-offset:2px; cursor:pointer;
+  background:none; border:0; border-radius:0; padding:0; font:inherit; font-weight:600;
+}
+.player-change-team-link:hover{color:#bfdbfe; background:none;}
 .player-change-row button{flex-shrink:0; padding:7px 10px;}
 .player-changes-footer{display:flex; justify-content:flex-end; margin-top:14px; padding-top:12px; border-top:1px solid #2a3343;}
 .player-changes-footer .hidden{display:none;}
@@ -788,13 +793,13 @@ input[type="checkbox"] {
 <div id="playerChangesModal" class="player-changes-modal hidden" role="dialog" aria-modal="true" aria-labelledby="playerChangesTitle">
   <div class="player-changes-dialog">
     <div class="player-changes-head">
-      <h3 id="playerChangesTitle">Dolda spelare</h3>
+      <h3 id="playerChangesTitle">Dolda och tillagda spelare</h3>
       <div class="player-changes-head-actions">
         <button id="restoreAllPlayersBtn" type="button" class="hidden">Återställ alla</button>
         <button id="closePlayerChanges" type="button">Stäng</button>
       </div>
     </div>
-    <p class="muted" style="margin-top:0;">Dolda spelare tas inte med när du pluggar eller spelar. Inställningen sparas bara i den här webbläsaren.</p>
+    <p class="muted" style="margin-top:0;">Här visas dolda och tillagda spelare samt ändrade lagnamn. Dolda spelare tas inte med när du pluggar eller spelar. Ändringarna sparas bara i den här webbläsaren.</p>
     <div id="playerChangesList" class="player-changes-list"></div>
   </div>
 </div>
@@ -1521,6 +1526,14 @@ function refreshAfterLocalChange() {
   updateMixedCounters();
 }
 
+function refreshOrClosePlayerChangesModal() {
+  if (getCurrentSeasonChangeCount() === 0) {
+    closePlayerChangesModal();
+  } else {
+    renderPlayerChangesModal();
+  }
+}
+
 function renderPlayerChangesModal() {
   if (!playerChangesList) return;
   const changes = loadPlayerChanges();
@@ -1535,30 +1548,57 @@ function renderPlayerChangesModal() {
     playerChangesList.innerHTML = '<p class="muted">Du har inga lokala ändringar den här säsongen.</p>';
     return;
   }
-  const addRow = (title, metaText, buttons) => {
+  const addRow = (title, teamId, statusText, buttons, teamLabel = null) => {
     const row = document.createElement('div'); row.className = 'player-change-row';
     const main = document.createElement('div'); main.className = 'player-change-main';
     const name = document.createElement('div'); name.className = 'player-change-name'; name.textContent = title;
-    const meta = document.createElement('div'); meta.className = 'player-change-meta'; meta.textContent = metaText;
+    const meta = document.createElement('div'); meta.className = 'player-change-meta';
+    const teamLink = document.createElement('button');
+    teamLink.type = 'button';
+    teamLink.className = 'player-change-team-link';
+    teamLink.textContent = teamLabel || getTeamNameById(teamId);
+    teamLink.title = `Gå till ${teamLink.textContent}`;
+    teamLink.addEventListener('click', () => goToStudyTeam(teamId));
+    meta.append(teamLink, document.createTextNode(` · ${statusText}`));
     main.append(name, meta); row.append(main, ...buttons); playerChangesList.appendChild(row);
   };
   hidden.slice().sort((a,b)=>(getTeamNameById(a.team)+a.name).localeCompare(getTeamNameById(b.team)+b.name,'sv')).forEach(item => {
     const b=document.createElement('button'); b.type='button'; b.textContent='Återställ';
-    b.onclick=()=>{restoreHiddenPlayer(item.id); refreshAfterLocalChange(); renderPlayerChangesModal();};
-    addRow(`${item.name}  ${item.number}`, `${getTeamNameById(item.team)} · Dold`, [b]);
+    b.onclick=()=>{restoreHiddenPlayer(item.id); refreshAfterLocalChange(); refreshOrClosePlayerChangesModal();};
+    addRow(`${item.name}  ${item.number}`, item.team, 'Dold', [b]);
   });
   custom.slice().sort((a,b)=>(getTeamNameById(a.team)+a.name).localeCompare(getTeamNameById(b.team)+b.name,'sv')).forEach(p => {
     const id=playerStorageId(p), isHidden=hiddenCustomIds.has(id), buttons=[];
-    if(isHidden){ const r=document.createElement('button'); r.type='button'; r.textContent='Återställ'; r.onclick=()=>{restoreHiddenPlayer(id); refreshAfterLocalChange(); renderPlayerChangesModal();}; buttons.push(r); }
-    const d=document.createElement('button'); d.type='button'; d.textContent='Radera'; d.onclick=()=>{deleteCustomPlayer(id); refreshAfterLocalChange(); renderPlayerChangesModal();}; buttons.push(d);
-    addRow(`${p.name}  ${p.number}`, `${getTeamNameById(p.team)} · Tillagd${isHidden ? ' · Dold' : ''}`, buttons);
+    if(isHidden){ const r=document.createElement('button'); r.type='button'; r.textContent='Återställ'; r.onclick=()=>{restoreHiddenPlayer(id); refreshAfterLocalChange(); refreshOrClosePlayerChangesModal();}; buttons.push(r); }
+    const d=document.createElement('button'); d.type='button'; d.textContent='Radera'; d.onclick=()=>{deleteCustomPlayer(id); refreshAfterLocalChange(); refreshOrClosePlayerChangesModal();}; buttons.push(d);
+    addRow(`${p.name}  ${p.number}`, p.team, `Tillagd${isHidden ? ' · Dold' : ''}`, buttons);
   });
   nameChanges.forEach(([key,value])=>{
     const team=key.split('\u0000').slice(1).join('\u0000');
     const b=document.createElement('button'); b.type='button'; b.textContent='Återställ';
-    b.onclick=()=>{ const c=loadPlayerChanges(); delete c.teamNames[key]; savePlayerChanges(c); refreshAfterLocalChange(); renderPlayerChangesModal(); };
-    addRow(value, `${getOriginalTeamNameById(team)} · Ändrat lagnamn`, [b]);
+    b.onclick=()=>{ const c=loadPlayerChanges(); delete c.teamNames[key]; savePlayerChanges(c); refreshAfterLocalChange(); refreshOrClosePlayerChangesModal(); };
+    addRow(value, team, 'Ändrat lagnamn', [b], getOriginalTeamNameById(team));
   });
+}
+
+function goToStudyTeam(teamId) {
+  const league = teamIdToLeagueMap.get(teamId);
+  if (!league) return;
+
+  lastSingleTeamSelection.league = league;
+  lastSingleTeamSelection.teamId = teamId;
+
+  const leagueRadio = document.getElementById(`studyLeague_${league}`);
+  if (leagueRadio) leagueRadio.checked = true;
+
+  populateStudyTeams(league);
+  studyTeamSelect.value = teamId;
+  renderStudyList();
+  setTeamEditorOpen(false);
+  closePlayerChangesModal();
+  showScreen(screenStudy);
+  currentSortMode = 'name';
+  updateSortButtons();
 }
 
 function openPlayerChangesModal() { renderPlayerChangesModal(); playerChangesModal?.classList.remove('hidden'); }
