@@ -1577,7 +1577,20 @@ function renderPlayerChangesModal() {
     const team=key.split('\u0000').slice(1).join('\u0000');
     const b=document.createElement('button'); b.type='button'; b.textContent='Återställ';
     b.onclick=()=>{ const c=loadPlayerChanges(); delete c.teamNames[key]; savePlayerChanges(c); refreshAfterLocalChange(); refreshOrClosePlayerChangesModal(); };
-    addRow(value, team, 'Ändrat lagnamn', [b], getOriginalTeamNameById(team));
+
+    const row = document.createElement('div'); row.className = 'player-change-row';
+    const main = document.createElement('div'); main.className = 'player-change-main';
+    const teamLink = document.createElement('button');
+    teamLink.type = 'button';
+    teamLink.className = 'player-change-team-link player-change-name';
+    teamLink.textContent = value;
+    teamLink.title = `Gå till ${value}`;
+    teamLink.addEventListener('click', () => goToStudyTeam(team));
+    const meta = document.createElement('div'); meta.className = 'player-change-meta';
+    meta.textContent = `Ändrat från ${getOriginalTeamNameById(team)}`;
+    main.append(teamLink, meta);
+    row.append(main, b);
+    playerChangesList.appendChild(row);
   });
 }
 
