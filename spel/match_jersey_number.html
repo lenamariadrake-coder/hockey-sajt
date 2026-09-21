@@ -697,10 +697,10 @@ input[type="checkbox"] {
   <legend>Utgå från</legend>
   <div class="radio-row">
     <input type="radio" id="modeName" name="mode" value="name" checked>
-    <label for="modeName">Namn &rarr; välj nummer</label>
+    <label id="modeNameLabel" for="modeName">Namn &rarr; välj nummer</label>
 
     <input type="radio" id="modeNumber" name="mode" value="number">
-    <label for="modeNumber">Nummer &rarr; välj namn</label>
+    <label id="modeNumberLabel" for="modeNumber">Nummer &rarr; välj namn</label>
   </div>
 </fieldset>
 
@@ -741,7 +741,7 @@ input[type="checkbox"] {
       <p id="resMsg" class="muted">-</p>
       <div class="summary">
         <span class="pill">Tid: <span id="resTime" class="big">00.000 s</span></span>
-        <span class="pill">Spelare: <span id="resCount" class="big">0</span></span>
+        <span class="pill"><span id="resCountLabel">Spelare</span>: <span id="resCount" class="big">0</span></span>
       </div>
 <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap">
         <button id="playAgain">Spela igen</button>
@@ -752,7 +752,7 @@ input[type="checkbox"] {
 
 <section id="screenStudy" class="screen">
   <div class="study">
-    <h2 style="margin:0 0 10px 0; font-size:20px;">Plugga spelare</h2>
+    <h2 id="studyHeading" style="margin:0 0 10px 0; font-size:20px;">Plugga spelare</h2>
 
     <fieldset>
       <legend>Välj liga</legend>
@@ -768,8 +768,8 @@ input[type="checkbox"] {
 
 
 <div class="study-actions" style="display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 12px;">
-  <button id="sortByNameBtn">Bokstavsordning</button>
-  <button id="sortByNumberBtn">Nummerordning</button>
+  <button id="sortByNameBtn">Kolumn 1</button>
+  <button id="sortByNumberBtn">Kolumn 2</button>
   <button id="toggleTeamEditorBtn" class="team-editor-toggle" type="button" aria-expanded="false" aria-controls="teamEditorPanel">Redigera lag</button>
   <button id="studyChangesBtn" class="study-changes-btn" type="button">Ändringar</button>
   <span id="studyChangesNote" class="study-changes-note hidden"></span>
@@ -779,11 +779,11 @@ input[type="checkbox"] {
 </div>
 
     <div id="teamEditorPanel" class="team-editor hidden">
-      <label for="teamEditorText" style="display:block;font-weight:700;margin-bottom:7px;">Redigera lag</label>
+      <label id="teamEditorLabel" for="teamEditorText" style="display:block;font-weight:700;margin-bottom:7px;">Redigera lag</label>
       <textarea id="teamEditorText" spellcheck="false" aria-describedby="teamEditorHelp"></textarea>
       <div class="team-editor-actions">
         <button id="saveTeamEditorBtn" type="button">Spara lag</button>
-        <span id="teamEditorHelp" class="team-editor-note">En spelare per rad: Namn,värde. Sätt - framför en rad för att dölja spelaren. Första raden kan vara ett eget lagnamn. Spelare från den ordinarie truppen visas först; egna tillagda spelare läggs längst ner. Om du raderar en ordinarie spelarrad döljs spelaren och raden kommer tillbaka med - nästa gång. Raderar du en egen tillagd spelarrad tas den bort helt. Om du tömmer listan döljs därför alla ordinarie spelare medan de egna tas bort. Du kan återställa allt via Ändringar → Återställ alla.</span>
+        <span id="teamEditorHelp" class="team-editor-note">En spelare per rad: Namn,värde. Sätt - framför en rad för att dölja spelaren. Första raden kan vara ett eget lagnamn. Spelare från den ordinarie truppen visas först; egna tillagda spelare läggs längst ner. Om du raderar en ordinarie spelarrad döljs spelaren och raden kommer tillbaka med - nästa gång. Raderar du en egen tillagd spelarrad tas den bort helt. Om du tömmer listan döljs därför alla ordinarie spelare medan de egna tas bort. Du kan återställa allt via Ändringar → Återställ och radera allt.</span>
       </div>
     </div>
 
@@ -800,7 +800,7 @@ input[type="checkbox"] {
     <div class="player-changes-head">
       <h3 id="playerChangesTitle">Dolda och tillagda spelare</h3>
       <div class="player-changes-head-actions">
-        <button id="restoreAllPlayersBtn" type="button" class="hidden">Återställ alla</button>
+        <button id="restoreAllPlayersBtn" type="button" class="hidden">Återställ och radera allt</button>
         <button id="closePlayerChanges" type="button">Stäng</button>
       </div>
     </div>
@@ -1336,6 +1336,12 @@ const resTitle  = $("#resTitle");
 const resMsg    = $("#resMsg");
 const resTime   = $("#resTime");
 const resCount  = $("#resCount");
+const resCountLabel = $("#resCountLabel");
+const modeNameLabel = $("#modeNameLabel");
+const modeNumberLabel = $("#modeNumberLabel");
+const studyHeading = $("#studyHeading");
+const teamEditorLabel = $("#teamEditorLabel");
+const teamEditorHelp = $("#teamEditorHelp");
 
 const leagueSelection       = $("#leagueSelection");
 const teamSelectWrapper     = $("#teamSelectWrapper");
@@ -1622,7 +1628,7 @@ function goToStudyTeam(teamId) {
     if (radio) radio.checked = true;
     studyTeamSelectWrapper.style.display = 'none';
     renderStudyList(); renderTeamEditor(); setTeamEditorOpen(false); closePlayerChangesModal(); showScreen(screenStudy);
-    currentSortMode = 'name'; updateSortButtons();
+    currentSortMode = 'name'; updateSortButtons(); updateContextLabels();
     return;
   }
   const league = teamIdToLeagueMap.get(teamId);
@@ -1642,6 +1648,7 @@ function goToStudyTeam(teamId) {
   showScreen(screenStudy);
   currentSortMode = 'name';
   updateSortButtons();
+  updateContextLabels();
 }
 
 function openPlayerChangesModal() { renderPlayerChangesModal(); playerChangesModal?.classList.remove('hidden'); }
@@ -1690,7 +1697,7 @@ function saveTeamEditor() {
   } else delete changes.teamNames[nameKey];
 
   const parsedRows=[];
-  for(const row of rows){ const parsed=parseRosterPlayerLine(row.text); if(!parsed){ alert(`Kan inte tolka rad ${row.line}: ${row.text}\n\nAnvänd formen Namn,värde.`); return; } parsedRows.push({...parsed, used:false}); }
+  for(const row of rows){ const parsed=parseRosterPlayerLine(row.text); if(!parsed){ alert(`Kan inte tolka rad ${row.line}: ${row.text}\n\nAnvänd formen ${team === CUSTOM_LIST_TEAM_ID ? 'kolumn 1,kolumn 2' : 'Namn,värde'}.`); return; } parsedRows.push({...parsed, used:false}); }
 
   // Dubbletter är tillåtna och fungerar som extra "lotter" i urvalet,
   // men vi varnar så att de inte råkar skapas av misstag. Endast aktiva
@@ -1705,7 +1712,7 @@ function saveTeamEditor() {
   const duplicates = [...duplicateMap.values()].filter(item => item.count > 1);
   if (duplicates.length) {
     const details = duplicates.map(item => `${item.name},${item.number} förekommer ${item.count} gånger`).join('\n');
-    const ok = confirm(`Det finns identiska aktiva rader:\n\n${details}\n\nDubbletter är tillåtna och gör att spelaren/värdet kan förekomma oftare i spelet. Vill du spara ändå?`);
+    const ok = confirm(`Det finns identiska aktiva rader:\n\n${details}\n\nDubbletter är tillåtna och gör att ${team === CUSTOM_LIST_TEAM_ID ? 'raden' : 'spelaren/värdet'} kan förekomma oftare i spelet. Vill du spara ändå?`);
     if (!ok) return;
   }
 
@@ -1757,12 +1764,42 @@ function saveTeamEditor() {
   setTeamEditorOpen(false);
 }
 
+function isCustomListContext() {
+  if (screenStudy?.classList.contains('active')) {
+    return document.querySelector('input[name="studyLeague"]:checked')?.value === CUSTOM_LIST_MODE;
+  }
+  if (screenPlay?.classList.contains('active') || screenResult?.classList.contains('active')) {
+    return activeGameSummary.type === 'Egen lista';
+  }
+  return getSelected('gameMode') === CUSTOM_LIST_MODE;
+}
+
+function updateContextLabels() {
+  const custom = isCustomListContext();
+  if (modeNameLabel) modeNameLabel.innerHTML = custom ? 'Kolumn 1 &rarr; välj kolumn 2' : 'Namn &rarr; välj nummer';
+  if (modeNumberLabel) modeNumberLabel.innerHTML = custom ? 'Kolumn 2 &rarr; välj kolumn 1' : 'Nummer &rarr; välj namn';
+  if (studyHeading) studyHeading.textContent = custom ? 'Plugga lista' : 'Plugga spelare';
+  if (teamEditorLabel) teamEditorLabel.textContent = custom ? 'Redigera lista' : 'Redigera lag';
+  if (saveTeamEditorBtn) saveTeamEditorBtn.textContent = custom ? 'Spara lista' : 'Spara lag';
+  if (toggleTeamEditorBtn) {
+    const open = !teamEditorPanel?.classList.contains('hidden');
+    toggleTeamEditorBtn.textContent = open ? 'Stäng redigering' : (custom ? 'Redigera lista' : 'Redigera lag');
+  }
+  if (teamEditorHelp) {
+    teamEditorHelp.textContent = custom
+      ? 'En rad per post: kolumn 1,kolumn 2. Sätt - framför en rad för att dölja den. Första raden kan vara ett eget namn på listan. Egna rader kan raderas helt. Du kan återställa och radera alla lokala ändringar via Ändringar → Återställ och radera allt.'
+      : 'En spelare per rad: Namn,värde. Sätt - framför en rad för att dölja spelaren. Första raden kan vara ett eget lagnamn. Spelare från den ordinarie truppen visas först; egna tillagda spelare läggs längst ner. Om du raderar en ordinarie spelarrad döljs spelaren och raden kommer tillbaka med - nästa gång. Raderar du en egen tillagd spelarrad tas den bort helt. Om du tömmer listan döljs därför alla ordinarie spelare medan de egna tas bort. Du kan återställa allt via Ändringar → Återställ och radera allt.';
+  }
+  if (resCountLabel) resCountLabel.textContent = custom ? 'Rader' : 'Spelare';
+}
+
 function setTeamEditorOpen(open) {
   if (!teamEditorPanel || !toggleTeamEditorBtn) return;
   teamEditorPanel.classList.toggle('hidden', !open);
   toggleTeamEditorBtn.setAttribute('aria-expanded', String(open));
-  toggleTeamEditorBtn.textContent = open ? 'Stäng redigering' : 'Redigera lag';
+  toggleTeamEditorBtn.textContent = open ? 'Stäng redigering' : (isCustomListContext() ? 'Redigera lista' : 'Redigera lag');
   if (open) renderTeamEditor();
+  updateContextLabels();
 }
 
 toggleTeamEditorBtn?.addEventListener('click', () => {
@@ -1773,7 +1810,7 @@ studyChangesBtn?.addEventListener('click', openPlayerChangesModal);
 startChangesBtn?.addEventListener('click', openPlayerChangesModal);
 restoreAllPlayersBtn?.addEventListener('click', () => {
   const count=getCurrentSeasonChangeCount(); if(!count) return;
-  if(!confirm(`Återställa alla ${count} lokala ändringar för den här säsongen?`)) return;
+  if(!confirm(`Återställa alla ${count} lokala ändringar för den här säsongen och radera alla egna tillägg, inklusive innehållet i Egen lista?`)) return;
   resetAllChangesForCurrentSeason(); refreshAfterLocalChange(); closePlayerChangesModal();
 });
 closePlayerChangesBtn?.addEventListener('click', closePlayerChangesModal);
@@ -1924,7 +1961,8 @@ function populateLeagues() {
     label.textContent = key;
 
 input.addEventListener("change", () => {
-      console.log("League radio changed:", key); 
+      console.log("League radio changed:", key);
+      updateContextLabels(); 
       
       // Ladda alltid lagen
       populateTeams(key);
@@ -1968,7 +2006,8 @@ if (!firstLeaguePopulated) {
   label.textContent = "Blandat";
 
   input.addEventListener("change", () => {
-    console.log("Mixed radio selected"); 
+    console.log("Mixed radio selected");
+    updateContextLabels(); 
     if (teamSelectWrapper) teamSelectWrapper.style.display = "none";
     if (mixedSettingsWrapper) mixedSettingsWrapper.style.display = "block";
 
@@ -1991,6 +2030,7 @@ if (!firstLeaguePopulated) {
   customLabel.htmlFor = customInput.id;
   customLabel.textContent = getTeamNameById(CUSTOM_LIST_TEAM_ID);
   customInput.addEventListener("change", () => {
+    updateContextLabels();
     if (teamSelectWrapper) teamSelectWrapper.style.display = "none";
     if (mixedSettingsWrapper) mixedSettingsWrapper.style.display = "none";
     startBtn.disabled = getEffectivePlayers().filter(p => p.team === CUSTOM_LIST_TEAM_ID).length === 0;
@@ -2025,6 +2065,7 @@ function populateStudyLeagues() {
     label.textContent = key;
 
 input.addEventListener("change", () => {
+      updateContextLabels();
       // Ladda alltid lagen
       populateStudyTeams(key);
       
@@ -2061,6 +2102,7 @@ if (!firstLeaguePopulated) {
   customLabel.htmlFor = customInput.id;
   customLabel.textContent = getTeamNameById(CUSTOM_LIST_TEAM_ID);
   customInput.addEventListener("change", () => {
+    updateContextLabels();
     studyTeamSelectWrapper.style.display = "none";
     currentSortMode = 'name';
     renderStudyList();
@@ -2233,7 +2275,7 @@ function resetGameForNewRun(){
     // --- Ett lag (oförändrat) ---
     currentList = buildPlayerList(); 
     if (!getActiveSingleTeamId() || currentList.length === 0) {
-      alert(gameMode === CUSTOM_LIST_MODE ? "Din egen lista är tom. Lägg till innehåll i Plugga spelare först." : "Välj ett lag med spelare först.");
+      alert(gameMode === CUSTOM_LIST_MODE ? "Din egen lista är tom. Lägg till innehåll i Plugga lista först." : "Välj ett lag med spelare först.");
       showScreen(screenStart);
       return false;
     }
@@ -2274,7 +2316,7 @@ function renderStudyList() {
   const team = getStudyTeam();
   const list = getEffectivePlayers().filter(p => p.team === team);
   if (!team || list.length === 0){
-    studyListEl.innerHTML = team ? '<p class="muted">Alla spelare i laget är dolda.</p>' : '<p class="muted">Välj ett lag för att se spelare.</p>';
+    studyListEl.innerHTML = team ? (team === CUSTOM_LIST_TEAM_ID ? '<p class="muted">Alla rader i listan är dolda.</p>' : '<p class="muted">Alla spelare i laget är dolda.</p>') : '<p class="muted">Välj ett lag för att se spelare.</p>';
     return;
   }
   if (currentSortMode === 'name') {
@@ -2295,8 +2337,8 @@ function renderStudyList() {
     if (p.custom) {
       const marker = document.createElement('span');
       marker.textContent = '＋';
-      marker.title = 'Egen tillagd spelare';
-      marker.setAttribute('aria-label', 'Egen tillagd spelare');
+      marker.title = team === CUSTOM_LIST_TEAM_ID ? 'Egen tillagd rad' : 'Egen tillagd spelare';
+      marker.setAttribute('aria-label', marker.title);
       actions.appendChild(marker);
     }
     const num = document.createElement('div');
@@ -2436,6 +2478,7 @@ studyBtn.addEventListener("click", () => {
     renderStudyList();      // Rendera listan baserat på de nya valen
     renderTeamEditor();
     updateSortButtons();    // Se till att knapparna matchar
+    updateContextLabels();
     
 } else {
     // NY LOGIK: Använd vår "smarta" tillbaka-funktion
@@ -2654,6 +2697,7 @@ function showResult(success, msg){
   resMsg.textContent = msg || (success ? "" : "Försök igen!");
   resTime.textContent = formatMs(totalElapsed);
   resCount.textContent = String(currentList.length);
+  updateContextLabels();
 
   // NY LOGIK: Visa/dölj "Kopiera"-knappen baserat på om man vann
   const copyBtn = document.getElementById('copyResult');
@@ -2706,6 +2750,7 @@ function returnToStartScreen() {
   // 5. Stäng eventuell öppen lagredigering och visa startskärmen
   setTeamEditorOpen(false);
   showScreen(screenStart);
+  updateContextLabels();
 }
 // SLUT PÅ NY FUNKTION
 
