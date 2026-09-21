@@ -2323,7 +2323,16 @@ function renderStudyList() {
   const team = getStudyTeam();
   const list = getEffectivePlayers().filter(p => p.team === team);
   if (!team || list.length === 0){
-    studyListEl.innerHTML = team ? (team === CUSTOM_LIST_TEAM_ID ? '<p class="muted">Alla rader i listan är dolda.</p>' : '<p class="muted">Alla spelare i laget är dolda.</p>') : '<p class="muted">Välj ett lag för att se spelare.</p>';
+    if (team === CUSTOM_LIST_TEAM_ID) {
+      const hasCustomRows = getCurrentSeasonCustomPlayers().some(p => p.team === CUSTOM_LIST_TEAM_ID);
+      studyListEl.innerHTML = hasCustomRows
+        ? '<p class="muted">Alla rader i listan är dolda.</p>'
+        : '<p class="muted">Listan är tom.</p>';
+    } else {
+      studyListEl.innerHTML = team
+        ? '<p class="muted">Alla spelare i laget är dolda.</p>'
+        : '<p class="muted">Välj ett lag för att se spelare.</p>';
+    }
     return;
   }
   if (currentSortMode === 'name') {
