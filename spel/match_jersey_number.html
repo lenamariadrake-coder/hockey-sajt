@@ -625,7 +625,7 @@ input[type="checkbox"] {
 <div class="wrap">
 
 <div class="topbar">
-  <h1>Hur bra är du på tröjnummer?</h1>
+  <h1 id="mainHeading">Hur bra är du på tröjnummer?</h1>
 <button id="studyBtn" title="Visa spelare och nummer">Plugga spelare</button>
 <div class="top-right">
   <button id="toggleSound" class="tillbakaknapp" type="button"
@@ -1397,7 +1397,7 @@ function showScreen(which){
     studyBtn.textContent = "Tillbaka";
     studyBtn.setAttribute("aria-pressed", "true");
   } else {
-    studyBtn.textContent = "Plugga spelare";
+    studyBtn.textContent = getSelected("gameMode") === CUSTOM_LIST_MODE ? "Plugga lista" : "Plugga spelare";
     studyBtn.setAttribute("aria-pressed", "false");
   }
 }
@@ -1776,6 +1776,12 @@ function isCustomListContext() {
 
 function updateContextLabels() {
   const custom = isCustomListContext();
+  const mainHeading = document.getElementById('mainHeading');
+  if (mainHeading) mainHeading.textContent = custom ? 'Matcha kolumn 1 med kolumn 2' : 'Hur bra är du på tröjnummer?';
+  if (studyBtn && !screenStudy?.classList.contains('active')) {
+    studyBtn.textContent = custom ? 'Plugga lista' : 'Plugga spelare';
+    studyBtn.title = custom ? 'Visa innehållet i listan' : 'Visa spelare och nummer';
+  }
   if (modeNameLabel) modeNameLabel.innerHTML = custom ? 'Kolumn 1 &rarr; välj kolumn 2' : 'Namn &rarr; välj nummer';
   if (modeNumberLabel) modeNumberLabel.innerHTML = custom ? 'Kolumn 2 &rarr; välj kolumn 1' : 'Nummer &rarr; välj namn';
   if (studyHeading) studyHeading.textContent = custom ? 'Plugga lista' : 'Plugga spelare';
