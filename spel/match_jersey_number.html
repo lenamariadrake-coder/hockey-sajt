@@ -1415,8 +1415,17 @@ function savePlayerChanges(changes) {
 }
 
 function playerStorageId(p) {
+  // Tillagda spelare får ett eget id per förekomst. Det gör att två helt
+  // identiska dubbletter fortfarande kan döljas/återställas var för sig.
+  if (p.customId) return ['custom', p.season || currentSeasonId || '', p.team, p.customId].join('\u0000');
   return [p.season || currentSeasonId || '', p.team, p.name, String(p.number)].join('\u0000');
 }
+
+function createCustomPlayerId() {
+  if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
+  return 'cp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+}
+
 
 function isPlayerHidden(p) {
   const id = playerStorageId(p);
@@ -1699,9 +1708,27 @@ function saveTeamEditor() {
   originals.forEach(p=>{ const id=playerStorageId(p); if(wantedHiddenOriginalIds.has(id)) changes.hiddenPlayers.push({id,season:currentSeasonId,team,name:p.name,number:p.number}); });
 
   const oldOther=changes.customPlayers.filter(p=>p.team!==team || (p.season && p.season!==currentSeasonId));
+  const oldTeamCustom=changes.customPlayers.filter(p=>p.team===team && (!p.season || p.season===currentSeasonId));
+  const oldTeamCustomIds=new Set(oldTeamCustom.map(playerStorageId));
+
+  // Behåll identiteten för befintliga tillagda rader så långt det går,
+  // men ge varje NY förekomst ett eget id. Därmed sitter identiska
+  // dubbletter inte längre ihop när en av dem döljs.
+  const reusable = new Map();
+  oldTeamCustom.forEach(p => {
+    const key = `${norm(p.name)}\u0000${norm(p.number)}`;
+    if (!reusable.has(key)) reusable.set(key, []);
+    reusable.get(key).push(p);
+  });
+
   const newCustom=[]; const wantedHiddenCustomIds=new Set();
-  parsedRows.filter(r=>!r.used).forEach(r=>{ const p={name:r.name,number:r.number,team,season:currentSeasonId}; newCustom.push(p); if(r.hidden) wantedHiddenCustomIds.add(playerStorageId(p)); });
-  const oldTeamCustomIds=new Set(changes.customPlayers.filter(p=>p.team===team && (!p.season || p.season===currentSeasonId)).map(playerStorageId));
+  parsedRows.filter(r=>!r.used).forEach(r=>{
+    const key = `${norm(r.name)}\u0000${norm(r.number)}`;
+    const previous = reusable.get(key)?.shift();
+    const p={name:r.name,number:r.number,team,season:currentSeasonId,customId:previous?.customId || createCustomPlayerId()};
+    newCustom.push(p);
+    if(r.hidden) wantedHiddenCustomIds.add(playerStorageId(p));
+  });
   changes.customPlayers=oldOther.concat(newCustom);
   changes.hiddenCustomPlayers=(changes.hiddenCustomPlayers||[]).filter(id=>!oldTeamCustomIds.has(id)).concat([...wantedHiddenCustomIds]);
   savePlayerChanges(changes); refreshAfterLocalChange();
