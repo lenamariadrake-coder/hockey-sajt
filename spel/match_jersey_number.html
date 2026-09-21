@@ -1268,9 +1268,11 @@ const teamIdToLeagueMap = new Map();
  * @returns {string} Lagets namn
  */
 function getOriginalTeamNameById(teamId) {
+  if (teamId === CUSTOM_LIST_TEAM_ID) return 'Egen lista';
   const team = allTeamsFlat.find(t => t.id === teamId);
   return team ? team.name : 'Okänt lag';
 }
+
 function teamNameStorageKey(teamId, season = currentSeasonId) {
   return [season || '', teamId].join('\u0000');
 }
@@ -1398,6 +1400,8 @@ function getSelected(name){ return document.querySelector(`input[name="${name}"]
 
 // --- Personliga spelarändringar: steg 1 (dölj/återställ) ---
 const PLAYER_CHANGES_STORAGE_KEY = 'avbytarnasAvbytarbank.matchJerseyNumber.playerChanges.v1';
+const CUSTOM_LIST_TEAM_ID = '__custom_list__';
+const CUSTOM_LIST_MODE = 'Egen lista';
 
 function loadPlayerChanges() {
   try {
@@ -1531,6 +1535,10 @@ function refreshTeamDisplayNames() {
     const label = document.querySelector(`label[for="${CSS.escape(cb.id)}"]`);
     if (label) label.textContent = getTeamNameById(cb.value);
   });
+  const customStartLabel = document.querySelector('label[for="league_CustomList"]');
+  const customStudyLabel = document.querySelector('label[for="studyLeague_CustomList"]');
+  if (customStartLabel) customStartLabel.textContent = getTeamNameById(CUSTOM_LIST_TEAM_ID);
+  if (customStudyLabel) customStudyLabel.textContent = getTeamNameById(CUSTOM_LIST_TEAM_ID);
 }
 
 function refreshAfterLocalChange() {
@@ -1609,6 +1617,14 @@ function renderPlayerChangesModal() {
 }
 
 function goToStudyTeam(teamId) {
+  if (teamId === CUSTOM_LIST_TEAM_ID) {
+    const radio = document.getElementById('studyLeague_CustomList');
+    if (radio) radio.checked = true;
+    studyTeamSelectWrapper.style.display = 'none';
+    renderStudyList(); renderTeamEditor(); setTeamEditorOpen(false); closePlayerChangesModal(); showScreen(screenStudy);
+    currentSortMode = 'name'; updateSortButtons();
+    return;
+  }
   const league = teamIdToLeagueMap.get(teamId);
   if (!league) return;
 
@@ -1737,6 +1753,7 @@ function saveTeamEditor() {
   changes.customPlayers=oldOther.concat(newCustom);
   changes.hiddenCustomPlayers=(changes.hiddenCustomPlayers||[]).filter(id=>!oldTeamCustomIds.has(id)).concat([...wantedHiddenCustomIds]);
   savePlayerChanges(changes); refreshAfterLocalChange();
+  if (getSelected('gameMode') === CUSTOM_LIST_MODE) startBtn.disabled = getEffectivePlayers().filter(p => p.team === CUSTOM_LIST_TEAM_ID).length === 0;
   setTeamEditorOpen(false);
 }
 
@@ -1763,10 +1780,12 @@ closePlayerChangesBtn?.addEventListener('click', closePlayerChangesModal);
 playerChangesModal?.addEventListener('click', event => { if(event.target===playerChangesModal) closePlayerChangesModal(); });
 document.addEventListener('keydown', event => { if(event.key==='Escape' && !playerChangesModal?.classList.contains('hidden')) closePlayerChangesModal(); });
 
+function getActiveSingleTeamId(){
+  return getSelected('gameMode') === CUSTOM_LIST_MODE ? CUSTOM_LIST_TEAM_ID : teamSelect.value;
+}
+
 function buildPlayerList(){
-  // DENNA FUNKTION KOMMER BEHÖVA BYGGAS OM I STEG 2E
-  // Just nu hanterar den bara "Ett lag"-läget
-  const team = teamSelect.value; 
+  const team = getActiveSingleTeamId();
   return getEffectivePlayers().filter(p => p.team === team);
 }
 function getDifficulty(){
@@ -1779,7 +1798,8 @@ function getMode(){
 }
 
 function getStudyTeam(){
-  return studyTeamSelect.value; 
+  const studyMode = getSelected('studyLeague');
+  return studyMode === CUSTOM_LIST_MODE ? CUSTOM_LIST_TEAM_ID : studyTeamSelect.value;
 }
 
 // --- Blandat: hjälpfunktioner (mikro) ---
@@ -1825,6 +1845,10 @@ function buildMixedPlayerList() {
 // Aktivera/inaktivera startknapp beroende på läge
 function reevaluateStartBtn() {
   const gameMode = getSelected("gameMode");
+  if (gameMode === CUSTOM_LIST_MODE) {
+    startBtn.disabled = getEffectivePlayers().filter(p => p.team === CUSTOM_LIST_TEAM_ID).length === 0;
+    return;
+  }
   if (gameMode !== "Blandat") {
     // Gör ingenting här - originalflödet (populateTeams) styr startBtn i "Ett lag"
     return;
@@ -1956,6 +1980,23 @@ if (!firstLeaguePopulated) {
 
   leagueSelection.appendChild(input);
   leagueSelection.appendChild(label);
+
+  // Egen lista: en lokal, tom lista som fylls helt via lagredigeringen.
+  const customInput = document.createElement("input");
+  customInput.type = "radio";
+  customInput.id = "league_CustomList";
+  customInput.name = "gameMode";
+  customInput.value = CUSTOM_LIST_MODE;
+  const customLabel = document.createElement("label");
+  customLabel.htmlFor = customInput.id;
+  customLabel.textContent = getTeamNameById(CUSTOM_LIST_TEAM_ID);
+  customInput.addEventListener("change", () => {
+    if (teamSelectWrapper) teamSelectWrapper.style.display = "none";
+    if (mixedSettingsWrapper) mixedSettingsWrapper.style.display = "none";
+    startBtn.disabled = getEffectivePlayers().filter(p => p.team === CUSTOM_LIST_TEAM_ID).length === 0;
+  });
+  leagueSelection.appendChild(customInput);
+  leagueSelection.appendChild(customLabel);
   console.log("populateLeagues finished"); 
 }
 
@@ -2011,6 +2052,24 @@ if (!firstLeaguePopulated) {
       lastSingleTeamSelection.teamId = studyTeamSelect.value;
     }
   });
+  const customInput = document.createElement("input");
+  customInput.type = "radio";
+  customInput.id = "studyLeague_CustomList";
+  customInput.name = "studyLeague";
+  customInput.value = CUSTOM_LIST_MODE;
+  const customLabel = document.createElement("label");
+  customLabel.htmlFor = customInput.id;
+  customLabel.textContent = getTeamNameById(CUSTOM_LIST_TEAM_ID);
+  customInput.addEventListener("change", () => {
+    studyTeamSelectWrapper.style.display = "none";
+    currentSortMode = 'name';
+    renderStudyList();
+    renderTeamEditor();
+    setTeamEditorOpen(true);
+    updateSortButtons();
+  });
+  studyLeagueSelection.appendChild(customInput);
+  studyLeagueSelection.appendChild(customLabel);
   console.log("populateStudyLeagues finished"); 
 }
 
@@ -2194,8 +2253,8 @@ function resetGameForNewRun(){
   if (gameMode !== "Blandat") {
     // --- Ett lag (oförändrat) ---
     currentList = buildPlayerList(); 
-    if (!teamSelect.value || currentList.length === 0) {
-      alert("Välj ett lag med spelare först.");
+    if (!getActiveSingleTeamId() || currentList.length === 0) {
+      alert(gameMode === CUSTOM_LIST_MODE ? "Din egen lista är tom. Lägg till innehåll i Plugga spelare först." : "Välj ett lag med spelare först.");
       showScreen(screenStart);
       return false;
     }
@@ -2314,8 +2373,8 @@ startBtn.addEventListener("click", () => {
   try {
     if (gameMode !== "Blandat") {
       // "Ett lag"-läge
-      const teamId = teamSelect.value;
-      activeGameSummary.type = 'Ett lag';
+      const teamId = getActiveSingleTeamId();
+      activeGameSummary.type = gameMode === CUSTOM_LIST_MODE ? 'Egen lista' : 'Ett lag';
       activeGameSummary.teamName = getTeamNameById(teamId); 
     } else {
       // "Blandat"-läge
@@ -2367,13 +2426,17 @@ studyBtn.addEventListener("click", () => {
 
     // 2. Om vi INTE är i "Blandat"-läget, se till att minnet är 100% uppdaterat
     //    med det som visas på startskärmen JUST NU.
-    if (currentGameMode !== "Blandat") {
+    if (currentGameMode !== "Blandat" && currentGameMode !== CUSTOM_LIST_MODE) {
       lastSingleTeamSelection.league = currentGameMode;
       lastSingleTeamSelection.teamId = teamSelect.value;
     }
     
     // 3. Tillämpa minnet på plugg-skärmen
-    if (lastSingleTeamSelection.league && lastSingleTeamSelection.teamId) {
+    if (currentGameMode === CUSTOM_LIST_MODE) {
+      const customStudyRadio = document.getElementById('studyLeague_CustomList');
+      if (customStudyRadio) customStudyRadio.checked = true;
+      studyTeamSelectWrapper.style.display = 'none';
+    } else if (lastSingleTeamSelection.league && lastSingleTeamSelection.teamId) {
       // Hitta och checka rätt liga-radioknapp
       const leagueRadio = $(`#studyLeague_${lastSingleTeamSelection.league}`);
       if (leagueRadio) {
@@ -2463,7 +2526,7 @@ function getFullValuePoolPlayers(){
     return fullRoster.filter(p => mixedState.teams.has(p.team));
   }
 
-  return fullRoster.filter(p => p.team === teamSelect.value);
+  return fullRoster.filter(p => p.team === getActiveSingleTeamId());
 }
 
 function makeOptions(correct){
