@@ -2447,13 +2447,36 @@ function startGameCountdown() {
   tick();
 }
 
+function getFullValuePoolPlayers(){
+  // Värdepoolen ska spegla hela laget, inte bara spelarna man valt att öva på.
+  // Därför tas originalrader med även om de är lokalt dolda.
+  // Lokalt tillagda spelare är fullvärdiga rader och tas med på samma sätt,
+  // även om de för tillfället är dolda från själva övningen.
+  const changes = loadPlayerChanges();
+  const custom = changes.customPlayers
+    .filter(p => !p.season || p.season === currentSeasonId)
+    .map(p => ({ ...p, custom: true }));
+  const fullRoster = playersAll.concat(custom);
+
+  const gameMode = getSelected("gameMode");
+  if (gameMode === "Blandat") {
+    return fullRoster.filter(p => mixedState.teams.has(p.team));
+  }
+
+  return fullRoster.filter(p => p.team === teamSelect.value);
+}
+
 function makeOptions(correct){
   // Svarsalternativ jämförs som text. Då är t.ex. originalvärdet 30
   // och ett lokalt tillagt "30" samma svar, medan 30A förblir eget.
   const normalizeOption = value => String(value).trim();
   const correctValue = normalizeOption(correct);
+
+  // Spelare -> värde: felvärden får komma från hela laget/de valda lagen,
+  // även från spelare som är dolda från övningen.
+  // Värde -> spelare: namnalternativen hålls däremot inom övningsurvalet.
   const pool = activeMode === "name"
-    ? currentList.map(p => normalizeOption(p.number))
+    ? getFullValuePoolPlayers().map(p => normalizeOption(p.number))
     : currentList.map(p => normalizeOption(p.name));
 
   // Utgå från de UNIKA möjliga svaren. Det förhindrar att loopen kan
