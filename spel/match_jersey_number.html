@@ -2202,27 +2202,6 @@ sortByNumberBtn.addEventListener('click', () => {
   updateSortButtons();
 });
 
-studyChangesBtn?.addEventListener('click', openPlayerChangesModal);
-startChangesBtn?.addEventListener('click', openPlayerChangesModal);
-restoreAllPlayersBtn?.addEventListener('click', () => {
-  const hiddenCount = getCurrentSeasonHiddenPlayers().length;
-  if (hiddenCount === 0) return;
-  if (!confirm(`Återställa alla ${hiddenCount} dolda spelare för den här säsongen?`)) return;
-  restoreAllHiddenPlayersForCurrentSeason();
-  renderStudyList();
-  updateMixedCounters();
-  closePlayerChangesModal();
-});
-closePlayerChangesBtn?.addEventListener('click', closePlayerChangesModal);
-playerChangesModal?.addEventListener('click', (event) => {
-  if (event.target === playerChangesModal) closePlayerChangesModal();
-});
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !playerChangesModal?.classList.contains('hidden')) {
-    closePlayerChangesModal();
-  }
-});
-
 // --- Hjälpfunktioner som saknas ---
 // Fisher-Yates-blandning
 const shuffle = (arr) => { // Ändrad till const arrow function
@@ -2691,10 +2670,17 @@ function returnToStartScreen() {
   // 1. Läs av det *nuvarande* spelläget på startskärmen
   const currentGameMode = getSelected("gameMode");
 
-  // 2. Om vi INTE är i "Blandat"-läget, synkronisera valen
-  if (currentGameMode !== "Blandat") {
+  // 2. Egen lista har ingen vanlig liga- eller lagdropdown.
+  //    Behåll därför det läget när vi går tillbaka från Plugga.
+  if (currentGameMode === CUSTOM_LIST_MODE) {
+    const customRadio = document.getElementById('league_CustomList');
+    if (customRadio) customRadio.checked = true;
+    if (teamSelectWrapper) teamSelectWrapper.style.display = "none";
+    if (mixedSettingsWrapper) mixedSettingsWrapper.style.display = "none";
+    reevaluateStartBtn();
+  } else if (currentGameMode !== "Blandat") {
     
-    // 3. Tillämpa minnet på start-skärmen
+    // 3. Tillämpa minnet på start-skärmen för vanliga enskilda lag
     if (lastSingleTeamSelection.league && lastSingleTeamSelection.teamId) {
       
       // Hitta och checka rätt liga-radioknapp
