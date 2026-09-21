@@ -123,6 +123,11 @@ a.tillbakaknapp {
     padding:10px 14px; cursor:pointer; font-weight:600;
   }
   button:hover{background:var(--btnh)}
+  #studyBtn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+  }
+  #studyBtn:disabled:hover{background:var(--btn)}
   .hidden{display:none}
 
   /* Timer & status */
@@ -2443,17 +2448,22 @@ function startGameCountdown() {
 }
 
 function makeOptions(correct){
-  const set = new Set([correct]);
-  if (activeMode === "name") {
-    const pool = currentList.map(p => p.number);
-    while (set.size < Math.min(activeDifficulty.optionsCount, pool.length)) {
-      set.add(pool[Math.floor(Math.random() * pool.length)]);
-    }
-  } else {
-    const pool = currentList.map(p => p.name);
-    while (set.size < Math.min(activeDifficulty.optionsCount, pool.length)) {
-      set.add(pool[Math.floor(Math.random() * pool.length)]);
-    }
+  // Svarsalternativ jämförs som text. Då är t.ex. originalvärdet 30
+  // och ett lokalt tillagt "30" samma svar, medan 30A förblir eget.
+  const normalizeOption = value => String(value).trim();
+  const correctValue = normalizeOption(correct);
+  const pool = activeMode === "name"
+    ? currentList.map(p => normalizeOption(p.number))
+    : currentList.map(p => normalizeOption(p.name));
+
+  // Utgå från de UNIKA möjliga svaren. Det förhindrar att loopen kan
+  // fastna om listan innehåller många identiska dubbletter.
+  const uniquePool = [...new Set(pool)];
+  const targetCount = Math.min(activeDifficulty.optionsCount, uniquePool.length);
+  const set = new Set([correctValue]);
+
+  while (set.size < targetCount) {
+    set.add(uniquePool[Math.floor(Math.random() * uniquePool.length)]);
   }
   return shuffle([...set]);
 }
@@ -2495,13 +2505,13 @@ function nextRound(){
     nameEl.textContent = p.name;
     hintEl.textContent = "Klicka på rätt siffra innan tiden tar slut";
     opts = makeOptions(p.number);
-    isCorrect = (val) => currentList.some(pl => pl.name === p.name && pl.number === val);
+    isCorrect = (val) => currentList.some(pl => pl.name === p.name && String(pl.number).trim() === String(val).trim());
   } else {
     // Nummer ? Namn: acceptera alla namn som förekommer för detta nummer i currentList
     nameEl.textContent = formatPlayerValue(p.number);
     hintEl.textContent = "Klicka på rätt namn innan tiden tar slut";
     opts = makeOptions(p.name);
-    isCorrect = (val) => currentList.some(pl => pl.number === p.number && pl.name === val);
+    isCorrect = (val) => currentList.some(pl => String(pl.number).trim() === String(p.number).trim() && pl.name === val);
   }
 
   hintEl.classList.add("hidden");
