@@ -1785,6 +1785,8 @@ function updateContextLabels() {
   }
   if (modeNameLabel) modeNameLabel.innerHTML = custom ? 'Kolumn 1 &rarr; välj kolumn 2' : 'Namn &rarr; välj nummer';
   if (modeNumberLabel) modeNumberLabel.innerHTML = custom ? 'Kolumn 2 &rarr; välj kolumn 1' : 'Nummer &rarr; välj namn';
+  if (sortByNameBtn) sortByNameBtn.textContent = custom ? 'Kolumn 1' : 'Bokstavsordning';
+  if (sortByNumberBtn) sortByNumberBtn.textContent = custom ? 'Kolumn 2' : 'Nummerordning';
   if (studyHeading) studyHeading.textContent = custom ? 'Plugga lista' : 'Plugga spelare';
   if (teamEditorLabel) teamEditorLabel.textContent = custom ? 'Redigera lista' : 'Redigera lag';
   if (saveTeamEditorBtn) saveTeamEditorBtn.textContent = custom ? 'Spara lista' : 'Spara lag';
