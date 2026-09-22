@@ -1726,11 +1726,10 @@ function saveTeamEditor() {
       match.used=true;
       if(match.hidden) wantedHiddenOriginalIds.add(playerStorageId(p));
     } else {
-      // Om en rad med samma namn finns kvar men värdet har ändrats
-      // (t.ex. 16 -> 16A), behandlas den ändrade raden som en egen
-      // tillagd variant. Originalspelaren ska då INTE döljas.
-      const sameNameVariant = parsedRows.some(r => !r.used && norm(r.name) === norm(p.name));
-      if(!sameNameVariant) wantedHiddenOriginalIds.add(playerStorageId(p));
+      // En originalrad är synlig endast om exakt samma namn och värde finns kvar.
+      // Saknas den exakta originalraden är originalspelaren dold. Eventuella
+      // ändrade varianter blir egna lokala tillägg och kopplas inte till originalet.
+      wantedHiddenOriginalIds.add(playerStorageId(p));
     }
   }
   changes.hiddenPlayers=changes.hiddenPlayers.filter(item=>item.team!==team || item.season!==currentSeasonId);
