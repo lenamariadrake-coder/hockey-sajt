@@ -839,11 +839,12 @@
                 return {
                     hiddenPlayers: Array.isArray(parsed.hiddenPlayers) ? parsed.hiddenPlayers : [],
                     customPlayers: Array.isArray(parsed.customPlayers) ? parsed.customPlayers : [],
-                    hiddenCustomPlayers: Array.isArray(parsed.hiddenCustomPlayers) ? parsed.hiddenCustomPlayers : []
+                    hiddenCustomPlayers: Array.isArray(parsed.hiddenCustomPlayers) ? parsed.hiddenCustomPlayers : [],
+                    teamNames: Array.isArray(parsed.teamNames) ? parsed.teamNames : []
                 };
             } catch (err) {
                 console.warn('Kunde inte läsa lokala truppändringar:', err);
-                return { hiddenPlayers: [], customPlayers: [], hiddenCustomPlayers: [] };
+                return { hiddenPlayers: [], customPlayers: [], hiddenCustomPlayers: [], teamNames: [] };
             }
         }
 
@@ -865,6 +866,17 @@
 
         function getOriginalPlayers(leagueKey, teamKey) {
             return TEAMS[leagueKey]?.teams[teamKey]?.players || [];
+        }
+
+        function getTeamNameOverride(teamKey) {
+            const changes = loadPlayerChanges();
+            return changes.teamNames.find(item =>
+                item.season === currentSeasonId && item.team === teamKey
+            )?.name || '';
+        }
+
+        function getTeamDisplayName(leagueKey, teamKey) {
+            return getTeamNameOverride(teamKey) || TEAMS[leagueKey]?.teams[teamKey]?.name || teamKey;
         }
 
         function getEffectivePlayers(leagueKey, teamKey) {
@@ -954,7 +966,7 @@
                 player => player.season === currentSeasonId && player.team === teamKey
             );
 
-            const lines = [];
+            const lines = [getTeamDisplayName(leagueKey, teamKey)];
             originals.forEach(player => {
                 const prefix = hiddenIds.has(playerStorageId(player)) ? '- ' : '';
                 lines.push(`${prefix}${player.name},${player.number}`);
@@ -977,18 +989,36 @@
                 .map((text, index) => ({ text: text.trim(), line: index + 1 }))
                 .filter(row => row.text);
 
+            const originals = getOriginalPlayers(leagueKey, teamKey);
+            const originalTeamName = TEAMS[leagueKey]?.teams[teamKey]?.name || teamKey;
+            let desiredTeamName = '';
+            let rosterRows = rawRows;
+
+            // Första raden är lagnamn om den inte ser ut som en spelarrad.
+            // Om lagnamnsraden raderas börjar listan direkt med en spelare och originalnamnet används igen.
+            if (rawRows.length && !/^[-–—]?\s*.+,\s*\d+\s*$/.test(rawRows[0].text)) {
+                desiredTeamName = rawRows[0].text;
+                rosterRows = rawRows.slice(1);
+            }
+
             const parsedRows = [];
-            for (const row of rawRows) {
+            for (const row of rosterRows) {
                 const parsed = parseRosterPlayerLine(row.text);
                 if (!parsed) {
-                    alert(`Kan inte tolka rad ${row.line}: ${row.text}\n\nAnvänd formen Namn,nummer.`);
+                    alert(`Kan inte tolka rad ${row.line}: ${row.text}\n\nFörsta raden kan vara lagnamn. Spelare skrivs som Namn,nummer.`);
                     return;
                 }
                 parsedRows.push({ ...parsed, used: false });
             }
 
             const changes = loadPlayerChanges();
-            const originals = getOriginalPlayers(leagueKey, teamKey);
+            changes.teamNames = (changes.teamNames || []).filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
+            if (desiredTeamName && desiredTeamName !== originalTeamName) {
+                changes.teamNames.push({ season: currentSeasonId, team: teamKey, name: desiredTeamName });
+            }
+
             const norm = value => String(value).trim().toLocaleLowerCase('sv');
             const wantedHiddenIds = new Set();
 
@@ -1092,6 +1122,9 @@
             );
             changes.hiddenCustomPlayers = (changes.hiddenCustomPlayers || [])
                 .filter(id => !removedCustomIds.has(id));
+            changes.teamNames = (changes.teamNames || []).filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
             savePlayerChanges(changes);
 
             renderStudyList();
@@ -1136,6 +1169,15 @@
             refreshAfterChangesAction();
         }
 
+        function restoreTeamName(teamKey) {
+            const changes = loadPlayerChanges();
+            changes.teamNames = (changes.teamNames || []).filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
+            savePlayerChanges(changes);
+            refreshAfterChangesAction();
+        }
+
         function deleteCustomPlayer(id) {
             const changes = loadPlayerChanges();
             changes.customPlayers = changes.customPlayers.filter(player => playerStorageId(player) !== id);
@@ -1146,6 +1188,11 @@
 
         function refreshAfterChangesAction() {
             renderChangesOverview();
+            const { leagueKey, teamKey } = getStudySelection();
+            if (leagueKey) {
+                populateStudyTeams(leagueKey);
+                studyTeamSelect.value = teamKey || '';
+            }
             renderStudyList();
             if (!teamEditorPanel.classList.contains('hidden')) renderTeamEditor();
             createStartScreen();
@@ -1162,7 +1209,11 @@
                 .filter(player => player.season === currentSeasonId)
                 .length;
 
-            return hiddenOriginalCount + customPlayerCount;
+            const teamNameCount = (changes.teamNames || [])
+                .filter(item => item.season === currentSeasonId)
+                .length;
+
+            return hiddenOriginalCount + customPlayerCount + teamNameCount;
         }
 
         function getChangesOverviewGroups() {
@@ -1174,12 +1225,22 @@
                     groups.set(teamKey, {
                         teamKey,
                         leagueKey: ctx?.leagueKey || '',
-                        teamName: ctx?.team?.name || teamKey,
+                        teamName: ctx ? getTeamDisplayName(ctx.leagueKey, teamKey) : teamKey,
+                        originalTeamName: ctx?.team?.name || teamKey,
+                        nameOverride: '',
                         items: []
                     });
                 }
                 return groups.get(teamKey);
             };
+
+            (changes.teamNames || [])
+                .filter(item => item.season === currentSeasonId)
+                .forEach(item => {
+                    const group = ensureGroup(item.team);
+                    group.nameOverride = item.name;
+                    group.teamName = item.name;
+                });
 
             changes.hiddenPlayers
                 .filter(item => item.season === currentSeasonId)
@@ -1208,7 +1269,7 @@
                 });
 
             return [...groups.values()]
-                .filter(group => group.items.length)
+                .filter(group => group.items.length || group.nameOverride)
                 .sort((a, b) => a.teamName.localeCompare(b.teamName, 'sv'));
         }
 
@@ -1247,6 +1308,30 @@
                     title.disabled = true;
                 }
                 section.appendChild(title);
+
+                if (group.nameOverride) {
+                    const row = document.createElement('div');
+                    row.className = 'changes-player';
+                    const main = document.createElement('div');
+                    main.className = 'changes-player-main';
+                    const name = document.createElement('div');
+                    name.className = 'changes-player-name';
+                    name.textContent = `${group.originalTeamName} → ${group.nameOverride}`;
+                    const meta = document.createElement('div');
+                    meta.className = 'changes-player-meta';
+                    meta.textContent = 'Ändrat lagnamn';
+                    main.append(name, meta);
+                    const actions = document.createElement('div');
+                    actions.className = 'changes-player-actions';
+                    const restore = document.createElement('button');
+                    restore.type = 'button';
+                    restore.className = 'changes-small-btn';
+                    restore.textContent = 'Återställ';
+                    restore.addEventListener('click', () => restoreTeamName(group.teamKey));
+                    actions.appendChild(restore);
+                    row.append(main, actions);
+                    section.appendChild(row);
+                }
 
                 group.items
                     .sort((a, b) => a.name.localeCompare(b.name, 'sv') ||
@@ -1326,6 +1411,7 @@
             changes.customPlayers = changes.customPlayers.filter(player => player.season !== currentSeasonId);
             changes.hiddenCustomPlayers = (changes.hiddenCustomPlayers || [])
                 .filter(id => !currentCustomIds.has(id));
+            changes.teamNames = (changes.teamNames || []).filter(item => item.season !== currentSeasonId);
 
             savePlayerChanges(changes);
             refreshAfterChangesAction();
@@ -1369,7 +1455,7 @@
                 
                 // 5. Hämta och sortera lagnamnen alfabetiskt
                 const teamKeys = Object.keys(league.teams);
-                teamKeys.sort((a, b) => league.teams[a].name.localeCompare(league.teams[b].name));
+                teamKeys.sort((a, b) => getTeamDisplayName(leagueKey, a).localeCompare(getTeamDisplayName(leagueKey, b), 'sv'));
 
                 // 6. Skapa en knapp för varje lag i den sorterade listan
                 teamKeys.forEach(teamKey => {
@@ -1377,7 +1463,7 @@
                     const li = document.createElement('li');
                     const teamButton = document.createElement('button');
                     teamButton.className = 'btn-team';
-                    teamButton.textContent = team.name;
+                    teamButton.textContent = getTeamDisplayName(leagueKey, teamKey);
                     teamButton.dataset.teamKey = teamKey;
                     teamButton.dataset.leagueKey = leagueKey;
                     
@@ -1455,7 +1541,7 @@
 
             // Hämta och sortera lagnamnen alfabetiskt
             const teamKeys = Object.keys(league.teams);
-            teamKeys.sort((a, b) => league.teams[a].name.localeCompare(league.teams[b].name));
+            teamKeys.sort((a, b) => getTeamDisplayName(leagueKey, a).localeCompare(getTeamDisplayName(leagueKey, b), 'sv'));
             
             if (teamKeys.length === 0) return; // Hoppa över om inga lag finns
 
@@ -1470,7 +1556,7 @@
                 const team = league.teams[teamKey];
                 const option = document.createElement('option');
                 option.value = teamKey; // Vi sparar nyckeln, t.ex. 'dif-shl'
-                option.textContent = team.name;
+                option.textContent = getTeamDisplayName(leagueKey, teamKey);
                 studyTeamSelect.appendChild(option);
             });
             
