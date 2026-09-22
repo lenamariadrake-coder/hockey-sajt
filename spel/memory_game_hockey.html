@@ -434,6 +434,61 @@
             }
         }
         
+
+        /* --- LOKALA TRUPPÄNDRINGAR: STEG 1 --- */
+        .team-editor-toggle {
+            margin-left: auto;
+        }
+
+        .team-editor {
+            margin: 0 0 16px;
+            padding: 14px;
+            border: 1px solid #d8d8d8;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.72);
+        }
+
+        .team-editor.hidden {
+            display: none;
+        }
+
+        .team-editor textarea {
+            width: 100%;
+            min-height: 220px;
+            box-sizing: border-box;
+            resize: vertical;
+            padding: 10px;
+            border: 1px solid #bbb;
+            border-radius: 8px;
+            font: inherit;
+            line-height: 1.45;
+            background: #fff;
+            color: #222;
+        }
+
+        .team-editor-note {
+            display: block;
+            margin-top: 8px;
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .team-editor-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .study-row.is-custom .study-name::after {
+            content: "egen";
+            margin-left: 7px;
+            font-size: 0.72em;
+            font-weight: 700;
+            color: #777;
+        }
+
         /* --- SLUT PÅ STILAR FÖR PLUGGLÄGE --- */
 
 /* Responsiv layout för små skärmar (mobiler) */
@@ -558,6 +613,22 @@
             <div class="study-actions" style="display:flex; gap:10px; flex-wrap:wrap; margin:15px 0 12px;">
                 <button id="sortByNameBtn" class="btn btn-mode active-sort">Bokstavsordning</button>
                 <button id="sortByNumberBtn" class="btn btn-mode">Nummerordning</button>
+                <button id="toggleTeamEditorBtn" class="btn btn-mode team-editor-toggle" type="button"
+                        aria-expanded="false" aria-controls="teamEditorPanel">Redigera lag</button>
+            </div>
+
+            <div id="teamEditorPanel" class="team-editor hidden">
+                <label for="teamEditorText" style="display:block;font-weight:700;margin-bottom:7px;">Redigera lag</label>
+                <textarea id="teamEditorText" spellcheck="false"></textarea>
+                <span class="team-editor-note">
+                    En spelare per rad: Namn,nummer. Sätt - framför en rad för att dölja spelaren.
+                    Raderar du en ordinarie spelare ur rutan döljs den också. Nya rader blir lokala tillägg
+                    och sparas bara i den här webbläsaren för den aktuella säsongen.
+                </span>
+                <div class="team-editor-buttons">
+                    <button id="saveTeamEditorBtn" class="btn btn-mode" type="button">Spara ändringar</button>
+                    <button id="resetTeamEditorBtn" class="btn btn-reset" type="button">Återställ laget</button>
+                </div>
             </div>
 
             <div class="study-panel">
@@ -590,6 +661,11 @@
         const studyList = document.getElementById('studyList');
         const sortByNameBtn = document.getElementById('sortByNameBtn');
         const sortByNumberBtn = document.getElementById('sortByNumberBtn');
+        const toggleTeamEditorBtn = document.getElementById('toggleTeamEditorBtn');
+        const teamEditorPanel = document.getElementById('teamEditorPanel');
+        const teamEditorText = document.getElementById('teamEditorText');
+        const saveTeamEditorBtn = document.getElementById('saveTeamEditorBtn');
+        const resetTeamEditorBtn = document.getElementById('resetTeamEditorBtn');
 
         const studyLeagueSelection = document.getElementById('studyLeagueSelection');
         const studyTeamSelectWrapper = document.getElementById('studyTeamSelectWrapper');
@@ -597,6 +673,7 @@
         const modeBackBtn = document.getElementById('modeBackBtn');
 
         let selectedLeagueKey, selectedTeamKey, cardValues = [], hasFlippedCard = false, lockBoard = false;
+        let currentSeasonId = '';
         let firstCard, secondCard;
         let mismatchedPair = [];
         
@@ -609,6 +686,237 @@
         // --- NY VARIABEL FÖR STEG 3 ---
         let currentSortMode = 'name'; // 'name' eller 'number'
         // -----------------------------
+
+
+        // =================================================================
+        //  LOKALA TRUPPÄNDRINGAR: STEG 1
+        // =================================================================
+        const PLAYER_CHANGES_STORAGE_KEY = 'avbytarnasAvbytarbank.hockeyMemory.playerChanges.v1';
+
+        function loadPlayerChanges() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(PLAYER_CHANGES_STORAGE_KEY) || '{}');
+                return {
+                    hiddenPlayers: Array.isArray(parsed.hiddenPlayers) ? parsed.hiddenPlayers : [],
+                    customPlayers: Array.isArray(parsed.customPlayers) ? parsed.customPlayers : []
+                };
+            } catch (err) {
+                console.warn('Kunde inte läsa lokala truppändringar:', err);
+                return { hiddenPlayers: [], customPlayers: [] };
+            }
+        }
+
+        function savePlayerChanges(changes) {
+            localStorage.setItem(PLAYER_CHANGES_STORAGE_KEY, JSON.stringify(changes));
+        }
+
+        function playerStorageId(player) {
+            if (player.customId) {
+                return ['custom', player.season || currentSeasonId, player.team, player.customId].join('\u0000');
+            }
+            return [player.season || currentSeasonId, player.team, player.id].join('\u0000');
+        }
+
+        function createCustomPlayerId() {
+            if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
+            return 'cp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+        }
+
+        function getOriginalPlayers(leagueKey, teamKey) {
+            return TEAMS[leagueKey]?.teams[teamKey]?.players || [];
+        }
+
+        function getEffectivePlayers(leagueKey, teamKey) {
+            const changes = loadPlayerChanges();
+            const hiddenIds = new Set(
+                changes.hiddenPlayers
+                    .filter(item => item.season === currentSeasonId)
+                    .map(item => item.id)
+            );
+
+            const originals = getOriginalPlayers(leagueKey, teamKey)
+                .filter(player => !hiddenIds.has(playerStorageId(player)))
+                .map(player => ({ ...player, team: teamKey, season: currentSeasonId }));
+
+            const custom = changes.customPlayers
+                .filter(player => player.season === currentSeasonId && player.team === teamKey)
+                .map(player => ({ ...player, custom: true }));
+
+            return originals.concat(custom);
+        }
+
+        function parseRosterPlayerLine(rawLine) {
+            const trimmed = String(rawLine ?? '').trim();
+            if (!trimmed) return null;
+
+            const hiddenMatch = trimmed.match(/^[-–—]+\s*/);
+            const hidden = !!hiddenMatch;
+            const body = hidden ? trimmed.slice(hiddenMatch[0].length).trim() : trimmed;
+            const comma = body.indexOf(',');
+            if (comma < 1) return null;
+
+            const name = body.slice(0, comma).trim();
+            const number = body.slice(comma + 1).trim();
+            if (!name || !number) return null;
+
+            return { name, number, hidden };
+        }
+
+        function getStudySelection() {
+            const leagueKey = studyLeagueSelection.querySelector('input:checked')?.value || '';
+            const teamKey = studyTeamSelect.value || '';
+            return { leagueKey, teamKey };
+        }
+
+        function setTeamEditorOpen(open) {
+            teamEditorPanel.classList.toggle('hidden', !open);
+            toggleTeamEditorBtn.setAttribute('aria-expanded', String(open));
+            toggleTeamEditorBtn.textContent = open ? 'Stäng redigering' : 'Redigera lag';
+            if (open) renderTeamEditor();
+        }
+
+        function renderTeamEditor() {
+            const { leagueKey, teamKey } = getStudySelection();
+            if (!leagueKey || !teamKey) {
+                teamEditorText.value = '';
+                return;
+            }
+
+            const changes = loadPlayerChanges();
+            const hiddenIds = new Set(
+                changes.hiddenPlayers
+                    .filter(item => item.season === currentSeasonId)
+                    .map(item => item.id)
+            );
+
+            const originals = getOriginalPlayers(leagueKey, teamKey);
+            const custom = changes.customPlayers.filter(
+                player => player.season === currentSeasonId && player.team === teamKey
+            );
+
+            const lines = [];
+            originals.forEach(player => {
+                const prefix = hiddenIds.has(playerStorageId(player)) ? '- ' : '';
+                lines.push(`${prefix}${player.name},${player.number}`);
+            });
+            custom.forEach(player => lines.push(`${player.name},${player.number}`));
+
+            teamEditorText.value = lines.join('\n');
+        }
+
+        function saveTeamEditor() {
+            const { leagueKey, teamKey } = getStudySelection();
+            if (!leagueKey || !teamKey) return;
+
+            const rawRows = teamEditorText.value
+                .split(/\r?\n/)
+                .map((text, index) => ({ text: text.trim(), line: index + 1 }))
+                .filter(row => row.text);
+
+            const parsedRows = [];
+            for (const row of rawRows) {
+                const parsed = parseRosterPlayerLine(row.text);
+                if (!parsed) {
+                    alert(`Kan inte tolka rad ${row.line}: ${row.text}\n\nAnvänd formen Namn,nummer.`);
+                    return;
+                }
+                parsedRows.push({ ...parsed, used: false });
+            }
+
+            const changes = loadPlayerChanges();
+            const originals = getOriginalPlayers(leagueKey, teamKey);
+            const norm = value => String(value).trim().toLocaleLowerCase('sv');
+            const wantedHiddenIds = new Set();
+
+            // Matcha varje originalrad mot högst en rad i redigeringsrutan.
+            // Saknas originalraden helt räknas den som dold.
+            originals.forEach(player => {
+                const match = parsedRows.find(row =>
+                    !row.used &&
+                    norm(row.name) === norm(player.name) &&
+                    norm(row.number) === norm(player.number)
+                );
+
+                if (match) {
+                    match.used = true;
+                    if (match.hidden) wantedHiddenIds.add(playerStorageId(player));
+                } else {
+                    wantedHiddenIds.add(playerStorageId(player));
+                }
+            });
+
+            changes.hiddenPlayers = changes.hiddenPlayers.filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
+
+            originals.forEach(player => {
+                const id = playerStorageId(player);
+                if (wantedHiddenIds.has(id)) {
+                    changes.hiddenPlayers.push({
+                        id,
+                        season: currentSeasonId,
+                        team: teamKey,
+                        name: player.name,
+                        number: player.number
+                    });
+                }
+            });
+
+            // Alla omatchade rader är egna lokala tillägg.
+            const oldOtherCustom = changes.customPlayers.filter(
+                player => !(player.season === currentSeasonId && player.team === teamKey)
+            );
+            const oldTeamCustom = changes.customPlayers.filter(
+                player => player.season === currentSeasonId && player.team === teamKey
+            );
+
+            const reusable = new Map();
+            oldTeamCustom.forEach(player => {
+                const key = `${norm(player.name)}\u0000${norm(player.number)}`;
+                if (!reusable.has(key)) reusable.set(key, []);
+                reusable.get(key).push(player);
+            });
+
+            const newTeamCustom = [];
+            parsedRows.filter(row => !row.used && !row.hidden).forEach(row => {
+                const key = `${norm(row.name)}\u0000${norm(row.number)}`;
+                const previous = reusable.get(key)?.shift();
+                newTeamCustom.push({
+                    name: row.name,
+                    number: row.number,
+                    team: teamKey,
+                    season: currentSeasonId,
+                    customId: previous?.customId || createCustomPlayerId()
+                });
+            });
+
+            changes.customPlayers = oldOtherCustom.concat(newTeamCustom);
+            savePlayerChanges(changes);
+
+            renderStudyList();
+            createStartScreen();
+            setTeamEditorOpen(false);
+        }
+
+        function resetStudyTeam() {
+            const { leagueKey, teamKey } = getStudySelection();
+            if (!leagueKey || !teamKey) return;
+
+            if (!confirm('Återställa alla lokala ändringar för det här laget?')) return;
+
+            const changes = loadPlayerChanges();
+            changes.hiddenPlayers = changes.hiddenPlayers.filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
+            changes.customPlayers = changes.customPlayers.filter(
+                player => !(player.season === currentSeasonId && player.team === teamKey)
+            );
+            savePlayerChanges(changes);
+
+            renderStudyList();
+            renderTeamEditor();
+            createStartScreen();
+        }
 
 // =================================================================
         //  NY LOGIK FÖR STARTSIDAN
@@ -659,8 +967,9 @@
                     teamButton.dataset.teamKey = teamKey;
                     teamButton.dataset.leagueKey = leagueKey;
                     
-                    // Inaktivera knappen om inga spelare finns
-                    if (team.players.length === 0) {
+                    // Lokala ändringar räknas också. Ett lag kan alltså bli tomt
+                    // genom att alla originalspelare döljs, eller få spelare via lokala tillägg.
+                    if (getEffectivePlayers(leagueKey, teamKey).length === 0) {
                         teamButton.disabled = true;
                         teamButton.style.opacity = '0.5';
                         teamButton.style.cursor = 'not-allowed';
@@ -785,12 +1094,10 @@
                 return;
             }
 
-            // Hämta spelardatan. Spelarna lagras som en array så att
-            // samma tröjnummer aldrig kan skriva över en annan spelare.
-            const players = TEAMS[selectedLeagueKey]?.teams[selectedTeamKey]?.players;
-            if (!players) return; // Säkerhetskoll
-
-            const playerList = players.map(player => ({ ...player }));
+            // Använd den effektiva truppen: Google Sheets som grund,
+            // minus dolda originalspelare, plus lokala tillägg.
+            const playerList = getEffectivePlayers(selectedLeagueKey, selectedTeamKey)
+                .map(player => ({ ...player }));
             
             if (playerList.length === 0) {
                  studyList.innerHTML = '<p class="muted">Inga spelare hittades för detta lag.</p>';
@@ -812,7 +1119,7 @@
             
             playerList.forEach(player => {
                 const row = document.createElement('div');
-                row.className = 'study-row';
+                row.className = 'study-row' + (player.custom ? ' is-custom' : '');
                 
                 const nameEl = document.createElement('div');
                 nameEl.className = 'study-name';
@@ -1055,15 +1362,23 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
                 teamIdToLeagueKeyMap[team_id] = leagueKey;
             });
 
-            playersList.forEach((player, index) => {
-                const { player_name, number, team_id } = player;
+            const occurrenceByVisiblePair = new Map();
+
+            playersList.forEach(player => {
+                const { player_name, number, team_id, season_id } = player;
                 const leagueKey = teamIdToLeagueKeyMap[team_id];
 
                 if (leagueKey && newTeamsObject[leagueKey].teams[team_id]) {
+                    const pairKey = [team_id, player_name, number].join('\u0000');
+                    const occurrence = (occurrenceByVisiblePair.get(pairKey) || 0) + 1;
+                    occurrenceByVisiblePair.set(pairKey, occurrence);
+
                     newTeamsObject[leagueKey].teams[team_id].players.push({
-                        id: `${team_id}::${index}::${player_name}`,
+                        id: `${team_id}::${player_name}::${number}::${occurrence}`,
                         name: player_name,
-                        number
+                        number,
+                        team: team_id,
+                        season: season_id
                     });
                 }
             });
@@ -1158,6 +1473,7 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
                 }
 
                 const prepared = prepareCurrentSeasonData(allTeamsList, gamesList, seasonSummaryList, playersList);
+                currentSeasonId = prepared.currentSeason;
                 TEAMS = buildTeamsObject(prepared.teamsList, prepared.playersList);
 
                 createStartScreen();
@@ -1175,6 +1491,7 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
         studyLeagueSelection.addEventListener('change', (e) => {
             if (e.target.name === 'study-league') {
                 const selectedLeagueKey = e.target.value;
+                setTeamEditorOpen(false);
                 populateStudyTeams(selectedLeagueKey);
                 renderStudyList(); // <-- LÄGG TILL DENNA RAD (rensar listan)
             }
@@ -1183,8 +1500,21 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
 
 // --- NYA LISTENERS FÖR STEG 3 ---
         studyTeamSelect.addEventListener('change', () => {
+            setTeamEditorOpen(false);
             renderStudyList(); // Rita om listan när man väljer ett lag
         });
+
+        toggleTeamEditorBtn.addEventListener('click', () => {
+            const { teamKey } = getStudySelection();
+            if (!teamKey) {
+                alert('Välj ett lag först.');
+                return;
+            }
+            setTeamEditorOpen(teamEditorPanel.classList.contains('hidden'));
+        });
+
+        saveTeamEditorBtn.addEventListener('click', saveTeamEditor);
+        resetTeamEditorBtn.addEventListener('click', resetStudyTeam);
 
         sortByNameBtn.addEventListener('click', () => {
             currentSortMode = 'name';
@@ -1263,6 +1593,11 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
         modeScreen.addEventListener('click', (e) => {
             if (e.target.matches('[data-mode]')) {
                 const selectedMode = e.target.dataset.mode;
+                const available = getEffectivePlayers(selectedLeagueKey, selectedTeamKey).length;
+                if (available === 0) {
+                    alert('Det finns inga aktiva spelare i laget. Lägg tillbaka eller lägg till spelare i Plugga spelare.');
+                    return;
+                }
                 showScreen(null); // Gömmer modeskärmen, startGame visar spelskärmen
                 startGame(selectedMode);
             }
@@ -1288,7 +1623,7 @@ function returnToStart() {
         function startGame(mode) {
             resetGame();
 
-            const allPlayers = TEAMS[selectedLeagueKey].teams[selectedTeamKey].players;
+            const allPlayers = getEffectivePlayers(selectedLeagueKey, selectedTeamKey);
             let playersForGame;
 
             if (mode === 'all') {
