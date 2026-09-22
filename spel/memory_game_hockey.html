@@ -1098,6 +1098,10 @@
             savePlayerChanges(changes);
 
             renderStudyList();
+            // Uppdatera alla ställen där lagnamnet visas, men behåll valt lag.
+            populateStudyTeams(leagueKey);
+            studyTeamSelect.value = teamKey;
+            renderStudyList();
             createStartScreen();
             setTeamEditorOpen(false);
         }
@@ -1127,6 +1131,9 @@
             );
             savePlayerChanges(changes);
 
+            // Originalnamnet ska slå igenom direkt även i lagväljaren.
+            populateStudyTeams(leagueKey);
+            studyTeamSelect.value = teamKey;
             renderStudyList();
             renderTeamEditor();
             createStartScreen();
