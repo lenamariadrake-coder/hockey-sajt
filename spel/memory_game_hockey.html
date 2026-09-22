@@ -1151,6 +1151,20 @@
             createStartScreen();
         }
 
+        function getLocalChangeCount() {
+            const changes = loadPlayerChanges();
+
+            const hiddenOriginalCount = changes.hiddenPlayers
+                .filter(item => item.season === currentSeasonId)
+                .length;
+
+            const customPlayerCount = changes.customPlayers
+                .filter(player => player.season === currentSeasonId)
+                .length;
+
+            return hiddenOriginalCount + customPlayerCount;
+        }
+
         function getChangesOverviewGroups() {
             const changes = loadPlayerChanges();
             const groups = new Map();
@@ -1196,6 +1210,13 @@
             return [...groups.values()]
                 .filter(group => group.items.length)
                 .sort((a, b) => a.teamName.localeCompare(b.teamName, 'sv'));
+        }
+
+        function updateChangesButtons() {
+            const count = getLocalChangeCount();
+            const label = count > 0 ? `Ändringar (${count})` : 'Ändringar';
+            changesBtnStart.textContent = label;
+            changesBtnStudy.textContent = label;
         }
 
         function renderChangesOverview() {
@@ -1319,6 +1340,7 @@
          * baserat på TEAMS-objektet.
          */
         function createStartScreen() {
+            updateChangesButtons();
             leagueAccordion.innerHTML = ''; // Rensa eventuellt gammalt innehåll
 
             // Loopa igenom varje liga (t.ex. 'shl', 'nhl')
