@@ -3585,17 +3585,42 @@
                     const currentGamesShown =
                         typeof dataEntry.games === 'number' ? dataEntry.games : null;
 
-                    // Visa stoppskylten först när tidslinjen har passerat
-                    // lagets sista faktiskt spelade match.
-                    // Exempel: har laget spelat 3 matcher visas ingen skylt på steg 3,
-                    // men skylten visas från steg 4 och framåt.
+                    // Stoppskylten betyder alltid att tidslinjen har passerat
+                    // lagets sista faktiska datapunkt, men match- och datumläge
+                    // behöver avgöra detta på olika sätt.
+                    const timelineMode = document.querySelector('input[name="timeline-mode"]:checked')?.value;
                     const timelineStep = parseInt(slider.value, 10);
-                    if (
-                        totalGamesForSeason == null ||
-                        currentGamesShown == null ||
-                        !Number.isFinite(timelineStep) ||
-                        timelineStep <= totalGamesForSeason
-                    ) {
+                    if (!Number.isFinite(timelineStep)) return;
+
+                    if (timelineMode === 'matches') {
+                        // Matchläge: har laget spelat 3 matcher kommer skylten först
+                        // på steg 4 och ligger sedan kvar.
+                        if (
+                            totalGamesForSeason == null ||
+                            currentGamesShown == null ||
+                            timelineStep <= totalGamesForSeason
+                        ) {
+                            return;
+                        }
+                    } else if (timelineMode === 'date') {
+                        // Datumläge: jämför positioner på den gemensamma hockeyårsaxeln
+                        // (aug–dec, därefter jan–jul). Skylten visas först på första
+                        // datumsteget EFTER lagets sista faktiskt spelade datum.
+                        const perDate = pointsByDateKey[key] || {};
+                        const dateAxis = Array.isArray(allDateKeysNoYear) ? allDateKeysNoYear : [];
+
+                        let lastPlayedDateIndex = -1;
+                        Object.keys(perDate).forEach(dateKey => {
+                            const dateIndex = dateAxis.indexOf(dateKey);
+                            if (dateIndex > lastPlayedDateIndex) {
+                                lastPlayedDateIndex = dateIndex;
+                            }
+                        });
+
+                        if (lastPlayedDateIndex < 0 || timelineStep <= lastPlayedDateIndex) {
+                            return;
+                        }
+                    } else {
                         return;
                     }
 
