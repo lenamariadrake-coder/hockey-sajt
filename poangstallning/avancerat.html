@@ -1990,6 +1990,11 @@
         //   pointsByDateKey[key][dateKey] = { games, points, goalDiff }
         let pointsByDateKey = {};
 
+        // Datumaxeln som faktiskt används i diagrammet. Grundaxeln
+        // allDateKeysNoYear lämnas orörd; denna filtreras till datum där
+        // minst ett av de valda lag+säsongerna spelade match.
+        let activeDateKeysNoYear = ['Start'];
+
 
         let CURRENT_TIMELINE_MODE = 'matches';
         let CURRENT_TIMELINE_STEP = 0;
@@ -3607,7 +3612,7 @@
                         // (aug–dec, därefter jan–jul). Skylten visas först på första
                         // datumsteget EFTER lagets sista faktiskt spelade datum.
                         const perDate = pointsByDateKey[key] || {};
-                        const dateAxis = Array.isArray(allDateKeysNoYear) ? allDateKeysNoYear : [];
+                        const dateAxis = Array.isArray(activeDateKeysNoYear) ? activeDateKeysNoYear : [];
 
                         let lastPlayedDateIndex = -1;
                         Object.keys(perDate).forEach(dateKey => {
@@ -4058,6 +4063,25 @@
         }
 
         // --- UPPDATERINGSFUNKTIONER ---
+        function getActiveDateKeysForSelection() {
+            const selectedKeys = (mainViewSelectedKeys instanceof Set)
+                ? Array.from(mainViewSelectedKeys)
+                : [];
+
+            if (selectedKeys.length === 0) return ['Start'];
+
+            const selectedDateKeys = new Set();
+            selectedKeys.forEach(key => {
+                const perDate = pointsByDateKey[key] || {};
+                Object.keys(perDate).forEach(dateKey => selectedDateKeys.add(dateKey));
+            });
+
+            // Behåll exakt samma hockeyårsordning som den befintliga grundaxeln.
+            return ['Start', ...allDateKeysNoYear.filter(
+                dateKey => dateKey !== 'Start' && selectedDateKeys.has(dateKey)
+            )];
+        }
+
         function updateSliderRange(shouldUpdateChart) {
             // Default: uppdatera diagrammet (viktigt vid växling mellan match/datum)
             if (typeof shouldUpdateChart === 'undefined') {
@@ -4074,10 +4098,9 @@
                 slider.max = MAX_MATCHES_PER_SEASON;
                 slider.value = 0; // Starta alltid från början
             } else {
-                // Läget "Datum" – använd datum-axeln utan år
-                const hasDates = Array.isArray(allDateKeysNoYear) && allDateKeysNoYear.length > 0;
-                // allDateKeysNoYear[0] = "Start", resten är riktiga datumnycklar ("09-24", "10-01", .)
-                const maxStep = hasDates ? allDateKeysNoYear.length - 1 : 0;
+                // Läget "Datum" – bara datum där minst ett valt lag+säsong spelade.
+                activeDateKeysNoYear = getActiveDateKeysForSelection();
+                const maxStep = activeDateKeysNoYear.length - 1;
 
                 slider.max = Math.max(0, maxStep);
                 slider.value = 0; // börja alltid vid "Start"
@@ -4256,6 +4279,17 @@
             let dateSnapshotByKey = null;
 
             const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+
+            // Datumaxeln beror på det aktuella urvalet. Uppdatera den här också,
+            // eftersom lag kan markeras/avmarkeras utan att tidsläget byts.
+            if (mode === 'date') {
+                activeDateKeysNoYear = getActiveDateKeysForSelection();
+                slider.max = Math.max(0, activeDateKeysNoYear.length - 1);
+                if (parseInt(slider.value, 10) > Number(slider.max)) {
+                    slider.value = slider.max;
+                }
+            }
+
             const step = parseInt(slider.value);
 
             if (mode === 'matches' && typeof TEAM_SEASON_HISTORY === 'object' && TEAM_SEASON_HISTORY) {
@@ -4328,15 +4362,15 @@
                 //   });
             } else {
                 // Läget "Datum" – använd våra datum-nycklar utan år
-                const hasDates = Array.isArray(allDateKeysNoYear) && allDateKeysNoYear.length > 0;
+                const hasDates = Array.isArray(activeDateKeysNoYear) && activeDateKeysNoYear.length > 0;
                 let dateKey = 'Start';
 
                 if (hasDates) {
-                    const maxIndex = allDateKeysNoYear.length - 1;
+                    const maxIndex = activeDateKeysNoYear.length - 1;
                     let clampedStep = step;
                     if (clampedStep < 0) clampedStep = 0;
                     if (clampedStep > maxIndex) clampedStep = maxIndex;
-                    dateKey = allDateKeysNoYear[clampedStep];
+                    dateKey = activeDateKeysNoYear[clampedStep];
                 }
 
                 const labelFromMap = dateKeyToLabel && dateKeyToLabel[dateKey];
@@ -4344,7 +4378,7 @@
 
                 // Bygg snapshot-per-key för datum-läget
                 dateSnapshotByKeyLocal = {};
-                const allDateKeysList = Array.isArray(allDateKeysNoYear) ? allDateKeysNoYear : [];
+                const allDateKeysList = Array.isArray(activeDateKeysNoYear) ? activeDateKeysNoYear : [];
                 const indexInList = allDateKeysList.indexOf(dateKey);
 
                 chartSelectionSummary.forEach(entry => {
