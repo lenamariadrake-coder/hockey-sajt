@@ -3539,8 +3539,8 @@
             }
         };
 
-        // NYTT: plugin som ritar &#9940; för pågående säsong
-        // när vi är på sista spelade matchen för just den säsongen.
+        // Plugin som ritar &#9940; för pågående säsong
+        // först när tidslinjen har passerat lagets sista spelade match.
         const ongoingSeasonStopIconPlugin = {
             id: 'ongoingSeasonStopIconPlugin',
             afterDatasetsDraw(chart, args, options) {
@@ -3585,11 +3585,16 @@
                     const currentGamesShown =
                         typeof dataEntry.games === 'number' ? dataEntry.games : null;
 
-                    // Vi är bara intresserade av läget där vi är på sista spelade matchen
+                    // Visa stoppskylten först när tidslinjen har passerat
+                    // lagets sista faktiskt spelade match.
+                    // Exempel: har laget spelat 3 matcher visas ingen skylt på steg 3,
+                    // men skylten visas från steg 4 och framåt.
+                    const timelineStep = parseInt(slider.value, 10);
                     if (
                         totalGamesForSeason == null ||
                         currentGamesShown == null ||
-                        currentGamesShown !== totalGamesForSeason
+                        !Number.isFinite(timelineStep) ||
+                        timelineStep <= totalGamesForSeason
                     ) {
                         return;
                     }
