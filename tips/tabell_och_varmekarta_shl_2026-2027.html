@@ -5651,7 +5651,7 @@ function stripCustomTeamLinePrefix(line) {
 
                 const tdGD = document.createElement('td');
                 tdGD.className = 'num';
-                tdGD.textContent = String(row.gd);
+                tdGD.textContent = row.gd > 0 ? `+${row.gd}` : String(row.gd);
 
                 // (1) Manuell färg appliceras bara när tabellrörelser INTE visas.
                 // Färgvalen ligger alltid kvar i state.rowColors, så de kommer tillbaka
