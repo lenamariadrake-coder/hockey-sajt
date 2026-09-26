@@ -3084,9 +3084,10 @@
                 minGamesPlayed = Math.min(...Object.values(teamHistory).map(h => h.length - 1));
                 if (minGamesPlayed < 0) minGamesPlayed = 0; // Säkerställ att det inte blir negativt om inga matcher finns
 
-                // Bygg upp data per matchomgång upp till minGamesPlayed
-                pointsByMatches = Array(minGamesPlayed + 1).fill(null).map(() => ({}));
-                for (let i = 0; i <= minGamesPlayed; i++) {
+                // Bygg upp data per matchomgång för en hel grundserie (0–52).
+                // Lag som ännu inte har spelat så många matcher behåller sitt senaste kända läge.
+                pointsByMatches = Array(MAX_MATCHES_PER_SEASON + 1).fill(null).map(() => ({}));
+                for (let i = 0; i <= MAX_MATCHES_PER_SEASON; i++) {
                     allTeams.forEach(team => {
                         // Hitta lagets data efter exakt i matcher, eller den senaste om de inte spelat i matcher än
                         const entry = teamHistory[team].find(e => e.games === i) || teamHistory[team].filter(e => e.games <= i).slice(-1)[0];
@@ -4037,17 +4038,10 @@
             const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
 
             if (mode === 'matches') {
-                // Läget "Spelade matcher":
-                // - minGamesPlayed kan vara större än 52 eftersom den räknas över alla säsonger.
-                // - Reglaget ska ändå spegla EN säsong → vi begränsar till MAX_MATCHES_PER_SEASON (52).
-                //
-                // För säkerhets skull klamrar vi mot både 0 och minGamesPlayed,
-                // så vi aldrig ber om fler steg än pointsByMatches faktiskt har.
-                let safeMax = Math.max(0, minGamesPlayed);
-
-                safeMax = Math.min(MAX_MATCHES_PER_SEASON, safeMax);
-
-                slider.max = safeMax;
+                // Läget "Spelade matcher" representerar en hel grundserie.
+                // Reglaget ska därför alltid kunna gå till match 52, även om den
+                // pågående säsongen ännu inte har spelat så många matcher.
+                slider.max = MAX_MATCHES_PER_SEASON;
                 slider.value = 0; // Starta alltid från början
             } else {
                 // Läget "Datum" – använd datum-axeln utan år
