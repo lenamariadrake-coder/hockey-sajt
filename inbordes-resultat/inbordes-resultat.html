@@ -925,8 +925,12 @@
       return annotated.filter(g => g.half === scope);
     }
 
-    function standings(scope) {
-      const games = gamesForScope(scope);
+    function standings(scope, cutoffDate = null) {
+      // Mötesetiketterna (first/second) bestäms fortfarande utifrån hela säsongen.
+      // Därefter kan tabellen begränsas till matcher t.o.m. valt datum.
+      const games = gamesForScope(scope).filter(g =>
+        !cutoffDate || String(g.date).slice(0, 10) <= cutoffDate
+      );
       const ids = new Set(); currentGames().forEach(g => { ids.add(g.home_team_id); ids.add(g.away_team_id) });
       const rows = new Map([...ids].map(id => [id, { team_id: id, g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]));
       games.forEach(g => {
@@ -998,6 +1002,11 @@
       if (index >= max && state.timelinePlaying) stopTimelinePlayback();
     }
 
+    function applyTimelineStep() {
+      renderTimelineStep();
+      render();
+    }
+
     function stopTimelinePlayback() {
       if (state.timelineTimer) clearInterval(state.timelineTimer);
       state.timelineTimer = null;
@@ -1012,11 +1021,11 @@
       state.timelinePlaying = true;
       playPause.querySelector('.play-icon').classList.add('hidden');
       playPause.querySelector('.pause-icon').classList.remove('hidden');
-      renderTimelineStep();
+      applyTimelineStep();
       state.timelineTimer = setInterval(() => {
         const next = Number(timelineSlider.value || 0) + 1;
         timelineSlider.value = String(Math.min(next, state.timelineDates.length));
-        renderTimelineStep();
+        applyTimelineStep();
       }, 650);
     }
 
@@ -1027,17 +1036,24 @@
       const games = currentGames();
       if (!games.length) { tableEl.classList.add('hidden'); tableStatus.classList.remove('hidden'); tableStatus.textContent = 'Ingen matchdata för vald liga och säsong.'; cardsGrid.innerHTML = '<div class="empty-cards">Ingen matchup-data att visa.</div>'; return }
       tableStatus.classList.add('hidden'); tableEl.classList.remove('hidden');
-      const rows = standings(state.tableScope); const tm = teamMap();
+      const selectedDate = state.timelineIndex === 0
+        ? '__BEFORE_SEASON__'
+        : state.timelineDates[state.timelineIndex - 1];
+      const rows = standings(state.tableScope, selectedDate);
+      // Steg 2: lagkorten ska fortfarande vara exakt som tidigare och bygger därför
+      // på hela säsongens tabell, oberoende av tidslinjens datum.
+      const cardRows = standings(state.tableScope);
+      const tm = teamMap();
       const tbody = tableEl.querySelector('tbody'); tbody.innerHTML = '';
       rows.forEach((r, i) => {
         const team = tm.get(r.team_id) || { name: r.team_id };
         const tr = document.createElement('tr');
         const isOpen = state.openTeams.has(r.team_id);
-        tr.innerHTML = `<td>${i + 1}</td><td><div class="team-cell"><button class="card-toggle" type="button" aria-pressed="${isOpen}" data-team="${esc(r.team_id)}" title="${isOpen ? 'Dölj' : 'Visa'} lagkort">${isOpen ? '−' : '+'}</button><span>${esc(team.name)}</span></div></td><td class="num">${r.g}</td><td class="num">${r.points}</td><td class="num">${r.gd}</td>`;
+        tr.innerHTML = `<td>${i + 1}</td><td><div class="team-cell"><button class="card-toggle" type="button" aria-pressed="${isOpen}" data-team="${esc(r.team_id)}" title="${isOpen ? 'Dölj' : 'Visa'} lagkort">${isOpen ? '−' : '+'}</button><span>${esc(team.name)}</span></div></td><td class="num">${r.g}</td><td class="num">${r.points}</td><td class="num">${r.gd > 0 ? '+' + r.gd : r.gd}</td>`;
         tbody.appendChild(tr);
       });
       tbody.querySelectorAll('.card-toggle').forEach(b => b.addEventListener('click', () => { const id = b.dataset.team; state.openTeams.has(id) ? state.openTeams.delete(id) : state.openTeams.add(id); render() }));
-      renderCards(rows);
+      renderCards(cardRows);
     }
 
     function renderCards(tableRows) {
@@ -1174,7 +1190,7 @@
       dataStatus.textContent = `Lokal fil: ${file.name}`; render();
     }
 
-    timelineSlider.addEventListener('input', () => { stopTimelinePlayback(); renderTimelineStep(); });
+    timelineSlider.addEventListener('input', () => { stopTimelinePlayback(); applyTimelineStep(); });
 
     // Samma longpress-beteende som i referensfilen:
     // håll inne ◀ i 450 ms => hoppa till före säsongsstart
@@ -1200,7 +1216,7 @@
           longPressFired = true;
           stopTimelinePlayback();
           timelineSlider.value = direction < 0 ? '0' : String(state.timelineDates.length);
-          renderTimelineStep();
+          applyTimelineStep();
         }, NAV_HOLD_MS);
       });
 
@@ -1216,7 +1232,7 @@
           ? Math.max(0, current - 1)
           : Math.min(state.timelineDates.length, current + 1);
         timelineSlider.value = String(next);
-        renderTimelineStep();
+        applyTimelineStep();
       });
 
       const cancel = () => {
