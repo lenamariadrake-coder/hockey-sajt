@@ -1619,7 +1619,7 @@
 
                                 <div class="working-selection-bar">
                                     <span class="working-selection-text" id="working-selection-text">
-                                        Arbetsurval: 0 lag markerade (max 32)
+                                        Arbetsurval: 0 lag markerade
                                     </span>
 
                                     <!-- NYTT: Sorteringskryss – bara UI än så länge -->
@@ -8928,7 +8928,6 @@
             }
 
             function updateWorkingSelectionSummary() {
-                const maxAllowed = 32;
                 let count = 0;
 
                 rowCheckboxes.forEach(cb => {
@@ -8937,11 +8936,11 @@
 
                 if (workingTextEl) {
                     workingTextEl.textContent =
-                        `Arbetsurval: ${count} lag markerade (max ${maxAllowed})`;
+                        `Arbetsurval: ${count} lag markerade`;
                 }
 
                 if (applyBtn) {
-                    applyBtn.disabled = (count === 0 || count > maxAllowed);
+                    applyBtn.disabled = (count === 0);
                 }
 
                 // Uppdatera header-checkboxens status (alla synliga ikryssade?)
