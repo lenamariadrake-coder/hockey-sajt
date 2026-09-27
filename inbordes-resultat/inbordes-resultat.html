@@ -744,6 +744,16 @@
       line-height: 1.45;
     }
 
+  
+    .control-options label.control-disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .control-options label.control-disabled input {
+      cursor: not-allowed;
+    }
+
   </style>
   <script src="../js/google-sheets-data.js"></script>
 </head>
@@ -1176,6 +1186,49 @@
       referenceDateSelect.value = state.referenceDate;
     }
 
+    function updateMeetingSplitControls() {
+      const seasonComplete = isCompleteSeason(state.league, state.season);
+      const atSeasonEnd = state.timelineDates.length > 0 &&
+        state.timelineIndex === state.timelineDates.length;
+      const enabled = seasonComplete && atSeasonEnd;
+      const tooltip = 'Kan bara användas när säsongen är över.';
+
+      // Om användaren lämnar slutläget ska den historiska vyn alltid använda
+      // alla möten som hunnit spelas. Första/andra är bara ett slut-säsongsval.
+      if (!enabled) {
+        state.matchFirst = true;
+        state.matchSecond = true;
+        state.tableScope = 'all';
+      }
+
+      matchFirst.checked = state.matchFirst;
+      matchSecond.checked = state.matchSecond;
+
+      [matchFirst, matchSecond].forEach(input => {
+        input.disabled = !enabled;
+        const label = input.closest('label');
+        if (!label) return;
+        label.classList.toggle('control-disabled', !enabled);
+        if (!enabled) label.title = tooltip;
+        else label.removeAttribute('title');
+      });
+
+      document.querySelectorAll('input[name="tableScope"]').forEach(input => {
+        if (input.value === 'all') {
+          input.checked = state.tableScope === 'all';
+          return;
+        }
+
+        input.disabled = !enabled;
+        input.checked = state.tableScope === input.value;
+        const label = input.closest('label');
+        if (!label) return;
+        label.classList.toggle('control-disabled', !enabled);
+        if (!enabled) label.title = tooltip;
+        else label.removeAttribute('title');
+      });
+    }
+
     function render() {
       renderLeagueOptions();
       renderSeasonOptions();
@@ -1186,6 +1239,9 @@
       const selectedDate = state.timelineIndex === 0
         ? '__BEFORE_SEASON__'
         : state.timelineDates[state.timelineIndex - 1];
+
+      updateMeetingSplitControls();
+
       const rows = standings(state.tableScope, selectedDate);
       renderReferenceControls(selectedDate);
       const referenceDate = state.referenceMode === 'other'
