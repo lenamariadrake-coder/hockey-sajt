@@ -713,6 +713,37 @@
       line-height: 1.45;
     }
 
+  
+    .cards-pane .reference-controls {
+      margin: 0 0 10px;
+    }
+
+    .reference-controls .control-title {
+      margin-bottom: 2px;
+    }
+
+    .reference-controls .reference-help {
+      display: block;
+      margin: 0 0 7px;
+      color: #5f6b7a;
+      font-size: .9rem;
+    }
+
+    .reference-controls .reference-help summary {
+      display: list-item;
+      width: fit-content;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+      color: #42566f;
+    }
+
+    .reference-controls .reference-help p {
+      max-width: 620px;
+      margin: 6px 0 0;
+      line-height: 1.45;
+    }
+
   </style>
   <script src="../js/google-sheets-data.js"></script>
 </head>
@@ -821,15 +852,16 @@
       <section class="cards-pane" aria-label="Lagkort">
     <section class="reference-controls" aria-label="Referenstabell">
       <div class="control-title">Färglägg utifrån tabellställningen</div>
+      <details class="reference-help">
+        <summary>Vad är detta?</summary>
+        <p>Tabellställningen används som referens när resultaten i lagkorten färgläggs. <strong>Vid reglagets datum</strong> använder samma datum som tidslinjen. Med <strong>Annat datum</strong> kan du bedöma resultaten utifrån tabellställningen vid en annan tidpunkt. Valet påverkar bara färgläggningen i lagkorten – inte tabellen eller vilka matcher som visas.</p>
+      </details>
       <div class="control-options reference-options">
-        <label><input id="referenceCurrent" type="radio" name="referenceMode" value="current" checked> Vid visat datum</label>
+        <label><input id="referenceCurrent" type="radio" name="referenceMode" value="current" checked> Vid reglagets datum</label>
         <label><input id="referenceOther" type="radio" name="referenceMode" value="other"> Annat datum</label>
         <select id="referenceDateSelect" disabled aria-label="Välj referensdatum"></select>
       </div>
-      <details class="reference-help">
-        <summary>Vad är detta?</summary>
-        <p>Tabellställningen används som referens när resultaten i lagkorten färgläggs. <strong>Vid visat datum</strong> använder samma datum som tidslinjen. Med <strong>Annat datum</strong> kan du bedöma resultaten utifrån tabellställningen vid en annan tidpunkt. Valet påverkar bara färgläggningen i lagkorten – inte tabellen eller vilka matcher som visas.</p>
-      </details>
+      
     </section>
         <div class="cards-toolbar">
           <span class="label">Lagkort</span>
