@@ -896,13 +896,16 @@
       return teamIds.size > 0 && [...playedCount.values()].every(count => count === HARD_CODED_ROUND);
     }
 
-    function completeSeasonsForLeague(league) {
+    function seasonsForLeague(league) {
+      // Visa alla säsonger som faktiskt finns i games-datan.
+      // Säsongen behöver alltså inte vara färdigspelad; tidslinjen och tabellen
+      // använder endast matcher som är markerade som spelade.
       return [...new Set(
         state.data.games
           .filter(g => g.league === league)
           .map(g => g.season_id)
+          .filter(Boolean)
       )]
-        .filter(season => isCompleteSeason(league, season))
         .sort()
         .reverse();
     }
@@ -1129,7 +1132,7 @@
 
     function renderLeagueOptions() {
       const leagues = [...new Set(state.data.games.map(g => g.league).filter(Boolean))]
-        .filter(league => completeSeasonsForLeague(league).length > 0)
+        .filter(league => seasonsForLeague(league).length > 0)
         .sort((a, b) => a.localeCompare(b, 'sv'));
 
       if (!leagues.length) {
@@ -1145,7 +1148,7 @@
     }
 
     function renderSeasonOptions() {
-      const combos = completeSeasonsForLeague(state.league);
+      const combos = seasonsForLeague(state.league);
 
       if (!combos.length) {
         seasonSelect.innerHTML = '';
