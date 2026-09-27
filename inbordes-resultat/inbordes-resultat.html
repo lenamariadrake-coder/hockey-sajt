@@ -619,6 +619,43 @@
         margin-bottom: .75rem
       }
     }
+
+
+    /* Tidslinje – steg 1: fristående datumreglage. Påverkar ännu inte tabell eller lagkort. */
+    .slider-wrapper {
+      position: relative;
+      margin: 1rem auto;
+      width: 100%;
+      padding: 1rem;
+      background: var(--header-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .slider-display {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem 1rem;
+      flex-wrap: wrap;
+      margin-bottom: .75rem;
+    }
+
+    .slider-info { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
+    #slider-label { font-weight: 800; text-transform: uppercase; letter-spacing: .02em; font-size: .85rem; color: var(--text-muted); }
+    #current-step-display { font-size: 1.05rem; font-weight: 800; color: var(--text); min-height: 1.2em; }
+    .slider-controls { display: flex; gap: .5rem; align-items: center; }
+    .slider-controls .btn { transition: transform .12s ease, box-shadow .15s ease, filter .15s ease, background .15s ease; }
+    .slider-controls .btn:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,0,0,.12); background: var(--btn-gray-hover); }
+    .slider-controls .btn.primary:hover:not([disabled]) { filter: brightness(.95); }
+    .slider-controls .btn:active:not([disabled]) { transform: translateY(0); box-shadow: 0 6px 14px rgba(0,0,0,.10); }
+    .slider-controls .btn:focus-visible { outline: 2px solid rgba(0,124,48,.45); outline-offset: 3px; }
+    #timeline-slider { width: 100%; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; }
+    #timeline-slider::-webkit-slider-runnable-track { height: 10px; border-radius: 999px; background: #d5dbe7; }
+    #timeline-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; margin-top: -7px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+    #timeline-slider::-moz-range-track { height: 10px; border-radius: 999px; background: #d5dbe7; }
+    #timeline-slider::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+
   </style>
   <script src="../js/google-sheets-data.js"></script>
 </head>
@@ -670,6 +707,26 @@
           </div>
         </div>
       </div>
+    </section>
+
+
+
+    <!-- Tidslinje – steg 1. Visar säsongens speldatum men filtrerar ännu inte innehållet. -->
+    <section class="slider-wrapper" aria-label="Tidslinje">
+      <div class="slider-display">
+        <div class="slider-info">
+          <span id="slider-label">Tidslinje</span>
+          <span id="current-step-display">&nbsp;</span>
+        </div>
+        <div class="slider-controls">
+          <button id="step-prev" class="btn" type="button" aria-label="Föregående datum">◀</button>
+          <button id="play-pause" class="btn primary" type="button" aria-label="Spela upp / pausa">
+            <span class="play-icon">▶</span><span class="pause-icon hidden">⏸</span>
+          </button>
+          <button id="step-next" class="btn" type="button" aria-label="Nästa datum">▶</button>
+        </div>
+      </div>
+      <input id="timeline-slider" type="range" min="0" max="1" value="0" step="1" aria-label="Datum i säsongen">
     </section>
 
     <div id="localBox" class="local-box hidden">
@@ -749,7 +806,12 @@
       tableScope: 'all',
       matchFirst: true,
       matchSecond: true,
-      openTeams: new Set()
+      openTeams: new Set(),
+      timelineDates: [],
+      timelineIndex: 0,
+      timelinePlaying: false,
+      timelineTimer: null,
+      timelineKey: ''
     };
 
     const leagueSelect = document.getElementById('leagueSelect');
@@ -764,6 +826,11 @@
     const cardsGrid = document.getElementById('cardsGrid');
     const matchFirst = document.getElementById('matchFirst');
     const matchSecond = document.getElementById('matchSecond');
+    const timelineSlider = document.getElementById('timeline-slider');
+    const currentStepDisplay = document.getElementById('current-step-display');
+    const stepPrev = document.getElementById('step-prev');
+    const stepNext = document.getElementById('step-next');
+    const playPause = document.getElementById('play-pause');
 
     function parseTSV(text) {
       const lines = String(text || '').split(/\r?\n/).filter(x => x.trim());
@@ -896,9 +963,67 @@
       return '';
     }
 
+    function formatTimelineDate(dateKey) {
+      if (!dateKey) return 'Före säsongsstart';
+      const parts = String(dateKey).slice(0, 10).split('-').map(Number);
+      if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return dateKey;
+      return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' })
+        .format(new Date(parts[0], parts[1] - 1, parts[2]));
+    }
+
+    function buildTimelineDates() {
+      const key = `${state.league}|${state.season || ''}`;
+      if (state.timelineKey === key && state.timelineDates.length) { renderTimelineStep(); return; }
+      state.timelineKey = key;
+      stopTimelinePlayback();
+      const dates = [...new Set(currentGames().filter(g => g.played && g.date).map(g => String(g.date).slice(0, 10)))].sort();
+      state.timelineDates = dates;
+      timelineSlider.min = '0';
+      timelineSlider.max = String(Math.max(dates.length, 1));
+      // Steg 1 ska öppna i samma slutläge som sidan alltid haft.
+      state.timelineIndex = dates.length;
+      timelineSlider.value = String(dates.length);
+      renderTimelineStep();
+    }
+
+    function renderTimelineStep() {
+      const max = state.timelineDates.length;
+      let index = Number(timelineSlider.value || 0);
+      index = Math.max(0, Math.min(max, Number.isFinite(index) ? Math.trunc(index) : 0));
+      state.timelineIndex = index;
+      timelineSlider.value = String(index);
+      currentStepDisplay.textContent = index === 0 ? 'Före säsongsstart' : formatTimelineDate(state.timelineDates[index - 1]);
+      stepPrev.disabled = index <= 0;
+      stepNext.disabled = index >= max;
+      if (index >= max && state.timelinePlaying) stopTimelinePlayback();
+    }
+
+    function stopTimelinePlayback() {
+      if (state.timelineTimer) clearInterval(state.timelineTimer);
+      state.timelineTimer = null;
+      state.timelinePlaying = false;
+      playPause.querySelector('.play-icon').classList.remove('hidden');
+      playPause.querySelector('.pause-icon').classList.add('hidden');
+    }
+
+    function startTimelinePlayback() {
+      if (!state.timelineDates.length) return;
+      if (Number(timelineSlider.value) >= state.timelineDates.length) timelineSlider.value = '0';
+      state.timelinePlaying = true;
+      playPause.querySelector('.play-icon').classList.add('hidden');
+      playPause.querySelector('.pause-icon').classList.remove('hidden');
+      renderTimelineStep();
+      state.timelineTimer = setInterval(() => {
+        const next = Number(timelineSlider.value || 0) + 1;
+        timelineSlider.value = String(Math.min(next, state.timelineDates.length));
+        renderTimelineStep();
+      }, 650);
+    }
+
     function render() {
       renderLeagueOptions();
       renderSeasonOptions();
+      buildTimelineDates();
       const games = currentGames();
       if (!games.length) { tableEl.classList.add('hidden'); tableStatus.classList.remove('hidden'); tableStatus.textContent = 'Ingen matchdata för vald liga och säsong.'; cardsGrid.innerHTML = '<div class="empty-cards">Ingen matchup-data att visa.</div>'; return }
       tableStatus.classList.add('hidden'); tableEl.classList.remove('hidden');
@@ -1034,7 +1159,7 @@
         return obj;
       });
 
-      state.data = normalizeData({ games }); state.source = 'live';
+      state.data = normalizeData({ games }); state.source = 'live'; state.timelineKey = '';
       localBox.classList.add('hidden');
       localBadge.classList.add('hidden');
       useLive.classList.add('hidden');
@@ -1042,12 +1167,17 @@
     }
 
     async function loadLocalFile(file) {
-      const raw = JSON.parse(await file.text()); state.data = normalizeData(raw); state.source = 'local';
+      const raw = JSON.parse(await file.text()); state.data = normalizeData(raw); state.source = 'local'; state.timelineKey = '';
       localBox.classList.remove('hidden');
       localBadge.classList.remove('hidden');
       useLive.classList.toggle('hidden', location.protocol === 'file:');
       dataStatus.textContent = `Lokal fil: ${file.name}`; render();
     }
+
+    timelineSlider.addEventListener('input', () => { stopTimelinePlayback(); renderTimelineStep(); });
+    stepPrev.addEventListener('click', () => { stopTimelinePlayback(); timelineSlider.value = String(Math.max(0, Number(timelineSlider.value || 0) - 1)); renderTimelineStep(); });
+    stepNext.addEventListener('click', () => { stopTimelinePlayback(); timelineSlider.value = String(Math.min(state.timelineDates.length, Number(timelineSlider.value || 0) + 1)); renderTimelineStep(); });
+    playPause.addEventListener('click', () => { state.timelinePlaying ? stopTimelinePlayback() : startTimelinePlayback(); });
 
     leagueSelect.addEventListener('change', () => {
       state.league = leagueSelect.value;
