@@ -10214,12 +10214,77 @@
             });
 
             // Föregående/Nästa knappar
-            document.getElementById('prev-step').addEventListener('click', () => {
-                stopPlayback(); let val = parseInt(slider.value); if (val > 0) { slider.value = val - 1; updateChart(); }
-            });
-            document.getElementById('next-step').addEventListener('click', () => {
-                stopPlayback(); let val = parseInt(slider.value); if (val < slider.max) { slider.value = val + 1; updateChart(); }
-            });
+            // Vanligt klick = ett steg. Longpress = direkt till första/sista sliderläget.
+            const prevStepBtn = document.getElementById('prev-step');
+            const nextStepBtn = document.getElementById('next-step');
+            const STEP_LONG_PRESS_MS = 550;
+
+            function bindStepButtonLongPress(button, direction) {
+                if (!button) return;
+
+                let longPressTimer = null;
+                let longPressTriggered = false;
+
+                const clearLongPressTimer = () => {
+                    if (longPressTimer !== null) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                };
+
+                button.addEventListener('pointerdown', (event) => {
+                    // Endast primär musknapp/finger/penna ska starta longpress.
+                    if (event.pointerType === 'mouse' && event.button !== 0) return;
+
+                    longPressTriggered = false;
+                    clearLongPressTimer();
+
+                    longPressTimer = setTimeout(() => {
+                        longPressTimer = null;
+                        longPressTriggered = true;
+                        stopPlayback();
+
+                        const targetValue = direction < 0
+                            ? parseInt(slider.min, 10)
+                            : parseInt(slider.max, 10);
+
+                        if (parseInt(slider.value, 10) !== targetValue) {
+                            slider.value = targetValue;
+                            updateChart();
+                        }
+                    }, STEP_LONG_PRESS_MS);
+                });
+
+                ['pointerup', 'pointercancel', 'pointerleave'].forEach(eventName => {
+                    button.addEventListener(eventName, clearLongPressTimer);
+                });
+
+                button.addEventListener('click', (event) => {
+                    // Ett click skickas normalt även när en longpress släpps.
+                    // Undertryck det så att vi inte dessutom försöker stega ett steg.
+                    if (longPressTriggered) {
+                        event.preventDefault();
+                        longPressTriggered = false;
+                        return;
+                    }
+
+                    stopPlayback();
+                    const value = parseInt(slider.value, 10);
+                    const min = parseInt(slider.min, 10);
+                    const max = parseInt(slider.max, 10);
+
+                    if (direction < 0 && value > min) {
+                        slider.value = value - 1;
+                        updateChart();
+                    } else if (direction > 0 && value < max) {
+                        slider.value = value + 1;
+                        updateChart();
+                    }
+                });
+            }
+
+            bindStepButtonLongPress(prevStepBtn, -1);
+            bindStepButtonLongPress(nextStepBtn, 1);
             // --- NYTT: Long-press på diagramstaplar (mobil) ---
             if (chartCanvas && !chartCanvas.dataset.longPressBound) {
                 chartCanvas.dataset.longPressBound = '1';
