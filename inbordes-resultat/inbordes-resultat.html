@@ -691,6 +691,28 @@
       opacity: .55;
     }
 
+  
+    .cards-pane .reference-controls {
+      margin: 0 0 10px;
+    }
+    .reference-help {
+      margin-top: .45rem;
+      color: #5f6b7a;
+      font-size: .9rem;
+    }
+    .reference-help summary {
+      display: inline-block;
+      cursor: pointer;
+      color: #42566f;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .reference-help p {
+      max-width: 620px;
+      margin: .45rem 0 0;
+      line-height: 1.45;
+    }
+
   </style>
   <script src="../js/google-sheets-data.js"></script>
 </head>
@@ -764,14 +786,7 @@
       <input id="timeline-slider" type="range" min="0" max="1" value="0" step="1" aria-label="Datum i säsongen">
     </section>
 
-    <section class="reference-controls" aria-label="Referenstabell">
-      <div class="control-title">Färglägg utifrån tabellen</div>
-      <div class="control-options reference-options">
-        <label><input id="referenceCurrent" type="radio" name="referenceMode" value="current" checked> Vid visat datum</label>
-        <label><input id="referenceOther" type="radio" name="referenceMode" value="other"> Annat datum</label>
-        <select id="referenceDateSelect" disabled aria-label="Välj referensdatum"></select>
-      </div>
-    </section>
+
 
     <div id="localBox" class="local-box hidden">
       <span id="localBadge" class="local-badge hidden">LOKALT TESTLÄGE</span>
@@ -804,6 +819,18 @@
       </section>
 
       <section class="cards-pane" aria-label="Lagkort">
+    <section class="reference-controls" aria-label="Referenstabell">
+      <div class="control-title">Färglägg utifrån tabellställningen</div>
+      <div class="control-options reference-options">
+        <label><input id="referenceCurrent" type="radio" name="referenceMode" value="current" checked> Vid visat datum</label>
+        <label><input id="referenceOther" type="radio" name="referenceMode" value="other"> Annat datum</label>
+        <select id="referenceDateSelect" disabled aria-label="Välj referensdatum"></select>
+      </div>
+      <details class="reference-help">
+        <summary>Vad är detta?</summary>
+        <p>Tabellställningen används som referens när resultaten i lagkorten färgläggs. <strong>Vid visat datum</strong> använder samma datum som tidslinjen. Med <strong>Annat datum</strong> kan du bedöma resultaten utifrån tabellställningen vid en annan tidpunkt. Valet påverkar bara färgläggningen i lagkorten – inte tabellen eller vilka matcher som visas.</p>
+      </details>
+    </section>
         <div class="cards-toolbar">
           <span class="label">Lagkort</span>
           <button id="showAll" class="btn small" type="button">Visa alla</button>
