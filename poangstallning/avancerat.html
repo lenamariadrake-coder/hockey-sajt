@@ -4332,7 +4332,7 @@
 
 
             // Uppdatera texter och knappsynlighet
-            document.getElementById('filter-summary').textContent = `Välj lag i kombination med säsong att jämföra (${selectedTeams.length}/${allTeams.length} valda)`;
+            document.getElementById('filter-summary').textContent = `Välj lag i kombination med säsong att jämföra (${selectedTeams.length}/${document.querySelectorAll('.team-checkbox').length} valda)`;
             const hasAnyCustomColors =
                 Object.keys(teamColors).length > 0 ||
                 Object.keys(teamSeasonColors).length > 0;
