@@ -420,6 +420,12 @@
         }
         .study-name { font-weight: 600; color: #222; }
         .study-num { opacity: .9; font-variant-numeric: tabular-nums; color: #444; }
+        .study-row-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        .study-hide-player {
+            border:1px solid #d0d0d0; border-radius:7px; background:#f1f1f1;
+            color:#333; padding:5px 8px; font:inherit; font-size:.82rem; cursor:pointer;
+        }
+        .study-hide-player:hover { background:#e4e4e4; }
         
         p.muted {
             color: #777;
@@ -434,6 +440,170 @@
             }
         }
         
+
+        /* --- LOKALA TRUPPÄNDRINGAR: STEG 1 --- */
+        .team-editor-toggle {
+            margin-left: auto;
+        }
+
+        .team-editor {
+            margin: 0 0 16px;
+            padding: 14px;
+            border: 1px solid #d8d8d8;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.72);
+        }
+
+        .team-editor.hidden {
+            display: none;
+        }
+
+        .team-editor textarea {
+            width: 100%;
+            min-height: 220px;
+            box-sizing: border-box;
+            resize: vertical;
+            padding: 10px;
+            border: 1px solid #bbb;
+            border-radius: 8px;
+            font: inherit;
+            line-height: 1.45;
+            background: #fff;
+            color: #222;
+        }
+
+        .team-editor-note {
+            display: block;
+            margin-top: 8px;
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .team-editor-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .study-row.is-custom .study-name::after {
+            content: "egen";
+            margin-left: 7px;
+            font-size: 0.72em;
+            font-weight: 700;
+            color: #777;
+        }
+
+
+        /* --- ÖVERSIKT ÖVER LOKALA ÄNDRINGAR --- */
+        .changes-overview-btn {
+            background-color: #6c757d;
+        }
+
+        .changes-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0,0,0,.58);
+        }
+
+        .changes-modal.hidden { display: none; }
+
+        .changes-modal-card {
+            width: min(680px, 100%);
+            max-height: min(82vh, 820px);
+            overflow: auto;
+            background: #fff;
+            color: #222;
+            border-radius: 14px;
+            box-shadow: 0 16px 42px rgba(0,0,0,.3);
+            padding: 22px;
+            text-align: left;
+        }
+
+        .changes-modal-card h2 {
+            color: #222;
+            margin-bottom: 8px;
+            text-align: left;
+        }
+
+        .changes-intro {
+            color: #666;
+            line-height: 1.45;
+            margin-bottom: 18px;
+        }
+
+        .changes-team {
+            border-top: 1px solid #e2e2e2;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+
+        .changes-team-title {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            padding: 0;
+            color: #222;
+            font: inherit;
+            font-weight: 750;
+            font-size: 1.08rem;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        .changes-team-title:disabled {
+            cursor: default;
+            text-decoration: none;
+            opacity: .75;
+        }
+
+        .changes-player {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .changes-player-main { min-width: 0; }
+        .changes-player-name { font-weight: 650; }
+        .changes-player-meta { color: #777; font-size: .88rem; margin-top: 2px; }
+        .changes-player-actions { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+
+        .changes-small-btn {
+            border: 1px solid #ccc;
+            background: #f4f4f4;
+            color: #333;
+            border-radius: 7px;
+            padding: 6px 9px;
+            font: inherit;
+            font-size: .85rem;
+            cursor: pointer;
+        }
+        .changes-small-btn:hover { background: #e9e9e9; }
+
+        .changes-modal-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .changes-empty {
+            color: #666;
+            text-align: center;
+            padding: 20px 0 8px;
+        }
+
         /* --- SLUT PÅ STILAR FÖR PLUGGLÄGE --- */
 
 /* Responsiv layout för små skärmar (mobiler) */
@@ -500,6 +670,7 @@
             </div>
 <div class="button-group" style="margin-bottom: 20px;">
              <button id="studyBtn" class="btn btn-mode">Plugga spelare</button>
+             <button id="changesBtnStart" class="btn changes-overview-btn" type="button">Ändringar</button>
         </div>
         
         <div>
@@ -558,6 +729,23 @@
             <div class="study-actions" style="display:flex; gap:10px; flex-wrap:wrap; margin:15px 0 12px;">
                 <button id="sortByNameBtn" class="btn btn-mode active-sort">Bokstavsordning</button>
                 <button id="sortByNumberBtn" class="btn btn-mode">Nummerordning</button>
+                <button id="toggleTeamEditorBtn" class="btn btn-mode team-editor-toggle" type="button"
+                        aria-expanded="false" aria-controls="teamEditorPanel">Redigera lag</button>
+                <button id="changesBtnStudy" class="btn changes-overview-btn" type="button">Ändringar</button>
+            </div>
+
+            <div id="teamEditorPanel" class="team-editor hidden">
+                <label for="teamEditorText" style="display:block;font-weight:700;margin-bottom:7px;">Redigera lag</label>
+                <textarea id="teamEditorText" spellcheck="false"></textarea>
+                <span class="team-editor-note">
+                    En spelare per rad: Namn,nummer. Sätt - framför en rad för att dölja spelaren.
+                    Raderar eller ändrar du en originalrad döljs originalspelaren. En ändrad rad blir samtidigt
+                    ett lokalt tillägg. Ändringarna sparas bara i den här webbläsaren för den aktuella säsongen.
+                </span>
+                <div class="team-editor-buttons">
+                    <button id="saveTeamEditorBtn" class="btn btn-mode" type="button">Spara ändringar</button>
+                    <button id="resetTeamEditorBtn" class="btn btn-reset" type="button">Återställ laget</button>
+                </div>
             </div>
 
             <div class="study-panel">
@@ -568,6 +756,23 @@
 
             <div style="margin-top: 20px;">
                 <button id="closeStudyBtn" class="btn btn-reset">Tillbaka</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="changesModal" class="changes-modal hidden" role="dialog" aria-modal="true"
+         aria-labelledby="changesModalTitle">
+        <div class="changes-modal-card">
+            <h2 id="changesModalTitle">Dolda och tillagda spelare</h2>
+            <p class="changes-intro">
+                Här visas dolda och tillagda spelare, grupperade efter lag. Dolda spelare tas inte med
+                när du pluggar eller spelar. Ändringarna sparas bara i den här webbläsaren.
+            </p>
+            <div id="changesOverviewContent"></div>
+            <div class="changes-modal-actions">
+                <button id="resetAllChangesBtn" class="btn btn-reset" type="button">Återställ och radera allt</button>
+                <button id="closeChangesModalBtn" class="btn btn-mode" type="button">Stäng</button>
             </div>
         </div>
     </div>
@@ -590,6 +795,17 @@
         const studyList = document.getElementById('studyList');
         const sortByNameBtn = document.getElementById('sortByNameBtn');
         const sortByNumberBtn = document.getElementById('sortByNumberBtn');
+        const toggleTeamEditorBtn = document.getElementById('toggleTeamEditorBtn');
+        const teamEditorPanel = document.getElementById('teamEditorPanel');
+        const teamEditorText = document.getElementById('teamEditorText');
+        const saveTeamEditorBtn = document.getElementById('saveTeamEditorBtn');
+        const resetTeamEditorBtn = document.getElementById('resetTeamEditorBtn');
+        const changesBtnStart = document.getElementById('changesBtnStart');
+        const changesBtnStudy = document.getElementById('changesBtnStudy');
+        const changesModal = document.getElementById('changesModal');
+        const changesOverviewContent = document.getElementById('changesOverviewContent');
+        const resetAllChangesBtn = document.getElementById('resetAllChangesBtn');
+        const closeChangesModalBtn = document.getElementById('closeChangesModalBtn');
 
         const studyLeagueSelection = document.getElementById('studyLeagueSelection');
         const studyTeamSelectWrapper = document.getElementById('studyTeamSelectWrapper');
@@ -597,6 +813,7 @@
         const modeBackBtn = document.getElementById('modeBackBtn');
 
         let selectedLeagueKey, selectedTeamKey, cardValues = [], hasFlippedCard = false, lockBoard = false;
+        let currentSeasonId = '';
         let firstCard, secondCard;
         let mismatchedPair = [];
         
@@ -610,6 +827,603 @@
         let currentSortMode = 'name'; // 'name' eller 'number'
         // -----------------------------
 
+
+        // =================================================================
+        //  LOKALA TRUPPÄNDRINGAR: STEG 1
+        // =================================================================
+        const PLAYER_CHANGES_STORAGE_KEY = 'avbytarnasAvbytarbank.hockeyMemory.playerChanges.v1';
+
+        function loadPlayerChanges() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(PLAYER_CHANGES_STORAGE_KEY) || '{}');
+                return {
+                    hiddenPlayers: Array.isArray(parsed.hiddenPlayers) ? parsed.hiddenPlayers : [],
+                    customPlayers: Array.isArray(parsed.customPlayers) ? parsed.customPlayers : [],
+                    hiddenCustomPlayers: Array.isArray(parsed.hiddenCustomPlayers) ? parsed.hiddenCustomPlayers : [],
+                    teamNames: Array.isArray(parsed.teamNames) ? parsed.teamNames : []
+                };
+            } catch (err) {
+                console.warn('Kunde inte läsa lokala truppändringar:', err);
+                return { hiddenPlayers: [], customPlayers: [], hiddenCustomPlayers: [], teamNames: [] };
+            }
+        }
+
+        function savePlayerChanges(changes) {
+            localStorage.setItem(PLAYER_CHANGES_STORAGE_KEY, JSON.stringify(changes));
+        }
+
+        function playerStorageId(player) {
+            if (player.customId) {
+                return ['custom', player.season || currentSeasonId, player.team, player.customId].join('\u0000');
+            }
+            return [player.season || currentSeasonId, player.team, player.id].join('\u0000');
+        }
+
+        function createCustomPlayerId() {
+            if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
+            return 'cp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+        }
+
+        function getOriginalPlayers(leagueKey, teamKey) {
+            return TEAMS[leagueKey]?.teams[teamKey]?.players || [];
+        }
+
+        function getTeamNameOverride(teamKey) {
+            const changes = loadPlayerChanges();
+            return changes.teamNames.find(item =>
+                item.season === currentSeasonId && item.team === teamKey
+            )?.name || '';
+        }
+
+        function getTeamDisplayName(leagueKey, teamKey) {
+            return getTeamNameOverride(teamKey) || TEAMS[leagueKey]?.teams[teamKey]?.name || teamKey;
+        }
+
+        function getEffectivePlayers(leagueKey, teamKey) {
+            const changes = loadPlayerChanges();
+            const hiddenIds = new Set(
+                changes.hiddenPlayers
+                    .filter(item => item.season === currentSeasonId)
+                    .map(item => item.id)
+            );
+
+            const originals = getOriginalPlayers(leagueKey, teamKey)
+                .filter(player => !hiddenIds.has(playerStorageId(player)))
+                .map(player => ({ ...player, team: teamKey, season: currentSeasonId }));
+
+            const hiddenCustomIds = new Set(changes.hiddenCustomPlayers || []);
+            const custom = changes.customPlayers
+                .filter(player =>
+                    player.season === currentSeasonId &&
+                    player.team === teamKey &&
+                    !hiddenCustomIds.has(playerStorageId(player))
+                )
+                .map(player => ({ ...player, custom: true }));
+
+            return originals.concat(custom);
+        }
+
+        function hideStudyPlayer(player) {
+            const changes = loadPlayerChanges();
+            const id = playerStorageId(player);
+            if (player.custom) {
+                if (!changes.hiddenCustomPlayers.includes(id)) changes.hiddenCustomPlayers.push(id);
+            } else if (!changes.hiddenPlayers.some(item => item.id === id)) {
+                changes.hiddenPlayers.push({
+                    id, season: currentSeasonId, team: player.team,
+                    name: player.name, number: player.number
+                });
+            }
+            savePlayerChanges(changes);
+        }
+
+        function parseRosterPlayerLine(rawLine) {
+            const trimmed = String(rawLine ?? '').trim();
+            if (!trimmed) return null;
+
+            const hiddenMatch = trimmed.match(/^[-–—]+\s*/);
+            const hidden = !!hiddenMatch;
+            const body = hidden ? trimmed.slice(hiddenMatch[0].length).trim() : trimmed;
+            const comma = body.indexOf(',');
+            if (comma < 1) return null;
+
+            const name = body.slice(0, comma).trim();
+            const number = body.slice(comma + 1).trim();
+            if (!name || !number) return null;
+
+            return { name, number, hidden };
+        }
+
+        function getStudySelection() {
+            const leagueKey = studyLeagueSelection.querySelector('input:checked')?.value || '';
+            const teamKey = studyTeamSelect.value || '';
+            return { leagueKey, teamKey };
+        }
+
+        function setTeamEditorOpen(open) {
+            teamEditorPanel.classList.toggle('hidden', !open);
+            toggleTeamEditorBtn.setAttribute('aria-expanded', String(open));
+            toggleTeamEditorBtn.textContent = open ? 'Stäng redigering' : 'Redigera lag';
+            if (open) renderTeamEditor();
+        }
+
+        function renderTeamEditor() {
+            const { leagueKey, teamKey } = getStudySelection();
+            if (!leagueKey || !teamKey) {
+                teamEditorText.value = '';
+                return;
+            }
+
+            const changes = loadPlayerChanges();
+            const hiddenIds = new Set(
+                changes.hiddenPlayers
+                    .filter(item => item.season === currentSeasonId)
+                    .map(item => item.id)
+            );
+
+            const originals = getOriginalPlayers(leagueKey, teamKey);
+            const custom = changes.customPlayers.filter(
+                player => player.season === currentSeasonId && player.team === teamKey
+            );
+
+            const lines = [getTeamDisplayName(leagueKey, teamKey)];
+            originals.forEach(player => {
+                const prefix = hiddenIds.has(playerStorageId(player)) ? '- ' : '';
+                lines.push(`${prefix}${player.name},${player.number}`);
+            });
+            const hiddenCustomIds = new Set(changes.hiddenCustomPlayers || []);
+            custom.forEach(player => {
+                const prefix = hiddenCustomIds.has(playerStorageId(player)) ? '- ' : '';
+                lines.push(`${prefix}${player.name},${player.number}`);
+            });
+
+            teamEditorText.value = lines.join('\n');
+        }
+
+        function saveTeamEditor() {
+            const { leagueKey, teamKey } = getStudySelection();
+            if (!leagueKey || !teamKey) return;
+
+            const rawRows = teamEditorText.value
+                .split(/\r?\n/)
+                .map((text, index) => ({ text: text.trim(), line: index + 1 }))
+                .filter(row => row.text);
+
+            const originals = getOriginalPlayers(leagueKey, teamKey);
+            const originalTeamName = TEAMS[leagueKey]?.teams[teamKey]?.name || teamKey;
+            let desiredTeamName = '';
+            let rosterRows = rawRows;
+
+            // Första raden är lagnamn om den inte ser ut som en spelarrad.
+            // Om lagnamnsraden raderas börjar listan direkt med en spelare och originalnamnet används igen.
+            if (rawRows.length && !/^[-–—]?\s*.+,\s*\d+\s*$/.test(rawRows[0].text)) {
+                desiredTeamName = rawRows[0].text;
+                rosterRows = rawRows.slice(1);
+            }
+
+            const parsedRows = [];
+            for (const row of rosterRows) {
+                const parsed = parseRosterPlayerLine(row.text);
+                if (!parsed) {
+                    alert(`Kan inte tolka rad ${row.line}: ${row.text}\n\nFörsta raden kan vara lagnamn. Spelare skrivs som Namn,nummer.`);
+                    return;
+                }
+                parsedRows.push({ ...parsed, used: false });
+            }
+
+            const changes = loadPlayerChanges();
+            changes.teamNames = (changes.teamNames || []).filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
+            if (desiredTeamName && desiredTeamName !== originalTeamName) {
+                changes.teamNames.push({ season: currentSeasonId, team: teamKey, name: desiredTeamName });
+            }
+
+            const norm = value => String(value).trim().toLocaleLowerCase('sv');
+            const wantedHiddenIds = new Set();
+
+            // Originaldatan ändras aldrig.
+            // En originalspelare är synlig endast om den exakta originalraden finns kvar
+            // utan "-". Saknas originalraden helt, eller har den "-", är originalspelaren dold.
+            // Alla rader som inte exakt motsvarar en originalrad blir lokala tillägg.
+            originals.forEach(player => {
+                const match = parsedRows.find(row =>
+                    !row.used &&
+                    norm(row.name) === norm(player.name) &&
+                    norm(row.number) === norm(player.number)
+                );
+
+                if (match) {
+                    match.used = true;
+                    if (match.hidden) wantedHiddenIds.add(playerStorageId(player));
+                } else {
+                    wantedHiddenIds.add(playerStorageId(player));
+                }
+            });
+
+            changes.hiddenPlayers = changes.hiddenPlayers.filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
+
+            originals.forEach(player => {
+                const id = playerStorageId(player);
+                if (wantedHiddenIds.has(id)) {
+                    changes.hiddenPlayers.push({
+                        id,
+                        season: currentSeasonId,
+                        team: teamKey,
+                        name: player.name,
+                        number: player.number
+                    });
+                }
+            });
+
+            // Alla omatchade rader är egna lokala tillägg.
+            const oldOtherCustom = changes.customPlayers.filter(
+                player => !(player.season === currentSeasonId && player.team === teamKey)
+            );
+            const oldTeamCustom = changes.customPlayers.filter(
+                player => player.season === currentSeasonId && player.team === teamKey
+            );
+
+            const reusable = new Map();
+            oldTeamCustom.forEach(player => {
+                const key = `${norm(player.name)}\u0000${norm(player.number)}`;
+                if (!reusable.has(key)) reusable.set(key, []);
+                reusable.get(key).push(player);
+            });
+
+            const oldTeamCustomIds = new Set(oldTeamCustom.map(playerStorageId));
+            const wantedHiddenCustomIds = new Set();
+            const newTeamCustom = [];
+
+            parsedRows.filter(row => !row.used).forEach(row => {
+                const key = `${norm(row.name)}\u0000${norm(row.number)}`;
+                const previous = reusable.get(key)?.shift();
+                const player = {
+                    name: row.name,
+                    number: row.number,
+                    team: teamKey,
+                    season: currentSeasonId,
+                    customId: previous?.customId || createCustomPlayerId()
+                };
+                newTeamCustom.push(player);
+                if (row.hidden) wantedHiddenCustomIds.add(playerStorageId(player));
+            });
+
+            changes.customPlayers = oldOtherCustom.concat(newTeamCustom);
+            changes.hiddenCustomPlayers = (changes.hiddenCustomPlayers || [])
+                .filter(id => !oldTeamCustomIds.has(id))
+                .concat([...wantedHiddenCustomIds]);
+            savePlayerChanges(changes);
+
+            renderStudyList();
+            // Uppdatera alla ställen där lagnamnet visas, men behåll valt lag.
+            populateStudyTeams(leagueKey);
+            studyTeamSelect.value = teamKey;
+            renderStudyList();
+            createStartScreen();
+            setTeamEditorOpen(false);
+        }
+
+        function resetStudyTeam() {
+            const { leagueKey, teamKey } = getStudySelection();
+            if (!leagueKey || !teamKey) return;
+
+            if (!confirm('Återställa alla lokala ändringar för det här laget?')) return;
+
+            const changes = loadPlayerChanges();
+            changes.hiddenPlayers = changes.hiddenPlayers.filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
+            const removedCustomIds = new Set(
+                changes.customPlayers
+                    .filter(player => player.season === currentSeasonId && player.team === teamKey)
+                    .map(playerStorageId)
+            );
+            changes.customPlayers = changes.customPlayers.filter(
+                player => !(player.season === currentSeasonId && player.team === teamKey)
+            );
+            changes.hiddenCustomPlayers = (changes.hiddenCustomPlayers || [])
+                .filter(id => !removedCustomIds.has(id));
+            changes.teamNames = (changes.teamNames || []).filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
+            savePlayerChanges(changes);
+
+            // Originalnamnet ska slå igenom direkt även i lagväljaren.
+            populateStudyTeams(leagueKey);
+            studyTeamSelect.value = teamKey;
+            renderStudyList();
+            renderTeamEditor();
+            createStartScreen();
+        }
+
+
+        // =================================================================
+        //  ÖVERSIKT ÖVER LOKALA ÄNDRINGAR
+        // =================================================================
+        function findTeamContext(teamKey) {
+            for (const [leagueKey, league] of Object.entries(TEAMS)) {
+                if (league.teams?.[teamKey]) {
+                    return { leagueKey, teamKey, team: league.teams[teamKey], league };
+                }
+            }
+            return null;
+        }
+
+        function openStudyTeam(leagueKey, teamKey) {
+            showScreen(studyScreen);
+
+            const radio = studyLeagueSelection.querySelector(`input[value="${CSS.escape(leagueKey)}"]`);
+            if (radio) radio.checked = true;
+
+            populateStudyTeams(leagueKey);
+            studyTeamSelect.value = teamKey;
+            setTeamEditorOpen(false);
+            renderStudyList();
+            closeChangesModal();
+        }
+
+        function restoreChangedPlayer(kind, id) {
+            const changes = loadPlayerChanges();
+            if (kind === 'original') {
+                changes.hiddenPlayers = changes.hiddenPlayers.filter(item => item.id !== id);
+            } else {
+                changes.hiddenCustomPlayers = (changes.hiddenCustomPlayers || []).filter(item => item !== id);
+            }
+            savePlayerChanges(changes);
+            refreshAfterChangesAction();
+        }
+
+        function restoreTeamName(teamKey) {
+            const changes = loadPlayerChanges();
+            changes.teamNames = (changes.teamNames || []).filter(
+                item => !(item.season === currentSeasonId && item.team === teamKey)
+            );
+            savePlayerChanges(changes);
+            refreshAfterChangesAction();
+        }
+
+        function deleteCustomPlayer(id) {
+            const changes = loadPlayerChanges();
+            changes.customPlayers = changes.customPlayers.filter(player => playerStorageId(player) !== id);
+            changes.hiddenCustomPlayers = (changes.hiddenCustomPlayers || []).filter(item => item !== id);
+            savePlayerChanges(changes);
+            refreshAfterChangesAction();
+        }
+
+        function refreshAfterChangesAction() {
+            renderChangesOverview();
+            const { leagueKey, teamKey } = getStudySelection();
+            if (leagueKey) {
+                populateStudyTeams(leagueKey);
+                studyTeamSelect.value = teamKey || '';
+            }
+            renderStudyList();
+            if (!teamEditorPanel.classList.contains('hidden')) renderTeamEditor();
+            createStartScreen();
+        }
+
+        function getLocalChangeCount() {
+            const changes = loadPlayerChanges();
+
+            const hiddenOriginalCount = changes.hiddenPlayers
+                .filter(item => item.season === currentSeasonId)
+                .length;
+
+            const customPlayerCount = changes.customPlayers
+                .filter(player => player.season === currentSeasonId)
+                .length;
+
+            const teamNameCount = (changes.teamNames || [])
+                .filter(item => item.season === currentSeasonId)
+                .length;
+
+            return hiddenOriginalCount + customPlayerCount + teamNameCount;
+        }
+
+        function getChangesOverviewGroups() {
+            const changes = loadPlayerChanges();
+            const groups = new Map();
+            const ensureGroup = teamKey => {
+                if (!groups.has(teamKey)) {
+                    const ctx = findTeamContext(teamKey);
+                    groups.set(teamKey, {
+                        teamKey,
+                        leagueKey: ctx?.leagueKey || '',
+                        teamName: ctx ? getTeamDisplayName(ctx.leagueKey, teamKey) : teamKey,
+                        originalTeamName: ctx?.team?.name || teamKey,
+                        nameOverride: '',
+                        items: []
+                    });
+                }
+                return groups.get(teamKey);
+            };
+
+            (changes.teamNames || [])
+                .filter(item => item.season === currentSeasonId)
+                .forEach(item => {
+                    const group = ensureGroup(item.team);
+                    group.nameOverride = item.name;
+                    group.teamName = item.name;
+                });
+
+            changes.hiddenPlayers
+                .filter(item => item.season === currentSeasonId)
+                .forEach(item => {
+                    ensureGroup(item.team).items.push({
+                        kind: 'original',
+                        id: item.id,
+                        name: item.name,
+                        number: item.number,
+                        hidden: true
+                    });
+                });
+
+            const hiddenCustomIds = new Set(changes.hiddenCustomPlayers || []);
+            changes.customPlayers
+                .filter(player => player.season === currentSeasonId)
+                .forEach(player => {
+                    const id = playerStorageId(player);
+                    ensureGroup(player.team).items.push({
+                        kind: 'custom',
+                        id,
+                        name: player.name,
+                        number: player.number,
+                        hidden: hiddenCustomIds.has(id)
+                    });
+                });
+
+            return [...groups.values()]
+                .filter(group => group.items.length || group.nameOverride)
+                .sort((a, b) => a.teamName.localeCompare(b.teamName, 'sv'));
+        }
+
+        function updateChangesButtons() {
+            const count = getLocalChangeCount();
+            const label = count > 0 ? `Ändringar (${count})` : 'Ändringar';
+            changesBtnStart.textContent = label;
+            changesBtnStudy.textContent = label;
+        }
+
+        function renderChangesOverview() {
+            const groups = getChangesOverviewGroups();
+            changesOverviewContent.innerHTML = '';
+
+            if (!groups.length) {
+                changesOverviewContent.innerHTML =
+                    '<p class="changes-empty">Det finns inga lokala ändringar för den här säsongen.</p>';
+                resetAllChangesBtn.disabled = true;
+                return;
+            }
+
+            resetAllChangesBtn.disabled = false;
+            const frag = document.createDocumentFragment();
+
+            groups.forEach(group => {
+                const section = document.createElement('section');
+                section.className = 'changes-team';
+
+                const title = document.createElement('button');
+                title.type = 'button';
+                title.className = 'changes-team-title';
+                title.textContent = group.teamName;
+                if (group.leagueKey) {
+                    title.addEventListener('click', () => openStudyTeam(group.leagueKey, group.teamKey));
+                } else {
+                    title.disabled = true;
+                }
+                section.appendChild(title);
+
+                if (group.nameOverride) {
+                    const row = document.createElement('div');
+                    row.className = 'changes-player';
+                    const main = document.createElement('div');
+                    main.className = 'changes-player-main';
+                    const name = document.createElement('div');
+                    name.className = 'changes-player-name';
+                    name.textContent = `${group.originalTeamName} → ${group.nameOverride}`;
+                    const meta = document.createElement('div');
+                    meta.className = 'changes-player-meta';
+                    meta.textContent = 'Ändrat lagnamn';
+                    main.append(name, meta);
+                    const actions = document.createElement('div');
+                    actions.className = 'changes-player-actions';
+                    const restore = document.createElement('button');
+                    restore.type = 'button';
+                    restore.className = 'changes-small-btn';
+                    restore.textContent = 'Återställ';
+                    restore.addEventListener('click', () => restoreTeamName(group.teamKey));
+                    actions.appendChild(restore);
+                    row.append(main, actions);
+                    section.appendChild(row);
+                }
+
+                group.items
+                    .sort((a, b) => a.name.localeCompare(b.name, 'sv') ||
+                        String(a.number).localeCompare(String(b.number), 'sv', { numeric: true }))
+                    .forEach(item => {
+                        const row = document.createElement('div');
+                        row.className = 'changes-player';
+
+                        const main = document.createElement('div');
+                        main.className = 'changes-player-main';
+
+                        const name = document.createElement('div');
+                        name.className = 'changes-player-name';
+                        name.textContent = `${item.name} #${item.number}`;
+
+                        const meta = document.createElement('div');
+                        meta.className = 'changes-player-meta';
+                        meta.textContent = item.kind === 'original'
+                            ? 'Dold'
+                            : (item.hidden ? 'Tillagd · Dold' : 'Tillagd');
+
+                        main.append(name, meta);
+
+                        const actions = document.createElement('div');
+                        actions.className = 'changes-player-actions';
+
+                        if (item.hidden) {
+                            const restore = document.createElement('button');
+                            restore.type = 'button';
+                            restore.className = 'changes-small-btn';
+                            restore.textContent = 'Återställ';
+                            restore.addEventListener('click', () => restoreChangedPlayer(item.kind, item.id));
+                            actions.appendChild(restore);
+                        }
+
+                        if (item.kind === 'custom') {
+                            const remove = document.createElement('button');
+                            remove.type = 'button';
+                            remove.className = 'changes-small-btn';
+                            remove.textContent = 'Radera';
+                            remove.addEventListener('click', () => deleteCustomPlayer(item.id));
+                            actions.appendChild(remove);
+                        }
+
+                        row.append(main, actions);
+                        section.appendChild(row);
+                    });
+
+                frag.appendChild(section);
+            });
+
+            changesOverviewContent.appendChild(frag);
+        }
+
+        function openChangesModal() {
+            renderChangesOverview();
+            changesModal.classList.remove('hidden');
+        }
+
+        function closeChangesModal() {
+            changesModal.classList.add('hidden');
+        }
+
+        function resetAllLocalChanges() {
+            const groups = getChangesOverviewGroups();
+            if (!groups.length) return;
+            if (!confirm('Återställa och radera alla lokala ändringar för den här säsongen?')) return;
+
+            const changes = loadPlayerChanges();
+            const currentCustomIds = new Set(
+                changes.customPlayers
+                    .filter(player => player.season === currentSeasonId)
+                    .map(playerStorageId)
+            );
+
+            changes.hiddenPlayers = changes.hiddenPlayers.filter(item => item.season !== currentSeasonId);
+            changes.customPlayers = changes.customPlayers.filter(player => player.season !== currentSeasonId);
+            changes.hiddenCustomPlayers = (changes.hiddenCustomPlayers || [])
+                .filter(id => !currentCustomIds.has(id));
+            changes.teamNames = (changes.teamNames || []).filter(item => item.season !== currentSeasonId);
+
+            savePlayerChanges(changes);
+            refreshAfterChangesAction();
+        }
+
 // =================================================================
         //  NY LOGIK FÖR STARTSIDAN
         // =================================================================
@@ -619,6 +1433,7 @@
          * baserat på TEAMS-objektet.
          */
         function createStartScreen() {
+            updateChangesButtons();
             leagueAccordion.innerHTML = ''; // Rensa eventuellt gammalt innehåll
 
             // Loopa igenom varje liga (t.ex. 'shl', 'nhl')
@@ -647,7 +1462,7 @@
                 
                 // 5. Hämta och sortera lagnamnen alfabetiskt
                 const teamKeys = Object.keys(league.teams);
-                teamKeys.sort((a, b) => league.teams[a].name.localeCompare(league.teams[b].name));
+                teamKeys.sort((a, b) => getTeamDisplayName(leagueKey, a).localeCompare(getTeamDisplayName(leagueKey, b), 'sv'));
 
                 // 6. Skapa en knapp för varje lag i den sorterade listan
                 teamKeys.forEach(teamKey => {
@@ -655,12 +1470,13 @@
                     const li = document.createElement('li');
                     const teamButton = document.createElement('button');
                     teamButton.className = 'btn-team';
-                    teamButton.textContent = team.name;
+                    teamButton.textContent = getTeamDisplayName(leagueKey, teamKey);
                     teamButton.dataset.teamKey = teamKey;
                     teamButton.dataset.leagueKey = leagueKey;
                     
-                    // Inaktivera knappen om inga spelare finns
-                    if (team.players.length === 0) {
+                    // Lokala ändringar räknas också. Ett lag kan alltså bli tomt
+                    // genom att alla originalspelare döljs, eller få spelare via lokala tillägg.
+                    if (getEffectivePlayers(leagueKey, teamKey).length === 0) {
                         teamButton.disabled = true;
                         teamButton.style.opacity = '0.5';
                         teamButton.style.cursor = 'not-allowed';
@@ -732,7 +1548,7 @@
 
             // Hämta och sortera lagnamnen alfabetiskt
             const teamKeys = Object.keys(league.teams);
-            teamKeys.sort((a, b) => league.teams[a].name.localeCompare(league.teams[b].name));
+            teamKeys.sort((a, b) => getTeamDisplayName(leagueKey, a).localeCompare(getTeamDisplayName(leagueKey, b), 'sv'));
             
             if (teamKeys.length === 0) return; // Hoppa över om inga lag finns
 
@@ -747,7 +1563,7 @@
                 const team = league.teams[teamKey];
                 const option = document.createElement('option');
                 option.value = teamKey; // Vi sparar nyckeln, t.ex. 'dif-shl'
-                option.textContent = team.name;
+                option.textContent = getTeamDisplayName(leagueKey, teamKey);
                 studyTeamSelect.appendChild(option);
             });
             
@@ -785,12 +1601,10 @@
                 return;
             }
 
-            // Hämta spelardatan. Spelarna lagras som en array så att
-            // samma tröjnummer aldrig kan skriva över en annan spelare.
-            const players = TEAMS[selectedLeagueKey]?.teams[selectedTeamKey]?.players;
-            if (!players) return; // Säkerhetskoll
-
-            const playerList = players.map(player => ({ ...player }));
+            // Använd den effektiva truppen: Google Sheets som grund,
+            // minus dolda originalspelare, plus lokala tillägg.
+            const playerList = getEffectivePlayers(selectedLeagueKey, selectedTeamKey)
+                .map(player => ({ ...player }));
             
             if (playerList.length === 0) {
                  studyList.innerHTML = '<p class="muted">Inga spelare hittades för detta lag.</p>';
@@ -812,18 +1626,34 @@
             
             playerList.forEach(player => {
                 const row = document.createElement('div');
-                row.className = 'study-row';
+                row.className = 'study-row' + (player.custom ? ' is-custom' : '');
                 
                 const nameEl = document.createElement('div');
                 nameEl.className = 'study-name';
                 nameEl.textContent = player.name;
                 
+                const actionsEl = document.createElement('div');
+                actionsEl.className = 'study-row-actions';
+
                 const numEl = document.createElement('div');
                 numEl.className = 'study-num';
-                numEl.textContent = `#${player.number}`; // Lägg till # för tydlighet
-                
-                row.appendChild(nameEl);
-                row.appendChild(numEl);
+                numEl.textContent = `#${player.number}`;
+
+                const hideBtn = document.createElement('button');
+                hideBtn.type = 'button';
+                hideBtn.className = 'study-hide-player';
+                hideBtn.textContent = 'Dölj';
+                hideBtn.title = `Dölj ${player.name}`;
+                hideBtn.setAttribute('aria-label', `Dölj ${player.name}`);
+                hideBtn.addEventListener('click', () => {
+                    hideStudyPlayer(player);
+                    renderStudyList();
+                    renderTeamEditor();
+                    createStartScreen();
+                });
+
+                actionsEl.append(numEl, hideBtn);
+                row.append(nameEl, actionsEl);
                 frag.appendChild(row);
             });
             
@@ -1055,15 +1885,23 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
                 teamIdToLeagueKeyMap[team_id] = leagueKey;
             });
 
-            playersList.forEach((player, index) => {
-                const { player_name, number, team_id } = player;
+            const occurrenceByVisiblePair = new Map();
+
+            playersList.forEach(player => {
+                const { player_name, number, team_id, season_id } = player;
                 const leagueKey = teamIdToLeagueKeyMap[team_id];
 
                 if (leagueKey && newTeamsObject[leagueKey].teams[team_id]) {
+                    const pairKey = [team_id, player_name, number].join('\u0000');
+                    const occurrence = (occurrenceByVisiblePair.get(pairKey) || 0) + 1;
+                    occurrenceByVisiblePair.set(pairKey, occurrence);
+
                     newTeamsObject[leagueKey].teams[team_id].players.push({
-                        id: `${team_id}::${index}::${player_name}`,
+                        id: `${team_id}::${player_name}::${number}::${occurrence}`,
                         name: player_name,
-                        number
+                        number,
+                        team: team_id,
+                        season: season_id
                     });
                 }
             });
@@ -1158,6 +1996,7 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
                 }
 
                 const prepared = prepareCurrentSeasonData(allTeamsList, gamesList, seasonSummaryList, playersList);
+                currentSeasonId = prepared.currentSeason;
                 TEAMS = buildTeamsObject(prepared.teamsList, prepared.playersList);
 
                 createStartScreen();
@@ -1175,6 +2014,7 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
         studyLeagueSelection.addEventListener('change', (e) => {
             if (e.target.name === 'study-league') {
                 const selectedLeagueKey = e.target.value;
+                setTeamEditorOpen(false);
                 populateStudyTeams(selectedLeagueKey);
                 renderStudyList(); // <-- LÄGG TILL DENNA RAD (rensar listan)
             }
@@ -1183,8 +2023,21 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
 
 // --- NYA LISTENERS FÖR STEG 3 ---
         studyTeamSelect.addEventListener('change', () => {
+            setTeamEditorOpen(false);
             renderStudyList(); // Rita om listan när man väljer ett lag
         });
+
+        toggleTeamEditorBtn.addEventListener('click', () => {
+            const { teamKey } = getStudySelection();
+            if (!teamKey) {
+                alert('Välj ett lag först.');
+                return;
+            }
+            setTeamEditorOpen(teamEditorPanel.classList.contains('hidden'));
+        });
+
+        saveTeamEditorBtn.addEventListener('click', saveTeamEditor);
+        resetTeamEditorBtn.addEventListener('click', resetStudyTeam);
 
         sortByNameBtn.addEventListener('click', () => {
             currentSortMode = 'name';
@@ -1197,6 +2050,21 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
             updateSortButtons();
             renderStudyList(); // Rita om listan med ny sortering
         });
+        changesBtnStart.addEventListener('click', openChangesModal);
+        changesBtnStudy.addEventListener('click', openChangesModal);
+        closeChangesModalBtn.addEventListener('click', closeChangesModal);
+        resetAllChangesBtn.addEventListener('click', resetAllLocalChanges);
+
+        changesModal.addEventListener('click', (event) => {
+            if (event.target === changesModal) closeChangesModal();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !changesModal.classList.contains('hidden')) {
+                closeChangesModal();
+            }
+        });
+
         // -----------------------------
 
 
@@ -1263,6 +2131,11 @@ const LOCAL_SEASON_SUMMARY_URL = 'season_summary.txt';
         modeScreen.addEventListener('click', (e) => {
             if (e.target.matches('[data-mode]')) {
                 const selectedMode = e.target.dataset.mode;
+                const available = getEffectivePlayers(selectedLeagueKey, selectedTeamKey).length;
+                if (available === 0) {
+                    alert('Det finns inga aktiva spelare i laget. Lägg tillbaka eller lägg till spelare i Plugga spelare.');
+                    return;
+                }
                 showScreen(null); // Gömmer modeskärmen, startGame visar spelskärmen
                 startGame(selectedMode);
             }
@@ -1288,7 +2161,7 @@ function returnToStart() {
         function startGame(mode) {
             resetGame();
 
-            const allPlayers = TEAMS[selectedLeagueKey].teams[selectedTeamKey].players;
+            const allPlayers = getEffectivePlayers(selectedLeagueKey, selectedTeamKey);
             let playersForGame;
 
             if (mode === 'all') {

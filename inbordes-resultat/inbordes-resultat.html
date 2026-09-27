@@ -619,6 +619,141 @@
         margin-bottom: .75rem
       }
     }
+
+
+    /* Tidslinje – steg 1: fristående datumreglage. Påverkar ännu inte tabell eller lagkort. */
+    .slider-wrapper {
+      position: relative;
+      margin: 1rem auto;
+      width: 100%;
+      padding: 1rem;
+      background: var(--header-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .slider-display {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem 1rem;
+      flex-wrap: wrap;
+      margin-bottom: .75rem;
+    }
+
+    .slider-info { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
+    #slider-label { font-weight: 800; text-transform: uppercase; letter-spacing: .02em; font-size: .85rem; color: var(--text-muted); }
+    #current-step-display { font-size: 1.05rem; font-weight: 800; color: var(--text); min-height: 1.2em; }
+    .slider-controls { display: flex; gap: .5rem; align-items: center; }
+    .slider-controls .btn { transition: transform .12s ease, box-shadow .15s ease, filter .15s ease, background .15s ease; }
+    .slider-controls .btn:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,0,0,.12); background: var(--btn-gray-hover); }
+    .slider-controls .btn.primary:hover:not([disabled]) { filter: brightness(.95); }
+    .slider-controls .btn:active:not([disabled]) { transform: translateY(0); box-shadow: 0 6px 14px rgba(0,0,0,.10); }
+    .slider-controls .btn:focus-visible { outline: 2px solid rgba(0,124,48,.45); outline-offset: 3px; }
+    #timeline-slider { width: 100%; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; }
+    #timeline-slider::-webkit-slider-runnable-track { height: 10px; border-radius: 999px; background: #d5dbe7; }
+    #timeline-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; margin-top: -7px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+    #timeline-slider::-moz-range-track { height: 10px; border-radius: 999px; background: #d5dbe7; }
+    #timeline-slider::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+
+  
+    /* Referensnivå i lagkorten */
+    .level-row:has(.team-chip.focus) {
+      background: #eef2f6;
+      border-radius: 6px;
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+
+    .level-row:has(.team-chip.focus) .zero-divider {
+      display: none;
+    }
+
+  
+    .reference-controls {
+      margin: 0 0 1rem;
+    }
+    .reference-options {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .55rem 1rem;
+    }
+    .reference-options select {
+      max-width: 220px;
+      padding: .35rem .5rem;
+      border: 1px solid #cfd8e3;
+      border-radius: 6px;
+      background: #fff;
+      font: inherit;
+    }
+    .reference-options select:disabled {
+      opacity: .55;
+    }
+
+  
+    .cards-pane .reference-controls {
+      margin: 0 0 10px;
+    }
+    .reference-help {
+      margin-top: .45rem;
+      color: #5f6b7a;
+      font-size: .9rem;
+    }
+    .reference-help summary {
+      display: inline-block;
+      cursor: pointer;
+      color: #42566f;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .reference-help p {
+      max-width: 620px;
+      margin: .45rem 0 0;
+      line-height: 1.45;
+    }
+
+  
+    .cards-pane .reference-controls {
+      margin: 0 0 10px;
+    }
+
+    .reference-controls .control-title {
+      margin-bottom: 2px;
+    }
+
+    .reference-controls .reference-help {
+      display: block;
+      margin: 0 0 7px;
+      color: #5f6b7a;
+      font-size: .9rem;
+    }
+
+    .reference-controls .reference-help summary {
+      display: list-item;
+      width: fit-content;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+      color: #42566f;
+    }
+
+    .reference-controls .reference-help p {
+      max-width: 620px;
+      margin: 6px 0 0;
+      line-height: 1.45;
+    }
+
+  
+    .control-options label.control-disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .control-options label.control-disabled input {
+      cursor: not-allowed;
+    }
+
   </style>
   <script src="../js/google-sheets-data.js"></script>
 </head>
@@ -672,6 +807,28 @@
       </div>
     </section>
 
+
+
+    <!-- Tidslinje – steg 1. Visar säsongens speldatum men filtrerar ännu inte innehållet. -->
+    <section class="slider-wrapper" aria-label="Tidslinje">
+      <div class="slider-display">
+        <div class="slider-info">
+          <span id="slider-label">Tidslinje</span>
+          <span id="current-step-display">&nbsp;</span>
+        </div>
+        <div class="slider-controls">
+          <button id="step-prev" class="btn" type="button" aria-label="Föregående datum">◀</button>
+          <button id="play-pause" class="btn primary" type="button" aria-label="Spela upp / pausa">
+            <span class="play-icon">▶</span><span class="pause-icon hidden">⏸</span>
+          </button>
+          <button id="step-next" class="btn" type="button" aria-label="Nästa datum">▶</button>
+        </div>
+      </div>
+      <input id="timeline-slider" type="range" min="0" max="1" value="0" step="1" aria-label="Datum i säsongen">
+    </section>
+
+
+
     <div id="localBox" class="local-box hidden">
       <span id="localBadge" class="local-badge hidden">LOKALT TESTLÄGE</span>
       <span id="dataStatus">Laddar data…</span>
@@ -703,6 +860,19 @@
       </section>
 
       <section class="cards-pane" aria-label="Lagkort">
+    <section class="reference-controls" aria-label="Referenstabell">
+      <div class="control-title">Färglägg utifrån tabellställningen</div>
+      <details class="reference-help">
+        <summary>Vad är detta?</summary>
+        <p>Tabellställningen används som referens när resultaten i lagkorten färgläggs. <strong>Vid reglagets datum</strong> använder samma datum som tidslinjen. Med <strong>Annat datum</strong> kan du bedöma resultaten utifrån tabellställningen vid en annan tidpunkt. Valet påverkar bara färgläggningen i lagkorten – inte tabellen eller vilka matcher som visas.</p>
+      </details>
+      <div class="control-options reference-options">
+        <label><input id="referenceCurrent" type="radio" name="referenceMode" value="current" checked> Vid reglagets datum</label>
+        <label><input id="referenceOther" type="radio" name="referenceMode" value="other"> Annat datum</label>
+        <select id="referenceDateSelect" disabled aria-label="Välj referensdatum"></select>
+      </div>
+      
+    </section>
         <div class="cards-toolbar">
           <span class="label">Lagkort</span>
           <button id="showAll" class="btn small" type="button">Visa alla</button>
@@ -749,7 +919,14 @@
       tableScope: 'all',
       matchFirst: true,
       matchSecond: true,
-      openTeams: new Set()
+      openTeams: new Set(),
+      timelineDates: [],
+      timelineIndex: 0,
+      timelinePlaying: false,
+      timelineTimer: null,
+      timelineKey: '',
+      referenceMode: 'current',
+      referenceDate: null
     };
 
     const leagueSelect = document.getElementById('leagueSelect');
@@ -764,6 +941,14 @@
     const cardsGrid = document.getElementById('cardsGrid');
     const matchFirst = document.getElementById('matchFirst');
     const matchSecond = document.getElementById('matchSecond');
+    const timelineSlider = document.getElementById('timeline-slider');
+    const currentStepDisplay = document.getElementById('current-step-display');
+    const stepPrev = document.getElementById('step-prev');
+    const stepNext = document.getElementById('step-next');
+    const playPause = document.getElementById('play-pause');
+    const referenceCurrent = document.getElementById('referenceCurrent');
+    const referenceOther = document.getElementById('referenceOther');
+    const referenceDateSelect = document.getElementById('referenceDateSelect');
 
     function parseTSV(text) {
       const lines = String(text || '').split(/\r?\n/).filter(x => x.trim());
@@ -829,13 +1014,16 @@
       return teamIds.size > 0 && [...playedCount.values()].every(count => count === HARD_CODED_ROUND);
     }
 
-    function completeSeasonsForLeague(league) {
+    function seasonsForLeague(league) {
+      // Visa alla säsonger som faktiskt finns i games-datan.
+      // Säsongen behöver alltså inte vara färdigspelad; tidslinjen och tabellen
+      // använder endast matcher som är markerade som spelade.
       return [...new Set(
         state.data.games
           .filter(g => g.league === league)
           .map(g => g.season_id)
+          .filter(Boolean)
       )]
-        .filter(season => isCompleteSeason(league, season))
         .sort()
         .reverse();
     }
@@ -858,8 +1046,14 @@
       return annotated.filter(g => g.half === scope);
     }
 
-    function standings(scope) {
-      const games = gamesForScope(scope);
+    function standings(scope, cutoffDate = null) {
+      // Mötesetiketterna (first/second) bestäms fortfarande utifrån hela säsongen.
+      // Därefter kan tabellen begränsas till matcher t.o.m. valt datum.
+      const games = cutoffDate === '__BEFORE_SEASON__'
+        ? []
+        : gamesForScope(scope).filter(g =>
+            !cutoffDate || String(g.date).slice(0, 10) <= cutoffDate
+          );
       const ids = new Set(); currentGames().forEach(g => { ids.add(g.home_team_id); ids.add(g.away_team_id) });
       const rows = new Map([...ids].map(id => [id, { team_id: id, g: 0, points: 0, gf: 0, ga: 0, gd: 0 }]));
       games.forEach(g => {
@@ -872,21 +1066,26 @@
       return [...rows.values()].sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf || (tm.get(a.team_id)?.name || a.team_id).localeCompare(tm.get(b.team_id)?.name || b.team_id, 'sv'));
     }
 
-    function selectedMatchupGames() {
+    function selectedMatchupGames(cutoffDate = null) {
       const annotated = annotateMeetingHalves(currentGames());
       const allowed = new Set(); if (state.matchFirst) allowed.add('first'); if (state.matchSecond) allowed.add('second');
-      return annotated.filter(g => allowed.has(g.half));
+      return annotated.filter(g =>
+        allowed.has(g.half) &&
+        cutoffDate !== '__BEFORE_SEASON__' &&
+        (!cutoffDate || String(g.date).slice(0, 10) <= cutoffDate)
+      );
     }
 
-    function matchupScore(referenceId, opponentId) {
-      let ref = 0, opp = 0;
-      selectedMatchupGames().forEach(g => {
+    function matchupScore(referenceId, opponentId, cutoffDate = null) {
+      let ref = 0, opp = 0, played = 0;
+      selectedMatchupGames(cutoffDate).forEach(g => {
         const same = (g.home_team_id === referenceId && g.away_team_id === opponentId) || (g.home_team_id === opponentId && g.away_team_id === referenceId);
         if (!same) return;
+        played += 1;
         if (g.home_team_id === referenceId) { ref += g.home_points; opp += g.away_points }
         else { ref += g.away_points; opp += g.home_points }
       });
-      return { ref, opp, diff: ref - opp };
+      return { ref, opp, diff: ref - opp, played };
     }
 
     function comparisonClass(refId, oppId, diff, rank) {
@@ -896,34 +1095,185 @@
       return '';
     }
 
+    function formatTimelineDate(dateKey) {
+      if (!dateKey) return 'Före säsongsstart';
+      const parts = String(dateKey).slice(0, 10).split('-').map(Number);
+      if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return dateKey;
+      return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' })
+        .format(new Date(parts[0], parts[1] - 1, parts[2]));
+    }
+
+    function buildTimelineDates() {
+      const key = `${state.league}|${state.season || ''}`;
+      if (state.timelineKey === key && state.timelineDates.length) { renderTimelineStep(); return; }
+      state.timelineKey = key;
+      stopTimelinePlayback();
+      const dates = [...new Set(currentGames().filter(g => g.played && g.date).map(g => String(g.date).slice(0, 10)))].sort();
+      state.timelineDates = dates;
+      timelineSlider.min = '0';
+      timelineSlider.max = String(Math.max(dates.length, 1));
+      // Steg 1 ska öppna i samma slutläge som sidan alltid haft.
+      state.timelineIndex = dates.length;
+      timelineSlider.value = String(dates.length);
+      renderTimelineStep();
+    }
+
+    function renderTimelineStep() {
+      const max = state.timelineDates.length;
+      let index = Number(timelineSlider.value || 0);
+      index = Math.max(0, Math.min(max, Number.isFinite(index) ? Math.trunc(index) : 0));
+      state.timelineIndex = index;
+      timelineSlider.value = String(index);
+      currentStepDisplay.textContent = index === 0 ? 'Före säsongsstart' : formatTimelineDate(state.timelineDates[index - 1]);
+      stepPrev.disabled = index <= 0;
+      stepNext.disabled = index >= max;
+      if (index >= max && state.timelinePlaying) stopTimelinePlayback();
+    }
+
+    function applyTimelineStep() {
+      renderTimelineStep();
+      render();
+    }
+
+    function stopTimelinePlayback() {
+      if (state.timelineTimer) clearInterval(state.timelineTimer);
+      state.timelineTimer = null;
+      state.timelinePlaying = false;
+      playPause.querySelector('.play-icon').classList.remove('hidden');
+      playPause.querySelector('.pause-icon').classList.add('hidden');
+    }
+
+    function startTimelinePlayback() {
+      if (!state.timelineDates.length) return;
+      if (Number(timelineSlider.value) >= state.timelineDates.length) timelineSlider.value = '0';
+      state.timelinePlaying = true;
+      playPause.querySelector('.play-icon').classList.add('hidden');
+      playPause.querySelector('.pause-icon').classList.remove('hidden');
+      applyTimelineStep();
+      state.timelineTimer = setInterval(() => {
+        const next = Number(timelineSlider.value || 0) + 1;
+        timelineSlider.value = String(Math.min(next, state.timelineDates.length));
+        applyTimelineStep();
+      }, 650);
+    }
+
+    function renderReferenceControls(selectedDate) {
+      referenceCurrent.checked = state.referenceMode === 'current';
+      referenceOther.checked = state.referenceMode === 'other';
+      referenceDateSelect.disabled = state.referenceMode !== 'other';
+
+      const dates = state.timelineDates;
+      const previous = state.referenceDate;
+      referenceDateSelect.innerHTML = '';
+      dates.forEach(date => {
+        const option = document.createElement('option');
+        option.value = date;
+        option.textContent = formatTimelineDate(date);
+        referenceDateSelect.appendChild(option);
+      });
+
+      if (!dates.length) {
+        state.referenceDate = null;
+        return;
+      }
+
+      if (previous && dates.includes(previous)) {
+        state.referenceDate = previous;
+      } else {
+        // Första gången "Annat datum" används föreslås senaste spelade datum.
+        state.referenceDate = dates[dates.length - 1];
+      }
+      referenceDateSelect.value = state.referenceDate;
+    }
+
+    function updateMeetingSplitControls() {
+      const seasonComplete = isCompleteSeason(state.league, state.season);
+      const atSeasonEnd = state.timelineDates.length > 0 &&
+        state.timelineIndex === state.timelineDates.length;
+      const enabled = seasonComplete && atSeasonEnd;
+      const tooltip = 'Kan bara användas när säsongen är över.';
+
+      // Om användaren lämnar slutläget ska den historiska vyn alltid använda
+      // alla möten som hunnit spelas. Första/andra är bara ett slut-säsongsval.
+      if (!enabled) {
+        state.matchFirst = true;
+        state.matchSecond = true;
+        state.tableScope = 'all';
+      }
+
+      matchFirst.checked = state.matchFirst;
+      matchSecond.checked = state.matchSecond;
+
+      [matchFirst, matchSecond].forEach(input => {
+        input.disabled = !enabled;
+        const label = input.closest('label');
+        if (!label) return;
+        label.classList.toggle('control-disabled', !enabled);
+        if (!enabled) label.title = tooltip;
+        else label.removeAttribute('title');
+      });
+
+      document.querySelectorAll('input[name="tableScope"]').forEach(input => {
+        if (input.value === 'all') {
+          input.checked = state.tableScope === 'all';
+          return;
+        }
+
+        input.disabled = !enabled;
+        input.checked = state.tableScope === input.value;
+        const label = input.closest('label');
+        if (!label) return;
+        label.classList.toggle('control-disabled', !enabled);
+        if (!enabled) label.title = tooltip;
+        else label.removeAttribute('title');
+      });
+    }
+
     function render() {
       renderLeagueOptions();
       renderSeasonOptions();
+      buildTimelineDates();
       const games = currentGames();
       if (!games.length) { tableEl.classList.add('hidden'); tableStatus.classList.remove('hidden'); tableStatus.textContent = 'Ingen matchdata för vald liga och säsong.'; cardsGrid.innerHTML = '<div class="empty-cards">Ingen matchup-data att visa.</div>'; return }
       tableStatus.classList.add('hidden'); tableEl.classList.remove('hidden');
-      const rows = standings(state.tableScope); const tm = teamMap();
+      const selectedDate = state.timelineIndex === 0
+        ? '__BEFORE_SEASON__'
+        : state.timelineDates[state.timelineIndex - 1];
+
+      updateMeetingSplitControls();
+
+      const rows = standings(state.tableScope, selectedDate);
+      renderReferenceControls(selectedDate);
+      const referenceDate = state.referenceMode === 'other'
+        ? state.referenceDate
+        : selectedDate;
+      // Visningsdatumet styr fortfarande vilka H2H-matcher som finns.
+      // Referensdatumet styr endast tabellrankingen som används för färgerna.
+      const referenceRows = standings(state.tableScope, referenceDate);
+      const cardRows = rows;
+      const tm = teamMap();
       const tbody = tableEl.querySelector('tbody'); tbody.innerHTML = '';
       rows.forEach((r, i) => {
         const team = tm.get(r.team_id) || { name: r.team_id };
         const tr = document.createElement('tr');
         const isOpen = state.openTeams.has(r.team_id);
-        tr.innerHTML = `<td>${i + 1}</td><td><div class="team-cell"><button class="card-toggle" type="button" aria-pressed="${isOpen}" data-team="${esc(r.team_id)}" title="${isOpen ? 'Dölj' : 'Visa'} lagkort">${isOpen ? '−' : '+'}</button><span>${esc(team.name)}</span></div></td><td class="num">${r.g}</td><td class="num">${r.points}</td><td class="num">${r.gd}</td>`;
+        tr.innerHTML = `<td>${i + 1}</td><td><div class="team-cell"><button class="card-toggle" type="button" aria-pressed="${isOpen}" data-team="${esc(r.team_id)}" title="${isOpen ? 'Dölj' : 'Visa'} lagkort">${isOpen ? '−' : '+'}</button><span>${esc(team.name)}</span></div></td><td class="num">${r.g}</td><td class="num">${r.points}</td><td class="num">${r.gd > 0 ? '+' + r.gd : r.gd}</td>`;
         tbody.appendChild(tr);
       });
       tbody.querySelectorAll('.card-toggle').forEach(b => b.addEventListener('click', () => { const id = b.dataset.team; state.openTeams.has(id) ? state.openTeams.delete(id) : state.openTeams.add(id); render() }));
-      renderCards(rows);
+      renderCards(cardRows, selectedDate, referenceRows);
     }
 
-    function renderCards(tableRows) {
-      const tm = teamMap(); const rank = new Map(tableRows.map((r, i) => [r.team_id, i + 1]));
+    function renderCards(tableRows, cutoffDate = null, referenceRows = tableRows) {
+      const tm = teamMap(); const rank = new Map(referenceRows.map((r, i) => [r.team_id, i + 1]));
       const ordered = tableRows.filter(r => state.openTeams.has(r.team_id));
       if (!ordered.length) { cardsGrid.innerHTML = '<div class="empty-cards">Klicka på + vid ett lag i tabellen, eller välj <strong>Visa alla</strong>.</div>'; return }
       cardsGrid.innerHTML = '';
       ordered.forEach(ref => {
         const opponents = tableRows
           .filter(r => r.team_id !== ref.team_id)
-          .map(r => ({ id: r.team_id, score: matchupScore(ref.team_id, r.team_id) }));
+          .map(r => ({ id: r.team_id, score: matchupScore(ref.team_id, r.team_id, cutoffDate) }))
+          .filter(o => o.score.played > 0);
 
         const levels = new Map();
         opponents.forEach(o => {
@@ -942,7 +1292,7 @@
         const values = [...levels.keys()].sort((a, b) => a - b);
         const card = document.createElement('article'); card.className = 'matchup-card';
         const refTeam = tm.get(ref.team_id) || { name: ref.team_id };
-        card.innerHTML = `<div class="matchup-card__head"><div class="matchup-card__title">${esc(refTeam.name)}</div><div class="matchup-card__meta">${state.matchFirst && state.matchSecond ? '4 möten' : state.matchFirst || state.matchSecond ? '2 möten' : '0 möten'}</div></div><div class="levels"></div>`;
+        card.innerHTML = `<div class="matchup-card__head"><div class="matchup-card__title">${esc(refTeam.name)}</div></div><div class="levels"></div>`;
         const levelsEl = card.querySelector('.levels');
         values.forEach(v => {
           const level = levels.get(v);
@@ -950,7 +1300,7 @@
 
           const label = document.createElement('div');
           label.className = 'level-label';
-          label.textContent = `${level.score.ref}–${level.score.opp}`;
+          label.textContent = v === 0 ? '' : `${level.score.ref}–${level.score.opp}`;
 
           const chips = document.createElement('div');
           chips.className = 'level-teams';
@@ -959,6 +1309,7 @@
             const focus = document.createElement('span');
             focus.className = 'team-chip focus';
             focus.textContent = refTeam.name;
+            focus.title = `Referenspunkt för ${refTeam.name}`;
             chips.appendChild(focus);
 
             const d = document.createElement('span');
@@ -986,7 +1337,7 @@
 
     function renderLeagueOptions() {
       const leagues = [...new Set(state.data.games.map(g => g.league).filter(Boolean))]
-        .filter(league => completeSeasonsForLeague(league).length > 0)
+        .filter(league => seasonsForLeague(league).length > 0)
         .sort((a, b) => a.localeCompare(b, 'sv'));
 
       if (!leagues.length) {
@@ -1002,7 +1353,7 @@
     }
 
     function renderSeasonOptions() {
-      const combos = completeSeasonsForLeague(state.league);
+      const combos = seasonsForLeague(state.league);
 
       if (!combos.length) {
         seasonSelect.innerHTML = '';
@@ -1034,7 +1385,7 @@
         return obj;
       });
 
-      state.data = normalizeData({ games }); state.source = 'live';
+      state.data = normalizeData({ games }); state.source = 'live'; state.timelineKey = '';
       localBox.classList.add('hidden');
       localBadge.classList.add('hidden');
       useLive.classList.add('hidden');
@@ -1042,12 +1393,81 @@
     }
 
     async function loadLocalFile(file) {
-      const raw = JSON.parse(await file.text()); state.data = normalizeData(raw); state.source = 'local';
+      const raw = JSON.parse(await file.text()); state.data = normalizeData(raw); state.source = 'local'; state.timelineKey = '';
       localBox.classList.remove('hidden');
       localBadge.classList.remove('hidden');
       useLive.classList.toggle('hidden', location.protocol === 'file:');
       dataStatus.textContent = `Lokal fil: ${file.name}`; render();
     }
+
+    document.querySelectorAll('input[name="referenceMode"]').forEach(input => {
+      input.addEventListener('change', () => {
+        state.referenceMode = input.value;
+        render();
+      });
+    });
+
+    referenceDateSelect.addEventListener('change', () => {
+      state.referenceDate = referenceDateSelect.value || null;
+      if (state.referenceMode === 'other') render();
+    });
+
+    timelineSlider.addEventListener('input', () => { stopTimelinePlayback(); applyTimelineStep(); });
+
+    // Samma longpress-beteende som i referensfilen:
+    // håll inne ◀ i 450 ms => hoppa till före säsongsstart
+    // håll inne ▶ i 450 ms => hoppa till säsongens slut
+    const NAV_HOLD_MS = 450;
+
+    function bindTimelineStepButton(button, direction) {
+      let holdTimer = null;
+      let longPressFired = false;
+
+      const clearHoldTimer = () => {
+        if (holdTimer) {
+          clearTimeout(holdTimer);
+          holdTimer = null;
+        }
+      };
+
+      button.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        longPressFired = false;
+        clearHoldTimer();
+        holdTimer = setTimeout(() => {
+          longPressFired = true;
+          stopTimelinePlayback();
+          timelineSlider.value = direction < 0 ? '0' : String(state.timelineDates.length);
+          applyTimelineStep();
+        }, NAV_HOLD_MS);
+      });
+
+      button.addEventListener('pointerup', () => {
+        clearHoldTimer();
+        if (longPressFired) {
+          longPressFired = false;
+          return;
+        }
+        stopTimelinePlayback();
+        const current = Number(timelineSlider.value || 0);
+        const next = direction < 0
+          ? Math.max(0, current - 1)
+          : Math.min(state.timelineDates.length, current + 1);
+        timelineSlider.value = String(next);
+        applyTimelineStep();
+      });
+
+      const cancel = () => {
+        clearHoldTimer();
+        longPressFired = false;
+      };
+      button.addEventListener('pointercancel', cancel);
+      button.addEventListener('pointerleave', cancel);
+    }
+
+    bindTimelineStepButton(stepPrev, -1);
+    bindTimelineStepButton(stepNext, +1);
+    playPause.addEventListener('click', () => { state.timelinePlaying ? stopTimelinePlayback() : startTimelinePlayback(); });
 
     leagueSelect.addEventListener('change', () => {
       state.league = leagueSelect.value;

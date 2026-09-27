@@ -2287,9 +2287,8 @@
                 <button id="exportBtn" class="btn btn-icon" aria-label="Spara aktiv vy som bild"
                     title="Spara aktiv vy som bild">📸</button>
 
-                <!-- H2H har ingen egen uppdateringskontroll i detta steg.
-                     Platsen reserveras så att följande gemensamma element inte flyttar sig. -->
-                <span class="header-icon-reserve" aria-hidden="true"></span>
+                <button id="refreshDataBtn" class="btn-icon-plain" type="button"
+                    aria-label="Hämta färska data" title="Hämta färska data">🔄</button>
 
                 <!-- Huvudnavigation: samma ordning och placering som på facitsidorna -->
                 <div class="topbar-tabs tabs" aria-label="Vyval">
@@ -2547,6 +2546,7 @@ Södertälje</pre>
         const leagueStand = document.getElementById('leagueStandings');
         const roundButtons = document.getElementById('roundButtons');
         const exportBtn = document.getElementById('exportBtn');
+        const refreshDataBtn = document.getElementById('refreshDataBtn');
         const seasonSelectWrap = document.getElementById('seasonSelectWrap');
         const seasonSelect = document.getElementById('seasonSelect');
         const timelineSlider = document.getElementById('timeline-slider');
@@ -2961,11 +2961,13 @@ Södertälje</pre>
             return participants;
         }
 
-        async function loadH2HTips(generatedSource, realSource) {
-            const cached = readH2HTipsCache();
-            if (cached) {
-                hydrateH2HTipsCache(cached);
-                if (H2H_TIPS_BY_PARTICIPANT.size) return 'cache';
+        async function loadH2HTips(generatedSource, realSource, { forceNetwork = false } = {}) {
+            if (!forceNetwork) {
+                const cached = readH2HTipsCache();
+                if (cached) {
+                    hydrateH2HTipsCache(cached);
+                    if (H2H_TIPS_BY_PARTICIPANT.size) return 'cache';
+                }
             }
 
             const [{ rows: generatedRows }, { rows: realRows }] = await Promise.all([
@@ -5019,6 +5021,71 @@ Södertälje</pre>
             }
         }
 
+        async function refreshAllData() {
+            if (!refreshDataBtn) return;
+
+            const previous = {
+                standingSnapshots: STANDING_SNAPSHOTS,
+                dateStandingSnapshots: DATE_STANDING_SNAPSHOTS,
+                dateTimelineKeys: DATE_TIMELINE_KEYS,
+                allTeamIds: ALL_TEAM_IDS,
+                teamById: TEAM_BY_ID,
+                h2hTips: H2H_TIPS_BY_PARTICIPANT,
+                roundsAvailable: state.roundsAvailable,
+                latestRound: state.latestRound
+            };
+
+            refreshDataBtn.disabled = true;
+            refreshDataBtn.setAttribute('aria-busy', 'true');
+            const oldTitle = refreshDataBtn.title;
+            const oldText = refreshDataBtn.textContent;
+            refreshDataBtn.title = 'Hämtar färska data…';
+            refreshDataBtn.textContent = '⏳';
+
+            try {
+                // Töm sidans egna datacacher först. Det gör den manuella uppdateringen
+                // otvetydig även om en tidigare laddning ligger kvar i localStorage.
+                try {
+                    localStorage.removeItem(HA_H2H_TIPS_CACHE_KEY);
+                    localStorage.removeItem(HA_STANDINGS_CACHE_KEY);
+                } catch { }
+
+                // Hämta allt som kan ändras externt direkt från Sheets.
+                // Eget H2H-tips och övrigt UI-state ligger kvar orörda.
+                await loadTeams(DATA_SOURCES.allTeams);
+                await loadAndPrepareStandings(DATA_SOURCES.games);
+                await loadH2HTips(GENERATED_H2H_TIPS_SOURCE, REAL_H2H_TIPS_SOURCE, { forceNetwork: true });
+
+                // H2H-sidan skriver avsiktligt inte en egen variant av den delade
+                // ställningscachen. Ta därför bort eventuell gammal sådan så att
+                // systersidorna inte återanvänder den efter en manuell uppdatering.
+                try { localStorage.removeItem(HA_STANDINGS_CACHE_KEY); } catch { }
+
+                invalidateSeasonRecordCache();
+                buildRoundButtons();
+                dataError?.classList.add('hidden');
+                renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+            } catch (error) {
+                STANDING_SNAPSHOTS = previous.standingSnapshots;
+                DATE_STANDING_SNAPSHOTS = previous.dateStandingSnapshots;
+                DATE_TIMELINE_KEYS = previous.dateTimelineKeys;
+                ALL_TEAM_IDS = previous.allTeamIds;
+                TEAM_BY_ID = previous.teamById;
+                H2H_TIPS_BY_PARTICIPANT = previous.h2hTips;
+                state.roundsAvailable = previous.roundsAvailable;
+                state.latestRound = previous.latestRound;
+                buildRoundButtons();
+                renderTableForRound(state.timelineMode === 'date' ? state.currentDateIndex : state.currentRound);
+                console.error('[refresh]', error);
+                showError(`Kunde inte hämta färska data: ${error.message || error}`);
+            } finally {
+                refreshDataBtn.disabled = false;
+                refreshDataBtn.removeAttribute('aria-busy');
+                refreshDataBtn.textContent = oldText || '🔄';
+                refreshDataBtn.title = oldTitle || 'Hämta färska data';
+            }
+        }
+
         async function init() {
             try {
                 await loadStandingsCacheFirst();
@@ -5092,6 +5159,7 @@ Södertälje</pre>
                 customInput?.addEventListener('input', () => setCustomMsg('err', ''));
 
                 exportBtn?.addEventListener('click', exportActiveView);
+                refreshDataBtn?.addEventListener('click', refreshAllData);
 
                 seasonSelect?.addEventListener('change', () => {
                     const target = seasonSelect.value;

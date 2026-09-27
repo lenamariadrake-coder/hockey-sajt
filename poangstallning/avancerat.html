@@ -984,13 +984,6 @@
             /* luft ovanför kryssrutan */
         }
 
-        #sort-by-placement:checked+label,
-        #sort-by-placement:checked {
-            outline: 2px solid #0d6efd;
-            outline-offset: 3px;
-            border-radius: 3px;
-        }
-
         /* ------------------------------------
    Manuell sortering – instruktionstext
 ------------------------------------ */
@@ -1619,7 +1612,7 @@
 
                                 <div class="working-selection-bar">
                                     <span class="working-selection-text" id="working-selection-text">
-                                        Arbetsurval: 0 lag markerade (max 32)
+                                        Arbetsurval: 0 lag markerade
                                     </span>
 
                                     <!-- NYTT: Sorteringskryss – bara UI än så länge -->
@@ -1989,6 +1982,11 @@
         // Struktur:
         //   pointsByDateKey[key][dateKey] = { games, points, goalDiff }
         let pointsByDateKey = {};
+
+        // Datumaxeln som faktiskt används i diagrammet. Grundaxeln
+        // allDateKeysNoYear lämnas orörd; denna filtreras till datum där
+        // minst ett av de valda lag+säsongerna spelade match.
+        let activeDateKeysNoYear = ['Start'];
 
 
         let CURRENT_TIMELINE_MODE = 'matches';
@@ -3084,9 +3082,10 @@
                 minGamesPlayed = Math.min(...Object.values(teamHistory).map(h => h.length - 1));
                 if (minGamesPlayed < 0) minGamesPlayed = 0; // Säkerställ att det inte blir negativt om inga matcher finns
 
-                // Bygg upp data per matchomgång upp till minGamesPlayed
-                pointsByMatches = Array(minGamesPlayed + 1).fill(null).map(() => ({}));
-                for (let i = 0; i <= minGamesPlayed; i++) {
+                // Bygg upp data per matchomgång för en hel grundserie (0–52).
+                // Lag som ännu inte har spelat så många matcher behåller sitt senaste kända läge.
+                pointsByMatches = Array(MAX_MATCHES_PER_SEASON + 1).fill(null).map(() => ({}));
+                for (let i = 0; i <= MAX_MATCHES_PER_SEASON; i++) {
                     allTeams.forEach(team => {
                         // Hitta lagets data efter exakt i matcher, eller den senaste om de inte spelat i matcher än
                         const entry = teamHistory[team].find(e => e.games === i) || teamHistory[team].filter(e => e.games <= i).slice(-1)[0];
@@ -3538,8 +3537,8 @@
             }
         };
 
-        // NYTT: plugin som ritar &#9940; för pågående säsong
-        // när vi är på sista spelade matchen för just den säsongen.
+        // Plugin som ritar &#9940; för pågående säsong
+        // först när tidslinjen har passerat lagets sista spelade match.
         const ongoingSeasonStopIconPlugin = {
             id: 'ongoingSeasonStopIconPlugin',
             afterDatasetsDraw(chart, args, options) {
@@ -3584,12 +3583,42 @@
                     const currentGamesShown =
                         typeof dataEntry.games === 'number' ? dataEntry.games : null;
 
-                    // Vi är bara intresserade av läget där vi är på sista spelade matchen
-                    if (
-                        totalGamesForSeason == null ||
-                        currentGamesShown == null ||
-                        currentGamesShown !== totalGamesForSeason
-                    ) {
+                    // Stoppskylten betyder alltid att tidslinjen har passerat
+                    // lagets sista faktiska datapunkt, men match- och datumläge
+                    // behöver avgöra detta på olika sätt.
+                    const timelineMode = document.querySelector('input[name="timeline-mode"]:checked')?.value;
+                    const timelineStep = parseInt(slider.value, 10);
+                    if (!Number.isFinite(timelineStep)) return;
+
+                    if (timelineMode === 'matches') {
+                        // Matchläge: har laget spelat 3 matcher kommer skylten först
+                        // på steg 4 och ligger sedan kvar.
+                        if (
+                            totalGamesForSeason == null ||
+                            currentGamesShown == null ||
+                            timelineStep <= totalGamesForSeason
+                        ) {
+                            return;
+                        }
+                    } else if (timelineMode === 'date') {
+                        // Datumläge: jämför positioner på den gemensamma hockeyårsaxeln
+                        // (aug–dec, därefter jan–jul). Skylten visas först på första
+                        // datumsteget EFTER lagets sista faktiskt spelade datum.
+                        const perDate = pointsByDateKey[key] || {};
+                        const dateAxis = Array.isArray(activeDateKeysNoYear) ? activeDateKeysNoYear : [];
+
+                        let lastPlayedDateIndex = -1;
+                        Object.keys(perDate).forEach(dateKey => {
+                            const dateIndex = dateAxis.indexOf(dateKey);
+                            if (dateIndex > lastPlayedDateIndex) {
+                                lastPlayedDateIndex = dateIndex;
+                            }
+                        });
+
+                        if (lastPlayedDateIndex < 0 || timelineStep <= lastPlayedDateIndex) {
+                            return;
+                        }
+                    } else {
                         return;
                     }
 
@@ -4027,6 +4056,25 @@
         }
 
         // --- UPPDATERINGSFUNKTIONER ---
+        function getActiveDateKeysForSelection() {
+            const selectedKeys = (mainViewSelectedKeys instanceof Set)
+                ? Array.from(mainViewSelectedKeys)
+                : [];
+
+            if (selectedKeys.length === 0) return ['Start'];
+
+            const selectedDateKeys = new Set();
+            selectedKeys.forEach(key => {
+                const perDate = pointsByDateKey[key] || {};
+                Object.keys(perDate).forEach(dateKey => selectedDateKeys.add(dateKey));
+            });
+
+            // Behåll exakt samma hockeyårsordning som den befintliga grundaxeln.
+            return ['Start', ...allDateKeysNoYear.filter(
+                dateKey => dateKey !== 'Start' && selectedDateKeys.has(dateKey)
+            )];
+        }
+
         function updateSliderRange(shouldUpdateChart) {
             // Default: uppdatera diagrammet (viktigt vid växling mellan match/datum)
             if (typeof shouldUpdateChart === 'undefined') {
@@ -4037,23 +4085,15 @@
             const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
 
             if (mode === 'matches') {
-                // Läget "Spelade matcher":
-                // - minGamesPlayed kan vara större än 52 eftersom den räknas över alla säsonger.
-                // - Reglaget ska ändå spegla EN säsong → vi begränsar till MAX_MATCHES_PER_SEASON (52).
-                //
-                // För säkerhets skull klamrar vi mot både 0 och minGamesPlayed,
-                // så vi aldrig ber om fler steg än pointsByMatches faktiskt har.
-                let safeMax = Math.max(0, minGamesPlayed);
-
-                safeMax = Math.min(MAX_MATCHES_PER_SEASON, safeMax);
-
-                slider.max = safeMax;
+                // Läget "Spelade matcher" representerar en hel grundserie.
+                // Reglaget ska därför alltid kunna gå till match 52, även om den
+                // pågående säsongen ännu inte har spelat så många matcher.
+                slider.max = MAX_MATCHES_PER_SEASON;
                 slider.value = 0; // Starta alltid från början
             } else {
-                // Läget "Datum" – använd datum-axeln utan år
-                const hasDates = Array.isArray(allDateKeysNoYear) && allDateKeysNoYear.length > 0;
-                // allDateKeysNoYear[0] = "Start", resten är riktiga datumnycklar ("09-24", "10-01", .)
-                const maxStep = hasDates ? allDateKeysNoYear.length - 1 : 0;
+                // Läget "Datum" – bara datum där minst ett valt lag+säsong spelade.
+                activeDateKeysNoYear = getActiveDateKeysForSelection();
+                const maxStep = activeDateKeysNoYear.length - 1;
 
                 slider.max = Math.max(0, maxStep);
                 slider.value = 0; // börja alltid vid "Start"
@@ -4232,6 +4272,17 @@
             let dateSnapshotByKey = null;
 
             const mode = document.querySelector('input[name="timeline-mode"]:checked').value;
+
+            // Datumaxeln beror på det aktuella urvalet. Uppdatera den här också,
+            // eftersom lag kan markeras/avmarkeras utan att tidsläget byts.
+            if (mode === 'date') {
+                activeDateKeysNoYear = getActiveDateKeysForSelection();
+                slider.max = Math.max(0, activeDateKeysNoYear.length - 1);
+                if (parseInt(slider.value, 10) > Number(slider.max)) {
+                    slider.value = slider.max;
+                }
+            }
+
             const step = parseInt(slider.value);
 
             if (mode === 'matches' && typeof TEAM_SEASON_HISTORY === 'object' && TEAM_SEASON_HISTORY) {
@@ -4274,7 +4325,7 @@
 
 
             // Uppdatera texter och knappsynlighet
-            document.getElementById('filter-summary').textContent = `Välj lag i kombination med säsong att jämföra (${selectedTeams.length}/${allTeams.length} valda)`;
+            document.getElementById('filter-summary').textContent = `Välj lag i kombination med säsong att jämföra (${selectedTeams.length}/${document.querySelectorAll('.team-checkbox').length} valda)`;
             const hasAnyCustomColors =
                 Object.keys(teamColors).length > 0 ||
                 Object.keys(teamSeasonColors).length > 0;
@@ -4304,15 +4355,15 @@
                 //   });
             } else {
                 // Läget "Datum" – använd våra datum-nycklar utan år
-                const hasDates = Array.isArray(allDateKeysNoYear) && allDateKeysNoYear.length > 0;
+                const hasDates = Array.isArray(activeDateKeysNoYear) && activeDateKeysNoYear.length > 0;
                 let dateKey = 'Start';
 
                 if (hasDates) {
-                    const maxIndex = allDateKeysNoYear.length - 1;
+                    const maxIndex = activeDateKeysNoYear.length - 1;
                     let clampedStep = step;
                     if (clampedStep < 0) clampedStep = 0;
                     if (clampedStep > maxIndex) clampedStep = maxIndex;
-                    dateKey = allDateKeysNoYear[clampedStep];
+                    dateKey = activeDateKeysNoYear[clampedStep];
                 }
 
                 const labelFromMap = dateKeyToLabel && dateKeyToLabel[dateKey];
@@ -4320,7 +4371,7 @@
 
                 // Bygg snapshot-per-key för datum-läget
                 dateSnapshotByKeyLocal = {};
-                const allDateKeysList = Array.isArray(allDateKeysNoYear) ? allDateKeysNoYear : [];
+                const allDateKeysList = Array.isArray(activeDateKeysNoYear) ? activeDateKeysNoYear : [];
                 const indexInList = allDateKeysList.indexOf(dateKey);
 
                 chartSelectionSummary.forEach(entry => {
@@ -8870,7 +8921,6 @@
             }
 
             function updateWorkingSelectionSummary() {
-                const maxAllowed = 32;
                 let count = 0;
 
                 rowCheckboxes.forEach(cb => {
@@ -8879,11 +8929,11 @@
 
                 if (workingTextEl) {
                     workingTextEl.textContent =
-                        `Arbetsurval: ${count} lag markerade (max ${maxAllowed})`;
+                        `Arbetsurval: ${count} lag markerade`;
                 }
 
                 if (applyBtn) {
-                    applyBtn.disabled = (count === 0 || count > maxAllowed);
+                    applyBtn.disabled = (count === 0);
                 }
 
                 // Uppdatera header-checkboxens status (alla synliga ikryssade?)
@@ -10156,12 +10206,77 @@
             });
 
             // Föregående/Nästa knappar
-            document.getElementById('prev-step').addEventListener('click', () => {
-                stopPlayback(); let val = parseInt(slider.value); if (val > 0) { slider.value = val - 1; updateChart(); }
-            });
-            document.getElementById('next-step').addEventListener('click', () => {
-                stopPlayback(); let val = parseInt(slider.value); if (val < slider.max) { slider.value = val + 1; updateChart(); }
-            });
+            // Vanligt klick = ett steg. Longpress = direkt till första/sista sliderläget.
+            const prevStepBtn = document.getElementById('prev-step');
+            const nextStepBtn = document.getElementById('next-step');
+            const STEP_LONG_PRESS_MS = 550;
+
+            function bindStepButtonLongPress(button, direction) {
+                if (!button) return;
+
+                let longPressTimer = null;
+                let longPressTriggered = false;
+
+                const clearLongPressTimer = () => {
+                    if (longPressTimer !== null) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                };
+
+                button.addEventListener('pointerdown', (event) => {
+                    // Endast primär musknapp/finger/penna ska starta longpress.
+                    if (event.pointerType === 'mouse' && event.button !== 0) return;
+
+                    longPressTriggered = false;
+                    clearLongPressTimer();
+
+                    longPressTimer = setTimeout(() => {
+                        longPressTimer = null;
+                        longPressTriggered = true;
+                        stopPlayback();
+
+                        const targetValue = direction < 0
+                            ? parseInt(slider.min, 10)
+                            : parseInt(slider.max, 10);
+
+                        if (parseInt(slider.value, 10) !== targetValue) {
+                            slider.value = targetValue;
+                            updateChart();
+                        }
+                    }, STEP_LONG_PRESS_MS);
+                });
+
+                ['pointerup', 'pointercancel', 'pointerleave'].forEach(eventName => {
+                    button.addEventListener(eventName, clearLongPressTimer);
+                });
+
+                button.addEventListener('click', (event) => {
+                    // Ett click skickas normalt även när en longpress släpps.
+                    // Undertryck det så att vi inte dessutom försöker stega ett steg.
+                    if (longPressTriggered) {
+                        event.preventDefault();
+                        longPressTriggered = false;
+                        return;
+                    }
+
+                    stopPlayback();
+                    const value = parseInt(slider.value, 10);
+                    const min = parseInt(slider.min, 10);
+                    const max = parseInt(slider.max, 10);
+
+                    if (direction < 0 && value > min) {
+                        slider.value = value - 1;
+                        updateChart();
+                    } else if (direction > 0 && value < max) {
+                        slider.value = value + 1;
+                        updateChart();
+                    }
+                });
+            }
+
+            bindStepButtonLongPress(prevStepBtn, -1);
+            bindStepButtonLongPress(nextStepBtn, 1);
             // --- NYTT: Long-press på diagramstaplar (mobil) ---
             if (chartCanvas && !chartCanvas.dataset.longPressBound) {
                 chartCanvas.dataset.longPressBound = '1';
