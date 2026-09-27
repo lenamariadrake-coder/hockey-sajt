@@ -669,6 +669,28 @@
       display: none;
     }
 
+  
+    .reference-controls {
+      margin: 0 0 1rem;
+    }
+    .reference-options {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .55rem 1rem;
+    }
+    .reference-options select {
+      max-width: 220px;
+      padding: .35rem .5rem;
+      border: 1px solid #cfd8e3;
+      border-radius: 6px;
+      background: #fff;
+      font: inherit;
+    }
+    .reference-options select:disabled {
+      opacity: .55;
+    }
+
   </style>
   <script src="../js/google-sheets-data.js"></script>
 </head>
@@ -740,6 +762,15 @@
         </div>
       </div>
       <input id="timeline-slider" type="range" min="0" max="1" value="0" step="1" aria-label="Datum i säsongen">
+    </section>
+
+    <section class="reference-controls" aria-label="Referenstabell">
+      <div class="control-title">Färglägg utifrån tabellen</div>
+      <div class="control-options reference-options">
+        <label><input id="referenceCurrent" type="radio" name="referenceMode" value="current" checked> Vid visat datum</label>
+        <label><input id="referenceOther" type="radio" name="referenceMode" value="other"> Annat datum</label>
+        <select id="referenceDateSelect" disabled aria-label="Välj referensdatum"></select>
+      </div>
     </section>
 
     <div id="localBox" class="local-box hidden">
@@ -824,7 +855,9 @@
       timelineIndex: 0,
       timelinePlaying: false,
       timelineTimer: null,
-      timelineKey: ''
+      timelineKey: '',
+      referenceMode: 'current',
+      referenceDate: null
     };
 
     const leagueSelect = document.getElementById('leagueSelect');
@@ -844,6 +877,9 @@
     const stepPrev = document.getElementById('step-prev');
     const stepNext = document.getElementById('step-next');
     const playPause = document.getElementById('play-pause');
+    const referenceCurrent = document.getElementById('referenceCurrent');
+    const referenceOther = document.getElementById('referenceOther');
+    const referenceDateSelect = document.getElementById('referenceDateSelect');
 
     function parseTSV(text) {
       const lines = String(text || '').split(/\r?\n/).filter(x => x.trim());
@@ -1052,6 +1088,35 @@
       }, 650);
     }
 
+    function renderReferenceControls(selectedDate) {
+      referenceCurrent.checked = state.referenceMode === 'current';
+      referenceOther.checked = state.referenceMode === 'other';
+      referenceDateSelect.disabled = state.referenceMode !== 'other';
+
+      const dates = state.timelineDates;
+      const previous = state.referenceDate;
+      referenceDateSelect.innerHTML = '';
+      dates.forEach(date => {
+        const option = document.createElement('option');
+        option.value = date;
+        option.textContent = formatTimelineDate(date);
+        referenceDateSelect.appendChild(option);
+      });
+
+      if (!dates.length) {
+        state.referenceDate = null;
+        return;
+      }
+
+      if (previous && dates.includes(previous)) {
+        state.referenceDate = previous;
+      } else {
+        // Första gången "Annat datum" används föreslås senaste spelade datum.
+        state.referenceDate = dates[dates.length - 1];
+      }
+      referenceDateSelect.value = state.referenceDate;
+    }
+
     function render() {
       renderLeagueOptions();
       renderSeasonOptions();
@@ -1063,8 +1128,13 @@
         ? '__BEFORE_SEASON__'
         : state.timelineDates[state.timelineIndex - 1];
       const rows = standings(state.tableScope, selectedDate);
-      // Steg 3A: lagkorten använder samma historiska tabell och datumgräns.
-      // Motståndare utan spelat inbördes möte vid datumet visas inte ännu.
+      renderReferenceControls(selectedDate);
+      const referenceDate = state.referenceMode === 'other'
+        ? state.referenceDate
+        : selectedDate;
+      // Visningsdatumet styr fortfarande vilka H2H-matcher som finns.
+      // Referensdatumet styr endast tabellrankingen som används för färgerna.
+      const referenceRows = standings(state.tableScope, referenceDate);
       const cardRows = rows;
       const tm = teamMap();
       const tbody = tableEl.querySelector('tbody'); tbody.innerHTML = '';
@@ -1076,11 +1146,11 @@
         tbody.appendChild(tr);
       });
       tbody.querySelectorAll('.card-toggle').forEach(b => b.addEventListener('click', () => { const id = b.dataset.team; state.openTeams.has(id) ? state.openTeams.delete(id) : state.openTeams.add(id); render() }));
-      renderCards(cardRows, selectedDate);
+      renderCards(cardRows, selectedDate, referenceRows);
     }
 
-    function renderCards(tableRows, cutoffDate = null) {
-      const tm = teamMap(); const rank = new Map(tableRows.map((r, i) => [r.team_id, i + 1]));
+    function renderCards(tableRows, cutoffDate = null, referenceRows = tableRows) {
+      const tm = teamMap(); const rank = new Map(referenceRows.map((r, i) => [r.team_id, i + 1]));
       const ordered = tableRows.filter(r => state.openTeams.has(r.team_id));
       if (!ordered.length) { cardsGrid.innerHTML = '<div class="empty-cards">Klicka på + vid ett lag i tabellen, eller välj <strong>Visa alla</strong>.</div>'; return }
       cardsGrid.innerHTML = '';
@@ -1214,6 +1284,18 @@
       useLive.classList.toggle('hidden', location.protocol === 'file:');
       dataStatus.textContent = `Lokal fil: ${file.name}`; render();
     }
+
+    document.querySelectorAll('input[name="referenceMode"]').forEach(input => {
+      input.addEventListener('change', () => {
+        state.referenceMode = input.value;
+        render();
+      });
+    });
+
+    referenceDateSelect.addEventListener('change', () => {
+      state.referenceDate = referenceDateSelect.value || null;
+      if (state.referenceMode === 'other') render();
+    });
 
     timelineSlider.addEventListener('input', () => { stopTimelinePlayback(); applyTimelineStep(); });
 
