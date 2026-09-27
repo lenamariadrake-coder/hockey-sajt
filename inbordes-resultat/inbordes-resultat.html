@@ -1175,8 +1175,60 @@
     }
 
     timelineSlider.addEventListener('input', () => { stopTimelinePlayback(); renderTimelineStep(); });
-    stepPrev.addEventListener('click', () => { stopTimelinePlayback(); timelineSlider.value = String(Math.max(0, Number(timelineSlider.value || 0) - 1)); renderTimelineStep(); });
-    stepNext.addEventListener('click', () => { stopTimelinePlayback(); timelineSlider.value = String(Math.min(state.timelineDates.length, Number(timelineSlider.value || 0) + 1)); renderTimelineStep(); });
+
+    // Samma longpress-beteende som i referensfilen:
+    // håll inne ◀ i 450 ms => hoppa till före säsongsstart
+    // håll inne ▶ i 450 ms => hoppa till säsongens slut
+    const NAV_HOLD_MS = 450;
+
+    function bindTimelineStepButton(button, direction) {
+      let holdTimer = null;
+      let longPressFired = false;
+
+      const clearHoldTimer = () => {
+        if (holdTimer) {
+          clearTimeout(holdTimer);
+          holdTimer = null;
+        }
+      };
+
+      button.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        longPressFired = false;
+        clearHoldTimer();
+        holdTimer = setTimeout(() => {
+          longPressFired = true;
+          stopTimelinePlayback();
+          timelineSlider.value = direction < 0 ? '0' : String(state.timelineDates.length);
+          renderTimelineStep();
+        }, NAV_HOLD_MS);
+      });
+
+      button.addEventListener('pointerup', () => {
+        clearHoldTimer();
+        if (longPressFired) {
+          longPressFired = false;
+          return;
+        }
+        stopTimelinePlayback();
+        const current = Number(timelineSlider.value || 0);
+        const next = direction < 0
+          ? Math.max(0, current - 1)
+          : Math.min(state.timelineDates.length, current + 1);
+        timelineSlider.value = String(next);
+        renderTimelineStep();
+      });
+
+      const cancel = () => {
+        clearHoldTimer();
+        longPressFired = false;
+      };
+      button.addEventListener('pointercancel', cancel);
+      button.addEventListener('pointerleave', cancel);
+    }
+
+    bindTimelineStepButton(stepPrev, -1);
+    bindTimelineStepButton(stepNext, +1);
     playPause.addEventListener('click', () => { state.timelinePlaying ? stopTimelinePlayback() : startTimelinePlayback(); });
 
     leagueSelect.addEventListener('change', () => {
