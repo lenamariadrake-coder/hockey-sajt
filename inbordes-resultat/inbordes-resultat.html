@@ -656,6 +656,19 @@
     #timeline-slider::-moz-range-track { height: 10px; border-radius: 999px; background: #d5dbe7; }
     #timeline-slider::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
 
+  
+    /* Referensnivå i lagkorten */
+    .level-row:has(.team-chip.focus) {
+      background: #eef2f6;
+      border-radius: 6px;
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+
+    .level-row:has(.team-chip.focus) .zero-divider {
+      display: none;
+    }
+
   </style>
   <script src="../js/google-sheets-data.js"></script>
 </head>
@@ -1094,7 +1107,7 @@
         const values = [...levels.keys()].sort((a, b) => a - b);
         const card = document.createElement('article'); card.className = 'matchup-card';
         const refTeam = tm.get(ref.team_id) || { name: ref.team_id };
-        card.innerHTML = `<div class="matchup-card__head"><div class="matchup-card__title">${esc(refTeam.name)}</div><div class="matchup-card__meta">${state.matchFirst && state.matchSecond ? '4 möten' : state.matchFirst || state.matchSecond ? '2 möten' : '0 möten'}</div></div><div class="levels"></div>`;
+        card.innerHTML = `<div class="matchup-card__head"><div class="matchup-card__title">${esc(refTeam.name)}</div></div><div class="levels"></div>`;
         const levelsEl = card.querySelector('.levels');
         values.forEach(v => {
           const level = levels.get(v);
@@ -1102,7 +1115,7 @@
 
           const label = document.createElement('div');
           label.className = 'level-label';
-          label.textContent = `${level.score.ref}–${level.score.opp}`;
+          label.textContent = v === 0 ? '' : `${level.score.ref}–${level.score.opp}`;
 
           const chips = document.createElement('div');
           chips.className = 'level-teams';
@@ -1111,6 +1124,7 @@
             const focus = document.createElement('span');
             focus.className = 'team-chip focus';
             focus.textContent = refTeam.name;
+            focus.title = `Referenspunkt för ${refTeam.name}`;
             chips.appendChild(focus);
 
             const d = document.createElement('span');
