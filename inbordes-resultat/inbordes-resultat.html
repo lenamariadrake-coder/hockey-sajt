@@ -948,21 +948,26 @@
       return [...rows.values()].sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf || (tm.get(a.team_id)?.name || a.team_id).localeCompare(tm.get(b.team_id)?.name || b.team_id, 'sv'));
     }
 
-    function selectedMatchupGames() {
+    function selectedMatchupGames(cutoffDate = null) {
       const annotated = annotateMeetingHalves(currentGames());
       const allowed = new Set(); if (state.matchFirst) allowed.add('first'); if (state.matchSecond) allowed.add('second');
-      return annotated.filter(g => allowed.has(g.half));
+      return annotated.filter(g =>
+        allowed.has(g.half) &&
+        cutoffDate !== '__BEFORE_SEASON__' &&
+        (!cutoffDate || String(g.date).slice(0, 10) <= cutoffDate)
+      );
     }
 
-    function matchupScore(referenceId, opponentId) {
-      let ref = 0, opp = 0;
-      selectedMatchupGames().forEach(g => {
+    function matchupScore(referenceId, opponentId, cutoffDate = null) {
+      let ref = 0, opp = 0, played = 0;
+      selectedMatchupGames(cutoffDate).forEach(g => {
         const same = (g.home_team_id === referenceId && g.away_team_id === opponentId) || (g.home_team_id === opponentId && g.away_team_id === referenceId);
         if (!same) return;
+        played += 1;
         if (g.home_team_id === referenceId) { ref += g.home_points; opp += g.away_points }
         else { ref += g.away_points; opp += g.home_points }
       });
-      return { ref, opp, diff: ref - opp };
+      return { ref, opp, diff: ref - opp, played };
     }
 
     function comparisonClass(refId, oppId, diff, rank) {
@@ -1045,9 +1050,9 @@
         ? '__BEFORE_SEASON__'
         : state.timelineDates[state.timelineIndex - 1];
       const rows = standings(state.tableScope, selectedDate);
-      // Steg 2: lagkorten ska fortfarande vara exakt som tidigare och bygger därför
-      // på hela säsongens tabell, oberoende av tidslinjens datum.
-      const cardRows = standings(state.tableScope);
+      // Steg 3A: lagkorten använder samma historiska tabell och datumgräns.
+      // Motståndare utan spelat inbördes möte vid datumet visas inte ännu.
+      const cardRows = rows;
       const tm = teamMap();
       const tbody = tableEl.querySelector('tbody'); tbody.innerHTML = '';
       rows.forEach((r, i) => {
@@ -1058,10 +1063,10 @@
         tbody.appendChild(tr);
       });
       tbody.querySelectorAll('.card-toggle').forEach(b => b.addEventListener('click', () => { const id = b.dataset.team; state.openTeams.has(id) ? state.openTeams.delete(id) : state.openTeams.add(id); render() }));
-      renderCards(cardRows);
+      renderCards(cardRows, selectedDate);
     }
 
-    function renderCards(tableRows) {
+    function renderCards(tableRows, cutoffDate = null) {
       const tm = teamMap(); const rank = new Map(tableRows.map((r, i) => [r.team_id, i + 1]));
       const ordered = tableRows.filter(r => state.openTeams.has(r.team_id));
       if (!ordered.length) { cardsGrid.innerHTML = '<div class="empty-cards">Klicka på + vid ett lag i tabellen, eller välj <strong>Visa alla</strong>.</div>'; return }
@@ -1069,7 +1074,8 @@
       ordered.forEach(ref => {
         const opponents = tableRows
           .filter(r => r.team_id !== ref.team_id)
-          .map(r => ({ id: r.team_id, score: matchupScore(ref.team_id, r.team_id) }));
+          .map(r => ({ id: r.team_id, score: matchupScore(ref.team_id, r.team_id, cutoffDate) }))
+          .filter(o => o.score.played > 0);
 
         const levels = new Map();
         opponents.forEach(o => {
