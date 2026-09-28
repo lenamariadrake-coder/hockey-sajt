@@ -735,12 +735,101 @@ Datum	Hemmalag	Bortalag	Matchresultat	Hemmamål	Bortamål	Hemmapoäng	Bortapoän
             document.getElementById('select-all').addEventListener('click', () => { stopPlayback(); document.querySelectorAll('.team-checkbox').forEach(cb => cb.checked = true); updateChart(); });
             document.getElementById('deselect-all').addEventListener('click', () => { stopPlayback(); document.querySelectorAll('.team-checkbox').forEach(cb => cb.checked = false); updateChart(); });
 
-            document.getElementById('prev-step').addEventListener('click', () => {
-                stopPlayback(); let val = parseInt(slider.value); if (val > 0) { slider.value = val - 1; updateChart(); }
-            });
-            document.getElementById('next-step').addEventListener('click', () => {
-                stopPlayback(); let val = parseInt(slider.value); if (val < slider.max) { slider.value = val + 1; updateChart(); }
-            });
+            function addStepButtonLongPress(buttonId, direction) {
+
+                const button = document.getElementById(buttonId);
+
+                let longPressTimer = null;
+
+                let longPressTriggered = false;
+
+            
+
+                button.addEventListener('pointerdown', (e) => {
+
+                    if (e.button !== undefined && e.button !== 0) return;
+
+            
+
+                    longPressTriggered = false;
+
+                    longPressTimer = setTimeout(() => {
+
+                        longPressTriggered = true;
+
+                        stopPlayback();
+
+                        slider.value = direction < 0 ? 0 : slider.max;
+
+                        updateChart();
+
+                    }, 500);
+
+                });
+
+            
+
+                const cancelLongPress = () => {
+
+                    if (longPressTimer !== null) {
+
+                        clearTimeout(longPressTimer);
+
+                        longPressTimer = null;
+
+                    }
+
+                };
+
+            
+
+                button.addEventListener('pointerup', cancelLongPress);
+
+                button.addEventListener('pointercancel', cancelLongPress);
+
+                button.addEventListener('pointerleave', cancelLongPress);
+
+            
+
+                button.addEventListener('click', (e) => {
+
+                    if (longPressTriggered) {
+
+                        e.preventDefault();
+
+                        longPressTriggered = false;
+
+                        return;
+
+                    }
+
+            
+
+                    stopPlayback();
+
+                    const val = parseInt(slider.value, 10);
+
+                    const nextValue = val + direction;
+
+            
+
+                    if (nextValue >= 0 && nextValue <= Number(slider.max)) {
+
+                        slider.value = nextValue;
+
+                        updateChart();
+
+                    }
+
+                });
+
+            }
+
+            
+
+            addStepButtonLongPress('prev-step', -1);
+
+            addStepButtonLongPress('next-step', 1);
         }
 
         processData();
