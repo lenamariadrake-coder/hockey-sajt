@@ -268,6 +268,24 @@
 
         .filter-group-placeholder > summary { color: #6b7280; }
 
+        /* Målstatistik: första nya fungerande filtergruppen. */
+        .goal-filter-row {
+            display: grid;
+            grid-template-columns: minmax(120px, 1fr) 92px 90px;
+            gap: 0.45rem;
+            align-items: center;
+            margin: 0.35rem 0;
+        }
+        .goal-filter-row select,
+        .goal-filter-row input {
+            box-sizing: border-box;
+            width: 100%;
+            min-width: 0;
+            padding: 0.32rem 0.4rem;
+        }
+        .filter-group[data-filter-group="goals"].is-changed .filter-group-state::after { content: none; }
+        .filter-group[data-filter-group="goals"] .filter-group-state { white-space: nowrap; }
+
         .filter-block h3 {
             margin: 0 0 0.5rem;
             font-size: 0.85rem;
@@ -1580,9 +1598,37 @@
                                         <div class="filter-group-placeholder-content">Här kommer filter för bland annat vinst-, förlust-, trepoängs- och nollpoängssviter.</div>
                                     </details>
 
-                                    <details class="filter-group filter-group-placeholder" data-filter-group="goals">
-                                        <summary><span class="filter-group-title">Målstatistik</span><span class="filter-group-coming">Kommer senare</span></summary>
-                                        <div class="filter-group-placeholder-content">Här kommer filter för gjorda mål, insläppta mål och målskillnad.</div>
+                                    <details class="filter-group" data-filter-group="goals">
+                                        <summary><span class="filter-group-title">Målstatistik</span><span class="filter-group-state" id="goal-filter-count" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block">
+                                            <div class="goal-filter-row">
+                                                <label for="filter-goals-for-value">Gjorda mål</label>
+                                                <select id="filter-goals-for-op" aria-label="Jämförelse för gjorda mål">
+                                                    <option value="min">minst</option>
+                                                    <option value="eq">exakt</option>
+                                                    <option value="max">högst</option>
+                                                </select>
+                                                <input type="number" id="filter-goals-for-value" step="1" inputmode="numeric" placeholder="–" aria-label="Antal gjorda mål">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-goals-against-value">Insläppta mål</label>
+                                                <select id="filter-goals-against-op" aria-label="Jämförelse för insläppta mål">
+                                                    <option value="min">minst</option>
+                                                    <option value="eq">exakt</option>
+                                                    <option value="max">högst</option>
+                                                </select>
+                                                <input type="number" id="filter-goals-against-value" step="1" inputmode="numeric" placeholder="–" aria-label="Antal insläppta mål">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-goal-difference-value">Målskillnad</label>
+                                                <select id="filter-goal-difference-op" aria-label="Jämförelse för målskillnad">
+                                                    <option value="min">minst</option>
+                                                    <option value="eq">exakt</option>
+                                                    <option value="max">högst</option>
+                                                </select>
+                                                <input type="number" id="filter-goal-difference-value" step="1" inputmode="numeric" placeholder="–" aria-label="Målskillnad">
+                                            </div>
+                                        </div>
                                     </details>
 
                                     <details class="filter-group filter-group-placeholder" data-filter-group="games">
@@ -1988,6 +2034,9 @@
 
 
         let matches = []; // Lagrar den parsade matchdatan globalt
+        // Summerad målstatistik direkt från games, nycklad som LEAGUE::SEASON::TEAM.
+        // Hålls separat från season_summary så att befintlig datamodell förblir orörd.
+        let teamSeasonGoalStats = {};
         let seasonSummaryByLabel = {}; // Ny: metadata per team_label från season_summary
         let GLOBAL_MAX_REGULAR_RANK = 14; // Max grundserieplacering i råunderlaget (används av äldre delar)
         const FILTER_MAX_REGULAR_RANK = 14; // Avancerat-filtret gäller SHL/HA, som båda har 14 lag
@@ -2942,6 +2991,28 @@
 
                 // Sortera matcher efter datum (viktigt!)
                 matches.sort((a, b) => a.date.localeCompare(b.date));
+
+                // MÅLSTATISTIK: summera endast den matchdata som redan är inläst.
+                // Detta ändrar inte matches eller season_summary; det är en separat lookup för filtret.
+                teamSeasonGoalStats = {};
+                matches.forEach(match => {
+                    const homeKey = `${match.league}::${match.seasonId}::${match.homeTeam}`;
+                    const awayKey = `${match.league}::${match.seasonId}::${match.awayTeam}`;
+
+                    if (!teamSeasonGoalStats[homeKey]) teamSeasonGoalStats[homeKey] = { goalsFor: 0, goalsAgainst: 0, games: 0 };
+                    if (!teamSeasonGoalStats[awayKey]) teamSeasonGoalStats[awayKey] = { goalsFor: 0, goalsAgainst: 0, games: 0 };
+
+                    teamSeasonGoalStats[homeKey].goalsFor += match.homeGoals;
+                    teamSeasonGoalStats[homeKey].goalsAgainst += match.awayGoals;
+                    teamSeasonGoalStats[homeKey].games += 1;
+
+                    teamSeasonGoalStats[awayKey].goalsFor += match.awayGoals;
+                    teamSeasonGoalStats[awayKey].goalsAgainst += match.homeGoals;
+                    teamSeasonGoalStats[awayKey].games += 1;
+                });
+                Object.values(teamSeasonGoalStats).forEach(stats => {
+                    stats.goalDifference = stats.goalsFor - stats.goalsAgainst;
+                });
 
                 // 3. Extrahera alla lag och unika datum
                 allTeams = [...new Set(matches.flatMap(m => [m.homeTeam, m.awayTeam]))].sort((a, b) => a.localeCompare(b, 'sv'));
@@ -4036,6 +4107,7 @@
             setupRegularFilterListeners(); // grundserie-kryss
             setupRegularIntervalUI();      // intervall/sekvens UI
             setupPlayoffFilterListeners(); // slutspelsfilter
+            setupGoalFilterListeners();    // målstatistik från games
             setupHistoricalFilters();      // jämförande lager (relativa per lag+säsongsrad)
 
             // 6) Slider + första rendering
@@ -7101,6 +7173,31 @@
             }
         }
 
+        function readGoalFilter(idPrefix) {
+            const op = document.getElementById(`${idPrefix}-op`)?.value || 'min';
+            const input = document.getElementById(`${idPrefix}-value`);
+            const raw = input?.value?.trim() ?? '';
+            if (raw === '') return null;
+            const value = Number(raw);
+            return Number.isFinite(value) ? { op, value } : null;
+        }
+
+        function numericFilterMatches(actual, config) {
+            if (!config) return true;
+            if (!Number.isFinite(actual)) return false;
+            if (config.op === 'eq') return actual === config.value;
+            if (config.op === 'max') return actual <= config.value;
+            return actual >= config.value;
+        }
+
+        function getActiveGoalFilters() {
+            return {
+                goalsFor: readGoalFilter('filter-goals-for'),
+                goalsAgainst: readGoalFilter('filter-goals-against'),
+                goalDifference: readGoalFilter('filter-goal-difference')
+            };
+        }
+
         function applyTableFilters() {
             setupHistoricalResultTooltips();
             hideHistoricalResultTooltip();
@@ -7275,6 +7372,10 @@
                 playoffSet = null;
             }
 
+            // --- MÅLSTATISTIK ---
+            // Tomt värdefält betyder inaktivt filter. Operatorn ensam påverkar alltså inget.
+            const goalFilters = getActiveGoalFilters();
+
             // --- HISTORISKA FILTER: bygg lookup EN gång per filtrering ---
             const historicalConfigs = getHistoricalFilterConfigs();
             const historicalLookup = new Map();
@@ -7400,7 +7501,20 @@
                     }
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk;
+                // --- MÅLSTATISTIK ---
+                const goalStatsKey = `${league}::${seasonId}::${row.dataset.team || ''}`;
+                const goalStats = teamSeasonGoalStats[goalStatsKey] || null;
+                const hasActiveGoalFilter = !!(goalFilters.goalsFor || goalFilters.goalsAgainst || goalFilters.goalDifference);
+                let goalsOk = true;
+
+                if (hasActiveGoalFilter) {
+                    goalsOk = !!goalStats &&
+                        numericFilterMatches(goalStats.goalsFor, goalFilters.goalsFor) &&
+                        numericFilterMatches(goalStats.goalsAgainst, goalFilters.goalsAgainst) &&
+                        numericFilterMatches(goalStats.goalDifference, goalFilters.goalDifference);
+                }
+
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && goalsOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
@@ -7576,6 +7690,40 @@
 
 
 
+
+        // MÅLSTATISTIK: lyssnare + aktiv-räknare i gruppens rubrik.
+        function setupGoalFilterListeners() {
+            const group = document.querySelector('.filter-group[data-filter-group="goals"]');
+            if (!group || group.dataset.goalBound === '1') return;
+            group.dataset.goalBound = '1';
+
+            const valueInputs = [
+                document.getElementById('filter-goals-for-value'),
+                document.getElementById('filter-goals-against-value'),
+                document.getElementById('filter-goal-difference-value')
+            ].filter(Boolean);
+            const controls = Array.from(group.querySelectorAll('input, select'));
+            const countEl = document.getElementById('goal-filter-count');
+
+            function refreshGoalCount() {
+                const count = valueInputs.filter(input => input.value.trim() !== '').length;
+                group.classList.toggle('is-changed', count > 0);
+                if (countEl) countEl.textContent = count > 0 ? `(${count})` : '';
+            }
+
+            controls.forEach(control => {
+                control.addEventListener('input', () => {
+                    refreshGoalCount();
+                    applyTableFilters();
+                });
+                control.addEventListener('change', () => {
+                    refreshGoalCount();
+                    applyTableFilters();
+                });
+            });
+
+            refreshGoalCount();
+        }
 
         // Enkel init-funktion som bara kör första filtreringen
         function setupLeagueFilter() {
@@ -10418,7 +10566,11 @@
                 }
 
                 function refreshChangedStates() {
-                    functionalGroups.forEach(group => group.classList.toggle('is-changed', groupIsChanged(group)));
+                    functionalGroups.forEach(group => {
+                        // Målstatistik har egen räknare: operatorval utan angivet värde är inte ett aktivt filter.
+                        if (group.dataset.filterGroup === 'goals') return;
+                        group.classList.toggle('is-changed', groupIsChanged(group));
+                    });
                 }
 
                 function refreshToggleLabel() {
