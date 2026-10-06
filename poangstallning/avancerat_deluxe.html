@@ -1651,9 +1651,30 @@
                                         </div>
                                     </details>
 
-                                    <details class="filter-group filter-group-placeholder" data-filter-group="games">
-                                        <summary><span class="filter-group-title">Enskilda matcher</span><span class="filter-group-coming">Kommer senare</span></summary>
-                                        <div class="filter-group-placeholder-content">Plats för kommande matchbaserade kriterier.</div>
+                                    <details class="filter-group" data-filter-group="games">
+                                        <summary><span class="filter-group-title">Enskilda matcher</span><span class="filter-group-state" id="single-game-filter-count" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block">
+                                            <div class="goal-filter-row">
+                                                <label for="filter-game-biggest-win-value">Största seger</label>
+                                                <select id="filter-game-biggest-win-op" aria-label="Jämförelse för största seger"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-game-biggest-win-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Största segermarginal i mål">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-game-biggest-loss-value">Största förlust</label>
+                                                <select id="filter-game-biggest-loss-op" aria-label="Jämförelse för största förlust"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-game-biggest-loss-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Största förlustmarginal i mål">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-game-goals-for-value">Gjort i en match</label>
+                                                <select id="filter-game-goals-for-op" aria-label="Jämförelse för flest gjorda mål i en match"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-game-goals-for-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Flest gjorda mål i en match">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-game-goals-against-value">Insläppt i en match</label>
+                                                <select id="filter-game-goals-against-op" aria-label="Jämförelse för flest insläppta mål i en match"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-game-goals-against-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Flest insläppta mål i en match">
+                                            </div>
+                                        </div>
                                     </details>
 
                                     <details class="filter-group filter-group-placeholder" data-filter-group="home-away">
@@ -2060,6 +2081,8 @@
         // SVITER steg 1: längsta sviter, beräknade direkt från spelade matcher.
         // Separat lookup för att inte påverka befintlig tabell-/filterlogik.
         let teamSeasonStreakStats = {};
+        // Enskilda matcher: extremvärden per lag+säsong, direkt från games.
+        let teamSeasonSingleGameStats = {};
         let seasonSummaryByLabel = {}; // Ny: metadata per team_label från season_summary
         let GLOBAL_MAX_REGULAR_RANK = 14; // Max grundserieplacering i råunderlaget (används av äldre delar)
         const FILTER_MAX_REGULAR_RANK = 14; // Avancerat-filtret gäller SHL/HA, som båda har 14 lag
@@ -3036,6 +3059,43 @@
                 Object.values(teamSeasonGoalStats).forEach(stats => {
                     stats.goalDifference = stats.goalsFor - stats.goalsAgainst;
                 });
+
+                // ENSKILDA MATCHER: extremvärden per lag+säsong från samma games-data.
+                // Marginalerna lagras som positiva tal: 6–1 ger största seger 5,
+                // medan 1–6 ger största förlust 5. Pågående säsonger fungerar automatiskt.
+                teamSeasonSingleGameStats = {};
+
+                function ensureSingleGameStats(key) {
+                    if (!teamSeasonSingleGameStats[key]) {
+                        teamSeasonSingleGameStats[key] = {
+                            biggestWinMargin: 0,
+                            biggestLossMargin: 0,
+                            maxGoalsFor: 0,
+                            maxGoalsAgainst: 0,
+                            games: 0
+                        };
+                    }
+                    return teamSeasonSingleGameStats[key];
+                }
+
+                function addSingleGameStats(key, goalsFor, goalsAgainst) {
+                    const stats = ensureSingleGameStats(key);
+                    const margin = goalsFor - goalsAgainst;
+                    if (margin > 0) stats.biggestWinMargin = Math.max(stats.biggestWinMargin, margin);
+                    if (margin < 0) stats.biggestLossMargin = Math.max(stats.biggestLossMargin, -margin);
+                    stats.maxGoalsFor = Math.max(stats.maxGoalsFor, goalsFor);
+                    stats.maxGoalsAgainst = Math.max(stats.maxGoalsAgainst, goalsAgainst);
+                    stats.games += 1;
+                }
+
+                matches.forEach(match => {
+                    const homeKey = `${match.league}::${match.seasonId}::${match.homeTeam}`;
+                    const awayKey = `${match.league}::${match.seasonId}::${match.awayTeam}`;
+                    addSingleGameStats(homeKey, match.homeGoals, match.awayGoals);
+                    addSingleGameStats(awayKey, match.awayGoals, match.homeGoals);
+                });
+
+                window.teamSeasonSingleGameStats = teamSeasonSingleGameStats;
 
                 // SVITER steg 1: bygg längsta sviter från games.
                 // Poängen avgör matchtypen:
@@ -4199,6 +4259,7 @@
             setupPlayoffFilterListeners(); // slutspelsfilter
             setupGoalFilterListeners();    // målstatistik från games
             setupStreakFilterListeners();  // längsta sviter från games
+            setupSingleGameFilterListeners(); // extremvärden från enskilda matcher
             setupHistoricalFilters();      // jämförande lager (relativa per lag+säsongsrad)
 
             // 6) Slider + första rendering
@@ -7298,6 +7359,15 @@
             };
         }
 
+        function getActiveSingleGameFilters() {
+            return {
+                biggestWin: readGoalFilter('filter-game-biggest-win'),
+                biggestLoss: readGoalFilter('filter-game-biggest-loss'),
+                goalsFor: readGoalFilter('filter-game-goals-for'),
+                goalsAgainst: readGoalFilter('filter-game-goals-against')
+            };
+        }
+
         function applyTableFilters() {
             setupHistoricalResultTooltips();
             hideHistoricalResultTooltip();
@@ -7476,6 +7546,7 @@
             // Tomt värdefält betyder inaktivt filter. Operatorn ensam påverkar alltså inget.
             const goalFilters = getActiveGoalFilters();
             const streakFilters = getActiveStreakFilters();
+            const singleGameFilters = getActiveSingleGameFilters();
 
             // --- HISTORISKA FILTER: bygg lookup EN gång per filtrering ---
             const historicalConfigs = getHistoricalFilterConfigs();
@@ -7628,7 +7699,20 @@
                         numericFilterMatches(streakStats.longestZeroPointLoss, streakFilters.zeroPointLoss);
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && goalsOk && streaksOk;
+                // --- ENSKILDA MATCHER ---
+                const singleGameStats = teamSeasonSingleGameStats[goalStatsKey] || null;
+                const hasActiveSingleGameFilter = !!(singleGameFilters.biggestWin || singleGameFilters.biggestLoss || singleGameFilters.goalsFor || singleGameFilters.goalsAgainst);
+                let singleGamesOk = true;
+
+                if (hasActiveSingleGameFilter) {
+                    singleGamesOk = !!singleGameStats &&
+                        numericFilterMatches(singleGameStats.biggestWinMargin, singleGameFilters.biggestWin) &&
+                        numericFilterMatches(singleGameStats.biggestLossMargin, singleGameFilters.biggestLoss) &&
+                        numericFilterMatches(singleGameStats.maxGoalsFor, singleGameFilters.goalsFor) &&
+                        numericFilterMatches(singleGameStats.maxGoalsAgainst, singleGameFilters.goalsAgainst);
+                }
+
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && goalsOk && streaksOk && singleGamesOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
@@ -7804,6 +7888,34 @@
 
 
 
+
+        // ENSKILDA MATCHER: lyssnare + aktiv-räknare i gruppens rubrik.
+        function setupSingleGameFilterListeners() {
+            const group = document.querySelector('.filter-group[data-filter-group="games"]');
+            if (!group || group.dataset.singleGameBound === '1') return;
+            group.dataset.singleGameBound = '1';
+
+            const valueInputs = [
+                document.getElementById('filter-game-biggest-win-value'),
+                document.getElementById('filter-game-biggest-loss-value'),
+                document.getElementById('filter-game-goals-for-value'),
+                document.getElementById('filter-game-goals-against-value')
+            ].filter(Boolean);
+            const controls = Array.from(group.querySelectorAll('input, select'));
+            const countEl = document.getElementById('single-game-filter-count');
+
+            function refreshSingleGameCount() {
+                const count = valueInputs.filter(input => input.value.trim() !== '').length;
+                group.classList.toggle('is-changed', count > 0);
+                if (countEl) countEl.textContent = count > 0 ? `(${count})` : '';
+            }
+
+            controls.forEach(control => {
+                control.addEventListener('input', () => { refreshSingleGameCount(); applyTableFilters(); });
+                control.addEventListener('change', () => { refreshSingleGameCount(); applyTableFilters(); });
+            });
+            refreshSingleGameCount();
+        }
 
         // SVITER: lyssnare + aktiv-räknare i gruppens rubrik.
         function setupStreakFilterListeners() {
