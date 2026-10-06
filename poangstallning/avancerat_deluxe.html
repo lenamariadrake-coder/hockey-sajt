@@ -2037,6 +2037,9 @@
         // Summerad målstatistik direkt från games, nycklad som LEAGUE::SEASON::TEAM.
         // Hålls separat från season_summary så att befintlig datamodell förblir orörd.
         let teamSeasonGoalStats = {};
+        // SVITER steg 1: längsta sviter, beräknade direkt från spelade matcher.
+        // Separat lookup för att inte påverka befintlig tabell-/filterlogik.
+        let teamSeasonStreakStats = {};
         let seasonSummaryByLabel = {}; // Ny: metadata per team_label från season_summary
         let GLOBAL_MAX_REGULAR_RANK = 14; // Max grundserieplacering i råunderlaget (används av äldre delar)
         const FILTER_MAX_REGULAR_RANK = 14; // Avancerat-filtret gäller SHL/HA, som båda har 14 lag
@@ -3013,6 +3016,73 @@
                 Object.values(teamSeasonGoalStats).forEach(stats => {
                     stats.goalDifference = stats.goalsFor - stats.goalsAgainst;
                 });
+
+                // SVITER steg 1: bygg längsta sviter från games.
+                // Poängen avgör matchtypen:
+                // 3 = trepoängsvinst, 2 = OT/SO-vinst, 1 = OT/SO-förlust, 0 = nollpoängsförlust.
+                // Därmed fungerar beräkningen även för pågående säsonger.
+                teamSeasonStreakStats = {};
+
+                function ensureStreakStats(key) {
+                    if (!teamSeasonStreakStats[key]) {
+                        teamSeasonStreakStats[key] = {
+                            longestWin: 0,
+                            longestLoss: 0,
+                            longestThreePointWin: 0,
+                            longestZeroPointLoss: 0,
+                            currentWin: 0,
+                            currentLoss: 0,
+                            currentThreePointWin: 0,
+                            currentZeroPointLoss: 0,
+                            games: 0
+                        };
+                    }
+                    return teamSeasonStreakStats[key];
+                }
+
+                function addStreakGame(key, points) {
+                    const stats = ensureStreakStats(key);
+                    const isWin = points === 2 || points === 3;
+                    const isLoss = points === 0 || points === 1;
+                    const isThreePointWin = points === 3;
+                    const isZeroPointLoss = points === 0;
+
+                    stats.currentWin = isWin ? stats.currentWin + 1 : 0;
+                    stats.currentLoss = isLoss ? stats.currentLoss + 1 : 0;
+                    stats.currentThreePointWin = isThreePointWin ? stats.currentThreePointWin + 1 : 0;
+                    stats.currentZeroPointLoss = isZeroPointLoss ? stats.currentZeroPointLoss + 1 : 0;
+
+                    stats.longestWin = Math.max(stats.longestWin, stats.currentWin);
+                    stats.longestLoss = Math.max(stats.longestLoss, stats.currentLoss);
+                    stats.longestThreePointWin = Math.max(stats.longestThreePointWin, stats.currentThreePointWin);
+                    stats.longestZeroPointLoss = Math.max(stats.longestZeroPointLoss, stats.currentZeroPointLoss);
+                    stats.games += 1;
+                }
+
+                // matches är redan kronologiskt sorterad ovan.
+                matches.forEach(match => {
+                    const homeKey = `${match.league}::${match.seasonId}::${match.homeTeam}`;
+                    const awayKey = `${match.league}::${match.seasonId}::${match.awayTeam}`;
+                    addStreakGame(homeKey, match.homePoints);
+                    addStreakGame(awayKey, match.awayPoints);
+                });
+
+                // Tillfällig testyta för steg 1. Påverkar inte UI eller filtrering.
+                window.teamSeasonStreakStats = teamSeasonStreakStats;
+                window.debugStreaks = function(team, seasonId, league) {
+                    const wantedTeam = String(team || '').trim().toLowerCase();
+                    const wantedSeason = String(seasonId || '').trim();
+                    const wantedLeague = String(league || '').trim().toUpperCase();
+                    return Object.entries(teamSeasonStreakStats)
+                        .filter(([key]) => {
+                            const [keyLeague, keySeason, ...teamParts] = key.split('::');
+                            const keyTeam = teamParts.join('::');
+                            return (!wantedTeam || keyTeam.toLowerCase().includes(wantedTeam)) &&
+                                   (!wantedSeason || keySeason === wantedSeason) &&
+                                   (!wantedLeague || keyLeague.toUpperCase() === wantedLeague);
+                        })
+                        .map(([key, stats]) => ({ key, ...stats }));
+                };
 
                 // 3. Extrahera alla lag och unika datum
                 allTeams = [...new Set(matches.flatMap(m => [m.homeTeam, m.awayTeam]))].sort((a, b) => a.localeCompare(b, 'sv'));
