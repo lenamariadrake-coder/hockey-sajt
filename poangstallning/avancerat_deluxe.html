@@ -3072,6 +3072,8 @@
                             biggestLossMargin: 0,
                             maxGoalsFor: 0,
                             maxGoalsAgainst: 0,
+                            goalsForValues: [],
+                            goalsAgainstValues: [],
                             games: 0
                         };
                     }
@@ -3085,6 +3087,8 @@
                     if (margin < 0) stats.biggestLossMargin = Math.max(stats.biggestLossMargin, -margin);
                     stats.maxGoalsFor = Math.max(stats.maxGoalsFor, goalsFor);
                     stats.maxGoalsAgainst = Math.max(stats.maxGoalsAgainst, goalsAgainst);
+                    stats.goalsForValues.push(goalsFor);
+                    stats.goalsAgainstValues.push(goalsAgainst);
                     stats.games += 1;
                 }
 
@@ -7708,8 +7712,8 @@
                     singleGamesOk = !!singleGameStats &&
                         numericFilterMatches(singleGameStats.biggestWinMargin, singleGameFilters.biggestWin) &&
                         numericFilterMatches(singleGameStats.biggestLossMargin, singleGameFilters.biggestLoss) &&
-                        numericFilterMatches(singleGameStats.maxGoalsFor, singleGameFilters.goalsFor) &&
-                        numericFilterMatches(singleGameStats.maxGoalsAgainst, singleGameFilters.goalsAgainst);
+                        (!singleGameFilters.goalsFor || singleGameStats.goalsForValues.some(value => numericFilterMatches(value, singleGameFilters.goalsFor))) &&
+                        (!singleGameFilters.goalsAgainst || singleGameStats.goalsAgainstValues.some(value => numericFilterMatches(value, singleGameFilters.goalsAgainst)));
                 }
 
                 const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && goalsOk && streaksOk && singleGamesOk;
