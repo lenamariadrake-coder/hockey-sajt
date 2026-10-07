@@ -1753,14 +1753,21 @@
                                         </div>
                                     </details>
 
-                                    <details class="filter-group filter-group-placeholder" data-filter-group="home-away">
-                                        <summary><span class="filter-group-title">Hemma / borta</span><span class="filter-group-coming">Kommer senare</span></summary>
-                                        <div class="filter-group-placeholder-content">Plats för kommande kriterier som skiljer på hemma- och bortamatcher.</div>
-                                    </details>
-
-                                    <details class="filter-group filter-group-placeholder" data-filter-group="season-start">
-                                        <summary><span class="filter-group-title">Säsongsinledning</span><span class="filter-group-coming">Kommer senare</span></summary>
-                                        <div class="filter-group-placeholder-content">Här kommer senare kriterier efter ett visst antal spelade matcher.</div>
+                                    <details class="filter-group" data-filter-group="match-selection">
+                                        <summary><span class="filter-group-title">Matchurval</span><span class="filter-group-state" id="match-selection-state" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block">
+                                            <div class="filter-subgroup">
+                                                <div class="filter-subgroup-title">Spelplats</div>
+                                                <label><input type="radio" name="filter-match-location" value="all" checked> Alla</label>
+                                                <label><input type="radio" name="filter-match-location" value="home"> Hemma</label>
+                                                <label><input type="radio" name="filter-match-location" value="away"> Borta</label>
+                                            </div>
+                                            <div class="filter-subgroup">
+                                                <label class="filter-subgroup-title" for="filter-match-numbers">Matchnummer</label>
+                                                <input type="text" id="filter-match-numbers" inputmode="numeric" placeholder="t.ex. 1-10 eller 10,15-17,51-52" aria-label="Matchnummer, intervall eller sekvens">
+                                                <div class="filter-help">Komma eller semikolon går bra. <strong>-5</strong> = match 1–5 och <strong>10-</strong> = match 10 och framåt.</div>
+                                            </div>
+                                        </div>
                                     </details>
                                 </div>
 
@@ -4476,6 +4483,7 @@
             setupStreakFilterListeners();  // längsta sviter från games
             setupSingleGameFilterListeners(); // extremvärden från enskilda matcher
             setupDecisionFilterListeners();   // FT / OT / SO / OT+SO
+            setupMatchSelectionListeners();  // matchnummer + alla/hemma/borta
             setupHistoricalFilters();      // jämförande lager (relativa per lag+säsongsrad)
 
             // 6) Slider + första rendering
@@ -7602,6 +7610,116 @@
             return Object.values(filters).some(group => group.games || group.wins || group.losses);
         }
 
+
+        // =========================================================
+        // MATCHURVAL – väljer vilka av lagets matcher som får räknas
+        // =========================================================
+        function parseMatchNumberText(text, maxGameNumber) {
+            const cleaned = String(text || '').trim();
+            if (!cleaned) return null; // null = alla matchnummer
+            const maxN = Math.max(0, Number(maxGameNumber) || 0);
+            const result = new Set();
+            cleaned.split(/[,;]/).forEach(part => {
+                const token = part.trim();
+                if (!token) return;
+                let m = token.match(/^(\d+)\s*-\s*(\d+)$/);
+                if (m) {
+                    let a = Number(m[1]), b = Number(m[2]);
+                    if (a > b) [a,b] = [b,a];
+                    a = Math.max(1,a); b = Math.min(maxN,b);
+                    for (let n=a;n<=b;n++) result.add(n);
+                    return;
+                }
+                m = token.match(/^(\d+)\s*-\s*$/);
+                if (m) {
+                    const a = Math.max(1,Number(m[1]));
+                    for (let n=a;n<=maxN;n++) result.add(n);
+                    return;
+                }
+                m = token.match(/^\-\s*(\d+)$/);
+                if (m) {
+                    const b = Math.min(maxN,Number(m[1]));
+                    for (let n=1;n<=b;n++) result.add(n);
+                    return;
+                }
+                if (/^\d+$/.test(token)) {
+                    const n=Number(token); if (n>=1 && n<=maxN) result.add(n);
+                }
+            });
+            return result;
+        }
+
+        function getMatchSelectionConfig() {
+            return {
+                location: document.querySelector('input[name="filter-match-location"]:checked')?.value || 'all',
+                numbersText: document.getElementById('filter-match-numbers')?.value?.trim() || ''
+            };
+        }
+
+        function getTeamSeasonMatches(team, seasonId, league) {
+            return matches.filter(m => m.team !== undefined ? false :
+                m.seasonId === seasonId && m.league === league && (m.homeTeam === team || m.awayTeam === team));
+        }
+
+        function getSelectedTeamSeasonMatches(team, seasonId, league, config = getMatchSelectionConfig()) {
+            const all = matches.filter(m => m.seasonId === seasonId && m.league === league && (m.homeTeam === team || m.awayTeam === team));
+            const numberSet = parseMatchNumberText(config.numbersText, all.length);
+            return all.filter((m, index) => {
+                const gameNo = index + 1; // numreras före hemma/borta-urvalet
+                if (numberSet && !numberSet.has(gameNo)) return false;
+                if (config.location === 'home' && m.homeTeam !== team) return false;
+                if (config.location === 'away' && m.awayTeam !== team) return false;
+                return true;
+            }).map((m,index) => ({...m, _selectedIndex:index+1}));
+        }
+
+        function computeStatsForSelectedMatches(team, selected) {
+            const goals = { goalsFor:0, goalsAgainst:0, goalDifference:0, games:0 };
+            const streak = { longestWin:0,longestLoss:0,longestThreePointWin:0,longestZeroPointLoss:0,currentWin:0,currentLoss:0,currentThreePointWin:0,currentZeroPointLoss:0,games:0 };
+            const single = { biggestWinMargin:0,biggestLossMargin:0,goalsForValues:[],goalsAgainstValues:[],oneGoalWins:0,oneGoalLosses:0,games:0 };
+            const decision = { FT:{games:0,wins:0,losses:0},OT:{games:0,wins:0,losses:0},SO:{games:0,wins:0,losses:0},OTSO:{games:0,wins:0,losses:0},totalGames:0 };
+            selected.forEach(m => {
+                const home = m.homeTeam === team;
+                const gf = home ? m.homeGoals : m.awayGoals;
+                const ga = home ? m.awayGoals : m.homeGoals;
+                const pts = home ? m.homePoints : m.awayPoints;
+                const diff = gf-ga;
+                goals.goalsFor += gf; goals.goalsAgainst += ga; goals.games++;
+                single.goalsForValues.push(gf); single.goalsAgainstValues.push(ga); single.games++;
+                if (diff>0) single.biggestWinMargin=Math.max(single.biggestWinMargin,diff);
+                if (diff<0) single.biggestLossMargin=Math.max(single.biggestLossMargin,-diff);
+                if (diff===1) single.oneGoalWins++;
+                if (diff===-1) single.oneGoalLosses++;
+                const win = pts===2 || pts===3, loss=pts===0 || pts===1, three=pts===3, zero=pts===0;
+                streak.currentWin=win?streak.currentWin+1:0; streak.currentLoss=loss?streak.currentLoss+1:0;
+                streak.currentThreePointWin=three?streak.currentThreePointWin+1:0; streak.currentZeroPointLoss=zero?streak.currentZeroPointLoss+1:0;
+                streak.longestWin=Math.max(streak.longestWin,streak.currentWin); streak.longestLoss=Math.max(streak.longestLoss,streak.currentLoss);
+                streak.longestThreePointWin=Math.max(streak.longestThreePointWin,streak.currentThreePointWin); streak.longestZeroPointLoss=Math.max(streak.longestZeroPointLoss,streak.currentZeroPointLoss); streak.games++;
+                const d=classifyDecision(m.resultText), b=decision[d]; b.games++; if(win)b.wins++;else b.losses++;
+                if(d==='OT'||d==='SO'){decision.OTSO.games++;if(win)decision.OTSO.wins++;else decision.OTSO.losses++;} decision.totalGames++;
+            });
+            goals.goalDifference=goals.goalsFor-goals.goalsAgainst;
+            return {goals,streak,single,decision};
+        }
+
+        window.debugMatchSelection = function(team, seasonId, league, numbersText = null, location = null) {
+            const config = { numbersText: numbersText === null ? getMatchSelectionConfig().numbersText : String(numbersText), location: location || getMatchSelectionConfig().location };
+            const all = matches.filter(m => m.seasonId===seasonId && m.league===league && (m.homeTeam===team || m.awayTeam===team));
+            const set = parseMatchNumberText(config.numbersText, all.length);
+            const rows = all.map((m,i)=>({m,i,gameNo:i+1})).filter(x => (!set || set.has(x.gameNo)) && (config.location==='all' || (config.location==='home'?x.m.homeTeam===team:x.m.awayTeam===team))).map(x=>({
+                match:x.gameNo,date:x.m.date,place:x.m.homeTeam===team?'H':'B',opponent:x.m.homeTeam===team?x.m.awayTeam:x.m.homeTeam,result:`${x.m.homeGoals}–${x.m.awayGoals}`,decision:classifyDecision(x.m.resultText),resultText:x.m.resultText
+            }));
+            console.log(`${team} – ${seasonId} (${league}) | matchnummer: ${config.numbersText||'alla'} | spelplats: ${config.location} | ${rows.length}/${all.length} matcher`);
+            console.table(rows); return rows;
+        };
+
+        function setupMatchSelectionListeners() {
+            const group=document.querySelector('.filter-group[data-filter-group="match-selection"]'); if(!group||group.dataset.bound==='1')return; group.dataset.bound='1';
+            const state=document.getElementById('match-selection-state');
+            const refresh=()=>{const c=getMatchSelectionConfig();const changed=c.location!=='all'||c.numbersText!=='';group.classList.toggle('is-changed',changed);if(state)state.textContent=changed?'Ändrad':'';applyTableFilters();};
+            group.querySelectorAll('input').forEach(el=>{el.addEventListener('input',refresh);el.addEventListener('change',refresh);});
+        }
+
         function applyTableFilters() {
             setupHistoricalResultTooltips();
             hideHistoricalResultTooltip();
@@ -7782,6 +7900,8 @@
             const streakFilters = getActiveStreakFilters();
             const singleGameFilters = getActiveSingleGameFilters();
             const decisionFilters = getActiveDecisionFilters();
+            const matchSelection = getMatchSelectionConfig();
+            const matchSelectionActive = matchSelection.location !== 'all' || matchSelection.numbersText !== '';
 
             // --- HISTORISKA FILTER: bygg lookup EN gång per filtrering ---
             const historicalConfigs = getHistoricalFilterConfigs();
@@ -7910,7 +8030,14 @@
 
                 // --- MÅLSTATISTIK ---
                 const goalStatsKey = `${league}::${seasonId}::${row.dataset.team || ''}`;
-                const goalStats = teamSeasonGoalStats[goalStatsKey] || null;
+                const selectedMatches = matchSelectionActive
+                    ? getSelectedTeamSeasonMatches(row.dataset.team || '', seasonId, league, matchSelection)
+                    : null;
+                const selectedStats = matchSelectionActive && selectedMatches.length
+                    ? computeStatsForSelectedMatches(row.dataset.team || '', selectedMatches)
+                    : null;
+                const matchSelectionOk = !matchSelectionActive || selectedMatches.length > 0;
+                const goalStats = matchSelectionActive ? selectedStats?.goals || null : teamSeasonGoalStats[goalStatsKey] || null;
                 const hasActiveGoalFilter = !!(goalFilters.goalsFor || goalFilters.goalsAgainst || goalFilters.goalDifference);
                 let goalsOk = true;
 
@@ -7922,7 +8049,7 @@
                 }
 
                 // --- SVITER ---
-                const streakStats = teamSeasonStreakStats[goalStatsKey] || null;
+                const streakStats = matchSelectionActive ? selectedStats?.streak || null : teamSeasonStreakStats[goalStatsKey] || null;
                 const hasActiveStreakFilter = !!(streakFilters.win || streakFilters.loss || streakFilters.threePointWin || streakFilters.zeroPointLoss);
                 let streaksOk = true;
 
@@ -7935,7 +8062,7 @@
                 }
 
                 // --- ENSKILDA MATCHER ---
-                const singleGameStats = teamSeasonSingleGameStats[goalStatsKey] || null;
+                const singleGameStats = matchSelectionActive ? selectedStats?.single || null : teamSeasonSingleGameStats[goalStatsKey] || null;
                 const hasActiveSingleGameFilter = !!(singleGameFilters.biggestWin || singleGameFilters.biggestLoss || singleGameFilters.goalsFor || singleGameFilters.goalsAgainst || singleGameFilters.oneGoalWins || singleGameFilters.oneGoalLosses);
                 let singleGamesOk = true;
 
@@ -7950,7 +8077,7 @@
                 }
 
                 // --- AVGÖRANDE ---
-                const decisionStats = teamSeasonDecisionStats[goalStatsKey] || null;
+                const decisionStats = matchSelectionActive ? selectedStats?.decision || null : teamSeasonDecisionStats[goalStatsKey] || null;
                 const hasActiveDecisionFilter = decisionFiltersAreActive(decisionFilters);
                 let decisionsOk = true;
 
@@ -7965,7 +8092,7 @@
                     });
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && matchSelectionOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
