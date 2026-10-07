@@ -285,6 +285,8 @@
         }
         .filter-group[data-filter-group="goals"].is-changed .filter-group-state::after { content: none; }
         .filter-group[data-filter-group="goals"] .filter-group-state { white-space: nowrap; }
+        .filter-group[data-filter-group="points"].is-changed .filter-group-state::after { content: none; }
+        .filter-group[data-filter-group="points"] .filter-group-state { white-space: nowrap; }
 
         .filter-block h3 {
             margin: 0 0 0.5rem;
@@ -1749,6 +1751,17 @@
                                                 <label for="filter-decision-otso-losses-value">OT + SO förluster</label>
                                                 <select id="filter-decision-otso-losses-op" aria-label="Jämförelse för OT + SO förluster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
                                                 <input type="number" id="filter-decision-otso-losses-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal OT + SO förluster">
+                                            </div>
+                                        </div>
+                                    </details>
+
+                                    <details class="filter-group" data-filter-group="points">
+                                        <summary><span class="filter-group-title">Poäng</span><span class="filter-group-state" id="points-filter-count" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block">
+                                            <div class="goal-filter-row">
+                                                <label for="filter-points-value">Poäng</label>
+                                                <select id="filter-points-op" aria-label="Jämförelse för poäng"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-points-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal poäng">
                                             </div>
                                         </div>
                                     </details>
@@ -4483,6 +4496,7 @@
             setupStreakFilterListeners();  // längsta sviter från games
             setupSingleGameFilterListeners(); // extremvärden från enskilda matcher
             setupDecisionFilterListeners();   // FT / OT / SO / OT+SO
+            setupPointsFilterListeners();     // poäng i valt matchunderlag
             setupMatchSelectionListeners();  // matchnummer + alla/hemma/borta
             setupHistoricalFilters();      // jämförande lager (relativa per lag+säsongsrad)
 
@@ -7594,6 +7608,10 @@
             };
         }
 
+        function getActivePointsFilter() {
+            return readGoalFilter('filter-points');
+        }
+
         function getActiveDecisionFilters() {
             const out = {};
             for (const type of ['ft', 'ot', 'so', 'otso']) {
@@ -7687,11 +7705,13 @@
             const streak = { longestWin:0,longestLoss:0,longestThreePointWin:0,longestZeroPointLoss:0,currentWin:0,currentLoss:0,currentThreePointWin:0,currentZeroPointLoss:0,games:0 };
             const single = { biggestWinMargin:0,biggestLossMargin:0,goalsForValues:[],goalsAgainstValues:[],oneGoalWins:0,oneGoalLosses:0,games:0 };
             const decision = { FT:{games:0,wins:0,losses:0},OT:{games:0,wins:0,losses:0},SO:{games:0,wins:0,losses:0},OTSO:{games:0,wins:0,losses:0},totalGames:0 };
+            let points = 0;
             selected.forEach(m => {
                 const home = m.homeTeam === team;
                 const gf = home ? m.homeGoals : m.awayGoals;
                 const ga = home ? m.awayGoals : m.homeGoals;
                 const pts = home ? m.homePoints : m.awayPoints;
+                points += pts;
                 const diff = gf-ga;
                 goals.goalsFor += gf; goals.goalsAgainst += ga; goals.games++;
                 single.goalsForValues.push(gf); single.goalsAgainstValues.push(ga); single.games++;
@@ -7708,7 +7728,7 @@
                 if(d==='OT'||d==='SO'){decision.OTSO.games++;if(win)decision.OTSO.wins++;else decision.OTSO.losses++;} decision.totalGames++;
             });
             goals.goalDifference=goals.goalsFor-goals.goalsAgainst;
-            return {goals,streak,single,decision};
+            return {goals,streak,single,decision,points};
         }
 
         window.debugMatchSelection = function(team, seasonId, league, numbersText = null, location = null) {
@@ -7909,6 +7929,7 @@
             const streakFilters = getActiveStreakFilters();
             const singleGameFilters = getActiveSingleGameFilters();
             const decisionFilters = getActiveDecisionFilters();
+            const pointsFilter = getActivePointsFilter();
             const matchSelection = getMatchSelectionConfig();
             const matchSelectionActive = matchSelection.location !== 'all' || matchSelection.numbersText !== '';
 
@@ -8085,6 +8106,24 @@
                         numericFilterMatches(singleGameStats.oneGoalLosses, singleGameFilters.oneGoalLosses);
                 }
 
+                // --- POÄNG ---
+                let pointsOk = true;
+                if (pointsFilter) {
+                    let actualPoints;
+                    if (matchSelectionActive) {
+                        actualPoints = selectedStats?.points;
+                    } else {
+                        const allTeamMatches = matches.filter(m =>
+                            m.seasonId === seasonId && m.league === league &&
+                            (m.homeTeam === (row.dataset.team || '') || m.awayTeam === (row.dataset.team || ''))
+                        );
+                        actualPoints = allTeamMatches.reduce((sum, m) =>
+                            sum + (m.homeTeam === (row.dataset.team || '') ? m.homePoints : m.awayPoints), 0
+                        );
+                    }
+                    pointsOk = numericFilterMatches(actualPoints, pointsFilter);
+                }
+
                 // --- AVGÖRANDE ---
                 const decisionStats = matchSelectionActive ? selectedStats?.decision || null : teamSeasonDecisionStats[goalStatsKey] || null;
                 const hasActiveDecisionFilter = decisionFiltersAreActive(decisionFilters);
@@ -8101,7 +8140,7 @@
                     });
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && matchSelectionOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && matchSelectionOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
@@ -8299,6 +8338,29 @@
                 control.addEventListener('change', () => { refreshDecisionCount(); applyTableFilters(); });
             });
             refreshDecisionCount();
+        }
+
+        // POÄNG: poängsumma i det matchunderlag som Matchurval lämnar kvar.
+        function setupPointsFilterListeners() {
+            const group = document.querySelector('.filter-group[data-filter-group="points"]');
+            if (!group || group.dataset.pointsBound === '1') return;
+            group.dataset.pointsBound = '1';
+
+            const valueInput = document.getElementById('filter-points-value');
+            const controls = Array.from(group.querySelectorAll('input, select'));
+            const countEl = document.getElementById('points-filter-count');
+
+            function refreshPointsCount() {
+                const active = !!valueInput && valueInput.value.trim() !== '';
+                group.classList.toggle('is-changed', active);
+                if (countEl) countEl.textContent = active ? '(1)' : '';
+            }
+
+            controls.forEach(control => {
+                control.addEventListener('input', () => { refreshPointsCount(); applyTableFilters(); });
+                control.addEventListener('change', () => { refreshPointsCount(); applyTableFilters(); });
+            });
+            refreshPointsCount();
         }
 
         // ENSKILDA MATCHER: lyssnare + aktiv-räknare i gruppens rubrik.
