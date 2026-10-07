@@ -1674,6 +1674,16 @@
                                                 <select id="filter-game-goals-against-op" aria-label="Jämförelse för flest insläppta mål i en match"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
                                                 <input type="number" id="filter-game-goals-against-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Flest insläppta mål i en match">
                                             </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-game-one-goal-wins-value">Uddamålsvinster</label>
+                                                <select id="filter-game-one-goal-wins-op" aria-label="Jämförelse för antal uddamålsvinster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-game-one-goal-wins-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal uddamålsvinster">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-game-one-goal-losses-value">Uddamålsförluster</label>
+                                                <select id="filter-game-one-goal-losses-op" aria-label="Jämförelse för antal uddamålsförluster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-game-one-goal-losses-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal uddamålsförluster">
+                                            </div>
                                         </div>
                                     </details>
 
@@ -3074,6 +3084,8 @@
                             maxGoalsAgainst: 0,
                             goalsForValues: [],
                             goalsAgainstValues: [],
+                            oneGoalWins: 0,
+                            oneGoalLosses: 0,
                             games: 0
                         };
                     }
@@ -3089,6 +3101,8 @@
                     stats.maxGoalsAgainst = Math.max(stats.maxGoalsAgainst, goalsAgainst);
                     stats.goalsForValues.push(goalsFor);
                     stats.goalsAgainstValues.push(goalsAgainst);
+                    if (margin === 1) stats.oneGoalWins += 1;
+                    if (margin === -1) stats.oneGoalLosses += 1;
                     stats.games += 1;
                 }
 
@@ -7368,7 +7382,9 @@
                 biggestWin: readGoalFilter('filter-game-biggest-win'),
                 biggestLoss: readGoalFilter('filter-game-biggest-loss'),
                 goalsFor: readGoalFilter('filter-game-goals-for'),
-                goalsAgainst: readGoalFilter('filter-game-goals-against')
+                goalsAgainst: readGoalFilter('filter-game-goals-against'),
+                oneGoalWins: readGoalFilter('filter-game-one-goal-wins'),
+                oneGoalLosses: readGoalFilter('filter-game-one-goal-losses')
             };
         }
 
@@ -7705,7 +7721,7 @@
 
                 // --- ENSKILDA MATCHER ---
                 const singleGameStats = teamSeasonSingleGameStats[goalStatsKey] || null;
-                const hasActiveSingleGameFilter = !!(singleGameFilters.biggestWin || singleGameFilters.biggestLoss || singleGameFilters.goalsFor || singleGameFilters.goalsAgainst);
+                const hasActiveSingleGameFilter = !!(singleGameFilters.biggestWin || singleGameFilters.biggestLoss || singleGameFilters.goalsFor || singleGameFilters.goalsAgainst || singleGameFilters.oneGoalWins || singleGameFilters.oneGoalLosses);
                 let singleGamesOk = true;
 
                 if (hasActiveSingleGameFilter) {
@@ -7713,7 +7729,9 @@
                         numericFilterMatches(singleGameStats.biggestWinMargin, singleGameFilters.biggestWin) &&
                         numericFilterMatches(singleGameStats.biggestLossMargin, singleGameFilters.biggestLoss) &&
                         (!singleGameFilters.goalsFor || singleGameStats.goalsForValues.some(value => numericFilterMatches(value, singleGameFilters.goalsFor))) &&
-                        (!singleGameFilters.goalsAgainst || singleGameStats.goalsAgainstValues.some(value => numericFilterMatches(value, singleGameFilters.goalsAgainst)));
+                        (!singleGameFilters.goalsAgainst || singleGameStats.goalsAgainstValues.some(value => numericFilterMatches(value, singleGameFilters.goalsAgainst))) &&
+                        numericFilterMatches(singleGameStats.oneGoalWins, singleGameFilters.oneGoalWins) &&
+                        numericFilterMatches(singleGameStats.oneGoalLosses, singleGameFilters.oneGoalLosses);
                 }
 
                 const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && goalsOk && streaksOk && singleGamesOk;
@@ -7903,7 +7921,9 @@
                 document.getElementById('filter-game-biggest-win-value'),
                 document.getElementById('filter-game-biggest-loss-value'),
                 document.getElementById('filter-game-goals-for-value'),
-                document.getElementById('filter-game-goals-against-value')
+                document.getElementById('filter-game-goals-against-value'),
+                document.getElementById('filter-game-one-goal-wins-value'),
+                document.getElementById('filter-game-one-goal-losses-value')
             ].filter(Boolean);
             const controls = Array.from(group.querySelectorAll('input, select'));
             const countEl = document.getElementById('single-game-filter-count');
