@@ -1687,6 +1687,72 @@
                                         </div>
                                     </details>
 
+                                    <details class="filter-group" data-filter-group="decision">
+                                        <summary><span class="filter-group-title">Avgörande</span><span class="filter-group-state" id="decision-filter-count" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block">
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-ft-games-value">FT matcher</label>
+                                                <select id="filter-decision-ft-games-op" aria-label="Jämförelse för FT matcher"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-ft-games-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal FT matcher">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-ft-wins-value">FT vinster</label>
+                                                <select id="filter-decision-ft-wins-op" aria-label="Jämförelse för FT vinster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-ft-wins-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal FT vinster">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-ft-losses-value">FT förluster</label>
+                                                <select id="filter-decision-ft-losses-op" aria-label="Jämförelse för FT förluster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-ft-losses-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal FT förluster">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-ot-games-value">OT matcher</label>
+                                                <select id="filter-decision-ot-games-op" aria-label="Jämförelse för OT matcher"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-ot-games-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal OT matcher">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-ot-wins-value">OT vinster</label>
+                                                <select id="filter-decision-ot-wins-op" aria-label="Jämförelse för OT vinster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-ot-wins-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal OT vinster">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-ot-losses-value">OT förluster</label>
+                                                <select id="filter-decision-ot-losses-op" aria-label="Jämförelse för OT förluster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-ot-losses-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal OT förluster">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-so-games-value">SO matcher</label>
+                                                <select id="filter-decision-so-games-op" aria-label="Jämförelse för SO matcher"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-so-games-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal SO matcher">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-so-wins-value">SO vinster</label>
+                                                <select id="filter-decision-so-wins-op" aria-label="Jämförelse för SO vinster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-so-wins-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal SO vinster">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-so-losses-value">SO förluster</label>
+                                                <select id="filter-decision-so-losses-op" aria-label="Jämförelse för SO förluster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-so-losses-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal SO förluster">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-otso-games-value">OT + SO matcher</label>
+                                                <select id="filter-decision-otso-games-op" aria-label="Jämförelse för OT + SO matcher"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-otso-games-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal OT + SO matcher">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-otso-wins-value">OT + SO vinster</label>
+                                                <select id="filter-decision-otso-wins-op" aria-label="Jämförelse för OT + SO vinster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-otso-wins-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal OT + SO vinster">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-decision-otso-losses-value">OT + SO förluster</label>
+                                                <select id="filter-decision-otso-losses-op" aria-label="Jämförelse för OT + SO förluster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-decision-otso-losses-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal OT + SO förluster">
+                                            </div>
+                                        </div>
+                                    </details>
+
                                     <details class="filter-group filter-group-placeholder" data-filter-group="home-away">
                                         <summary><span class="filter-group-title">Hemma / borta</span><span class="filter-group-coming">Kommer senare</span></summary>
                                         <div class="filter-group-placeholder-content">Plats för kommande kriterier som skiljer på hemma- och bortamatcher.</div>
@@ -4409,6 +4475,7 @@
             setupGoalFilterListeners();    // målstatistik från games
             setupStreakFilterListeners();  // längsta sviter från games
             setupSingleGameFilterListeners(); // extremvärden från enskilda matcher
+            setupDecisionFilterListeners();   // FT / OT / SO / OT+SO
             setupHistoricalFilters();      // jämförande lager (relativa per lag+säsongsrad)
 
             // 6) Slider + första rendering
@@ -7519,6 +7586,22 @@
             };
         }
 
+        function getActiveDecisionFilters() {
+            const out = {};
+            for (const type of ['ft', 'ot', 'so', 'otso']) {
+                out[type] = {
+                    games: readGoalFilter(`filter-decision-${type}-games`),
+                    wins: readGoalFilter(`filter-decision-${type}-wins`),
+                    losses: readGoalFilter(`filter-decision-${type}-losses`)
+                };
+            }
+            return out;
+        }
+
+        function decisionFiltersAreActive(filters) {
+            return Object.values(filters).some(group => group.games || group.wins || group.losses);
+        }
+
         function applyTableFilters() {
             setupHistoricalResultTooltips();
             hideHistoricalResultTooltip();
@@ -7698,6 +7781,7 @@
             const goalFilters = getActiveGoalFilters();
             const streakFilters = getActiveStreakFilters();
             const singleGameFilters = getActiveSingleGameFilters();
+            const decisionFilters = getActiveDecisionFilters();
 
             // --- HISTORISKA FILTER: bygg lookup EN gång per filtrering ---
             const historicalConfigs = getHistoricalFilterConfigs();
@@ -7865,7 +7949,23 @@
                         numericFilterMatches(singleGameStats.oneGoalLosses, singleGameFilters.oneGoalLosses);
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && goalsOk && streaksOk && singleGamesOk;
+                // --- AVGÖRANDE ---
+                const decisionStats = teamSeasonDecisionStats[goalStatsKey] || null;
+                const hasActiveDecisionFilter = decisionFiltersAreActive(decisionFilters);
+                let decisionsOk = true;
+
+                if (hasActiveDecisionFilter) {
+                    const map = { ft: 'FT', ot: 'OT', so: 'SO', otso: 'OTSO' };
+                    decisionsOk = !!decisionStats && Object.entries(map).every(([filterKey, statsKey]) => {
+                        const wanted = decisionFilters[filterKey];
+                        const actual = decisionStats[statsKey];
+                        return numericFilterMatches(actual.games, wanted.games) &&
+                               numericFilterMatches(actual.wins, wanted.wins) &&
+                               numericFilterMatches(actual.losses, wanted.losses);
+                    });
+                }
+
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
@@ -8041,6 +8141,29 @@
 
 
 
+
+        // AVGÖRANDE: lyssnare + aktiv-räknare i gruppens rubrik.
+        function setupDecisionFilterListeners() {
+            const group = document.querySelector('.filter-group[data-filter-group="decision"]');
+            if (!group || group.dataset.decisionBound === '1') return;
+            group.dataset.decisionBound = '1';
+
+            const valueInputs = Array.from(group.querySelectorAll('input[type="number"]'));
+            const controls = Array.from(group.querySelectorAll('input, select'));
+            const countEl = document.getElementById('decision-filter-count');
+
+            function refreshDecisionCount() {
+                const count = valueInputs.filter(input => input.value.trim() !== '').length;
+                group.classList.toggle('is-changed', count > 0);
+                if (countEl) countEl.textContent = count > 0 ? `(${count})` : '';
+            }
+
+            controls.forEach(control => {
+                control.addEventListener('input', () => { refreshDecisionCount(); applyTableFilters(); });
+                control.addEventListener('change', () => { refreshDecisionCount(); applyTableFilters(); });
+            });
+            refreshDecisionCount();
+        }
 
         // ENSKILDA MATCHER: lyssnare + aktiv-räknare i gruppens rubrik.
         function setupSingleGameFilterListeners() {
