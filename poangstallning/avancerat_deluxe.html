@@ -1760,8 +1760,15 @@
                                         <div class="filter-group-content filter-block">
                                             <div class="goal-filter-row">
                                                 <label for="filter-points-value">Poäng</label>
-                                                <select id="filter-points-op" aria-label="Jämförelse för poäng"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
-                                                <input type="number" id="filter-points-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal poäng">
+                                                <select id="filter-points-op" aria-label="Jämförelse för poäng"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option><option value="between">mellan</option></select>
+                                                <div id="filter-points-values" style="min-width:0;">
+                                                    <input type="number" id="filter-points-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal poäng" style="width:100%;">
+                                                    <div id="filter-points-between-values" hidden style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:.35rem;">
+                                                        <input type="number" id="filter-points-min-value" min="0" step="1" inputmode="numeric" placeholder="från" aria-label="Poäng från" style="width:100%;min-width:0;">
+                                                        <span aria-hidden="true">–</span>
+                                                        <input type="number" id="filter-points-max-value" min="0" step="1" inputmode="numeric" placeholder="till" aria-label="Poäng till" style="width:100%;min-width:0;">
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </details>
@@ -7609,7 +7616,24 @@
         }
 
         function getActivePointsFilter() {
+            const op = document.getElementById('filter-points-op')?.value || 'min';
+            if (op === 'between') {
+                const minRaw = document.getElementById('filter-points-min-value')?.value?.trim() ?? '';
+                const maxRaw = document.getElementById('filter-points-max-value')?.value?.trim() ?? '';
+                if (minRaw === '' || maxRaw === '') return null;
+                const min = Number(minRaw);
+                const max = Number(maxRaw);
+                if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+                return { op: 'between', min: Math.min(min, max), max: Math.max(min, max) };
+            }
             return readGoalFilter('filter-points');
+        }
+
+        function pointsFilterMatches(actual, config) {
+            if (!config) return true;
+            if (!Number.isFinite(actual)) return false;
+            if (config.op === 'between') return actual >= config.min && actual <= config.max;
+            return numericFilterMatches(actual, config);
         }
 
         function getActiveDecisionFilters() {
@@ -8121,7 +8145,7 @@
                             sum + (m.homeTeam === (row.dataset.team || '') ? m.homePoints : m.awayPoints), 0
                         );
                     }
-                    pointsOk = numericFilterMatches(actualPoints, pointsFilter);
+                    pointsOk = pointsFilterMatches(actualPoints, pointsFilter);
                 }
 
                 // --- AVGÖRANDE ---
@@ -8346,20 +8370,37 @@
             if (!group || group.dataset.pointsBound === '1') return;
             group.dataset.pointsBound = '1';
 
+            const opSelect = document.getElementById('filter-points-op');
             const valueInput = document.getElementById('filter-points-value');
+            const betweenWrap = document.getElementById('filter-points-between-values');
+            const minInput = document.getElementById('filter-points-min-value');
+            const maxInput = document.getElementById('filter-points-max-value');
             const controls = Array.from(group.querySelectorAll('input, select'));
             const countEl = document.getElementById('points-filter-count');
 
+            function refreshPointsMode() {
+                const between = opSelect?.value === 'between';
+                if (valueInput) valueInput.hidden = between;
+                if (betweenWrap) {
+                    betweenWrap.hidden = !between;
+                    betweenWrap.style.display = between ? 'grid' : 'none';
+                }
+            }
+
             function refreshPointsCount() {
-                const active = !!valueInput && valueInput.value.trim() !== '';
+                const between = opSelect?.value === 'between';
+                const active = between
+                    ? !!minInput && !!maxInput && minInput.value.trim() !== '' && maxInput.value.trim() !== ''
+                    : !!valueInput && valueInput.value.trim() !== '';
                 group.classList.toggle('is-changed', active);
                 if (countEl) countEl.textContent = active ? '(1)' : '';
             }
 
             controls.forEach(control => {
-                control.addEventListener('input', () => { refreshPointsCount(); applyTableFilters(); });
-                control.addEventListener('change', () => { refreshPointsCount(); applyTableFilters(); });
+                control.addEventListener('input', () => { refreshPointsMode(); refreshPointsCount(); applyTableFilters(); });
+                control.addEventListener('change', () => { refreshPointsMode(); refreshPointsCount(); applyTableFilters(); });
             });
+            refreshPointsMode();
             refreshPointsCount();
         }
 
