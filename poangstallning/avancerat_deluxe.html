@@ -7673,6 +7673,15 @@
             }).map((m,index) => ({...m, _selectedIndex:index+1}));
         }
 
+        // Samma FT/OT/SO-klassificering som Avgörande, men i Matchurvalets scope.
+        // Den äldre classifyDecision() ligger inne i dataladdningens lokala scope.
+        function classifySelectedMatchDecision(resultText) {
+            const text = String(resultText || '').trim().toUpperCase();
+            if (/\bSO\b/.test(text)) return 'SO';
+            if (/\bOT\b/.test(text)) return 'OT';
+            return 'FT';
+        }
+
         function computeStatsForSelectedMatches(team, selected) {
             const goals = { goalsFor:0, goalsAgainst:0, goalDifference:0, games:0 };
             const streak = { longestWin:0,longestLoss:0,longestThreePointWin:0,longestZeroPointLoss:0,currentWin:0,currentLoss:0,currentThreePointWin:0,currentZeroPointLoss:0,games:0 };
@@ -7695,7 +7704,7 @@
                 streak.currentThreePointWin=three?streak.currentThreePointWin+1:0; streak.currentZeroPointLoss=zero?streak.currentZeroPointLoss+1:0;
                 streak.longestWin=Math.max(streak.longestWin,streak.currentWin); streak.longestLoss=Math.max(streak.longestLoss,streak.currentLoss);
                 streak.longestThreePointWin=Math.max(streak.longestThreePointWin,streak.currentThreePointWin); streak.longestZeroPointLoss=Math.max(streak.longestZeroPointLoss,streak.currentZeroPointLoss); streak.games++;
-                const d=classifyDecision(m.resultText), b=decision[d]; b.games++; if(win)b.wins++;else b.losses++;
+                const d=classifySelectedMatchDecision(m.resultText), b=decision[d]; b.games++; if(win)b.wins++;else b.losses++;
                 if(d==='OT'||d==='SO'){decision.OTSO.games++;if(win)decision.OTSO.wins++;else decision.OTSO.losses++;} decision.totalGames++;
             });
             goals.goalDifference=goals.goalsFor-goals.goalsAgainst;
@@ -7707,7 +7716,7 @@
             const all = matches.filter(m => m.seasonId===seasonId && m.league===league && (m.homeTeam===team || m.awayTeam===team));
             const set = parseMatchNumberText(config.numbersText, all.length);
             const rows = all.map((m,i)=>({m,i,gameNo:i+1})).filter(x => (!set || set.has(x.gameNo)) && (config.location==='all' || (config.location==='home'?x.m.homeTeam===team:x.m.awayTeam===team))).map(x=>({
-                match:x.gameNo,date:x.m.date,place:x.m.homeTeam===team?'H':'B',opponent:x.m.homeTeam===team?x.m.awayTeam:x.m.homeTeam,result:`${x.m.homeGoals}–${x.m.awayGoals}`,decision:classifyDecision(x.m.resultText),resultText:x.m.resultText
+                match:x.gameNo,date:x.m.date,place:x.m.homeTeam===team?'H':'B',opponent:x.m.homeTeam===team?x.m.awayTeam:x.m.homeTeam,result:`${x.m.homeGoals}–${x.m.awayGoals}`,decision:classifySelectedMatchDecision(x.m.resultText),resultText:x.m.resultText
             }));
             console.log(`${team} – ${seasonId} (${league}) | matchnummer: ${config.numbersText||'alla'} | spelplats: ${config.location} | ${rows.length}/${all.length} matcher`);
             console.table(rows); return rows;
