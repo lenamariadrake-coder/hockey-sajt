@@ -2824,7 +2824,8 @@
                         date: rawDate,              // date (YYYY-MM-DD)
                         homeTeam: parts[1].trim(),  // home_team
                         awayTeam: parts[2].trim(),  // away_team
-                        // Matchresultat (parts[3]) används inte just nu
+                        resultText: parts[3].trim(), // matchresultat, t.ex. "3 - 2 OT" / "3 - 2 SO"
+                        // Matchresultatet bevaras nu för diagnostik av avgörandeform
                         homeGoals,
                         awayGoals,
                         homePoints,
@@ -3180,6 +3181,136 @@
                                    (!wantedLeague || keyLeague.toUpperCase() === wantedLeague);
                         })
                         .map(([key, stats]) => ({ key, ...stats }));
+                };
+
+                // AVGÖRANDEFORM steg 1: beräkning + Console-diagnostik.
+                // UI och ordinarie filtrering påverkas inte ännu.
+                // Klassificering görs från games-kolumnens resultText:
+                //   ... OT = overtime, ... SO = straffar, annars FT (avgjort efter 60 min).
+                const teamSeasonDecisionStats = {};
+
+                function classifyDecision(resultText) {
+                    const text = String(resultText || '').trim().toUpperCase();
+                    if (/\bSO\b/.test(text)) return 'SO';
+                    if (/\bOT\b/.test(text)) return 'OT';
+                    return 'FT';
+                }
+
+                function ensureDecisionStats(key) {
+                    if (!teamSeasonDecisionStats[key]) {
+                        teamSeasonDecisionStats[key] = {
+                            FT: { games: 0, wins: 0, losses: 0 },
+                            OT: { games: 0, wins: 0, losses: 0 },
+                            SO: { games: 0, wins: 0, losses: 0 },
+                            OTSO: { games: 0, wins: 0, losses: 0 },
+                            totalGames: 0
+                        };
+                    }
+                    return teamSeasonDecisionStats[key];
+                }
+
+                function addDecisionGame(key, decision, isWin) {
+                    const stats = ensureDecisionStats(key);
+                    const bucket = stats[decision];
+                    bucket.games += 1;
+                    if (isWin) bucket.wins += 1;
+                    else bucket.losses += 1;
+
+                    if (decision === 'OT' || decision === 'SO') {
+                        stats.OTSO.games += 1;
+                        if (isWin) stats.OTSO.wins += 1;
+                        else stats.OTSO.losses += 1;
+                    }
+                    stats.totalGames += 1;
+                }
+
+                matches.forEach(match => {
+                    const decision = classifyDecision(match.resultText);
+                    const homeKey = `${match.league}::${match.seasonId}::${match.homeTeam}`;
+                    const awayKey = `${match.league}::${match.seasonId}::${match.awayTeam}`;
+                    addDecisionGame(homeKey, decision, match.homeGoals > match.awayGoals);
+                    addDecisionGame(awayKey, decision, match.awayGoals > match.homeGoals);
+                });
+
+                window.teamSeasonDecisionStats = teamSeasonDecisionStats;
+                window.debugDecisions = function(team, seasonId, league) {
+                    const wantedTeam = String(team || '').trim().toLowerCase();
+                    const wantedSeason = String(seasonId || '').trim();
+                    const wantedLeague = String(league || '').trim().toUpperCase();
+
+                    const found = Object.entries(teamSeasonDecisionStats)
+                        .filter(([key]) => {
+                            const [keyLeague, keySeason, ...teamParts] = key.split('::');
+                            const keyTeam = teamParts.join('::');
+                            return (!wantedTeam || keyTeam.toLowerCase().includes(wantedTeam)) &&
+                                   (!wantedSeason || keySeason === wantedSeason) &&
+                                   (!wantedLeague || keyLeague.toUpperCase() === wantedLeague);
+                        })
+                        .map(([key, stats]) => {
+                            const [keyLeague, keySeason, ...teamParts] = key.split('::');
+                            const keyTeam = teamParts.join('::');
+                            return {
+                                key,
+                                league: keyLeague,
+                                season: keySeason,
+                                team: keyTeam,
+                                totalGames: stats.totalGames,
+                                FT_games: stats.FT.games,
+                                FT_wins: stats.FT.wins,
+                                FT_losses: stats.FT.losses,
+                                OT_games: stats.OT.games,
+                                OT_wins: stats.OT.wins,
+                                OT_losses: stats.OT.losses,
+                                SO_games: stats.SO.games,
+                                SO_wins: stats.SO.wins,
+                                SO_losses: stats.SO.losses,
+                                OTSO_games: stats.OTSO.games,
+                                OTSO_wins: stats.OTSO.wins,
+                                OTSO_losses: stats.OTSO.losses,
+                                checks: {
+                                    total: stats.FT.games + stats.OT.games + stats.SO.games === stats.totalGames,
+                                    FT: stats.FT.wins + stats.FT.losses === stats.FT.games,
+                                    OT: stats.OT.wins + stats.OT.losses === stats.OT.games,
+                                    SO: stats.SO.wins + stats.SO.losses === stats.SO.games,
+                                    OTSO: stats.OTSO.games === stats.OT.games + stats.SO.games
+                                }
+                            };
+                        });
+
+                    console.table(found.map(({ checks, ...row }) => ({
+                        ...row,
+                        checksOK: Object.values(checks).every(Boolean) ? 'JA' : 'NEJ'
+                    })));
+                    return found;
+                };
+
+                window.showDecisionGames = function(team, seasonId, league) {
+                    const wantedTeam = String(team || '').trim().toLowerCase();
+                    const wantedSeason = String(seasonId || '').trim();
+                    const wantedLeague = String(league || '').trim().toUpperCase();
+                    const rows = matches
+                        .filter(match =>
+                            (!wantedSeason || match.seasonId === wantedSeason) &&
+                            (!wantedLeague || match.league.toUpperCase() === wantedLeague) &&
+                            (!wantedTeam || match.homeTeam.toLowerCase().includes(wantedTeam) || match.awayTeam.toLowerCase().includes(wantedTeam))
+                        )
+                        .map(match => {
+                            const isHome = match.homeTeam.toLowerCase().includes(wantedTeam);
+                            const teamName = isHome ? match.homeTeam : match.awayTeam;
+                            const gf = isHome ? match.homeGoals : match.awayGoals;
+                            const ga = isHome ? match.awayGoals : match.homeGoals;
+                            return {
+                                date: match.date,
+                                team: teamName,
+                                opponent: isHome ? match.awayTeam : match.homeTeam,
+                                H_B: isHome ? 'H' : 'B',
+                                resultText: match.resultText,
+                                decision: classifyDecision(match.resultText),
+                                outcome: gf > ga ? 'V' : 'F'
+                            };
+                        });
+                    console.table(rows);
+                    return rows;
                 };
 
                 // 3. Extrahera alla lag och unika datum
