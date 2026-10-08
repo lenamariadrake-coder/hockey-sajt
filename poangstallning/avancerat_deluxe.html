@@ -1107,7 +1107,75 @@
 
         .placement-sort-control {
             margin-top: 12px;
-            /* luft ovanför kryssrutan */
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            min-height: 1.25rem;
+        }
+
+        .placement-sort-checkbox-wrap,
+        .placement-lock-control,
+        .placement-lock-status {
+            display: inline-flex;
+            align-items: center;
+            min-height: 1.25rem;
+            line-height: 1.2;
+        }
+
+        .placement-sort-checkbox-wrap.is-disabled {
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        #lock-placement-order,
+        #unlock-placement-order {
+            box-sizing: border-box;
+            height: 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            padding: 0 0.65rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            background: #fff;
+            color: #495057;
+            font: inherit;
+            line-height: 1;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #lock-placement-order:disabled {
+            color: #9ca3af;
+            background: #f3f4f6;
+            border-color: #e5e7eb;
+            cursor: not-allowed;
+        }
+
+        #lock-placement-order:not(:disabled):hover,
+        #unlock-placement-order:hover {
+            background: #f8f9fa;
+            border-color: #9ca3af;
+        }
+
+        .placement-lock-status {
+            gap: 0.65rem;
+            white-space: nowrap;
+        }
+
+        .placement-lock-status-text {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        @media (max-width: 600px) {
+            .placement-sort-control {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
         }
 
         /* ------------------------------------
@@ -2019,12 +2087,26 @@
             </div>
             <input type="range" id="timeline-slider" min="0" max="1" value="0">
 
-            <!-- Ny kryssruta: sortera staplar efter placering -->
+            <!-- Placeringssortering + möjlighet att låsa ordningen vid aktuell tidpunkt -->
             <div class="placement-sort-control">
-                <label>
-                    <input type="checkbox" id="sort-by-placement">
-                    Sortera staplar efter placering
-                </label>
+                <span class="placement-sort-checkbox-wrap" id="placement-sort-checkbox-wrap">
+                    <label>
+                        <input type="checkbox" id="sort-by-placement">
+                        Sortera staplar efter placering
+                    </label>
+                </span>
+
+                <span class="placement-lock-control">
+                    <button type="button" id="lock-placement-order" disabled>
+                        <span aria-hidden="true">🔒</span>
+                        <span>Lås ordningen</span>
+                    </button>
+                </span>
+
+                <span class="placement-lock-status hidden" id="placement-lock-status">
+                    <span class="placement-lock-status-text" id="placement-lock-status-text"></span>
+                    <button type="button" id="unlock-placement-order">Lås upp</button>
+                </span>
             </div>
         </div>
         <p class="source-info">
@@ -2225,6 +2307,11 @@
 
         // Den faktiska ordningen i diagrammet (ev. sorterad efter placering)
         let chartRenderDataByKey = [];
+
+        // Låst placeringssortering. null = levande placeringssortering/inget lås.
+        // När låset är aktivt sparas REFERENSTIDPUNKTEN, inte bara en lista med lag.
+        // Därför kan även lag som väljs senare placeras korrekt vid den låsta tidpunkten.
+        let placementOrderLock = null;
 
 
 
@@ -2497,6 +2584,180 @@
                 const bi = indexByKey.has(b.key) ? indexByKey.get(b.key) : BIG;
                 return ai - bi;
             });
+        }
+
+        function applyManualOrderToChipDOM(orderKeys) {
+            const container = document.getElementById('team-selection');
+            if (!container || !Array.isArray(orderKeys) || orderKeys.length === 0) return;
+
+            const wrappers = Array.from(container.querySelectorAll('.team-item-wrapper'));
+            const byKey = new Map(wrappers.map(w => [w?.dataset?.teamSeasonKey || '', w]));
+            const used = new Set();
+
+            orderKeys.forEach(key => {
+                const wrapper = byKey.get(key);
+                if (!wrapper) return;
+                container.appendChild(wrapper);
+                used.add(key);
+            });
+
+            // Eventuella chip som inte ingick i den synliga diagramordningen lämnas kvar sist.
+            wrappers.forEach(wrapper => {
+                const key = wrapper?.dataset?.teamSeasonKey || '';
+                if (!used.has(key)) container.appendChild(wrapper);
+            });
+        }
+
+        function getPlacementSnapshotAtReference(key, reference) {
+            if (!reference) return { points: 0, goalDiff: 0, games: 0 };
+
+            if (reference.mode === 'matches') {
+                const history = (typeof TEAM_SEASON_HISTORY === 'object' && TEAM_SEASON_HISTORY)
+                    ? TEAM_SEASON_HISTORY[key]
+                    : null;
+
+                if (!Array.isArray(history) || history.length === 0) {
+                    return { points: 0, goalDiff: 0, games: 0 };
+                }
+
+                const step = reference.step;
+                const snapshot =
+                    history.find(e => e.games === step) ||
+                    history.filter(e => e.games <= step).slice(-1)[0] ||
+                    history[0];
+
+                return {
+                    points: typeof snapshot?.points === 'number' ? snapshot.points : 0,
+                    goalDiff: typeof snapshot?.goalDiff === 'number' ? snapshot.goalDiff : 0,
+                    games: typeof snapshot?.games === 'number' ? snapshot.games : 0
+                };
+            }
+
+            const perDate = pointsByDateKey[key] || {};
+            const dateKey = reference.dateKey || 'Start';
+            let snapshot = perDate[dateKey];
+
+            if (!snapshot && dateKey !== 'Start') {
+                const index = allDateKeysNoYear.indexOf(dateKey);
+                for (let i = index - 1; i >= 0; i--) {
+                    const previousKey = allDateKeysNoYear[i];
+                    if (!previousKey) continue;
+                    if (perDate[previousKey]) {
+                        snapshot = perDate[previousKey];
+                        break;
+                    }
+                }
+            }
+
+            return {
+                points: typeof snapshot?.points === 'number' ? snapshot.points : 0,
+                goalDiff: typeof snapshot?.goalDiff === 'number' ? snapshot.goalDiff : 0,
+                games: typeof snapshot?.games === 'number' ? snapshot.games : 0
+            };
+        }
+
+        function comparePlacementSnapshots(aSnapshot, bSnapshot, aLabel, bLabel) {
+            if (bSnapshot.points !== aSnapshot.points) return bSnapshot.points - aSnapshot.points;
+            if (bSnapshot.goalDiff !== aSnapshot.goalDiff) return bSnapshot.goalDiff - aSnapshot.goalDiff;
+            if (bSnapshot.games !== aSnapshot.games) return bSnapshot.games - aSnapshot.games;
+            return (aLabel || '').localeCompare(bLabel || '', 'sv');
+        }
+
+        function compareByLockedPlacement(a, b) {
+            const aSnapshot = getPlacementSnapshotAtReference(a.key, placementOrderLock);
+            const bSnapshot = getPlacementSnapshotAtReference(b.key, placementOrderLock);
+            return comparePlacementSnapshots(aSnapshot, bSnapshot, a.label, b.label);
+        }
+
+        function getPlacementLockDescription(reference) {
+            if (!reference) return '';
+            if (reference.mode === 'matches') {
+                return `Ordning låst efter ${reference.step} spelade matcher`;
+            }
+            return `Ordning låst den ${reference.label}`;
+        }
+
+        function syncPlacementLockUI() {
+            const checkbox = document.getElementById('sort-by-placement');
+            const checkboxWrap = document.getElementById('placement-sort-checkbox-wrap');
+            const lockButton = document.getElementById('lock-placement-order');
+            const lockControl = lockButton?.closest('.placement-lock-control');
+            const lockStatus = document.getElementById('placement-lock-status');
+            const lockStatusText = document.getElementById('placement-lock-status-text');
+            if (!checkbox || !lockButton || !lockStatus || !lockStatusText) return;
+
+            const isLocked = !!placementOrderLock;
+            checkbox.disabled = isLocked;
+            if (checkboxWrap) {
+                checkboxWrap.classList.toggle('is-disabled', isLocked);
+                checkboxWrap.title = isLocked
+                    ? 'Lås upp ordningen först, eller välj Alfabetisk, Kronologisk eller Manuell sortering.'
+                    : '';
+            }
+
+            lockButton.disabled = !checkbox.checked || isLocked;
+            lockButton.title = !checkbox.checked
+                ? 'Välj Sortera staplar efter placering först.'
+                : 'Låser staplarnas ordning vid aktuell tidpunkt. Den låsta ordningen ersätter även din manuella sortering.';
+
+            if (lockControl) lockControl.classList.toggle('hidden', isLocked);
+            lockStatus.classList.toggle('hidden', !isLocked);
+
+            if (isLocked) {
+                lockStatusText.innerHTML = `<span aria-hidden="true">🔒</span><span>${getPlacementLockDescription(placementOrderLock)}</span>`;
+            } else {
+                lockStatusText.textContent = '';
+            }
+        }
+
+        function lockPlacementOrderAtCurrentStep() {
+            const checkbox = document.getElementById('sort-by-placement');
+            if (!checkbox || !checkbox.checked) return;
+
+            const mode = document.querySelector('input[name="timeline-mode"]:checked')?.value || 'matches';
+            const step = parseInt(slider.value, 10) || 0;
+
+            if (mode === 'matches') {
+                placementOrderLock = { mode: 'matches', step };
+            } else {
+                const dateKeys = Array.isArray(activeDateKeysNoYear) ? activeDateKeysNoYear : ['Start'];
+                const safeIndex = Math.max(0, Math.min(step, dateKeys.length - 1));
+                const dateKey = dateKeys[safeIndex] || 'Start';
+                const label = dateKey === 'Start'
+                    ? 'start'
+                    : ((dateKeyToLabel && dateKeyToLabel[dateKey]) || dateKey);
+                placementOrderLock = { mode: 'date', dateKey, label };
+            }
+
+            // Ett uttryckligt lås gör den placeringsordning som syns just nu
+            // till den nya manuella ordningen. Vanlig (olåst) placeringssortering
+            // rör däremot aldrig chip-/manualordningen.
+            const lockedVisibleOrderKeys = Array.isArray(chartRenderDataByKey)
+                ? chartRenderDataByKey.map(d => d.key).filter(Boolean)
+                : [];
+
+            if (lockedVisibleOrderKeys.length) {
+                const currentChipOrderKeys = readChipOrderKeysFromDOM();
+                const visibleSet = new Set(lockedVisibleOrderKeys);
+
+                // Synliga lag först i exakt den ordning som låstes. Eventuella
+                // övriga chip behåller sin relativa ordning och hamnar efteråt.
+                manualOrderKeys = [
+                    ...lockedVisibleOrderKeys,
+                    ...currentChipOrderKeys.filter(key => !visibleSet.has(key))
+                ];
+                manualOrderVersion++;
+                applyManualOrderToChipDOM(manualOrderKeys);
+            }
+
+            syncPlacementLockUI();
+            updateChart();
+        }
+
+        function unlockPlacementOrder() {
+            placementOrderLock = null;
+            syncPlacementLockUI();
+            updateChart();
         }
 
         function syncManualDnDAttributes() {
@@ -5251,19 +5512,27 @@
             // 2) RENDERORDNING: börjar som basordningen...
             let chartRenderData = chartDataByKey.slice();
 
-            // ...men kan sorteras om efter placering för staplarna
+            // ...men kan sorteras om efter placering för staplarna.
+            // Med aktivt lås används placeringen vid den sparade referenstidpunkten.
             if (sortByPlacement) {
-                chartRenderData.sort((a, b) => {
-                    // Sortera efter poäng → målskillnad → matcher → namn (label)
-                    if (b.points !== a.points) return b.points - a.points;
-                    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
-
-                    const aGames = typeof a.games === 'number' ? a.games : 0;
-                    const bGames = typeof b.games === 'number' ? b.games : 0;
-                    if (bGames !== aGames) return bGames - aGames;
-
-                    return (a.label || '').localeCompare(b.label || '', 'sv');
-                });
+                if (placementOrderLock) {
+                    chartRenderData.sort(compareByLockedPlacement);
+                } else {
+                    chartRenderData.sort((a, b) => {
+                        // Sortera efter poäng → målskillnad → matcher → namn (label)
+                        const aSnapshot = {
+                            points: typeof a.points === 'number' ? a.points : 0,
+                            goalDiff: typeof a.goalDiff === 'number' ? a.goalDiff : 0,
+                            games: typeof a.games === 'number' ? a.games : 0
+                        };
+                        const bSnapshot = {
+                            points: typeof b.points === 'number' ? b.points : 0,
+                            goalDiff: typeof b.goalDiff === 'number' ? b.goalDiff : 0,
+                            games: typeof b.games === 'number' ? b.games : 0
+                        };
+                        return comparePlacementSnapshots(aSnapshot, bSnapshot, a.label, b.label);
+                    });
+                }
             }
             // if (DEBUG_MANUAL_SORT) {
             // console.log('[SORT APPLY][RENDER ORDER]', {
@@ -11039,14 +11308,17 @@
                     // });
                     // }
 
-                    // Vid sorteringsbyte ska placeringssorteringen stängas av (precis som idag)
+                    // Placeringssorteringen är ett tillfälligt visningsläge och får inte i sig
+                    // skriva över Manuell. Endast ett uttryckligt klick på "Lås ordningen"
+                    // sparar placeringsordningen som ny manuell ordning.
                     const placementCheckbox = document.getElementById('sort-by-placement');
+
+                    // Vid sorteringsbyte ska placeringssortering och eventuellt lås återställas.
                     if (placementCheckbox && placementCheckbox.checked) {
                         placementCheckbox.checked = false;
-                        // if (DEBUG_MANUAL_SORT) {
-                        // console.log('[SORT ORDER][CHANGE] placement unchecked due to sort-order change');
-                        // }
                     }
+                    placementOrderLock = null;
+                    syncPlacementLockUI();
 
                     // Uppdatera "senaste basläge" när användaren väljer alpha/chrono
                     if (selected === 'alpha' || selected === 'chrono') {
@@ -11074,11 +11346,12 @@
                         }
                     }
 
-                    // Om vi går in i manuellt läge: seed:a manualOrderKeys från nuvarande chip-ordning (DOM)
+                    // Om vi går in i manuellt läge: seed:a alltid från den aktuella
+                    // chip-ordningen. Ett tidigare lås har redan flyttat chipsen och sparat
+                    // samma ordning; vanlig olåst placeringssortering har inte rört dem.
                     if (selected === 'manual') {
                         manualDnDEnabled = true;
 
-                        // Seed från aktuell chip-ordning (oavsett om chips är avbockade eller har färg)
                         manualOrderKeys = readChipOrderKeysFromDOM();
                         manualOrderVersion++;
 
@@ -11108,9 +11381,23 @@
             const sortByPlacementCheckbox = document.getElementById('sort-by-placement');
             if (sortByPlacementCheckbox) {
                 sortByPlacementCheckbox.addEventListener('change', () => {
+                    syncPlacementLockUI();
                     updateChart();
                 });
             }
+
+            // Lås/lås upp placeringsordningen vid den tidpunkt som tidslinjen står på.
+            const lockPlacementOrderButton = document.getElementById('lock-placement-order');
+            if (lockPlacementOrderButton) {
+                lockPlacementOrderButton.addEventListener('click', lockPlacementOrderAtCurrentStep);
+            }
+
+            const unlockPlacementOrderButton = document.getElementById('unlock-placement-order');
+            if (unlockPlacementOrderButton) {
+                unlockPlacementOrderButton.addEventListener('click', unlockPlacementOrder);
+            }
+
+            syncPlacementLockUI();
 
             // Tidsläge: här vill vi fortfarande stoppa och rita om via updateSliderRange
             document.querySelectorAll('input[name="timeline-mode"]').forEach(radio => {
