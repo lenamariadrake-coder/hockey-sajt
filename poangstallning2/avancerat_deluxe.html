@@ -1618,13 +1618,8 @@
                                         <summary><span class="filter-group-title">Säsonger</span><span class="filter-group-state" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block">
                                             <label><input type="checkbox" id="filter-season-all"> Alla</label>
-                                            <!-- FAST LISTA ÖVER SÄSONGER: samma id/value som tidigare. -->
-                                            <label><input type="checkbox" id="filter-season-2026-2027" value="2026-2027" checked> 2026-2027</label>
-                                            <label><input type="checkbox" id="filter-season-2025-2026" value="2025-2026" checked> 2025-2026</label>
-                                            <label><input type="checkbox" id="filter-season-2024-2025" value="2024-2025" checked> 2024-2025</label>
-                                            <label><input type="checkbox" id="filter-season-2023-2024" value="2023-2024" checked> 2023-2024</label>
-                                            <label><input type="checkbox" id="filter-season-2022-2023" value="2022-2023" checked> 2022-2023</label>
-                                            <label><input type="checkbox" id="filter-season-2021-2022" value="2021-2022" checked> 2021-2022</label>
+                                            <!-- Säsongerna skapas från inläst season_summary för HA och SHL. -->
+                                            <div id="filter-season-options"></div>
                                         </div>
                                     </details>
 
@@ -4723,11 +4718,34 @@
             });
         }
 
+        // Bygg säsongsfiltret utifrån de säsonger som faktiskt finns i datan.
+        // Samma säsong visas bara en gång även om den finns i båda ligorna.
+        function populateSeasonFilter() {
+            const container = document.getElementById('filter-season-options');
+            if (!container) return;
+            const seasons = [...new Set((seasonSummaryRows || [])
+                .filter(row => ['HA', 'SHL'].includes(String(row.league || '').toUpperCase()))
+                .map(row => String(row.seasonId || '').trim())
+                .filter(season => /^\d{4}-\d{4}$/.test(season)))].sort().reverse();
+            container.replaceChildren();
+            for (const season of seasons) {
+                const label = document.createElement('label');
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.id = 'filter-season-' + season;
+                input.value = season;
+                input.checked = true;
+                label.append(input, document.createTextNode(' ' + season));
+                container.append(label);
+            }
+        }
+
         // --- INITIERING AV UI (Körs EFTER datahämtning) ---
         function initializeUI() {
             //  console.log('[INIT] initializeUI - start (inga default-lagchips)');
 
-            // 1) Ligafilter + checkboxlogik
+            // 1) Bygg säsongslistan innan checkboxarnas lyssnare kopplas.
+            populateSeasonFilter();
             setupLeagueFilter();
             setupAllCheckboxLogic();
 
@@ -8086,31 +8104,10 @@
             if (cbSHL.checked) activeLeagues.push('SHL');
 
             // --- SÄSONGER ---
-            // FAST LISTA:
-            // När du lägger till en ny säsong behöver du:
-            // 1) Lägga till en checkbox i HTML-blocket "Säsonger"
-            // 2) Lägga till motsvarande const här
-            // 3) Lägga till den i hasSeasonFilters + activeSeasons.push(...)
-            const cbS2026_27 = document.getElementById('filter-season-2026-2027');
-            const cbS2025_26 = document.getElementById('filter-season-2025-2026');
-            const cbS2024_25 = document.getElementById('filter-season-2024-2025');
-            const cbS2023_24 = document.getElementById('filter-season-2023-2024');
-            const cbS2022_23 = document.getElementById('filter-season-2022-2023');
-            const cbS2021_22 = document.getElementById('filter-season-2021-2022');
-
-            const hasSeasonFilters =
-                cbS2026_27 && cbS2025_26 && cbS2024_25 && cbS2023_24 && cbS2022_23 && cbS2021_22;
-
-            const activeSeasons = [];
-            if (hasSeasonFilters) {
-                if (cbS2026_27.checked) activeSeasons.push('2026-2027');
-                if (cbS2025_26.checked) activeSeasons.push('2025-2026');
-                if (cbS2024_25.checked) activeSeasons.push('2024-2025');
-                if (cbS2023_24.checked) activeSeasons.push('2023-2024');
-                if (cbS2022_23.checked) activeSeasons.push('2022-2023');
-                if (cbS2021_22.checked) activeSeasons.push('2021-2022');
-            }
-
+            // Säsongerna kommer från season_summary, inte en hårdkodad lista.
+            const seasonCBs = Array.from(document.querySelectorAll('#filter-season-options input[type="checkbox"]'));
+            const hasSeasonFilters = seasonCBs.length > 0;
+            const activeSeasons = seasonCBs.filter(cb => cb.checked).map(cb => cb.value);
 
             // --- GRUNDSERIE (placering) ---
             const cbRegAll = document.getElementById('filter-regular-all');
@@ -8587,7 +8584,7 @@
             updateFilterExplanation({
                 totalRows: Array.from(rows).filter(row =>
                     (row.dataset.league === 'SHL' || row.dataset.league === 'HA') &&
-                    ['2021-2022', '2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027'].includes(row.dataset.seasonId)
+                    seasonCBs.some(cb => cb.value === row.dataset.seasonId)
                 ).length,
                 currentCount: currentFilterRows.length,
                 currentTeamCount: countDistinctTeams(currentFilterRows),
@@ -8596,7 +8593,7 @@
                     activeLeagues,
                     hasSeasonFilters,
                     activeSeasons,
-                    totalSeasonOptions: 6,
+                    totalSeasonOptions: seasonCBs.length,
                     intervalActive,
                     intervalSet,
                     includeRegularUnresolved: !!cbRegUnresolved?.checked,
@@ -8851,15 +8848,7 @@
 
             // --- SÄSONGER ---
             const allSeasonCB = document.getElementById('filter-season-all');
-            const seasonCBs = [
-                document.getElementById('filter-season-2026-2027'),
-                document.getElementById('filter-season-2025-2026'),
-                document.getElementById('filter-season-2024-2025'),
-                document.getElementById('filter-season-2023-2024'),
-                document.getElementById('filter-season-2022-2023'),
-                document.getElementById('filter-season-2021-2022')
-            ];
-
+            const seasonCBs = Array.from(document.querySelectorAll('#filter-season-options input[type="checkbox"]'));
 
             if (allSeasonCB && seasonCBs.every(cb => cb)) {
 
@@ -9982,19 +9971,7 @@
 
                 // --- SÄSONGER ---
                 const cbSeasonAll = document.getElementById('filter-season-all');
-                const seasonIds = [
-                    'filter-season-2026-2027',
-                    'filter-season-2025-2026',
-                    'filter-season-2024-2025',
-                    'filter-season-2023-2024',
-                    'filter-season-2022-2023',
-                    'filter-season-2021-2022'
-                ];
-
-
-                const seasonCbs = seasonIds
-                    .map(id => document.getElementById(id))
-                    .filter(Boolean);
+                const seasonCbs = Array.from(document.querySelectorAll('#filter-season-options input[type="checkbox"]'));
 
                 // Default: alla säsonger ikryssade
                 seasonCbs.forEach(cb => cb.checked = true);
