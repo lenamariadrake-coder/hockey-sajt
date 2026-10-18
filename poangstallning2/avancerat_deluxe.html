@@ -9543,6 +9543,9 @@
         // Hjälpfunktion: lägg rader där teamSeasonKey finns i mainViewSelectedKeys överst
         // utan att förstöra den sortering som redan är gjord på kolumnnivå.
         function partitionRowsByMainViewSelection(rows, useCheckedFirst) {
+            // Utan aktiv kryssruta får kolumnsorteringen aldrig delas i grupper.
+            if (!useCheckedFirst) return rows;
+
             // if (!useCheckedFirst) {
             //     console.log('[TABLE SORT][checked-first] av – behåller befintlig ordning.');
             //     return rows;
@@ -9649,12 +9652,20 @@
                 // --- SORTERING PÅ SÄSONG (startår) ---
                 else if (label === 'Säsong') {
                     rowsCopy.sort((a, b) => {
-                        const aYear = seasonToNumber(a.children[colIndex].textContent.trim());
-                        const bYear = seasonToNumber(b.children[colIndex].textContent.trim());
+                        // Läs säsongens ursprungliga ID, inte den formaterade tabelltexten.
+                        const aYear = seasonToNumber(a.dataset.seasonId || a.children[colIndex].textContent.trim());
+                        const bYear = seasonToNumber(b.dataset.seasonId || b.children[colIndex].textContent.trim());
 
-                        if (aYear < bYear) return newDir === 'asc' ? -1 : 1;
-                        if (aYear > bYear) return newDir === 'asc' ? 1 : -1;
-                        return 0;
+                        // Saknade eller avvikande säsonger läggs sist.
+                        if (aYear === null && bYear === null) return 0;
+                        if (aYear === null) return 1;
+                        if (bYear === null) return -1;
+                        if (aYear !== bYear) return newDir === 'asc' ? aYear - bYear : bYear - aYear;
+
+                        // Samma säsong: sortera konsekvent på liga och lag.
+                        const leagueCmp = (a.dataset.league || '').localeCompare(b.dataset.league || '', 'sv');
+                        if (leagueCmp) return leagueCmp;
+                        return (a.dataset.teamLabel || '').localeCompare(b.dataset.teamLabel || '', 'sv');
                     });
                 }
 
