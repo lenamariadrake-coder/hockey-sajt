@@ -2127,7 +2127,7 @@
            DATAKÄLLOR
            -----------------------------------------------------------
            GViz/CSV är primär nätverkskälla. Publicerad TSV finns kvar
-           som fallback via google-sheets-data.js.
+           direkt via publicerade TSV-adresser (se laddningen nedan).
 
            VIKTIGT:
            Den här filens befintliga datastruktur ändras INTE.
@@ -2139,9 +2139,9 @@
             games: {
                 key: 'games',
                 label: 'Matchdata',
-                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
-                gid: '2012579108',
-                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+                spreadsheetId: null,
+                gid: '201846763',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvuIqGdu30mQnILQDkAuQ-pytFyCMUORvfcpYtmVjczSB6GyRXMvXxoWcgB3ZaMH9qbvy5mfFFBJTY/pub?gid=201846763&single=true&output=tsv',
                 requiredColumns: [
                     'date',
                     'home_team',
@@ -2158,9 +2158,9 @@
             seasonSummary: {
                 key: 'seasonSummary',
                 label: 'Säsongssammanfattning',
-                spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
+                spreadsheetId: null,
                 gid: '2044886949',
-                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2044886949&single=true&output=tsv',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvuIqGdu30mQnILQDkAuQ-pytFyCMUORvfcpYtmVjczSB6GyRXMvXxoWcgB3ZaMH9qbvy5mfFFBJTY/pub?gid=2044886949&single=true&output=tsv',
                 requiredColumns: [
                     'league',
                     'season_id',
@@ -2179,8 +2179,8 @@
         const CURRENT_SEASON_ID = '2024-2025'; // just nu kör vi HA 2024-2025
         const CURRENT_LEAGUE = 'HA';
 
-        const SEASON_MAX_POINTS = 52 * 3; // Uppdatera detta manuellt om säsongens maxpoäng ändras
-        const MAX_MATCHES_PER_SEASON = 52; // HA + SHL har 52 grundseriematcher och de enda som kommer jämföras i denna fil
+        // Max antal matcher härleds ur importerad matchhistorik, inte en fast 52-gräns.
+        let MAX_MATCHES_PER_SEASON = 0;
         const PLAYBACK_SPEED_MS = 600;
         const DEFAULT_BAR_COLOR = 'rgba(0, 123, 255, 0.7)';
         const PALETTE_COLORS = [
@@ -3106,14 +3106,24 @@
                     chartCanvas.classList.add('hidden');
                 }
 
-                // 1. Hämta samma två tabeller som tidigare.
-                // GViz används primärt; den gamla publicerade TSV-länken är fallback.
+                // 1. Hämta de två publicerade TSV-flikarna i Deluxe-kopian.
+                // Publicerings-ID (2PACX-...) är INTE kalkylarkets redigerings-ID.
+                // Därför använder vi TSV direkt, inte GViz mot det gamla arket.
+                async function fetchPublishedTsvRows(source) {
+                    const response = await fetch(source.tsv, { cache: 'no-store' });
+                    if (!response.ok) {
+                        throw new Error(`${source.label}: HTTP ${response.status}`);
+                    }
+                    const content = (await response.text()).replace(/^\uFEFF/, '').trim();
+                    if (!content) throw new Error(`${source.label}: tom TSV-fil`);
+                    return { rows: content.split(/\r?\n/).map(line => line.split('\t')) };
+                }
                 const [
                     { rows: gameRows },
                     { rows: seasonSummaryRowsRaw }
                 ] = await Promise.all([
-                    GoogleSheetsData.fetchRows(DATA_SOURCES.games),
-                    GoogleSheetsData.fetchRows(DATA_SOURCES.seasonSummary)
+                    fetchPublishedTsvRows(DATA_SOURCES.games),
+                    fetchPublishedTsvRows(DATA_SOURCES.seasonSummary)
                 ]);
 
                 // Behåll den befintliga datamodellen och den efterföljande parsningen
@@ -3773,41 +3783,38 @@
                 //   - hur lag + säsong väljs in i huvudvyn,
                 //   - hur etiketter (label) och färger kopplas till lag+säsong.
                 // ---------------------------------------------------------
-                // 4. Beräkna poäng och målskillnad över tid (per datum)
+                // 4. Beräkna datumhistorik utan att skanna hela matchlistan för varje lag och datum.
+                // Indexering en gång gör stor skillnad när vi läser in många historiska säsonger.
                 pointsByDate = {};
+                const changesByTeamDate = new Map();
+                function addDateChange(team, date, points, goalDiff) {
+                    if (!changesByTeamDate.has(team)) changesByTeamDate.set(team, new Map());
+                    const dates = changesByTeamDate.get(team);
+                    const change = dates.get(date) || { points: 0, goalDiff: 0, games: 0 };
+                    change.points += points;
+                    change.goalDiff += goalDiff;
+                    change.games += 1;
+                    dates.set(date, change);
+                }
+                matches.forEach(match => {
+                    const diff = match.homeGoals - match.awayGoals;
+                    addDateChange(match.homeTeam, match.date, match.homePoints, diff);
+                    addDateChange(match.awayTeam, match.date, match.awayPoints, -diff);
+                });
                 allTeams.forEach(team => {
-                    // Startvärden: 0 poäng, 0 målskillnad, 0 matcher
-                    pointsByDate[team] = { "Start": { points: 0, goalDiff: 0, games: 0 } };
-                    let cumulativePoints = 0;
-                    let cumulativeGoalDiff = 0;
-                    let cumulativeGames = 0;
-
-                    // Gå igenom alla datum (förutom "Start")
+                    const history = { Start: { points: 0, goalDiff: 0, games: 0 } };
+                    const changes = changesByTeamDate.get(team) || new Map();
+                    let points = 0, goalDiff = 0, games = 0;
                     allDates.slice(1).forEach(date => {
-                        // Gå igenom alla matcher på det datumet
-                        matches.forEach(match => {
-                            if (match.date === date) {
-                                if (match.homeTeam === team) {
-                                    // Laget är hemmalag ? en match mer spelad
-                                    cumulativeGames += 1;
-                                    cumulativePoints += match.homePoints;
-                                    cumulativeGoalDiff += (match.homeGoals - match.awayGoals);
-                                } else if (match.awayTeam === team) {
-                                    // Laget är bortalag ? en match mer spelad
-                                    cumulativeGames += 1;
-                                    cumulativePoints += match.awayPoints;
-                                    cumulativeGoalDiff += (match.awayGoals - match.homeGoals);
-                                }
-                            }
-                        });
-
-                        // Spara läget för detta datum
-                        pointsByDate[team][date] = {
-                            points: cumulativePoints,
-                            goalDiff: cumulativeGoalDiff,
-                            games: cumulativeGames
-                        };
+                        const change = changes.get(date);
+                        if (change) {
+                            points += change.points;
+                            goalDiff += change.goalDiff;
+                            games += change.games;
+                        }
+                        history[date] = { points, goalDiff, games };
                     });
+                    pointsByDate[team] = history;
                 });
 
                 // 5. Beräkna poäng och målskillnad över tid (per spelad match)
@@ -3825,7 +3832,11 @@
                 minGamesPlayed = Math.min(...Object.values(teamHistory).map(h => h.length - 1));
                 if (minGamesPlayed < 0) minGamesPlayed = 0; // Säkerställ att det inte blir negativt om inga matcher finns
 
-                // Bygg upp data per matchomgång för en hel grundserie (0–52).
+                // Längsta registrerade grundserie avgör hur långt historiken kan gå.
+                // Beräknas här från teamHistory; teamSeasonHistory skapas först längre ned.
+                MAX_MATCHES_PER_SEASON = Math.max(0, ...Object.values(teamHistory).map(h => h.length - 1));
+
+                // Bygg upp data per matchomgång upp till längsta registrerade grundserie.
                 // Lag som ännu inte har spelat så många matcher behåller sitt senaste kända läge.
                 pointsByMatches = Array(MAX_MATCHES_PER_SEASON + 1).fill(null).map(() => ({}));
                 for (let i = 0; i <= MAX_MATCHES_PER_SEASON; i++) {
@@ -4835,8 +4846,8 @@
 
             if (mode === 'matches') {
                 // Läget "Spelade matcher" representerar en hel grundserie.
-                // Reglaget ska därför alltid kunna gå till match 52, även om den
-                // pågående säsongen ännu inte har spelat så många matcher.
+                // Reglaget använder längsta registrerade grundserie, även när
+                // olika säsonger har olika många matcher.
                 slider.max = MAX_MATCHES_PER_SEASON;
                 slider.value = 0; // Starta alltid från början
             } else {
@@ -5030,6 +5041,20 @@
                 if (parseInt(slider.value, 10) > Number(slider.max)) {
                     slider.value = slider.max;
                 }
+            }
+
+            // Anpassa matchreglagets slutpunkt efter valda lag/säsonger.
+            // En pågående säsong kan därför ha färre registrerade matcher.
+            if (mode === 'matches') {
+                const selectedHistories = Array.from(mainViewSelectedKeys || [])
+                    .map(key => TEAM_SEASON_HISTORY[key])
+                    .filter(history => Array.isArray(history));
+                const histories = selectedHistories.length
+                    ? selectedHistories
+                    : Object.values(TEAM_SEASON_HISTORY || {});
+                const selectedMax = Math.max(0, ...histories.map(history => history.length - 1));
+                slider.max = selectedMax;
+                if (Number(slider.value) > selectedMax) slider.value = selectedMax;
             }
 
             const step = parseInt(slider.value);
