@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Poängställning SHL 2026/2027</title>
+    <title>Poängställning SHL 2020/2021</title>
     <script src="../js/analytics.js" defer></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -276,7 +276,7 @@
             <h1 class="page-title">
                 <div class="title-dropdown">
                  <button id="dropdown-toggle-button" class="dropdown-toggle">
-                     Poängställning SHL 2026/2027
+                     Poängställning SHL 2020/2021
                      <span class="dropdown-arrow">&#9660;</span>
                  </button>
                  <div id="dropdown-menu-content" class="dropdown-menu">
@@ -298,12 +298,13 @@
                      <a href="nhl_2025-2026.html" target="_self">NHL 2025/2026</a>
                      <a href="nhl_2026-2027.html" target="_self">NHL 2026/2027</a>
                      <hr>
-                     <a href="shl_2021-2022.html" target="_self">SHL 2021/2022</a>
+                     <a class="chosen">SHL 2020/2021</a>
+                      <a href="shl_2021-2022.html" target="_self">SHL 2021/2022</a>
                      <a href="shl_2022-2023.html" target="_self">SHL 2022/2023</a>
                      <a href="shl_2023-2024.html" target="_self">SHL 2023/2024</a>
                      <a href="shl_2024-2025.html" target="_self">SHL 2024/2025</a>
                      <a href="shl_2025-2026.html" target="_self">SHL 2025/2026</a>
-                     <a class="chosen">SHL 2026/2027</a>
+                     <a href="shl_2026-2027.html" target="_self">SHL 2026/2027</a>
                  </div>
              </div>
             </h1>
@@ -382,9 +383,10 @@
         const DATA_SOURCE = {
             key: 'games',
             label: 'Matchdata',
-            spreadsheetId: '1vS6j9-AXsrMCbsTxwqeqV7AGfn1XAoxgN8a7E_06gzM',
-            gid: '2012579108',
-            tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkjHeEnoc6HI08_yGHpxljc7alrzt9JAB-UrZ_T4niBz7Qcab5MFKhklojApa8J3JR6rv9DIzrHEtX/pub?gid=2012579108&single=true&output=tsv',
+            // Publicerad CSV som primärkälla; TSV-länken nedan är reservkälla.
+            gviz: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvuIqGdu30mQnILQDkAuQ-pytFyCMUORvfcpYtmVjczSB6GyRXMvXxoWcgB3ZaMH9qbvy5mfFFBJTY/pub?gid=201846763&single=true&output=csv',
+            gid: '201846763',
+            tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvuIqGdu30mQnILQDkAuQ-pytFyCMUORvfcpYtmVjczSB6GyRXMvXxoWcgB3ZaMH9qbvy5mfFFBJTY/pub?gid=201846763&single=true&output=tsv',
             requiredColumns: [
                 'date',
                 'home_team',
@@ -397,9 +399,9 @@
                 'league'
             ]
         };
-        const MATCH_SEASON_ID = '2026-2027';
+        const MATCH_SEASON_ID = '2020-2021';
         const MATCH_LEAGUE = 'SHL';
-        const SEASON_MAX_POINTS = 52 * 3; // Uppdatera detta manuellt om säsongens maxpoäng ändras
+        let SEASON_MAX_POINTS = 0; // Beräknas från matcherna i games
         const PLAYBACK_SPEED_MS = 600;
         const DEFAULT_BAR_COLOR = 'rgba(0, 123, 255, 0.7)';
         const PALETTE_COLORS = ['#ffc107', '#dc3545', '#28a745', '#6f42c1', '#fd7e14'];
@@ -433,7 +435,7 @@
         async function loadAndProcessData() {
             try {
                 // 1. Hämta gemensam matchdata från games.
-                //    GoogleSheetsData försöker GViz först och faller tillbaka till TSV.
+                //    Den publicerade TSV-adressen används för denna datakälla.
                 const { rows, source } = await GoogleSheetsData.fetchRows(DATA_SOURCE);
                 console.info(`[data][${DATA_SOURCE.key}] Använder ${source}.`);
 
@@ -473,7 +475,7 @@
                 }
 
                 // 3. games innehåller flera ligor och säsonger.
-                //    Behåll bara SHL 2026-2027.
+                //    Behåll bara vald liga och säsong.
                 const dataRows = rows.slice(1).filter(r =>
                     String(r[iSeason] || '').trim() === MATCH_SEASON_ID &&
                     String(r[iLeague] || '').trim().toUpperCase() === MATCH_LEAGUE
@@ -494,6 +496,19 @@
                 if (!allTeams.length) {
                     throw new Error(`Matchdata: inga lag hittades för ${MATCH_LEAGUE} ${MATCH_SEASON_ID}.`);
                 }
+
+                // Beräkna antal schemalagda matcher per lag, även utan resultat.
+                // Poängaxelns maxvärde blir 3 gånger högsta antalet matcher.
+                const gamesPerTeam = Object.fromEntries(allTeams.map(team => [team, 0]));
+                dataRows.forEach(parts => {
+                    const homeTeam = String(parts[iHomeTeam] || '').trim();
+                    const awayTeam = String(parts[iAwayTeam] || '').trim();
+                    if (Object.hasOwn(gamesPerTeam, homeTeam)) gamesPerTeam[homeTeam]++;
+                    if (Object.hasOwn(gamesPerTeam, awayTeam)) gamesPerTeam[awayTeam]++;
+                });
+                const seasonGames = Math.max(0, ...Object.values(gamesPerTeam));
+                SEASON_MAX_POINTS = seasonGames * 3;
+                console.info(`[data] ${MATCH_LEAGUE} ${MATCH_SEASON_ID}: ${seasonGames} matcher per lag som mest, max ${SEASON_MAX_POINTS} poäng.`, gamesPerTeam);
 
                 // 5. Bygg själva resultatlistan separat. Ospelade schemarader får finnas kvar
                 //    i games, men tas inte med i poängberäkningen förrän resultat/poäng finns.
