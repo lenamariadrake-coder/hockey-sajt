@@ -167,9 +167,17 @@
             flex: 0 0 100%;
             display: flex;
             justify-content: flex-end;
+            align-items: center;
             flex-wrap: wrap;
             gap: 0.4rem;
             margin: 0 0 0.25rem;
+        }
+
+        .filter-remaining-rows {
+            margin-right: auto;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #334155;
         }
 
         #toggle-filter-groups {
@@ -1616,6 +1624,7 @@
 
                                 <!-- UI-GRUPPER FÖR FILTER. Befintliga input-id:n är oförändrade. -->
                                 <div class="filter-groups-toolbar">
+                                    <span id="filter-remaining-rows" class="filter-remaining-rows" role="status" aria-live="polite">– rader återstår</span>
                                     <button type="button" id="toggle-filter-groups">Fäll ut alla</button>
                                     <button type="button" id="reset-all-table-filters">Återställ alla filter</button>
                                 </div>
@@ -8294,6 +8303,7 @@
             // --- SJÄLVA RAD-FILTRET ---
             const rows = tbody.querySelectorAll('tr');
             const currentFilterRows = [];
+            let remainingRowCount = 0;
 
             rows.forEach(row => {
                 clearHistoricalTooltipFromRow(row);
@@ -8501,11 +8511,18 @@
 
                 const rowVisible = currentFiltersOk && historicalOk;
                 row.style.display = rowVisible ? '' : 'none';
+                if (rowVisible) remainingRowCount += 1;
 
                 if (rowVisible && historicalResultForTooltip?.status === 'match') {
                     setHistoricalTooltipForRow(row, historicalResultForTooltip.details);
                 }
             });
+
+            // Samma slutliga radurval som tabellen, inklusive historiska filter.
+            const remainingRowsLabel = document.getElementById('filter-remaining-rows');
+            if (remainingRowsLabel) {
+                remainingRowsLabel.textContent = `${remainingRowCount} ${remainingRowCount === 1 ? 'rad' : 'rader'} återstår`;
+            }
 
             // --- FÖRKLARING: räkna tratten steg för steg ---
             // Detta är separat från själva radvisningen ovan. Vi börjar med de rader
