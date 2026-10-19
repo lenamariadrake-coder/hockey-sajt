@@ -167,6 +167,8 @@
             flex: 0 0 100%;
             display: flex;
             justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 0.4rem;
             margin: 0 0 0.25rem;
         }
 
@@ -240,7 +242,20 @@
             color: #5f2570;
             background: #f3e8f7;
         }
-        .filter-group.is-changed .filter-group-state::after { content: "Ändrad"; }
+        /* Samma markering för samtliga aktiva filtergrupper, utan räknare. */
+        .filter-group.is-changed .filter-group-state::after { content: none !important; }
+        .filter-group-state { white-space: nowrap; }
+        .filter-group-state .filter-changed-label { margin-right: 0.2rem; }
+        .filter-reset-one {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 1.2rem; height: 1.2rem; padding: 0;
+            border: 0; border-radius: 50%; background: transparent;
+            color: #5f2570; font-size: 1rem; font-weight: 700; cursor: pointer;
+        }
+        .filter-reset-one:hover, .filter-reset-one:focus-visible { background: #e5d1ed; }
+        #reset-all-table-filters { font-size: 0.82rem; padding: 0.3rem 0.65rem;
+            border: 1px solid #d1d5db; border-radius: 0.4rem; background: #fff; cursor: pointer; }
+        #reset-all-table-filters:hover { background: #f9fafb; }
 
         .filter-group-coming {
             color: #6b7280;
@@ -1602,6 +1617,7 @@
                                 <!-- UI-GRUPPER FÖR FILTER. Befintliga input-id:n är oförändrade. -->
                                 <div class="filter-groups-toolbar">
                                     <button type="button" id="toggle-filter-groups">Fäll ut alla</button>
+                                    <button type="button" id="reset-all-table-filters">Återställ alla filter</button>
                                 </div>
 
                                 <div class="filter-groups" id="filter-groups">
@@ -11626,6 +11642,20 @@
                 });
 
                 function groupIsChanged(group) {
+                    const key = group.dataset.filterGroup;
+                    // Operatorer utan ett värde är inte aktiva numeriska filter.
+                    if (['goals','streaks','games','decision'].includes(key)) {
+                        return Array.from(group.querySelectorAll('input[type="number"]'))
+                            .some(input => input.value.trim() !== '');
+                    }
+                    if (key === 'points') {
+                        const op = document.getElementById('filter-points-op');
+                        const between = op?.value === 'between';
+                        return between
+                            ? !!document.getElementById('filter-points-min-value')?.value.trim() &&
+                              !!document.getElementById('filter-points-max-value')?.value.trim()
+                            : !!document.getElementById('filter-points-value')?.value.trim();
+                    }
                     return Array.from(group.querySelectorAll('input, select')).some(control => {
                         const initial = control.dataset.filterUiDefault;
                         if (initial == null) return false;
@@ -11638,11 +11668,73 @@
 
                 function refreshChangedStates() {
                     functionalGroups.forEach(group => {
-                        // Målstatistik har egen räknare: operatorval utan angivet värde är inte ett aktivt filter.
-                        if (group.dataset.filterGroup === 'goals') return;
-                        group.classList.toggle('is-changed', groupIsChanged(group));
+                        const changed = groupIsChanged(group);
+                        group.classList.toggle('is-changed', changed);
+                        const state = group.querySelector('.filter-group-state');
+                        if (state) {
+                            state.replaceChildren();
+                            if (changed) {
+                                const label = document.createElement('span');
+                                label.className = 'filter-changed-label';
+                                label.textContent = 'Ändrad';
+                                const reset = document.createElement('button');
+                                reset.type = 'button';
+                                reset.className = 'filter-reset-one';
+                                reset.textContent = '×';
+                                reset.setAttribute('aria-label', 'Återställ ' + group.querySelector('.filter-group-title').textContent.trim());
+                                reset.title = reset.getAttribute('aria-label');
+                                state.append(label, reset);
+                            }
+                        }
                     });
                 }
+
+                function resetOneGroup(group) {
+                    const key = group.dataset.filterGroup;
+                    const wasOpen = group.open;
+                    group.querySelectorAll('input, select').forEach(control => {
+                        const initial = control.dataset.filterUiDefault;
+                        if (initial == null) return;
+                        if (control.type === 'checkbox' || control.type === 'radio') {
+                            control.checked = initial === '1';
+                            control.indeterminate = false;
+                        } else {
+                            control.value = initial;
+                        }
+                    });
+                    if (key === 'regular') {
+                        regularIntervalSavedValue = '1-14';
+                        regularIntervalIsDirty = false;
+                        regularIntervalJustConfirmed = false;
+                        regularIntervalSelection = [];
+                        regularIntervalHasBeenApplied = false;
+                    }
+                    // De interna lyssnarna sköter visning av Mellan-fält och beräkning.
+                    // En change-signal räcker för att uppdatera respektive grupps logik.
+                    const first = group.querySelector('input, select');
+                    if (first) first.dispatchEvent(new Event('change', { bubbles: true }));
+                    group.open = wasOpen;
+                    refreshChangedStates();
+                    applyTableFilters();
+                }
+
+                // Krysset är ett separat klickmål även inne i <summary>.
+                // Det får inte fälla ut eller ihop gruppen.
+                groupsRoot.addEventListener('click', event => {
+                    const button = event.target.closest('.filter-reset-one');
+                    if (!button) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const group = button.closest('.filter-group');
+                    if (group) resetOneGroup(group);
+                }, true);
+
+                document.getElementById('reset-all-table-filters')?.addEventListener('click', () => {
+                    functionalGroups.forEach(resetOneGroup);
+                    if (typeof resetHistoricalFilters === 'function') resetHistoricalFilters();
+                    refreshChangedStates();
+                    applyTableFilters();
+                });
 
                 function refreshToggleLabel() {
                     if (!toggleButton) return;
