@@ -339,8 +339,109 @@
             box-sizing: border-box;
             width: 100%;
             min-width: 0;
+            height: 32px;
+            border-radius: 5px;
             padding: 0.32rem 0.4rem;
         }
+
+        /* MATCHURVAL – egen, luftig layout. Befintliga radio-inputs och ID:n
+           behålls för att inte ändra filterlogiken. */
+        .filter-group[data-filter-group="match-selection"] .filter-group-content {
+            padding-top: 0.85rem;
+            padding-bottom: 1rem;
+        }
+        .filter-group[data-filter-group="match-selection"] .filter-subgroup {
+            margin: 0;
+            min-width: 0;
+        }
+        .filter-group[data-filter-group="match-selection"] .filter-subgroup + .filter-subgroup {
+            margin-top: 1.2rem;
+        }
+        .filter-group[data-filter-group="match-selection"] .filter-subgroup-title {
+            display: block;
+            margin-bottom: 0.45rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        .match-location-options {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.35rem;
+        }
+        .filter-group[data-filter-group="match-selection"] .match-location-options label {
+            display: block;
+            position: relative;
+            margin: 0;
+            cursor: pointer;
+            min-width: 0;
+        }
+        .match-location-options input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+        }
+        .match-location-options span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            min-height: 32px;
+            padding: 0.25rem 0.2rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            background: #fff;
+            color: #374151;
+            font-size: 0.81rem;
+            white-space: nowrap;
+        }
+        .match-location-options label:hover span { background: #f8f5fa; }
+        .match-location-options input:checked + span {
+            background: #f3e8f7;
+            border-color: #855294;
+            color: #5f2570;
+            font-weight: 700;
+        }
+        .match-location-options input:focus-visible + span {
+            outline: 2px solid #5f2570;
+            outline-offset: 2px;
+        }
+        #filter-match-numbers {
+            display: block;
+            width: 100%;
+            height: 32px;
+            box-sizing: border-box;
+            min-width: 0;
+            border: 1px solid #9ca3af;
+            border-radius: 5px;
+            padding: 0.32rem 0.5rem;
+            font: inherit;
+            font-size: 0.82rem;
+        }
+        .filter-group[data-filter-group="match-selection"] .filter-help {
+            margin-top: 0.55rem;
+            color: #6b7280;
+            font-size: 0.77rem;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+        .match-number-examples {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            margin-top: 0.35rem;
+        }
+        /* Poäng har en extra wrapper; det faktiska inputfältet behöver egen regel. */
+        #filter-points-value,
+        #filter-points-min-value,
+        #filter-points-max-value {
+            height: 32px;
+            box-sizing: border-box;
+            border-radius: 5px;
+            padding: 4px 8px;
+        }
+
         .filter-group[data-filter-group="goals"].is-changed .filter-group-state::after { content: none; }
         .filter-group[data-filter-group="goals"] .filter-group-state { white-space: nowrap; }
         .filter-group[data-filter-group="points"].is-changed .filter-group-state::after { content: none; }
@@ -1899,16 +2000,18 @@
                                     <details class="filter-group" data-filter-group="match-selection">
                                         <summary><span class="filter-group-title">Matchurval</span><span class="filter-group-state" id="match-selection-state" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block">
-                                            <div class="filter-subgroup">
-                                                <div class="filter-subgroup-title">Spelplats</div>
-                                                <label><input type="radio" name="filter-match-location" value="all" checked> Alla</label>
-                                                <label><input type="radio" name="filter-match-location" value="home"> Hemma</label>
-                                                <label><input type="radio" name="filter-match-location" value="away"> Borta</label>
+                                            <div class="filter-subgroup match-selection-location">
+                                                <div class="filter-subgroup-title" id="match-location-label">Spelplats</div>
+                                                <div class="match-location-options" role="group" aria-labelledby="match-location-label">
+                                                    <label><input type="radio" name="filter-match-location" value="all" checked><span>Alla</span></label>
+                                                    <label><input type="radio" name="filter-match-location" value="home"><span>Hemma</span></label>
+                                                    <label><input type="radio" name="filter-match-location" value="away"><span>Borta</span></label>
+                                                </div>
                                             </div>
-                                            <div class="filter-subgroup">
+                                            <div class="filter-subgroup match-selection-numbers">
                                                 <label class="filter-subgroup-title" for="filter-match-numbers">Matchnummer</label>
-                                                <input type="text" id="filter-match-numbers" inputmode="numeric" placeholder="t.ex. 1-10 eller 10,15-17,51-52" aria-label="Matchnummer, intervall eller sekvens">
-                                                <div class="filter-help">Komma eller semikolon går bra. <strong>-5</strong> = match 1–5 och <strong>10-</strong> = match 10 och framåt.</div>
+                                                <input type="text" id="filter-match-numbers" inputmode="numeric" placeholder="T.ex. 1-10, 15, 20-25" aria-label="Matchnummer, intervall eller sekvens" aria-describedby="match-number-help">
+                                                <div class="filter-help" id="match-number-help">Ange enstaka matcher eller intervall, separerade med komma eller semikolon.<div class="match-number-examples"><span><strong>–5</strong> = match 1–5</span><span><strong>10–</strong> = match 10 och framåt</span></div></div>
                                             </div>
                                         </div>
                                     </details>
