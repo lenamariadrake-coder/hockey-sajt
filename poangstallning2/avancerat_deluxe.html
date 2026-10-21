@@ -1654,6 +1654,27 @@
             color: #6b7280;
         }
 
+
+        /* Sortering i lagväljarens rubrik: enbart layout, ingen ändrad sorteringslogik. */
+        .filter-section summary.team-summary-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            column-gap: 1.5rem;
+            row-gap: 0.6rem;
+        }
+        .team-summary-row #filter-summary { flex: 1 1 19rem; }
+        .team-summary-row .team-summary-sort {
+            margin-left: auto;
+            font-weight: normal;
+            cursor: default;
+            gap: 0.8rem;
+            padding: 0.45rem 0.65rem;
+        }
+        .team-summary-sort label { cursor: pointer; white-space: nowrap; }
+        @media (max-width: 700px) {
+            .team-summary-row .team-summary-sort { margin-left: 0; }
+        }
     </style>
 </head>
 
@@ -1709,7 +1730,16 @@
 
 
         <details class="filter-section">
-            <summary id="filter-summary">Laddar…</summary>
+            <summary class="team-summary-row">
+                <span id="filter-summary">Laddar…</span>
+                <!-- Sorteringsvalet ligger i rubrikraden, även när lagväljaren är stängd. -->
+                <span class="team-summary-sort control-group" role="group" aria-label="Sortera lag">
+                    <strong>Sortera:</strong>
+                    <label><input type="radio" name="sort-order" value="alpha" checked> Alfabetisk</label>
+                    <label><input type="radio" name="sort-order" value="chrono"> Kronologisk</label>
+                    <label><input type="radio" name="sort-order" value="manual"> Manuell</label>
+                </span>
+            </summary>
             <div class="filter-content">
 
                 <div class="filter-content">
@@ -2189,12 +2219,6 @@
                     <strong>Tidsaxel:</strong>
                     <label><input type="radio" name="timeline-mode" value="matches" checked> Spelade matcher</label>
                     <label><input type="radio" name="timeline-mode" value="date"> Datum</label>
-                </div>
-                <div class="control-group">
-                    <strong>Sortera:</strong>
-                    <label><input type="radio" name="sort-order" value="alpha" checked> Alfabetisk</label>
-                    <label><input type="radio" name="sort-order" value="chrono"> Kronologisk</label>
-                    <label><input type="radio" name="sort-order" value="manual"> Manuell</label>
                 </div>
                 <div class="control-group">
                     <strong>Poängaxel:</strong>
@@ -11923,6 +11947,15 @@
 
         // --- STARTA PROGRAMMET ---
         loadAndProcessData(); // Initierar datahämtning och sedan UI
+    </script>
+    <script>
+        // Radioknapparna ska inte öppna/stänga lagväljaren när de används.
+        document.querySelector('.team-summary-sort')?.addEventListener('click', function (event) {
+            event.stopPropagation();
+        });
+        document.querySelector('.team-summary-sort')?.addEventListener('keydown', function (event) {
+            if (event.key === ' ' || event.key === 'Enter') event.stopPropagation();
+        });
     </script>
 </body>
 
