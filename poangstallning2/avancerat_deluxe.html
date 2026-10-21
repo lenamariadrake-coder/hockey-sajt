@@ -3544,7 +3544,7 @@
                     const teamLabel = formatSeasonTextInLabel(parts[3].trim()); // team_label för visning
                     const regularSeasonRank = parseInt(parts[4]);
                     const regularSeasonPoints = parseInt(parts[5]);
-                    const goalDifference = parseInt(parts[6]);
+                    const goalDifference = parseInt(String(parts[6]).replace(/\u2212/g, "-"), 10);
                     const playoffResult = parts[7].trim();       // playoff_result
                     const playoffRoundNumeric = parseInt(parts[8]);
 
