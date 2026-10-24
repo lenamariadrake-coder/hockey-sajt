@@ -1217,6 +1217,28 @@
             transform: scale(1.15);
         }
 
+        /* Kamera och hemikon delar samma diskreta ikonstil. */
+        .title-icon-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            font: inherit;
+            font-size: 1.4rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .title-icon-button:focus-visible {
+            outline: 2px solid #4778b5;
+            outline-offset: 4px;
+            border-radius: 4px;
+        }
+        @media (max-width: 600px) {
+            .title-icon-button { font-size: 1.25rem; }
+        }
+
         /* === FAQ-ikonset === */
 
         /* Grundstil: ren symbol, ingen emoji */
@@ -1726,6 +1748,8 @@
                 <a href="../index.html" class="title-icon" title="Hem">
                     &#127968;
                 </a>
+                <button id="export-chart-image" class="title-icon title-icon-button" type="button"
+                    aria-label="Spara diagram som bild" title="Spara diagram som bild">📸</button>
                 <!--a href="faq.html" class="title-icon" title="FAQ">
                     &#10068;
                 </a-->
@@ -11964,6 +11988,69 @@
         document.querySelector('.team-summary-sort')?.addEventListener('keydown', function (event) {
             if (event.key === ' ' || event.key === 'Enter') event.stopPropagation();
         });
+    </script>
+
+    <!-- Exporterar det redan ritade Chart.js-diagrammet utan att ändra diagrammets tillstånd. -->
+    <script>
+        (function () {
+            const exportButton = document.getElementById('export-chart-image');
+            if (!exportButton) return;
+
+            exportButton.addEventListener('click', function () {
+                const source = document.getElementById('points-chart');
+                if (!source || !source.width || !source.height ||
+                    !window.Chart || !Chart.getChart(source)) {
+                    alert('Diagrammet är inte färdigt att spara ännu.');
+                    return;
+                }
+
+                // Använd canvasens riktiga pixelmått för att bevara skärpan.
+                const width = source.width;
+                const height = source.height;
+                const ratio = width / Math.max(source.getBoundingClientRect().width, 1);
+                const padding = Math.round(24 * ratio);
+                const topHeight = Math.round(64 * ratio);
+                const bottomHeight = Math.round(55 * ratio);
+
+                const result = document.createElement('canvas');
+                result.width = width + padding * 2;
+                result.height = height + topHeight + bottomHeight;
+                const ctx = result.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, result.width, result.height);
+
+                // Använd samma tidsangivelse som sidan visar, men utan HTML-taggar.
+                const timelineText = document.getElementById('current-step-display')
+                    ?.textContent?.replace(/\s+/g, ' ').trim() || '';
+                ctx.fillStyle = '#263344';
+                ctx.font = `600 ${Math.round(17 * ratio)}px Arial, sans-serif`;
+                ctx.textBaseline = 'middle';
+                ctx.textAlign = 'left';
+                ctx.fillText(timelineText, padding, topHeight / 2, width);
+
+                // Återanvänd den färdigrenderade canvasen, inklusive ordning och färger.
+                ctx.drawImage(source, padding, topHeight, width, height);
+
+                ctx.fillStyle = '#667085';
+                ctx.font = `${Math.round(13 * ratio)}px Arial, sans-serif`;
+                ctx.textAlign = 'right';
+                ctx.fillText('Avbytarnas avbytarbänk', result.width - padding,
+                    topHeight + height + bottomHeight / 2);
+
+                try {
+                    const link = document.createElement('a');
+                    const datePart = new Date().toLocaleDateString('sv-SE');
+                    link.download = `avancerat-deluxe-${datePart}.png`;
+                    link.href = result.toDataURL('image/png');
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                } catch (error) {
+                    console.error('Kunde inte exportera diagrammet:', error);
+                    alert('Det gick inte att spara diagrammet som bild.');
+                }
+            });
+        })();
     </script>
 </body>
 
