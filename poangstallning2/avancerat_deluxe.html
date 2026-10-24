@@ -1884,6 +1884,19 @@
                                         </div>
                                     </details>
 
+                                    <details class="filter-group" data-filter-group="season-outcome">
+                                        <summary><span class="filter-group-title">Säsongsutfall</span><span class="filter-group-state" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block">
+                                            <label><input type="checkbox" id="filter-outcome-all" checked> Alla</label>
+                                            <label><input type="checkbox" class="filter-outcome-option" value="4" checked> Mästare / uppflyttad</label>
+                                            <label><input type="checkbox" class="filter-outcome-option" value="3" checked> Vidare mot titel / uppflyttning</label>
+                                            <label><input type="checkbox" class="filter-outcome-option" value="2" checked> Tidig semester</label>
+                                            <label><input type="checkbox" class="filter-outcome-option" value="1" checked> Kval nedåt – kvar</label>
+                                            <label><input type="checkbox" class="filter-outcome-option" value="0" checked> Nedflyttad</label>
+                                            <label><input type="checkbox" class="filter-outcome-option" value="unresolved" checked> Ej avgjort</label>
+                                        </div>
+                                    </details>
+
                                     <details class="filter-group" data-filter-group="streaks">
                                         <summary><span class="filter-group-title">Sviter</span><span class="filter-group-state" id="streak-filter-count" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block">
@@ -2389,6 +2402,8 @@
                     'goal_difference',
                     'playoff_result',
                     'playoff_round_numeric',
+                    'season_outcome_numeric',
+                    'season_outcome_note',
                     'row_id'
                 ]
             }
@@ -3545,7 +3560,10 @@
                 // 2b. Parsa season_summary (en rad per lag+säsong)
                 seasonSummaryByLabel = {};
                 seasonSummaryRows = [];
-                const summaryLines = rawSummaryString.trim().split('\n').slice(1); // Skippa rubrikraden
+                const summaryAllLines = rawSummaryString.trim().split('\n');
+                const summaryHeaders = summaryAllLines[0].split('\t').map(header => header.trim().replace(/^\uFEFF/, ''));
+                const summaryColumn = name => summaryHeaders.indexOf(name);
+                const summaryLines = summaryAllLines.slice(1); // Skippa rubrikraden
 
                 summaryLines.forEach((line, index) => {
                     const parts = line.split('\t');
@@ -3564,6 +3582,10 @@
                     const goalDifference = parseInt(String(parts[6]).replace(/\u2212/g, "-"), 10);
                     const playoffResult = parts[7].trim();       // playoff_result
                     const playoffRoundNumeric = parseInt(parts[8]);
+                    const outcomeIndex = summaryColumn('season_outcome_numeric');
+                    const outcomeNumeric = outcomeIndex < 0 ? null : Number.parseInt(parts[outcomeIndex], 10);
+                    const noteIndex = summaryColumn('season_outcome_note');
+                    const outcomeNote = noteIndex < 0 ? '' : (parts[noteIndex] || '').trim();
 
                     // NYTT: unik nyckel per lag + säsong + liga
                     const teamSeasonKey = `${league}::${seasonId}::${team}`;
@@ -3578,7 +3600,9 @@
                         regularSeasonPoints: isNaN(regularSeasonPoints) ? null : regularSeasonPoints,
                         goalDifference: isNaN(goalDifference) ? null : goalDifference,
                         playoffResult,
-                        playoffRoundNumeric: isNaN(playoffRoundNumeric) ? null : playoffRoundNumeric
+                        playoffRoundNumeric: isNaN(playoffRoundNumeric) ? null : playoffRoundNumeric,
+                        seasonOutcomeNumeric: Number.isInteger(outcomeNumeric) && outcomeNumeric >= 0 && outcomeNumeric <= 4 ? outcomeNumeric : null,
+                        seasonOutcomeNote: outcomeNote
                     };
 
                     // Behåll både en lista och en lookup-tabell
@@ -4993,6 +5017,7 @@
             setupRegularFilterListeners(); // grundserie-kryss
             setupRegularIntervalUI();      // intervall/sekvens UI
             setupPlayoffFilterListeners(); // slutspelsfilter
+            setupSeasonOutcomeFilterListeners();
             setupGoalFilterListeners();    // målstatistik från games
             setupStreakFilterListeners();  // längsta sviter från games
             setupSingleGameFilterListeners(); // extremvärden från enskilda matcher
@@ -6477,6 +6502,7 @@
                     ? String(row.regularSeasonRank)
                     : '';
                 tr.dataset.playoffResult = row.playoffResult || '';
+                tr.dataset.seasonOutcome = row.seasonOutcomeNumeric == null ? '' : String(row.seasonOutcomeNumeric);
                 tr.dataset.teamLabel = row.teamLabel || row.team || '';
                 // Rena lagnamnet behövs för historiska uppslag över flera säsonger.
                 tr.dataset.team = row.team || '';
@@ -8444,6 +8470,10 @@
                 playoffSet = null;
             }
 
+            const outcomeOptions = Array.from(document.querySelectorAll('.filter-outcome-option'));
+            const selectedOutcomes = new Set(outcomeOptions.filter(cb => cb.checked).map(cb => cb.value));
+            const outcomeActive = outcomeOptions.length > 0 && selectedOutcomes.size !== outcomeOptions.length;
+
             // --- MÅLSTATISTIK ---
             // Tomt värdefält betyder inaktivt filter. Operatorn ensam påverkar alltså inget.
             const goalFilters = getActiveGoalFilters();
@@ -8580,6 +8610,9 @@
                     }
                 }
 
+                const outcomeValue = row.dataset.seasonOutcome === '' ? 'unresolved' : row.dataset.seasonOutcome;
+                const outcomeOk = !outcomeActive || selectedOutcomes.has(outcomeValue);
+
                 // --- MÅLSTATISTIK ---
                 const goalStatsKey = `${league}::${seasonId}::${row.dataset.team || ''}`;
                 const selectedMatches = matchSelectionActive
@@ -8662,7 +8695,7 @@
                     });
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && matchSelectionOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && outcomeOk && matchSelectionOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
@@ -9292,6 +9325,27 @@
 
 
 
+
+        function setupSeasonOutcomeFilterListeners() {
+            const all = document.getElementById('filter-outcome-all');
+            const options = Array.from(document.querySelectorAll('.filter-outcome-option'));
+            if (!all || options.length !== 6) return;
+            const syncAll = () => {
+                const count = options.filter(cb => cb.checked).length;
+                all.checked = count === options.length;
+                all.indeterminate = count > 0 && count < options.length;
+            };
+            all.addEventListener('change', () => {
+                options.forEach(cb => { cb.checked = all.checked; });
+                syncAll();
+                applyTableFilters();
+            });
+            options.forEach(cb => cb.addEventListener('change', () => {
+                syncAll();
+                applyTableFilters();
+            }));
+            syncAll();
+        }
 
         function applyCheckboxesFromInterval(parsedPositions, maxRank = FILTER_MAX_REGULAR_RANK) {
             const cbRegAll = document.getElementById('filter-regular-all');
