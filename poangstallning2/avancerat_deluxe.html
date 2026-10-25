@@ -12419,6 +12419,18 @@
 .deluxe-column-item button { padding:2px 5px; }
 .deluxe-column-item button:disabled { opacity:.3; cursor:default; }
 .team-table [data-column-hidden="true"] { display:none !important; }
+.deluxe-column-text-panel { border:1px solid #ded6e3; border-radius:8px; padding:12px; margin:10px 0 14px; background:#fbf9fc; }
+.deluxe-column-text-panel label { display:block; font-weight:600; margin-bottom:6px; }
+.deluxe-column-text-panel textarea { display:block; box-sizing:border-box; width:100%; min-height:82px; resize:vertical; border:1px solid #bbb; border-radius:6px; padding:9px; font:inherit; line-height:1.5; }
+.deluxe-column-text-panel .deluxe-column-text-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px; }
+.deluxe-column-text-panel button { cursor:pointer; border:1px solid #ccd0d6; background:#fff; border-radius:5px; padding:5px 10px; }
+.deluxe-column-text-panel .deluxe-column-text-apply { background:#5f2570; color:#fff; border-color:#5f2570; }
+.deluxe-column-text-panel .deluxe-column-text-message { font-size:.85rem; }
+.deluxe-column-text-panel .deluxe-column-text-help { font-size:.83rem; color:#555; margin:5px 0; }
+.deluxe-column-selected { display:flex; flex-wrap:wrap; gap:5px; margin:8px 0; }
+.deluxe-column-selected button { display:inline-flex; align-items:center; gap:6px; }
+.deluxe-column-selected button:disabled { opacity:.5; cursor:default; }
+.deluxe-column-selected .deluxe-column-position { color:#777; font-size:.8em; }
 </style>
 <script>
 /* STATISKA SÄSONGSKOLUMNER – beräknas från fullständiga Games + Season_summary.
@@ -12448,7 +12460,7 @@
             defaultMode=saved.defaultMode!==false;
         }
     } catch(e) {console.warn('Kolumnval kunde inte läsas',e);}
-    let list,modeButton,searchInput,categoryHost,viewStatus;
+    let list,modeButton,searchInput,categoryHost,viewStatus,textArea,textMessage,selectedHost;
     let statsCache=null,statsSource=null;
     const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString('sv-SE',{minimumFractionDigits:d,maximumFractionDigits:d}):'–';
     const div=(a,b)=>b>0?a/b:null;
@@ -12611,6 +12623,53 @@
         if(modeButton)modeButton.textContent=defaultMode?'Visa min kolumnvy':'Visa standardvy';
         if(viewStatus)viewStatus.textContent=defaultMode?'Standardvy':'Min kolumnvy';
         render();
+        syncText();
+    }
+    function visibleOrder(){return custom.order.filter(id=>custom.visible.includes(id));}
+    function syncText(){
+        if(textArea && document.activeElement!==textArea)textArea.value=visibleOrder().join('; ');
+        if(selectedHost){
+            selectedHost.replaceChildren();
+            const chosen=visibleOrder();
+            chosen.forEach((id,i)=>{
+                const b=document.createElement('button');b.type='button';
+                b.disabled=defaultMode||i===0;
+                b.title=i===0?'Första kolumnen':'Flytta kolumnen ett steg åt vänster';
+                const num=document.createElement('span');num.className='deluxe-column-position';num.textContent=String(i+1)+'.';
+                b.append(num,document.createTextNode(' '+id+(i===0?'':' ←')));
+                b.addEventListener('click',()=>{
+                    const current=visibleOrder();
+                    if(i===0)return;
+                    [current[i-1],current[i]]=[current[i],current[i-1]];
+                    custom.order=[...current,...custom.order.filter(x=>!current.includes(x))];
+                    save();apply();
+                });
+                selectedHost.append(b);
+            });
+        }
+    }
+    function applyTextOrder(){
+        const entered=textArea.value.split(';').map(s=>s.trim()).filter(Boolean);
+        const known=new Map(ids.map(id=>[id.toLocaleLowerCase('sv'),id]));
+        const resolved=[],unknown=[],duplicates=[];
+        for(const name of entered){
+            const id=known.get(name.toLocaleLowerCase('sv'));
+            if(!id){unknown.push(name);continue;}
+            if(resolved.includes(id)){duplicates.push(name);continue;}
+            resolved.push(id);
+        }
+        if(unknown.length||duplicates.length||!resolved.length){
+            textMessage.textContent=[unknown.length?'Okända kolumner: '+unknown.join(', '):'',duplicates.length?'Dubbletter: '+duplicates.join(', '):'',!resolved.length?'Ange minst en kolumn.':''].filter(Boolean).join(' ');
+            textMessage.style.color='#a32932';
+            return;
+        }
+        custom.visible=resolved;
+        custom.order=[...resolved,...custom.order.filter(id=>!resolved.includes(id))];
+        defaultMode=false;
+        textMessage.textContent='Kolumnordning och urval sparade.';
+        textMessage.style.color='#246b3a';
+        textArea.blur();
+        save();apply();
     }
     function sortExtra(th,table){
         const body=table.tBodies[0];if(!body)return;
@@ -12679,15 +12738,33 @@
         const summary=document.createElement('summary');summary.textContent='Välj och ordna tabellkolumner';
         const toolbar=document.createElement('div');toolbar.className='deluxe-column-toolbar';
         modeButton=document.createElement('button');modeButton.type='button';
-        modeButton.addEventListener('click',()=>{defaultMode=!defaultMode;save();apply();});
+        modeButton.addEventListener('click',()=>{if(textArea)textArea.blur();defaultMode=!defaultMode;save();apply();});
         viewStatus=document.createElement('strong');
-        const hint=document.createElement('span');hint.textContent='Välj kolumner i grupperna. Ordna med pilar eller dra. Sparas automatiskt.';
+        const hint=document.createElement('span');hint.textContent='Välj kolumner i grupperna eller skriv deras namn i önskad ordning nedan. Sparas automatiskt.';
         toolbar.append(modeButton,viewStatus,hint);
         searchInput=document.createElement('input');searchInput.type='search';searchInput.className='deluxe-column-search';
         searchInput.placeholder='Sök bland alla kolumner…';
         searchInput.addEventListener('input',render);
+        const textPanel=document.createElement('div');textPanel.className='deluxe-column-text-panel';
+        const textLabel=document.createElement('label');textLabel.textContent='Min kolumnordning – semikolonseparerad';
+        textArea=document.createElement('textarea');textArea.rows=3;
+        textArea.setAttribute('aria-label','Valda kolumner i visningsordning');
+        const help=document.createElement('p');help.className='deluxe-column-text-help';
+        help.textContent='Skriv eller klistra in kolumnnamn, separerade med semikolon. Ordningen här blir ordningen i tabellen. Endast dessa kolumner visas i din vy.';
+        const actions=document.createElement('div');actions.className='deluxe-column-text-actions';
+        const use=document.createElement('button');use.type='button';use.className='deluxe-column-text-apply';use.textContent='Använd kolumnlista';use.addEventListener('click',applyTextOrder);
+        const copy=document.createElement('button');copy.type='button';copy.textContent='Kopiera kolumnlista';copy.addEventListener('click',()=>{
+            const content=textArea.value;
+            if(navigator.clipboard?.writeText)navigator.clipboard.writeText(content).then(()=>{textMessage.textContent='Kolumnlistan kopierad.';textMessage.style.color='#246b3a';}).catch(()=>{textArea.focus();textArea.select();textMessage.textContent='Markera texten och kopiera med Ctrl+C.';});
+            else {textArea.focus();textArea.select();textMessage.textContent='Markera texten och kopiera med Ctrl+C.';}
+        });
+        textMessage=document.createElement('span');textMessage.className='deluxe-column-text-message';textMessage.setAttribute('role','status');
+        actions.append(use,copy,textMessage);
+        const selectedLabel=document.createElement('div');selectedLabel.textContent='Valda kolumner i tabellordning (klicka för att flytta åt vänster):';selectedLabel.className='deluxe-column-text-help';
+        selectedHost=document.createElement('div');selectedHost.className='deluxe-column-selected';
+        textPanel.append(textLabel,textArea,help,actions,selectedLabel,selectedHost);
         list=document.createElement('div');list.className='deluxe-column-items';
-        details.append(summary,toolbar,searchInput,list);wrapper.before(details);
+        details.append(summary,toolbar,textPanel,searchInput,list);wrapper.before(details);
         apply();
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
