@@ -12430,6 +12430,9 @@
 .deluxe-column-selected { display:flex; flex-wrap:wrap; gap:5px; margin:8px 0; }
 .deluxe-column-selected button { display:inline-flex; align-items:center; gap:6px; }
 .deluxe-column-selected button:disabled { opacity:.5; cursor:default; }
+.deluxe-column-editor[hidden] { display:none !important; }
+.deluxe-column-order-item { display:inline-flex; gap:5px; align-items:center; padding:4px 6px; border:1px solid #ded6e3; border-radius:6px; }
+.deluxe-column-order-item button { min-width:26px; padding:2px 5px; }
 .deluxe-column-selected .deluxe-column-position { color:#777; font-size:.8em; }
 </style>
 <script>
@@ -12659,7 +12662,8 @@
         if(typeof v==='number')return fmt(v,(/\/match|andel|procent| %|ligasnitt|Relativ placering/.test(id)?2:0));
         return String(v);
     };
-    const save=()=>{try{localStorage.setItem(storageKey,JSON.stringify({...custom,defaultMode}));}catch(e){}};
+    // En tom anpassad vy är tillåten medan man redigerar, men aldrig som sparad aktiv vy.
+    const save=()=>{try{localStorage.setItem(storageKey,JSON.stringify({...custom,defaultMode:defaultMode||custom.visible.length===0}));}catch(e){}};
     const active=()=>defaultMode?{order:ids,visible:defaults}:custom;
     function apply() {
         const table=document.querySelector('.team-table');if(!table)return;
@@ -12702,8 +12706,12 @@
             tr.appendChild(first);
             state.order.forEach(id=>{const c=byId.get(id);if(c){c.dataset.columnHidden=String(!state.visible.includes(id));tr.appendChild(c);}});
         });
-        if(modeButton)modeButton.textContent=defaultMode?'Visa min kolumnvy':'Visa standardvy';
-        if(viewStatus)viewStatus.textContent=defaultMode?'Standardvy':'Min kolumnvy';
+        if(modeButton)modeButton.textContent=defaultMode?'Visa anpassad vy':'Visa standardvy';
+        if(viewStatus)viewStatus.textContent=defaultMode?'Standardvy':'Anpassad vy';
+        const modeHint=document.querySelector('.deluxe-column-toolbar .deluxe-column-hint');
+        if(modeHint)modeHint.textContent=defaultMode?'Välj Anpassad vy för att välja och ordna kolumner.':'Välj kolumner, ändra ordning eller använd den semikolonseparerade listan.';
+        const editor=document.querySelector('.deluxe-column-editor');
+        if(editor)editor.hidden=defaultMode;
         render();
         syncText();
     }
@@ -12714,19 +12722,24 @@
             selectedHost.replaceChildren();
             const chosen=visibleOrder();
             chosen.forEach((id,i)=>{
-                const b=document.createElement('button');b.type='button';
-                b.disabled=defaultMode||i===0;
-                b.title=i===0?'Första kolumnen':'Flytta kolumnen ett steg åt vänster';
-                const num=document.createElement('span');num.className='deluxe-column-position';num.textContent=String(i+1)+'.';
-                b.append(num,document.createTextNode(' '+id+(i===0?'':' ←')));
-                b.addEventListener('click',()=>{
-                    const current=visibleOrder();
-                    if(i===0)return;
-                    [current[i-1],current[i]]=[current[i],current[i-1]];
-                    custom.order=[...current,...custom.order.filter(x=>!current.includes(x))];
-                    save();apply();
-                });
-                selectedHost.append(b);
+                const item=document.createElement('span');item.className='deluxe-column-order-item';
+                const num=document.createElement('span');num.className='deluxe-column-position';num.textContent=String(i+1)+'. '+id;
+                item.append(num);
+                for(const delta of [-1,1]){
+                    const b=document.createElement('button');b.type='button';
+                    b.textContent=delta<0?'←':'→';
+                    b.title=delta<0?'Flytta åt vänster':'Flytta åt höger';
+                    b.disabled=i+delta<0||i+delta>=chosen.length;
+                    b.addEventListener('click',()=>{
+                        const current=visibleOrder(),pos=current.indexOf(id),next=pos+delta;
+                        if(next<0||next>=current.length)return;
+                        [current[pos],current[next]]=[current[next],current[pos]];
+                        custom.order=[...current,...custom.order.filter(x=>!current.includes(x))];
+                        save();apply();
+                    });
+                    item.append(b);
+                }
+                selectedHost.append(item);
             });
         }
     }
@@ -12740,15 +12753,15 @@
             if(resolved.includes(id)){duplicates.push(name);continue;}
             resolved.push(id);
         }
-        if(unknown.length||duplicates.length||!resolved.length){
-            textMessage.textContent=[unknown.length?'Okända kolumner: '+unknown.join(', '):'',duplicates.length?'Dubbletter: '+duplicates.join(', '):'',!resolved.length?'Ange minst en kolumn.':''].filter(Boolean).join(' ');
+        if(unknown.length||duplicates.length){
+            textMessage.textContent=[unknown.length?'Okända kolumner: '+unknown.join(', '):'',duplicates.length?'Dubbletter: '+duplicates.join(', '):''].filter(Boolean).join(' ');
             textMessage.style.color='#a32932';
             return;
         }
         custom.visible=resolved;
         custom.order=[...resolved,...custom.order.filter(id=>!resolved.includes(id))];
-        defaultMode=false;
-        textMessage.textContent='Kolumnordning och urval sparade.';
+        defaultMode=resolved.length===0;
+        textMessage.textContent=resolved.length?'Kolumnordning och urval sparade.':'Inga kolumner valda – standardvyn visas.';
         textMessage.style.color='#246b3a';
         textArea.blur();
         save();apply();
@@ -12797,7 +12810,7 @@
                 const index=state.order.indexOf(id),item=document.createElement('div');
                 item.className='deluxe-column-item';item.draggable=!defaultMode&&!q;
                 const label=document.createElement('label'),check=document.createElement('input');
-                check.type='checkbox';check.checked=state.visible.includes(id);check.disabled=defaultMode;
+                check.type='checkbox';check.checked=state.visible.includes(id);check.disabled=false;
                 check.addEventListener('change',()=>{if(check.checked&&!custom.visible.includes(id))custom.visible.push(id);else if(!check.checked)custom.visible=custom.visible.filter(x=>x!==id);save();apply();});
                 label.append(check,document.createTextNode(' '+id));item.append(label);
                 for(const delta of [-1,1]){
@@ -12821,10 +12834,11 @@
         const summary=document.createElement('summary');summary.textContent='Välj och ordna tabellkolumner';
         const toolbar=document.createElement('div');toolbar.className='deluxe-column-toolbar';
         modeButton=document.createElement('button');modeButton.type='button';
-        modeButton.addEventListener('click',()=>{if(textArea)textArea.blur();defaultMode=!defaultMode;save();apply();});
+        modeButton.addEventListener('click',()=>{if(textArea)textArea.blur();defaultMode=!defaultMode;if(!defaultMode&&!custom.visible.length){custom.visible=defaults.slice();custom.order=[...defaults,...ids.filter(id=>!defaults.includes(id))];}save();apply();});
         viewStatus=document.createElement('strong');
-        const hint=document.createElement('span');hint.textContent='Välj kolumner i grupperna eller skriv deras namn i önskad ordning nedan. Sparas automatiskt.';
+        const hint=document.createElement('span');hint.className='deluxe-column-hint';hint.textContent='Välj kolumner i grupperna eller skriv deras namn i önskad ordning nedan. Sparas automatiskt.';
         toolbar.append(modeButton,viewStatus,hint);
+        const editor=document.createElement('div');editor.className='deluxe-column-editor';
         searchInput=document.createElement('input');searchInput.type='search';searchInput.className='deluxe-column-search';
         searchInput.placeholder='Sök bland alla kolumner…';
         searchInput.addEventListener('input',render);
@@ -12868,12 +12882,36 @@
             }
         });
         textMessage=document.createElement('span');textMessage.className='deluxe-column-text-message';textMessage.setAttribute('role','status');
-        actions.append(use,copy,copyAll,textMessage);
+        const clear=document.createElement('button');clear.type='button';clear.textContent='Avmarkera alla';
+        clear.title='Töm den anpassade kolumnvyn för att börja om från början';
+        clear.addEventListener('click',()=>{
+            custom.visible=[];
+            custom.order=ids.slice();
+            textMessage.textContent='Alla kolumner avmarkerade. Välj nya kolumner, eller återgå till standardvyn.';
+            textMessage.style.color='#555';
+            if(textArea)textArea.blur();
+            save();apply();
+        });
+        actions.append(use,copy,copyAll,clear,textMessage);
         const selectedLabel=document.createElement('div');selectedLabel.textContent='Valda kolumner i tabellordning (klicka för att flytta åt vänster):';selectedLabel.className='deluxe-column-text-help';
         selectedHost=document.createElement('div');selectedHost.className='deluxe-column-selected';
         textPanel.append(textLabel,textArea,help,actions,selectedLabel,selectedHost);
         list=document.createElement('div');list.className='deluxe-column-items';
-        details.append(summary,toolbar,textPanel,searchInput,list);wrapper.before(details);
+        editor.append(textPanel,searchInput,list);
+        details.append(summary,toolbar,editor);wrapper.before(details);
+        // När lagväljaren lämnas ska redigeringspanelen vara stängd och tillfälliga
+        // sökningar, utfällningar och felmeddelanden borta. Kolumnvalen sparas.
+        const advancedDetails=document.querySelector('.advanced-filter-section');
+        if(advancedDetails){
+            advancedDetails.addEventListener('toggle',()=>{
+                details.open=false;
+                searchInput.value='';
+                openGroups.clear();
+                textMessage.textContent='';
+                if(!custom.visible.length&&!defaultMode){defaultMode=true;save();}
+                apply();
+            });
+        }
         apply();
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
