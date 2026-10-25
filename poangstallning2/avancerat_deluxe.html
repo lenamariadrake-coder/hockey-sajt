@@ -1856,7 +1856,7 @@
                                             <label><input type="checkbox" id="filter-regular-all" checked> Alla</label>
                                             <label><input type="checkbox" id="filter-regular-top6"> Topp sex (1-6)</label>
                                             <label><input type="checkbox" id="filter-regular-middle"> Mitten (7-12)</label>
-                                            <label><input type="checkbox" id="filter-regular-bottom2"> Två sämsta (13-14)</label>
+                                            <label><input type="checkbox" id="filter-regular-bottom2"> Plats 13–14</label>
                                             <label><input type="checkbox" id="filter-regular-unresolved" checked> Ej avgjort</label>
                                             <div class="filter-advanced">
                                                 <label for="regular-interval-input">Intervall / sekvens:</label>
@@ -2504,7 +2504,7 @@
         let teamSeasonSingleGameStats = {};
         let seasonSummaryByLabel = {}; // Ny: metadata per team_label från season_summary
         let GLOBAL_MAX_REGULAR_RANK = 14; // Max grundserieplacering i råunderlaget (används av äldre delar)
-        const FILTER_MAX_REGULAR_RANK = 14; // Avancerat-filtret gäller SHL/HA, som båda har 14 lag
+        let FILTER_MAX_REGULAR_RANK = 14; // Minst 14; höjs automatiskt om datan innehåller fler placeringar
         // NYTT: index för (lag, säsong)
         let teamSeasonIndex = {};     // key: `${team}::${seasonId}`
         let allTeamSeasonKeys = [];   // sorterad lista med alla nycklar
@@ -2530,7 +2530,7 @@
         // --- State för Grundserie: intervall/sekvens (UI-steg) ---
         // regularIntervalSavedValue = senast bekräftade texten i fältet
         // regularIntervalSelection = tolkad lista med placeringar (t.ex. [1,2,3,4])
-        let regularIntervalSavedValue = '1-14';
+        let regularIntervalSavedValue = `1-${FILTER_MAX_REGULAR_RANK}`;
         let regularIntervalIsDirty = false;
         let regularIntervalJustConfirmed = false;
         let regularIntervalSelection = [];
@@ -6581,6 +6581,11 @@
             // Uppdatera global maxplacering för grundserien (för intervall/sekvens)
             if (maxRegularRankDetected > 0) {
                 GLOBAL_MAX_REGULAR_RANK = maxRegularRankDetected;
+                FILTER_MAX_REGULAR_RANK = Math.max(14, maxRegularRankDetected);
+                document.querySelectorAll('#filter-regular-bottom2, .historical-option[data-group="regular"][value="bottom2"]').forEach(cb => {
+                    const label = cb.closest('label');
+                    if (label) label.lastChild.textContent = ` Plats 13–${FILTER_MAX_REGULAR_RANK}`;
+                });
                 //  console.log('Max grundserieplacering upptäckt:', GLOBAL_MAX_REGULAR_RANK);
 
                 // --- NYTT: auto-sätt default-intervall om användaren inte använt intervallet ännu ---
@@ -6742,7 +6747,7 @@
                 // VIKTIGT: varje historiskt lager äger sitt eget intervall-state.
                 // Inget intervall här delas med grundfiltret eller med något annat lager.
                 const intervalState = layer._historicalRegularIntervalState || {
-                    savedValue: '1-14',
+                    savedValue: `1-${FILTER_MAX_REGULAR_RANK}`,
                     hasBeenApplied: false
                 };
 
@@ -6794,7 +6799,7 @@
                     playoff,
                     regularIntervalActive,
                     regularIntervalSet,
-                    regularIntervalSavedValue: String(intervalState.savedValue ?? '1-14')
+                    regularIntervalSavedValue: String(intervalState.savedValue ?? `1-${FILTER_MAX_REGULAR_RANK}`)
                 };
             });
         }
@@ -6952,6 +6957,7 @@
             if (!cbAll || !cbTop6 || !cbMiddle || !cbBottom2 || !cbUnresolved || !input || !applyBtn) return;
 
             const maxRank = FILTER_MAX_REGULAR_RANK;
+            input.value = `1-${FILTER_MAX_REGULAR_RANK}`;
             const initialValue = input.value.trim();
 
             const state = layer._historicalRegularIntervalState = {
@@ -6968,7 +6974,7 @@
             function segmentPositions(cb) {
                 if (cb === cbTop6) return [1, 2, 3, 4, 5, 6];
                 if (cb === cbMiddle) return [7, 8, 9, 10, 11, 12];
-                if (cb === cbBottom2) return [13, 14];
+                if (cb === cbBottom2) return Array.from({ length: Math.max(0, maxRank - 12) }, (_, i) => i + 13);
                 return [];
             }
 
@@ -7019,13 +7025,13 @@
 
                 applyState(cbTop6, [1, 2, 3, 4, 5, 6]);
                 applyState(cbMiddle, [7, 8, 9, 10, 11, 12]);
-                applyState(cbBottom2, [13, 14]);
+                applyState(cbBottom2, Array.from({ length: Math.max(0, maxRank - 12) }, (_, i) => i + 13));
                 cbAll.indeterminate = true;
             }
 
             function saveNumericPositions(positions) {
                 const normalized = Array.from(new Set(positions))
-                    .filter(pos => Number.isFinite(pos) && pos >= 1 && pos <= maxRank)
+                    .filter(pos => Number.isFinite(pos) && pos >= 1 && pos <= FILTER_MAX_REGULAR_RANK)
                     .sort((a, b) => a - b);
 
                 const newText = formatRegularIntervalSelection(normalized);
@@ -7258,7 +7264,7 @@
                         <label><input type="checkbox" class="historical-all" data-group="regular" checked> Alla</label>
                         <label><input type="checkbox" class="historical-option" data-group="regular" value="top6" checked> Topp sex (1-6)</label>
                         <label><input type="checkbox" class="historical-option" data-group="regular" value="middle" checked> Mitten (7-12)</label>
-                        <label><input type="checkbox" class="historical-option" data-group="regular" value="bottom2" checked> Två sämsta (13-14)</label>
+                        <label><input type="checkbox" class="historical-option" data-group="regular" value="bottom2" checked> Plats 13–14</label>
                         <label class="historical-unresolved-option"><input type="checkbox" class="historical-option" data-group="regular" value="unresolved" checked> Ej avgjort</label>
 
                         <div class="filter-advanced">
@@ -8596,7 +8602,7 @@
                         if (
                             cbRegBottom2.checked &&
                             Number.isFinite(rank) &&
-                            rank >= 13 && rank <= 14
+                            rank >= 13 && rank <= FILTER_MAX_REGULAR_RANK
                         ) {
                             regularOk = true;
                         }
@@ -9170,12 +9176,12 @@
                 return;
             }
 
-            const maxRank = FILTER_MAX_REGULAR_RANK;
+            const getMaxRank = () => FILTER_MAX_REGULAR_RANK;
 
             function segmentPositions(cb) {
                 if (cb === cbRegTop6) return [1, 2, 3, 4, 5, 6];
                 if (cb === cbRegMiddle) return [7, 8, 9, 10, 11, 12];
-                if (cb === cbRegBottom2) return [13, 14];
+                if (cb === cbRegBottom2) return Array.from({ length: Math.max(0, FILTER_MAX_REGULAR_RANK - 12) }, (_, i) => i + 13);
                 return [];
             }
 
@@ -9187,7 +9193,7 @@
 
             function saveNumericPositions(positions) {
                 const normalized = Array.from(new Set(positions))
-                    .filter(pos => Number.isFinite(pos) && pos >= 1 && pos <= maxRank)
+                    .filter(pos => Number.isFinite(pos) && pos >= 1 && pos <= FILTER_MAX_REGULAR_RANK)
                     .sort((a, b) => a - b);
 
                 const newText = formatRegularIntervalSelection(normalized);
@@ -9199,7 +9205,7 @@
 
                 // Synka segmentens full/delvis/tom-state samt Alla-rutan.
                 // Funktionen lämnar cbRegUnresolved orörd.
-                applyCheckboxesFromInterval(normalized, maxRank);
+                applyCheckboxesFromInterval(normalized, getMaxRank());
             }
 
             // MASTER: Alla betyder alla numeriska placeringar + Ej avgjort.
@@ -9209,7 +9215,7 @@
 
                 if (turningOn) {
                     const allPositions = [];
-                    for (let pos = 1; pos <= maxRank; pos++) allPositions.push(pos);
+                    for (let pos = 1; pos <= getMaxRank(); pos++) allPositions.push(pos);
                     saveNumericPositions(allPositions);
                 } else {
                     saveNumericPositions([]);
@@ -9239,12 +9245,12 @@
             // Ej avgjort är en FRISTÅENDE kategori.
             // Den får bara påverka Alla-rutans state och själva filtreringen – aldrig intervallet.
             cbRegUnresolved.addEventListener('change', () => {
-                applyCheckboxesFromInterval(currentNumericPositions(), maxRank);
+                applyCheckboxesFromInterval(currentNumericPositions(), getMaxRank());
                 applyTableFilters();
             });
 
             // Init: spegla det redan sparade/defaultade intervallet utan att ändra det.
-            applyCheckboxesFromInterval(currentNumericPositions(), maxRank);
+            applyCheckboxesFromInterval(currentNumericPositions(), getMaxRank());
         }
 
         // === SLUTSPELSFILTRET - tri-state + master ===
@@ -9421,7 +9427,7 @@
             const allSeg = buildSegment(1, maxRank);
             const topSeg = buildSegment(1, Math.min(6, maxRank));
             const middleSeg = buildSegment(7, Math.min(12, maxRank));
-            const bottomSeg = buildSegment(Math.max(1, maxRank - 1), maxRank);
+            const bottomSeg = buildSegment(13, maxRank);
 
             const allState = getSegmentState(allSeg);
             const topState = getSegmentState(topSeg);
@@ -9613,6 +9619,15 @@
                 // console.log("Intervall ogiltigt - ändrar inget");
             });
 
+            // Enter bekräftar på samma sätt som knappen Använd intervall.
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter' && !event.isComposing) {
+                    event.preventDefault();
+                    regularIntervalJustConfirmed = true;
+                    applyBtn.click();
+                }
+            });
+
             // 2) Fokus lämnar fältet utan bekräftelse = ångra
             input.addEventListener('blur', () => {
                 // Om blur kommer direkt efter knappklick vill vi INTE ångra
@@ -9732,7 +9747,7 @@
 
             // Om inget intervall är sparat använder vi "Alla" som logisk standard (1-14)
             const positions = [];
-            for (let pos = 1; pos <= 14; pos++) {
+            for (let pos = 1; pos <= FILTER_MAX_REGULAR_RANK; pos++) {
                 positions.push(pos);
             }
             return positions;
@@ -10299,10 +10314,10 @@
 
                 // --- GRUNDSERIE (intervall / textfält) ---
                 const intervalInput = document.getElementById('regular-interval-input');
-                if (intervalInput) intervalInput.value = '1-14';
+                if (intervalInput) intervalInput.value = `1-${FILTER_MAX_REGULAR_RANK}`;
 
                 // Återställ även intervallets interna state
-                regularIntervalSavedValue = '1-14';
+                regularIntervalSavedValue = `1-${FILTER_MAX_REGULAR_RANK}`;
                 regularIntervalIsDirty = false;
                 regularIntervalJustConfirmed = false;
                 regularIntervalSelection = [];
@@ -11987,7 +12002,9 @@
                         }
                     });
                     if (key === 'regular') {
-                        regularIntervalSavedValue = '1-14';
+                        regularIntervalSavedValue = `1-${FILTER_MAX_REGULAR_RANK}`;
+                        const regularInput = document.getElementById('regular-interval-input');
+                        if (regularInput) regularInput.value = regularIntervalSavedValue;
                         regularIntervalIsDirty = false;
                         regularIntervalJustConfirmed = false;
                         regularIntervalSelection = [];
