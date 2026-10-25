@@ -2196,6 +2196,7 @@
                                                 <th class="sortable">Liga</th>
                                                 <th class="sortable">Säsong</th>
                                                 <th class="sortable">Grundserie</th>
+                                                <th class="sortable">Säsongsutfall</th>
                                                 <th class="sortable">Slutspel</th>
                                             </tr>
                                         </thead>
@@ -6609,8 +6610,14 @@
                 tdPlayoff.textContent = mapPlayoffResultToLabel(row.playoffResult);
                 tr.appendChild(tdPlayoff);
 
+                const tdOutcome = document.createElement('td');
+                tdOutcome.className = 'historical-tooltip-target historical-tooltip-outcome';
+                const outcomeLabels = {4:'Mästare / uppflyttad',3:'Vidare mot titel / uppflyttning',2:'Tidig semester',1:'Kval nedåt – kvar',0:'Nedflyttad'};
+                tdOutcome.textContent = outcomeLabels[row.seasonOutcomeNumeric] ?? 'Ej avgjort';
+                tr.insertBefore(tdOutcome, tdPlayoff);
                 tbody.appendChild(tr);
             });
+            if (window.deluxeApplyTableColumns) window.deluxeApplyTableColumns();
             // Uppdatera global maxplacering för grundserien (för intervall/sekvens)
             if (maxRegularRankDetected > 0) {
                 GLOBAL_MAX_REGULAR_RANK = maxRegularRankDetected;
@@ -10032,6 +10039,13 @@
                     });
                 }
 
+                else if (label === 'Säsongsutfall') {
+                    rowsCopy.sort((a,b) => {
+                        const av = a.dataset.seasonOutcome === '' ? -1 : Number(a.dataset.seasonOutcome);
+                        const bv = b.dataset.seasonOutcome === '' ? -1 : Number(b.dataset.seasonOutcome);
+                        return newDir === 'asc' ? av-bv : bv-av;
+                    });
+                }
                 // Övriga kolumner: ingen sortering implementerad ännu
                 return rowsCopy;
             }
@@ -12364,6 +12378,120 @@
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
+})();
+</script>
+
+<style>
+/* Kolumnväljare – påverkar endast tabellen med lagurval. */
+.deluxe-columns { margin: 10px 0; font-size: .88rem; }
+.deluxe-columns summary { cursor: pointer; font-weight: 600; color: #5f2570; }
+.deluxe-column-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:9px 0; }
+.deluxe-column-toolbar button, .deluxe-column-item button { cursor:pointer; border:1px solid #ccd0d6; background:#fff; border-radius:5px; padding:4px 8px; }
+.deluxe-column-items { display:flex; flex-wrap:wrap; gap:6px; }
+.deluxe-column-item { display:inline-flex; gap:5px; align-items:center; border:1px solid #ddd; border-radius:6px; padding:5px 7px; background:#fafafa; }
+.deluxe-column-item[draggable="true"] { cursor:grab; }
+.deluxe-column-item.drag-over { outline:2px solid #5f2570; }
+.deluxe-column-item button { padding:2px 5px; }
+.deluxe-column-item button:disabled { opacity:.3; cursor:default; }
+.team-table [data-column-hidden="true"] { display:none !important; }
+</style>
+<script>
+/* TABELLKOLUMNER – separata sparade egna inställningar och defaultvy.
+   Krysskolumnen är alltid först. Dra för ordning, eller använd pilar på mobil. */
+(function () {
+    const ids = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall','Slutspel'];
+    const defaults = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall'];
+    const storageKey = 'avancerat-deluxe-table-columns-v1';
+    let custom = {order:ids.slice(), visible:defaults.slice()};
+    let defaultMode = true;
+    try {
+        const saved = JSON.parse(localStorage.getItem(storageKey));
+        if (saved && Array.isArray(saved.order) && Array.isArray(saved.visible)) {
+            custom.order = [...new Set(saved.order.filter(x=>ids.includes(x))),...ids.filter(x=>!saved.order.includes(x))];
+            custom.visible = saved.visible.filter(x=>ids.includes(x));
+            defaultMode = saved.defaultMode !== false;
+        }
+    } catch(e) { console.warn('Kolumninställningar kunde inte läsas',e); }
+    let list, modeButton;
+    function save() {
+        try {localStorage.setItem(storageKey,JSON.stringify({...custom,defaultMode}));} catch(e) {}
+    }
+    function active() { return defaultMode ? {order:ids.slice(),visible:defaults} : custom; }
+    function apply() {
+        const table = document.querySelector('.team-table');
+        if (!table) return;
+        const state = active();
+        // Flytta befintliga celler: deras checkboxar, tooltips och event bevaras.
+        table.querySelectorAll('tr').forEach(tr => {
+            const cells = Array.from(tr.children);
+            if (!cells.length) return;
+            const first = cells.find(c=>c.classList.contains('col-select'));
+            if (!first) return;
+            const byName = new Map();
+            ids.forEach((id,i) => {if(cells[i+1] && !cells[i+1].dataset.columnId) cells[i+1].dataset.columnId=id;});
+            cells.forEach(c=>{if(c.dataset.columnId) byName.set(c.dataset.columnId,c);});
+            tr.appendChild(first);
+            state.order.forEach(id=>{
+                const cell=byName.get(id);
+                if (cell) {cell.dataset.columnHidden=String(!state.visible.includes(id));tr.appendChild(cell);}
+            });
+        });
+        if (modeButton) modeButton.textContent = defaultMode ? 'Visa min kolumnvy' : 'Visa standardvy';
+        render();
+    }
+    window.deluxeApplyTableColumns = apply;
+    function render() {
+        if (!list) return;
+        list.replaceChildren();
+        const state=active();
+        state.order.forEach((id,index)=>{
+            const item=document.createElement('div');
+            item.className='deluxe-column-item';
+            item.draggable=!defaultMode;
+            const label=document.createElement('label');
+            const check=document.createElement('input');
+            check.type='checkbox';check.checked=state.visible.includes(id);check.disabled=defaultMode;
+            check.addEventListener('change',()=>{
+                if(check.checked) custom.visible.push(id);
+                else custom.visible=custom.visible.filter(x=>x!==id);
+                save();apply();
+            });
+            label.append(check,document.createTextNode(' '+id));item.append(label);
+            [-1,1].forEach(delta=>{
+                const btn=document.createElement('button');btn.type='button';
+                btn.textContent=delta===-1?'↑':'↓';
+                btn.title=delta===-1?'Flytta vänster':'Flytta höger';
+                btn.disabled=defaultMode || index+delta<0 || index+delta>=state.order.length;
+                btn.addEventListener('click',()=>move(id,index+delta));item.append(btn);
+            });
+            item.addEventListener('dragstart',e=>{if(defaultMode){e.preventDefault();return;} e.dataTransfer.setData('text/plain',id);});
+            item.addEventListener('dragover',e=>{if(!defaultMode){e.preventDefault();item.classList.add('drag-over');}});
+            item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
+            item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');const source=e.dataTransfer.getData('text/plain');if(ids.includes(source))move(source,custom.order.indexOf(id));});
+            list.append(item);
+        });
+    }
+    function move(id,target) {
+        const source=custom.order.indexOf(id);
+        if(source<0||target<0||target>=custom.order.length)return;
+        custom.order.splice(source,1);custom.order.splice(target,0,id);
+        save();apply();
+    }
+    function init() {
+        const wrapper=document.querySelector('.team-table-wrapper');
+        if(!wrapper)return;
+        const details=document.createElement('details');details.className='deluxe-columns';
+        const summary=document.createElement('summary');summary.textContent='Välj och ordna tabellkolumner';
+        const toolbar=document.createElement('div');toolbar.className='deluxe-column-toolbar';
+        modeButton=document.createElement('button');modeButton.type='button';
+        modeButton.addEventListener('click',()=>{defaultMode=!defaultMode;save();apply();});
+        const hint=document.createElement('span');hint.textContent='Dra kolumner eller använd pilarna. Dina val sparas automatiskt.';
+        toolbar.append(modeButton,hint);
+        list=document.createElement('div');list.className='deluxe-column-items';
+        details.append(summary,toolbar,list);wrapper.before(details);
+        apply();
+    }
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
 </body>
