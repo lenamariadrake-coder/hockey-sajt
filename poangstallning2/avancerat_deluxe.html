@@ -12449,6 +12449,88 @@
       ['Enskilda matcher', ['Största seger','Största förlust','Flest mål framåt','Flest mål bakåt','Målrikaste match','Uddamålssegrar','Uddamålsförluster','Matcher med 8+ mål','Matcher med 10+ mål']],
       ['Slutspel och utfall', ['Säsongsutfall','Slutspel','Slutspelsnivå','Utfallsvärde','Utfallskommentar','Seriesegrare','Mästare','Uppflyttad','Nedflyttad','Kval nedåt','Ingenmansland']]
     ];
+    // Kom ihåg vilka grupper besökaren har öppnat även när kolumnvalen ritas om.
+    const openGroups = new Set(['Grunduppgifter']);
+    const columnDescriptions = {
+      "Lag": "Lagets namn.",
+      "Liga": "SHL eller Hockeyallsvenskan.",
+      "Säsong": "Säsongens beteckning.",
+      "Grundserie": "Lagets slutplacering i grundserien.",
+      "Antal lag": "Antal lag i samma liga och säsong.",
+      "Seriematcher": "Antal registrerade grundseriematcher för laget.",
+      "Första match": "Datum för lagets första registrerade grundseriematch.",
+      "Sista match": "Datum för lagets sista registrerade grundseriematch.",
+      "Poäng": "Slutpoäng i grundserien enligt säsongssammanfattningen.",
+      "Poäng/match": "Slutpoäng delat med antal spelade matcher.",
+      "Poängandel %": "Slutpoäng som andel av tre möjliga poäng per match; preliminärt mått för äldre poängsystem.",
+      "Poäng efter ettan": "Poängskillnad upp till grundseriens etta.",
+      "Poäng till ovanför": "Poängskillnad upp till laget närmast ovanför i sluttabellen.",
+      "Poäng före nedanför": "Poängskillnad ned till laget närmast nedanför i sluttabellen.",
+      "Poäng före jumbon": "Poängskillnad ned till grundseriens sista lag.",
+      "Poäng mot ligasnitt": "Lagets slutpoäng minus genomsnittliga slutpoäng i ligan samma säsong.",
+      "Relativ placering %": "Placering normaliserad så första plats ger 100 % och sista plats 0 %.",
+      "Gjorda mål": "Totalt antal gjorda mål i registrerade grundseriematcher.",
+      "Insläppta mål": "Totalt antal insläppta mål i registrerade grundseriematcher.",
+      "Målskillnad": "Gjorda mål minus insläppta mål enligt säsongssammanfattningen.",
+      "Mål/match": "Genomsnittligt antal gjorda mål per match.",
+      "Insläppta/match": "Genomsnittligt antal insläppta mål per match.",
+      "Målskillnad/match": "Genomsnittlig målskillnad per match.",
+      "Andel gjorda mål %": "Gjorda mål delat med summan av gjorda och insläppta mål, i procent.",
+      "Hållna nollor": "Antal matcher utan insläppt mål.",
+      "Noll mål framåt": "Antal matcher utan gjort mål.",
+      "Minst 5 mål framåt": "Antal matcher med minst fem gjorda mål.",
+      "Minst 5 mål bakåt": "Antal matcher med minst fem insläppta mål.",
+      "Spelade": "Antal registrerade grundseriematcher.",
+      "Vinster": "Antal matcher med fler gjorda än insläppta mål.",
+      "Förluster": "Antal matcher med färre gjorda än insläppta mål.",
+      "Oavgjorda": "Antal matcher med lika många gjorda och insläppta mål.",
+      "3-poängare": "Antal matcher där laget tilldelades tre poäng.",
+      "2-poängare": "Antal matcher där laget tilldelades två poäng.",
+      "1-poängare": "Antal matcher där laget tilldelades en poäng.",
+      "0-poängare": "Antal matcher där laget tilldelades noll poäng.",
+      "Vinstandel %": "Andel registrerade matcher som laget vann.",
+      "Andel 3-poängare %": "Andel registrerade matcher som gav tre poäng.",
+      "Andel 0-poängare %": "Andel registrerade matcher som gav noll poäng.",
+      "Hemmamatcher": "Antal registrerade hemmamatcher.",
+      "Bortamatcher": "Antal registrerade bortamatcher.",
+      "Hemmapoäng": "Sammanlagda poäng från hemmamatcher.",
+      "Bortapoäng": "Sammanlagda poäng från bortamatcher.",
+      "Poäng/match hemma": "Genomsnittliga poäng per hemmamatch.",
+      "Poäng/match borta": "Genomsnittliga poäng per bortamatch.",
+      "Hemmavinster": "Antal vunna hemmamatcher.",
+      "Bortavinster": "Antal vunna bortamatcher.",
+      "Målskillnad hemma": "Gjorda minus insläppta mål i hemmamatcher.",
+      "Målskillnad borta": "Gjorda minus insläppta mål i bortamatcher.",
+      "Segersvit": "Flest vunna matcher i följd.",
+      "Förlustsvit": "Flest förlorade matcher i följd.",
+      "3-poängssvit": "Flest matcher i följd med tre poäng.",
+      "0-poängssvit": "Flest matcher i följd med noll poäng.",
+      "Poängsvit": "Flest matcher i följd med minst en poäng.",
+      "Utan seger": "Längsta sammanhängande följd av matcher utan vinst.",
+      "Utan förlust": "Längsta sammanhängande följd av matcher utan förlust.",
+      "Målsvit": "Flest matcher i följd med minst ett gjort mål.",
+      "Nollsvit": "Flest matcher i följd utan insläppt mål.",
+      "Största seger": "Största segermarginalen i mål i en match.",
+      "Största förlust": "Största förlustmarginalen i mål i en match.",
+      "Flest mål framåt": "Högsta antalet gjorda mål i en enskild match.",
+      "Flest mål bakåt": "Högsta antalet insläppta mål i en enskild match.",
+      "Målrikaste match": "Högsta sammanlagda målantalet för båda lagen i en match.",
+      "Uddamålssegrar": "Antal segrar med exakt ett måls marginal.",
+      "Uddamålsförluster": "Antal förluster med exakt ett måls marginal.",
+      "Matcher med 8+ mål": "Antal matcher med minst åtta mål sammanlagt.",
+      "Matcher med 10+ mål": "Antal matcher med minst tio mål sammanlagt.",
+      "Säsongsutfall": "Sammanfattande klassificering av lagets säsongsutfall.",
+      "Slutspel": "Lagets detaljerade slutspelsresultat.",
+      "Slutspelsnivå": "Numerisk eller särskild kod för slutspelsresultat.",
+      "Utfallsvärde": "Numerisk kod för sammanfattande säsongsutfall.",
+      "Utfallskommentar": "Kommentar om säsongsutfallet i säsongssammanfattningen.",
+      "Seriesegrare": "Om laget slutade etta i grundserien.",
+      "Mästare": "Förenklad indikator för högsta säsongsutfall i SHL; kontrollera historiska undantag.",
+      "Uppflyttad": "Förenklad indikator för högsta säsongsutfall i HA; kontrollera historiska undantag.",
+      "Nedflyttad": "Om säsongsutfallet har värdet noll.",
+      "Kval nedåt": "Om säsongsutfallet har värdet ett.",
+      "Ingenmansland": "Om säsongsutfallet har värdet två."
+};
     const ids = [...new Set(groups.flatMap(g=>g[1]))];
     const storageKey = 'avancerat-deluxe-table-columns-v1';
     let custom={order:ids.slice(),visible:defaults.slice()}, defaultMode=true;
@@ -12706,7 +12788,8 @@
             const matches=items.filter(id=>!q||id.toLocaleLowerCase('sv').includes(q)||group.toLocaleLowerCase('sv').includes(q));
             if(!matches.length)continue;
             const section=document.createElement('details');section.className='deluxe-column-group';
-            section.open=!!q||group==='Grunduppgifter';
+            section.open=!!q||openGroups.has(group);
+            section.addEventListener('toggle',()=>{if(!q){if(section.open)openGroups.add(group);else openGroups.delete(group);}});
             const summary=document.createElement('summary');summary.textContent=`${group} (${items.filter(id=>state.visible.includes(id)).length}/${items.length})`;
             section.appendChild(summary);
             const itemsBox=document.createElement('div');itemsBox.className='deluxe-column-group-items';
@@ -12758,8 +12841,34 @@
             if(navigator.clipboard?.writeText)navigator.clipboard.writeText(content).then(()=>{textMessage.textContent='Kolumnlistan kopierad.';textMessage.style.color='#246b3a';}).catch(()=>{textArea.focus();textArea.select();textMessage.textContent='Markera texten och kopiera med Ctrl+C.';});
             else {textArea.focus();textArea.select();textMessage.textContent='Markera texten och kopiera med Ctrl+C.';}
         });
+        // Kopiera en komplett referenstabell som tabbseparerad text (TSV).
+        // Excel och Google Sheets delar automatiskt upp de tre kolumnerna.
+        const copyAll=document.createElement('button');copyAll.type='button';
+        copyAll.textContent='Kopiera alla kolumner + förklaringar';
+        copyAll.title='Kopiera hela kolumnbiblioteket med grupp, kolumnnamn och kort definition';
+        copyAll.addEventListener('click',async()=>{
+            const lines=['Grupp\tKolumn\tFörklaring'];
+            for(const [group,names] of groups){
+                for(const name of names){
+                    lines.push([group,name,columnDescriptions[name]||'Definition saknas.'].join('\t'));
+                }
+            }
+            const content=lines.join('\n');
+            try{
+                if(!navigator.clipboard?.writeText)throw new Error('Urklipp ej tillgängligt');
+                await navigator.clipboard.writeText(content);
+                textMessage.textContent='Alla kolumner och förklaringar kopierade (tabellformat).';
+                textMessage.style.color='#246b3a';
+            }catch(e){
+                // Äldre webbläsare och lokala filer kan sakna urklippsbehörighet.
+                const popup=window.open('','_blank');
+                if(popup){popup.document.title='Kolumnbibliotek';const pre=popup.document.createElement('pre');pre.textContent=content;popup.document.body.append(pre);textMessage.textContent='Tabellen öppnades i en ny flik – markera och kopiera texten där.';}
+                else{textMessage.textContent='Kopiering blockerades av webbläsaren.';}
+                textMessage.style.color='#a32932';
+            }
+        });
         textMessage=document.createElement('span');textMessage.className='deluxe-column-text-message';textMessage.setAttribute('role','status');
-        actions.append(use,copy,textMessage);
+        actions.append(use,copy,copyAll,textMessage);
         const selectedLabel=document.createElement('div');selectedLabel.textContent='Valda kolumner i tabellordning (klicka för att flytta åt vänster):';selectedLabel.className='deluxe-column-text-help';
         selectedHost=document.createElement('div');selectedHost.className='deluxe-column-selected';
         textPanel.append(textLabel,textArea,help,actions,selectedLabel,selectedHost);
