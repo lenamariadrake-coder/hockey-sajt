@@ -1859,11 +1859,24 @@
                                             <div style="margin-top:12px;font-weight:600">Specifika placeringar</div>
                                             <label for="rex-interval">Intervall / sekvens:</label>
                                             <div class="interval-row"><input id="rex-interval" type="text" placeholder="Exempel: 1-3, 7, 10-12"><button type="button" id="rex-apply">Använd intervall</button></div>
-                                            <div style="margin-top:12px;font-weight:600">Placeringar räknat från slutet</div>
-                                            <label><input type="radio" name="rex-last-mode" value="last" checked> De sista</label>
-                                            <label><input type="radio" name="rex-last-mode" value="except"> Alla utom de sista</label>
-                                            <label for="rex-last">Antal lag (per säsong):</label>
-                                            <input id="rex-last" type="number" min="1" step="1" placeholder="Exempel: 2" style="max-width:115px">
+                                            <div id="rex-add-wrapper" style="margin-top:14px">
+                                                <button type="button" id="rex-add-last" class="rex-add-last">＋ Lägg till urval från slutet</button>
+                                            </div>
+                                            <div id="rex-extra" hidden style="margin-top:12px">
+                                                <div class="rex-or-divider"><span>ELLER</span></div>
+                                                <div style="font-weight:600;margin-bottom:6px">Placeringar räknat från slutet</div>
+                                                <div class="rex-extra-row">
+                                                    <select id="rex-last-mode" aria-label="Urval räknat från slutet">
+                                                        <option value="last">De sista</option>
+                                                        <option value="except">Alla utom de sista</option>
+                                                    </select>
+                                                    <input id="rex-last" type="number" min="1" step="1" placeholder="2" aria-label="Antal lag per säsong">
+                                                    <span>lagen</span>
+                                                    <button type="button" id="rex-remove-last" title="Ta bort urval från slutet" aria-label="Ta bort urval från slutet">×</button>
+                                                </div>
+                                                <div class="rex-small-note">Räknas separat för varje säsong.</div>
+                                            </div>
+                                            <div id="rex-summary" class="rex-summary" hidden aria-live="polite"></div>
                                             <label style="margin-top:10px"><input type="checkbox" id="rex-unresolved" checked> Ej avgjort</label>
                                             <button type="button" id="rex-reset" style="margin-top:10px">Återställ grundseriefiltret</button>
                                         </div>
@@ -12178,6 +12191,19 @@
             });
         })();
     </script>
+<style>
+/* Grundserie: valfritt ELLER-tillägg för relativa placeringar. */
+#regular-experiment .rex-add-last { width:100%; padding:7px 8px; text-align:left; cursor:pointer; }
+#regular-experiment #rex-extra[hidden], #regular-experiment #rex-add-wrapper[hidden], #regular-experiment #rex-summary[hidden] { display:none !important; }
+#regular-experiment .rex-or-divider { display:flex; align-items:center; gap:9px; margin:0 0 11px; font-size:12px; font-weight:600; color:#68717b; }
+#regular-experiment .rex-or-divider::before, #regular-experiment .rex-or-divider::after { content:""; height:1px; background:#dce0e4; flex:1; }
+#regular-experiment .rex-extra-row { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+#regular-experiment .rex-extra-row select { max-width:100%; min-width:0; flex:1 1 130px; }
+#regular-experiment .rex-extra-row input { width:58px; min-width:0; }
+#regular-experiment .rex-extra-row button { margin-left:auto; cursor:pointer; font-size:18px; padding:1px 7px; }
+#regular-experiment .rex-small-note { color:#68717b; font-size:12px; margin-top:5px; }
+#regular-experiment .rex-summary { background:#f5f6f8; padding:8px; margin-top:12px; border-radius:5px; font-size:12px; line-height:1.5; }
+</style>
 <script>
 /* =========================================================
    GRUNDSERIE – placeringar, relativt sista N och dess negation.
@@ -12192,7 +12218,16 @@
         const interval = root.querySelector('#rex-interval');
         const last = root.querySelector('#rex-last');
         const unresolved = root.querySelector('#rex-unresolved');
-        const modes = [...root.querySelectorAll('input[name="rex-last-mode"]')];
+        const mode = root.querySelector('#rex-last-mode');
+        const extra = root.querySelector('#rex-extra');
+        const addWrapper = root.querySelector('#rex-add-wrapper');
+        const summary = root.querySelector('#rex-summary');
+        let extraVisible = false;
+        const showExtra = (visible) => {
+            extraVisible = visible;
+            extra.hidden = !visible;
+            addWrapper.hidden = visible;
+        };
         let saved = '';
         let lastApplied = '';
         let ranks = new Set();
@@ -12210,20 +12245,26 @@
         const hasSelection = () => !!saved || !!lastApplied;
         const markChanged = () => {
             root.closest('details')?.classList.toggle('is-changed', !all.checked || !unresolved.checked);
+            const parts = [];
+            if (!all.checked && saved) parts.push('placering ' + saved);
+            if (!all.checked && extraVisible && lastApplied) {
+                parts.push((mode.value === 'except' ? 'alla utom de sista ' : 'de sista ') + lastApplied + ' lagen per säsong');
+            }
+            summary.hidden = parts.length === 0;
+            summary.textContent = parts.length ? 'Ditt urval: ' + parts.join(' ELLER ') : '';
         };
         window.regularExperiment = {
             matches(row, rank) {
                 if (!Number.isFinite(rank)) return unresolved.checked;
                 if (all.checked) return true;
                 if (ranks.has(rank)) return true;
-                const n = Number(lastApplied);
+                const n = extraVisible ? Number(lastApplied) : 0;
                 if (Number.isInteger(n) && n > 0) {
                     const key = row.dataset.league + '|' + row.dataset.seasonId;
                     const max = seasonMax.get(key) || 0;
                     if (max) {
                         const isLast = rank > max - n;
-                        const mode = modes.find(r => r.checked)?.value || 'last';
-                        if (mode === 'except' ? !isLast : isLast) return true;
+                        if (mode.value === 'except' ? !isLast : isLast) return true;
                     }
                 }
                 return false;
@@ -12232,7 +12273,7 @@
                 all.checked = true;
                 saved = ''; ranks = new Set(); interval.value = '';
                 last.value = ''; lastApplied = '';
-                modes[0].checked = true;
+                mode.value = 'last'; showExtra(false);
                 unresolved.checked = true;
                 markChanged(); refresh();
             }
@@ -12261,7 +12302,7 @@
                 return;
             }
             lastApplied = raw;
-            if (raw) all.checked = false;
+            if (raw && extraVisible) all.checked = false;
             last.blur();
             markChanged(); refresh();
         };
@@ -12269,6 +12310,7 @@
             if (all.checked) {
                 saved = ''; ranks.clear(); interval.value = '';
                 lastApplied = ''; last.value = '';
+                mode.value = 'last'; showExtra(false);
             }
             markChanged(); refresh();
         });
@@ -12280,7 +12322,17 @@
         last.addEventListener('keydown', e => {
             if (e.key === 'Enter') { e.preventDefault(); applyLast(); }
         });
-        modes.forEach(r => r.addEventListener('change', () => { markChanged(); refresh(); }));
+        mode.addEventListener('change', () => { markChanged(); refresh(); });
+        root.querySelector('#rex-add-last').addEventListener('click', () => {
+            showExtra(true);
+            markChanged();
+        });
+        root.querySelector('#rex-remove-last').addEventListener('click', () => {
+            showExtra(false);
+            last.value = ''; lastApplied = '';
+            mode.value = 'last';
+            markChanged(); refresh();
+        });
         unresolved.addEventListener('change', () => { markChanged(); refresh(); });
         root.querySelector('#rex-reset').addEventListener('click', () => window.regularExperiment.reset());
         // Global återställning anropar appens befintliga reset-funktion;
