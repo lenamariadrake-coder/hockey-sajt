@@ -8399,7 +8399,16 @@
             group.querySelectorAll('input').forEach(el=>{el.addEventListener('input',refresh);el.addEventListener('change',refresh);});
         }
 
+        // Samla flera återställningsändringar till en enda tabelluppdatering.
+        let deluxeFilterResetBatch = 0;
+        function beginDeluxeFilterResetBatch() { deluxeFilterResetBatch++; }
+        function endDeluxeFilterResetBatch() {
+            deluxeFilterResetBatch = Math.max(0, deluxeFilterResetBatch - 1);
+            if (deluxeFilterResetBatch === 0) applyTableFilters();
+        }
+
         function applyTableFilters() {
+            if (deluxeFilterResetBatch > 0) return;
             setupHistoricalResultTooltips();
             hideHistoricalResultTooltip();
 
@@ -10519,13 +10528,18 @@
                     // När panelen ÖPPNAS:
                     if (isOpen) {
                         // 1) Återställ alla filter till defaultläget (allt synligt)
-                        resetTableFiltersToDefaults();
+                        beginDeluxeFilterResetBatch();
+                        try {
+                            resetTableFiltersToDefaults();
 
                         // Återställ även de filtergrupper som har egna kontroller,
                         // rensa felaktiga "Ändrad"-markeringar och fäll ihop grupperna.
                         // Funktionen kopplas in av initFilterGroupUI nedan.
                         if (typeof window.resetDeluxeFilterGroupUI === 'function') {
                             window.resetDeluxeFilterGroupUI();
+                        }
+                        } finally {
+                            endDeluxeFilterResetBatch();
                         }
 
                         // 2) Synka tabellens kryss med huvudvyns lagchips
@@ -12235,18 +12249,26 @@
                 // Anropas när lagväljaren öppnas igen. Återställning via
                 // resetOneGroup omfattar också numeriska filter och Matchurval.
                 window.resetDeluxeFilterGroupUI = function () {
-                    functionalGroups.forEach(resetOneGroup);
-                    groups.forEach(group => { group.open = false; });
-                    refreshChangedStates();
-                    refreshToggleLabel();
-                    applyTableFilters();
+                    beginDeluxeFilterResetBatch();
+                    try {
+                        functionalGroups.forEach(resetOneGroup);
+                        groups.forEach(group => { group.open = false; });
+                        refreshChangedStates();
+                        refreshToggleLabel();
+                    } finally {
+                        endDeluxeFilterResetBatch();
+                    }
                 };
 
                 document.getElementById('reset-all-table-filters')?.addEventListener('click', () => {
-                    functionalGroups.forEach(resetOneGroup);
-                    if (typeof resetHistoricalFilters === 'function') resetHistoricalFilters();
-                    refreshChangedStates();
-                    applyTableFilters();
+                    beginDeluxeFilterResetBatch();
+                    try {
+                        functionalGroups.forEach(resetOneGroup);
+                        if (typeof resetHistoricalFilters === 'function') resetHistoricalFilters();
+                        refreshChangedStates();
+                    } finally {
+                        endDeluxeFilterResetBatch();
+                    }
                 });
 
                 function refreshToggleLabel() {
