@@ -1856,6 +1856,7 @@
                                         <summary><span class="filter-group-title">Grundserie</span><span class="filter-group-state" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block" id="regular-experiment">
                                             <label><input type="checkbox" id="rex-all" checked> Alla grundserieplaceringar</label>
+                                            <label style="margin-top:7px"><input type="checkbox" id="rex-unresolved" checked> Ej avgjort</label>
                                             <div style="margin-top:12px;font-weight:600">Specifika placeringar</div>
                                             <label for="rex-interval">Intervall / sekvens:</label>
                                             <div class="interval-row"><input id="rex-interval" type="text" placeholder="Exempel: 1-3, 7, 10-12"><button type="button" id="rex-apply">Använd intervall</button></div>
@@ -1870,15 +1871,13 @@
                                                         <option value="last">De sista</option>
                                                         <option value="except">Alla utom de sista</option>
                                                     </select>
-                                                    <input id="rex-last" type="number" min="1" step="1" placeholder="2" aria-label="Antal lag per säsong">
+                                                    <input id="rex-last" type="number" min="1" step="1" placeholder="–" aria-label="Antal lag per säsong">
                                                     <span>lagen</span>
                                                     <button type="button" id="rex-remove-last" title="Ta bort urval från slutet" aria-label="Ta bort urval från slutet">×</button>
                                                 </div>
                                                 <div class="rex-small-note">Räknas separat för varje säsong.</div>
                                             </div>
                                             <div id="rex-summary" class="rex-summary" hidden aria-live="polite"></div>
-                                            <label style="margin-top:10px"><input type="checkbox" id="rex-unresolved" checked> Ej avgjort</label>
-                                            <button type="button" id="rex-reset" style="margin-top:10px">Återställ grundseriefiltret</button>
                                         </div>
                                     </details>
                                     <div style="display:none" id="regular-original-preserved">
@@ -11996,6 +11995,9 @@
                         return Array.from(group.querySelectorAll('input[type="number"]'))
                             .some(input => input.value.trim() !== '');
                     }
+                    if (key === 'regular-experiment' && window.regularExperiment?.isChanged) {
+                        return window.regularExperiment.isChanged();
+                    }
                     if (key === 'points') {
                         const op = document.getElementById('filter-points-op');
                         const between = op?.value === 'between';
@@ -12050,6 +12052,12 @@
                             control.value = initial;
                         }
                     });
+                    if (key === 'regular-experiment' && window.regularExperiment?.reset) {
+                        window.regularExperiment.reset();
+                        group.open = wasOpen;
+                        refreshChangedStates();
+                        return;
+                    }
                     if (key === 'regular') {
                         regularIntervalSavedValue = `1-${FILTER_MAX_REGULAR_RANK}`;
                         const regularInput = document.getElementById('regular-interval-input');
@@ -12201,6 +12209,19 @@
 #regular-experiment .rex-extra-row select { max-width:100%; min-width:0; flex:1 1 130px; }
 #regular-experiment .rex-extra-row input { width:58px; min-width:0; }
 #regular-experiment .rex-extra-row button { margin-left:auto; cursor:pointer; font-size:18px; padding:1px 7px; }
+/* Samma mjukare känsla som övriga numeriska filter. */
+#regular-experiment input[type="text"],
+#regular-experiment input[type="number"],
+#regular-experiment select,
+#regular-experiment button { border-radius:6px; }
+#regular-experiment input[type="text"],
+#regular-experiment input[type="number"],
+#regular-experiment select { border:1px solid #aeb4bc; padding:5px 7px; background:#fff; box-sizing:border-box; }
+#regular-experiment .rex-extra-row select { flex:1 1 110px; }
+#regular-experiment .rex-extra-row input { width:64px; }
+#regular-experiment .rex-extra-row button { border:1px solid #cbd0d7; background:#f8f9fa; padding:3px 9px; }
+#regular-experiment .rex-add-last { border:1px solid #cbd0d7; background:#fff; }
+#regular-experiment #rex-apply { padding:5px 9px; border:1px solid #cbd0d7; background:#f8f9fa; }
 #regular-experiment .rex-small-note { color:#68717b; font-size:12px; margin-top:5px; }
 #regular-experiment .rex-summary { background:#f5f6f8; padding:8px; margin-top:12px; border-radius:5px; font-size:12px; line-height:1.5; }
 </style>
@@ -12269,6 +12290,9 @@
                 }
                 return false;
             },
+            isChanged() {
+                return !all.checked || !unresolved.checked;
+            },
             reset() {
                 all.checked = true;
                 saved = ''; ranks = new Set(); interval.value = '';
@@ -12334,7 +12358,6 @@
             markChanged(); refresh();
         });
         unresolved.addEventListener('change', () => { markChanged(); refresh(); });
-        root.querySelector('#rex-reset').addEventListener('click', () => window.regularExperiment.reset());
         // Global återställning anropar appens befintliga reset-funktion;
         // synkronisera det nya filtret via återställningsknappen där.
         refresh();
