@@ -6514,6 +6514,9 @@
 
 
 
+        // Läsåtkomst för den fristående, statiska kolumnväljaren.
+        window.deluxeStaticColumnData = () => ({matches, seasonSummaryRows});
+
         function buildTeamTableFromSeasonSummary() {
             const table = document.querySelector('.team-table');
             if (!table) return;
@@ -12404,7 +12407,12 @@
 .deluxe-columns summary { cursor: pointer; font-weight: 600; color: #5f2570; }
 .deluxe-column-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:9px 0; }
 .deluxe-column-toolbar button, .deluxe-column-item button { cursor:pointer; border:1px solid #ccd0d6; background:#fff; border-radius:5px; padding:4px 8px; }
-.deluxe-column-items { display:flex; flex-wrap:wrap; gap:6px; }
+.deluxe-column-items { display:grid; gap:8px; }
+.deluxe-column-group { border:1px solid #ddd; border-radius:7px; padding:7px 10px; }
+.deluxe-column-group > summary { font-size:.9rem; }
+.deluxe-column-group-items { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.deluxe-column-search { display:block; width:min(100%,400px); padding:8px; margin:6px 0 12px; border:1px solid #ccd0d6; border-radius:6px; }
+.team-table th.deluxe-extra-sortable { cursor:pointer; }
 .deluxe-column-item { display:inline-flex; gap:5px; align-items:center; border:1px solid #ddd; border-radius:6px; padding:5px 7px; background:#fafafa; }
 .deluxe-column-item[draggable="true"] { cursor:grab; }
 .deluxe-column-item.drag-over { outline:2px solid #5f2570; }
@@ -12413,99 +12421,273 @@
 .team-table [data-column-hidden="true"] { display:none !important; }
 </style>
 <script>
-/* TABELLKOLUMNER – separata sparade egna inställningar och defaultvy.
-   Krysskolumnen är alltid först. Dra för ordning, eller använd pilar på mobil. */
+/* STATISKA SÄSONGSKOLUMNER – beräknas från fullständiga Games + Season_summary.
+   Oberoende av tidslinje, filter och vilka lag som är valda.
+   En egen tabellvy sparas, standardvyn förblir orörd. */
 (function () {
-    const ids = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall','Slutspel'];
+    const original = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall','Slutspel'];
     const defaults = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall'];
+    const groups = [
+      ['Grunduppgifter', ['Lag','Liga','Säsong','Grundserie','Antal lag','Seriematcher','Första match','Sista match']],
+      ['Poäng och tabell', ['Poäng','Poäng/match','Poängandel %','Poäng efter ettan','Poäng till ovanför','Poäng före nedanför','Poäng före jumbon','Poäng mot ligasnitt','Relativ placering %']],
+      ['Målstatistik', ['Gjorda mål','Insläppta mål','Målskillnad','Mål/match','Insläppta/match','Målskillnad/match','Andel gjorda mål %','Hållna nollor','Noll mål framåt','Minst 5 mål framåt','Minst 5 mål bakåt']],
+      ['Matchresultat', ['Spelade','Vinster','Förluster','Oavgjorda','3-poängare','2-poängare','1-poängare','0-poängare','Vinstandel %','Andel 3-poängare %','Andel 0-poängare %']],
+      ['Hemma och borta', ['Hemmamatcher','Bortamatcher','Hemmapoäng','Bortapoäng','Poäng/match hemma','Poäng/match borta','Hemmavinster','Bortavinster','Målskillnad hemma','Målskillnad borta']],
+      ['Sviter', ['Segersvit','Förlustsvit','3-poängssvit','0-poängssvit','Poängsvit','Utan seger','Utan förlust','Målsvit','Nollsvit']],
+      ['Enskilda matcher', ['Största seger','Största förlust','Flest mål framåt','Flest mål bakåt','Målrikaste match','Uddamålssegrar','Uddamålsförluster','Matcher med 8+ mål','Matcher med 10+ mål']],
+      ['Slutspel och utfall', ['Säsongsutfall','Slutspel','Slutspelsnivå','Utfallsvärde','Utfallskommentar','Seriesegrare','Mästare','Uppflyttad','Nedflyttad','Kval nedåt','Ingenmansland']]
+    ];
+    const ids = [...new Set(groups.flatMap(g=>g[1]))];
     const storageKey = 'avancerat-deluxe-table-columns-v1';
-    let custom = {order:ids.slice(), visible:defaults.slice()};
-    let defaultMode = true;
+    let custom={order:ids.slice(),visible:defaults.slice()}, defaultMode=true;
     try {
-        const saved = JSON.parse(localStorage.getItem(storageKey));
-        if (saved && Array.isArray(saved.order) && Array.isArray(saved.visible)) {
-            custom.order = [...new Set(saved.order.filter(x=>ids.includes(x))),...ids.filter(x=>!saved.order.includes(x))];
-            custom.visible = saved.visible.filter(x=>ids.includes(x));
-            defaultMode = saved.defaultMode !== false;
+        const saved=JSON.parse(localStorage.getItem(storageKey));
+        if(saved && Array.isArray(saved.order) && Array.isArray(saved.visible)) {
+            custom.order=[...new Set(saved.order.filter(x=>ids.includes(x))),...ids.filter(x=>!saved.order.includes(x))];
+            custom.visible=[...new Set(saved.visible.filter(x=>ids.includes(x)))];
+            defaultMode=saved.defaultMode!==false;
         }
-    } catch(e) { console.warn('Kolumninställningar kunde inte läsas',e); }
-    let list, modeButton;
-    function save() {
-        try {localStorage.setItem(storageKey,JSON.stringify({...custom,defaultMode}));} catch(e) {}
+    } catch(e) {console.warn('Kolumnval kunde inte läsas',e);}
+    let list,modeButton,searchInput,categoryHost,viewStatus;
+    let statsCache=null,statsSource=null;
+    const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString('sv-SE',{minimumFractionDigits:d,maximumFractionDigits:d}):'–';
+    const div=(a,b)=>b>0?a/b:null;
+    const pct=(a,b)=>b>0?100*a/b:null;
+    const k=(league,season,team)=>`${league}::${season}::${team}`;
+    function makeStats(data) {
+        const map=new Map(), leagues=new Map();
+        for(const r of data.seasonSummaryRows||[]) {
+            const key=k(r.league,r.seasonId,r.team), lk=k(r.league,r.seasonId,'');
+            const o={row:r,games:[],played:0,points:0,goalsFor:0,goalsAgainst:0,homeGames:0,awayGames:0,homePoints:0,awayPoints:0,homeWins:0,awayWins:0,homeDiff:0,awayDiff:0,wins:0,losses:0,draws:0,three:0,two:0,one:0,zero:0,shutouts:0,scoreless:0,fiveFor:0,fiveAgainst:0,oneGoalWins:0,oneGoalLosses:0,eight:0,ten:0,bestWin:null,worstLoss:null,maxFor:null,maxAgainst:null,maxTotal:null};
+            map.set(key,o);
+            if(!leagues.has(lk))leagues.set(lk,[]);
+            leagues.get(lk).push(o);
+        }
+        for(const m of data.matches||[]) {
+            for(const home of [true,false]) {
+                const team=home?m.homeTeam:m.awayTeam;
+                const o=map.get(k(m.league,m.seasonId,team));
+                if(!o)continue;
+                const gf=home?m.homeGoals:m.awayGoals,ga=home?m.awayGoals:m.homeGoals;
+                const points=home?m.homePoints:m.awayPoints;
+                const opponentPoints=home?m.awayPoints:m.homePoints;
+                const d=gf-ga;
+                const result=String(m.resultText||'').toUpperCase();
+                const overtime=/\bOT\b|\bSO\b|\bÖT\b|\bSTR\b|\bPS\b/.test(result);
+                const win=d>0,loss=d<0,draw=d===0;
+                o.games.push({date:m.date,points,gf,ga,d,win,loss,draw,opponentPoints});
+                o.played++;o.points+=points;o.goalsFor+=gf;o.goalsAgainst+=ga;
+                if(home){o.homeGames++;o.homePoints+=points;o.homeDiff+=d;if(win)o.homeWins++;}
+                else{o.awayGames++;o.awayPoints+=points;o.awayDiff+=d;if(win)o.awayWins++;}
+                if(win)o.wins++;if(loss)o.losses++;if(draw)o.draws++;
+                if(points===3)o.three++;else if(points===2)o.two++;else if(points===1)o.one++;else if(points===0)o.zero++;
+                if(ga===0)o.shutouts++;if(gf===0)o.scoreless++;
+                if(gf>=5)o.fiveFor++;if(ga>=5)o.fiveAgainst++;
+                if(d===1)o.oneGoalWins++;if(d===-1)o.oneGoalLosses++;
+                if(gf+ga>=8)o.eight++;if(gf+ga>=10)o.ten++;
+                if(d>0)o.bestWin=Math.max(o.bestWin??d,d);
+                if(d<0)o.worstLoss=Math.max(o.worstLoss??-d,-d);
+                o.maxFor=Math.max(o.maxFor??gf,gf);o.maxAgainst=Math.max(o.maxAgainst??ga,ga);
+                o.maxTotal=Math.max(o.maxTotal??gf+ga,gf+ga);
+            }
+        }
+        for(const o of map.values()) {
+            o.games.sort((a,b)=>a.date.localeCompare(b.date));
+            o.first=o.games[0]?.date||'';o.last=o.games[o.games.length-1]?.date||'';
+            const tests={
+                'Segersvit':g=>g.win,'Förlustsvit':g=>g.loss,
+                '3-poängssvit':g=>g.points===3,'0-poängssvit':g=>g.points===0,
+                'Poängsvit':g=>g.points>0,'Utan seger':g=>!g.win,
+                'Utan förlust':g=>!g.loss,'Målsvit':g=>g.gf>0,'Nollsvit':g=>g.ga===0
+            };
+            o.streaks={};
+            for(const [id,test] of Object.entries(tests)){
+                let current=0,max=0;
+                for(const g of o.games){current=test(g)?current+1:0;max=Math.max(max,current);}
+                o.streaks[id]=o.played?max:null;
+            }
+        }
+        for(const arr of leagues.values()) {
+            const ranked=arr.filter(o=>Number.isFinite(o.row.regularSeasonRank)).sort((a,b)=>a.row.regularSeasonRank-b.row.regularSeasonRank);
+            const pts=o=>Number.isFinite(o.row.regularSeasonPoints)?o.row.regularSeasonPoints:null;
+            const valid=arr.map(pts).filter(Number.isFinite);
+            const average=valid.length?valid.reduce((a,b)=>a+b,0)/valid.length:null;
+            for(const o of arr) {
+                const i=ranked.indexOf(o);
+                o.leagueCount=arr.length;
+                o.pointsLeader=ranked.length&&pts(ranked[0])!==null&&pts(o)!==null?pts(ranked[0])-pts(o):null;
+                o.pointsAbove=i>0&&pts(ranked[i-1])!==null&&pts(o)!==null?pts(ranked[i-1])-pts(o):null;
+                o.pointsBelow=i>=0&&i<ranked.length-1&&pts(ranked[i+1])!==null&&pts(o)!==null?pts(o)-pts(ranked[i+1]):null;
+                o.pointsBottom=ranked.length&&pts(ranked[ranked.length-1])!==null&&pts(o)!==null?pts(o)-pts(ranked[ranked.length-1]):null;
+                o.pointsAverage=average===null||pts(o)===null?null:pts(o)-average;
+            }
+        }
+        return map;
     }
-    function active() { return defaultMode ? {order:ids.slice(),visible:defaults} : custom; }
+    const renderValue=(id,o)=>{
+        if(!o)return '–';
+        const r=o.row, n=o.played,points=Number.isFinite(r.regularSeasonPoints)?r.regularSeasonPoints:null;
+        const matchBased=!['Lag','Liga','Säsong','Grundserie','Antal lag','Poäng','Poäng efter ettan','Poäng till ovanför','Poäng före nedanför','Poäng före jumbon','Poäng mot ligasnitt','Relativ placering %','Säsongsutfall','Slutspel','Slutspelsnivå','Utfallsvärde','Utfallskommentar','Seriesegrare','Mästare','Uppflyttad','Nedflyttad','Kval nedåt','Ingenmansland','Målskillnad'].includes(id);
+        if(!n && matchBased)return '–';
+        const vals={
+          'Lag':r.teamLabel||r.team,'Liga':r.league==='HA'?'Hockeyallsvenskan':r.league==='SHL'?'SHL':r.league,
+          'Säsong':r.seasonId,'Grundserie':r.regularSeasonRank,
+          'Antal lag':o.leagueCount,'Seriematcher':n,'Första match':o.first,'Sista match':o.last,
+          'Poäng':points,'Poäng/match':div(points,n),'Poängandel %':pct(points,3*n),
+          'Poäng efter ettan':o.pointsLeader,'Poäng till ovanför':o.pointsAbove,
+          'Poäng före nedanför':o.pointsBelow,'Poäng före jumbon':o.pointsBottom,
+          'Poäng mot ligasnitt':o.pointsAverage,'Relativ placering %':o.leagueCount>1&&Number.isFinite(r.regularSeasonRank)?100*(o.leagueCount-r.regularSeasonRank)/(o.leagueCount-1):null,
+          'Gjorda mål':o.goalsFor,'Insläppta mål':o.goalsAgainst,'Målskillnad':r.goalDifference,
+          'Mål/match':div(o.goalsFor,n),'Insläppta/match':div(o.goalsAgainst,n),'Målskillnad/match':div(o.goalsFor-o.goalsAgainst,n),
+          'Andel gjorda mål %':pct(o.goalsFor,o.goalsFor+o.goalsAgainst),'Hållna nollor':o.shutouts,'Noll mål framåt':o.scoreless,
+          'Minst 5 mål framåt':o.fiveFor,'Minst 5 mål bakåt':o.fiveAgainst,
+          'Spelade':n,'Vinster':o.wins,'Förluster':o.losses,'Oavgjorda':o.draws,
+          '3-poängare':o.three,'2-poängare':o.two,'1-poängare':o.one,'0-poängare':o.zero,
+          'Vinstandel %':pct(o.wins,n),'Andel 3-poängare %':pct(o.three,n),'Andel 0-poängare %':pct(o.zero,n),
+          'Hemmamatcher':o.homeGames,'Bortamatcher':o.awayGames,'Hemmapoäng':o.homePoints,'Bortapoäng':o.awayPoints,
+          'Poäng/match hemma':div(o.homePoints,o.homeGames),'Poäng/match borta':div(o.awayPoints,o.awayGames),
+          'Hemmavinster':o.homeWins,'Bortavinster':o.awayWins,'Målskillnad hemma':o.homeDiff,'Målskillnad borta':o.awayDiff,
+          'Största seger':o.bestWin,'Största förlust':o.worstLoss,'Flest mål framåt':o.maxFor,'Flest mål bakåt':o.maxAgainst,
+          'Målrikaste match':o.maxTotal,'Uddamålssegrar':o.oneGoalWins,'Uddamålsförluster':o.oneGoalLosses,
+          'Matcher med 8+ mål':o.eight,'Matcher med 10+ mål':o.ten,
+          'Slutspel':r.playoffResult,'Slutspelsnivå':r.playoffRoundNumeric,'Utfallsvärde':r.seasonOutcomeNumeric,
+          'Utfallskommentar':r.seasonOutcomeNote,'Seriesegrare':r.regularSeasonRank===1?'Ja':'Nej',
+          'Mästare':r.seasonOutcomeNumeric===4&&r.league==='SHL'?'Ja':'Nej',
+          'Uppflyttad':r.seasonOutcomeNumeric===4&&r.league==='HA'?'Ja':'Nej',
+          'Nedflyttad':r.seasonOutcomeNumeric===0?'Ja':'Nej',
+          'Kval nedåt':r.seasonOutcomeNumeric===1?'Ja':'Nej',
+          'Ingenmansland':r.seasonOutcomeNumeric===2?'Ja':'Nej'
+        };
+        if(id==='Säsongsutfall')return ({4:'Mästare / uppflyttad',3:'Vidare mot titel / uppflyttning',2:'Tidig semester',1:'Kval nedåt – kvar',0:'Nedflyttad'})[r.seasonOutcomeNumeric]??'Ej avgjort';
+        if(Object.prototype.hasOwnProperty.call(o.streaks,id))return fmt(o.streaks[id]);
+        const v=vals[id];
+        if(v==null||v==='')return '–';
+        if(typeof v==='number')return fmt(v,(/\/match|andel|procent| %|ligasnitt|Relativ placering/.test(id)?2:0));
+        return String(v);
+    };
+    const save=()=>{try{localStorage.setItem(storageKey,JSON.stringify({...custom,defaultMode}));}catch(e){}};
+    const active=()=>defaultMode?{order:ids,visible:defaults}:custom;
     function apply() {
-        const table = document.querySelector('.team-table');
-        if (!table) return;
-        const state = active();
-        // Flytta befintliga celler: deras checkboxar, tooltips och event bevaras.
-        table.querySelectorAll('tr').forEach(tr => {
-            const cells = Array.from(tr.children);
-            if (!cells.length) return;
-            const first = cells.find(c=>c.classList.contains('col-select'));
-            if (!first) return;
-            const byName = new Map();
-            ids.forEach((id,i) => {if(cells[i+1] && !cells[i+1].dataset.columnId) cells[i+1].dataset.columnId=id;});
-            cells.forEach(c=>{if(c.dataset.columnId) byName.set(c.dataset.columnId,c);});
-            tr.appendChild(first);
-            state.order.forEach(id=>{
-                const cell=byName.get(id);
-                if (cell) {cell.dataset.columnHidden=String(!state.visible.includes(id));tr.appendChild(cell);}
+        const table=document.querySelector('.team-table');if(!table)return;
+        const source=window.deluxeStaticColumnData?.();
+        if(source && source.seasonSummaryRows?.length && (!statsCache||statsSource!==source.seasonSummaryRows)) {
+            statsCache=makeStats(source);statsSource=source.seasonSummaryRows;
+        }
+        const state=active();
+        const header=table.querySelector('thead tr');
+        if(header){
+            const existing=new Map([...header.children].filter(c=>c.dataset.columnId).map(c=>[c.dataset.columnId,c]));
+            [...header.children].filter(c=>!c.classList.contains('col-select')).forEach((c,i)=>{
+                if(!c.dataset.columnId&&original[i]){c.dataset.columnId=original[i];existing.set(original[i],c);}
             });
+            for(const id of ids){
+                if(!existing.has(id)){
+                    const th=document.createElement('th');th.textContent=id;th.dataset.columnId=id;
+                    // Den ursprungliga sorteringen finns kvar på de sex gamla kolumnerna.
+                    th.className='deluxe-extra-sortable';
+                    th.addEventListener('click',()=>sortExtra(th,table));
+                    existing.set(id,th);
+                }
+            }
+            state.order.forEach(id=>{const c=existing.get(id);if(c){c.dataset.columnHidden=String(!state.visible.includes(id));header.appendChild(c);}});
+        }
+        table.querySelectorAll('tbody tr').forEach(tr=>{
+            const cells=[...tr.children],first=cells.find(c=>c.classList.contains('col-select'));
+            if(!first)return;
+            const byId=new Map(cells.filter(c=>c.dataset.columnId).map(c=>[c.dataset.columnId,c]));
+            // Färska rader från originalfunktionen har ännu inga ID:n.
+            const untagged=cells.filter(c=>c!==first&&!c.dataset.columnId);
+            untagged.forEach((c,i)=>{if(original[i]){c.dataset.columnId=original[i];byId.set(original[i],c);}});
+            const o=statsCache?.get(tr.dataset.teamSeasonKey);
+            for(const id of ids){if(!byId.has(id)){
+                const td=document.createElement('td');td.dataset.columnId=id;
+                td.textContent=renderValue(id,o);
+                if(id==='Utfallskommentar')td.title=td.textContent;
+                byId.set(id,td);
+            }}
+            tr.appendChild(first);
+            state.order.forEach(id=>{const c=byId.get(id);if(c){c.dataset.columnHidden=String(!state.visible.includes(id));tr.appendChild(c);}});
         });
-        if (modeButton) modeButton.textContent = defaultMode ? 'Visa min kolumnvy' : 'Visa standardvy';
+        if(modeButton)modeButton.textContent=defaultMode?'Visa min kolumnvy':'Visa standardvy';
+        if(viewStatus)viewStatus.textContent=defaultMode?'Standardvy':'Min kolumnvy';
         render();
     }
-    window.deluxeApplyTableColumns = apply;
-    function render() {
-        if (!list) return;
-        list.replaceChildren();
-        const state=active();
-        state.order.forEach((id,index)=>{
-            const item=document.createElement('div');
-            item.className='deluxe-column-item';
-            item.draggable=!defaultMode;
-            const label=document.createElement('label');
-            const check=document.createElement('input');
-            check.type='checkbox';check.checked=state.visible.includes(id);check.disabled=defaultMode;
-            check.addEventListener('change',()=>{
-                if(check.checked) custom.visible.push(id);
-                else custom.visible=custom.visible.filter(x=>x!==id);
-                save();apply();
-            });
-            label.append(check,document.createTextNode(' '+id));item.append(label);
-            [-1,1].forEach(delta=>{
-                const btn=document.createElement('button');btn.type='button';
-                btn.textContent=delta===-1?'↑':'↓';
-                btn.title=delta===-1?'Flytta vänster':'Flytta höger';
-                btn.disabled=defaultMode || index+delta<0 || index+delta>=state.order.length;
-                btn.addEventListener('click',()=>move(id,index+delta));item.append(btn);
-            });
-            item.addEventListener('dragstart',e=>{if(defaultMode){e.preventDefault();return;} e.dataTransfer.setData('text/plain',id);});
-            item.addEventListener('dragover',e=>{if(!defaultMode){e.preventDefault();item.classList.add('drag-over');}});
-            item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
-            item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');const source=e.dataTransfer.getData('text/plain');if(ids.includes(source))move(source,custom.order.indexOf(id));});
-            list.append(item);
+    function sortExtra(th,table){
+        const body=table.tBodies[0];if(!body)return;
+        const ascending=!th.classList.contains('sort-asc');
+        table.querySelectorAll('th').forEach(h=>h.classList.remove('sort-asc','sort-desc'));
+        th.classList.add(ascending?'sort-asc':'sort-desc');
+        const id=th.dataset.columnId;
+        const rows=[...body.rows];
+        rows.sort((a,b)=>{
+            const x=a.querySelector(`[data-column-id="${id}"]`)?.textContent.trim()||'';
+            const y=b.querySelector(`[data-column-id="${id}"]`)?.textContent.trim()||'';
+            const parse=s=>{if(s==='–'||s==='')return null;const v=Number(s.replace(/\s/g,'').replace(',','.'));return Number.isFinite(v)?v:null;};
+            const nx=parse(x),ny=parse(y);
+            if(nx!==null&&ny!==null)return (nx-ny)*(ascending?1:-1);
+            if(nx===null&&ny!==null)return 1;
+            if(ny===null&&nx!==null)return -1;
+            return x.localeCompare(y,'sv',{numeric:true})*(ascending?1:-1);
         });
+        const checkedFirst=document.getElementById('sort-checked-first')?.checked;
+        if(checkedFirst){rows.sort((a,b)=>Number(!!b.querySelector('input.team-table-row-checkbox')?.checked)-Number(!!a.querySelector('input.team-table-row-checkbox')?.checked));}
+        rows.forEach(r=>body.appendChild(r));
     }
-    function move(id,target) {
+    window.deluxeApplyTableColumns=apply;
+    function move(id,target){
         const source=custom.order.indexOf(id);
         if(source<0||target<0||target>=custom.order.length)return;
-        custom.order.splice(source,1);custom.order.splice(target,0,id);
-        save();apply();
+        custom.order.splice(source,1);custom.order.splice(target,0,id);save();apply();
     }
-    function init() {
-        const wrapper=document.querySelector('.team-table-wrapper');
-        if(!wrapper)return;
+    function render(){
+        if(!list)return;
+        list.replaceChildren();
+        const state=active(),q=(searchInput?.value||'').trim().toLocaleLowerCase('sv');
+        for(const [group,items] of groups){
+            const matches=items.filter(id=>!q||id.toLocaleLowerCase('sv').includes(q)||group.toLocaleLowerCase('sv').includes(q));
+            if(!matches.length)continue;
+            const section=document.createElement('details');section.className='deluxe-column-group';
+            section.open=!!q||group==='Grunduppgifter';
+            const summary=document.createElement('summary');summary.textContent=`${group} (${items.filter(id=>state.visible.includes(id)).length}/${items.length})`;
+            section.appendChild(summary);
+            const itemsBox=document.createElement('div');itemsBox.className='deluxe-column-group-items';
+            for(const id of matches){
+                const index=state.order.indexOf(id),item=document.createElement('div');
+                item.className='deluxe-column-item';item.draggable=!defaultMode&&!q;
+                const label=document.createElement('label'),check=document.createElement('input');
+                check.type='checkbox';check.checked=state.visible.includes(id);check.disabled=defaultMode;
+                check.addEventListener('change',()=>{if(check.checked&&!custom.visible.includes(id))custom.visible.push(id);else if(!check.checked)custom.visible=custom.visible.filter(x=>x!==id);save();apply();});
+                label.append(check,document.createTextNode(' '+id));item.append(label);
+                for(const delta of [-1,1]){
+                    const btn=document.createElement('button');btn.type='button';btn.textContent=delta<0?'↑':'↓';
+                    btn.title=delta<0?'Flytta tidigare':'Flytta senare';
+                    btn.disabled=defaultMode||index+delta<0||index+delta>=state.order.length;
+                    btn.addEventListener('click',()=>move(id,index+delta));item.append(btn);
+                }
+                item.addEventListener('dragstart',e=>{if(defaultMode){e.preventDefault();return;}e.dataTransfer.setData('text/plain',id);});
+                item.addEventListener('dragover',e=>{if(!defaultMode){e.preventDefault();item.classList.add('drag-over');}});
+                item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
+                item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');const from=e.dataTransfer.getData('text/plain');if(ids.includes(from))move(from,custom.order.indexOf(id));});
+                itemsBox.append(item);
+            }
+            section.append(itemsBox);list.append(section);
+        }
+    }
+    function init(){
+        const wrapper=document.querySelector('.team-table-wrapper');if(!wrapper)return;
         const details=document.createElement('details');details.className='deluxe-columns';
         const summary=document.createElement('summary');summary.textContent='Välj och ordna tabellkolumner';
         const toolbar=document.createElement('div');toolbar.className='deluxe-column-toolbar';
         modeButton=document.createElement('button');modeButton.type='button';
         modeButton.addEventListener('click',()=>{defaultMode=!defaultMode;save();apply();});
-        const hint=document.createElement('span');hint.textContent='Dra kolumner eller använd pilarna. Dina val sparas automatiskt.';
-        toolbar.append(modeButton,hint);
+        viewStatus=document.createElement('strong');
+        const hint=document.createElement('span');hint.textContent='Välj kolumner i grupperna. Ordna med pilar eller dra. Sparas automatiskt.';
+        toolbar.append(modeButton,viewStatus,hint);
+        searchInput=document.createElement('input');searchInput.type='search';searchInput.className='deluxe-column-search';
+        searchInput.placeholder='Sök bland alla kolumner…';
+        searchInput.addEventListener('input',render);
         list=document.createElement('div');list.className='deluxe-column-items';
-        details.append(summary,toolbar,list);wrapper.before(details);
+        details.append(summary,toolbar,searchInput,list);wrapper.before(details);
         apply();
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
