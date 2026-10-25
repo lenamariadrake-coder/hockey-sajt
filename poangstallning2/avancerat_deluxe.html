@@ -12554,6 +12554,7 @@
 .deluxe-column-group { border:1px solid #ddd; border-radius:7px; padding:7px 10px; }
 .deluxe-column-group > summary { font-size:.9rem; }
 .deluxe-column-group-items { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.deluxe-column-toggle-all { display:block; margin:0 0 12px; cursor:pointer; }
 .deluxe-column-search { display:block; width:min(100%,400px); padding:8px; margin:6px 0 12px; border:1px solid #ccd0d6; border-radius:6px; }
 .team-table th.deluxe-extra-sortable { cursor:pointer; }
 .deluxe-column-item { display:inline-flex; gap:5px; align-items:center; border:1px solid #ddd; border-radius:6px; padding:5px 7px; background:#fafafa; }
@@ -12956,6 +12957,12 @@
         if(source<0||target<0||target>=custom.order.length)return;
         custom.order.splice(source,1);custom.order.splice(target,0,id);save();apply();
     }
+    let columnGroupToggle;
+    function updateColumnGroupToggleLabel(){
+        if(!columnGroupToggle)return;
+        const sections=[...list.querySelectorAll('details.deluxe-column-group')];
+        columnGroupToggle.textContent=sections.length&&sections.every(section=>section.open)?'Fäll ihop alla':'Fäll ut alla';
+    }
     function render(){
         if(!list)return;
         list.replaceChildren();
@@ -12965,7 +12972,7 @@
             if(!matches.length)continue;
             const section=document.createElement('details');section.className='deluxe-column-group';
             section.open=!!q||openGroups.has(group);
-            section.addEventListener('toggle',()=>{if(!q){if(section.open)openGroups.add(group);else openGroups.delete(group);}});
+            section.addEventListener('toggle',()=>{if(!q){if(section.open)openGroups.add(group);else openGroups.delete(group);}updateColumnGroupToggleLabel();});
             const summary=document.createElement('summary');summary.textContent=`${group} (${items.filter(id=>state.visible.includes(id)).length}/${items.length})`;
             section.appendChild(summary);
             const itemsBox=document.createElement('div');itemsBox.className='deluxe-column-group-items';
@@ -12990,6 +12997,7 @@
             }
             section.append(itemsBox);list.append(section);
         }
+        updateColumnGroupToggleLabel();
     }
     function init(){
         const wrapper=document.querySelector('.team-table-wrapper');if(!wrapper)return;
@@ -13022,6 +13030,24 @@
         searchInput=document.createElement('input');searchInput.type='search';searchInput.className='deluxe-column-search';
         searchInput.placeholder='Sök bland alla kolumner…';
         searchInput.addEventListener('input',render);
+        // Egen utfällning för kolumnalternativen, oberoende av filtergrupperna.
+        columnGroupToggle=document.createElement('button');
+        columnGroupToggle.type='button';
+        columnGroupToggle.className='deluxe-column-toggle-all';
+        columnGroupToggle.textContent='Fäll ut alla';
+        columnGroupToggle.addEventListener('click',()=>{
+            const sections=[...list.querySelectorAll('details.deluxe-column-group')];
+            const expand=!sections.every(section=>section.open);
+            const searching=!!searchInput.value.trim();
+            sections.forEach(section=>{
+                section.open=expand;
+                if(!searching){
+                    const name=section.querySelector('summary')?.textContent.replace(/ \(\d+\/\d+\)$/,'');
+                    if(name){if(expand)openGroups.add(name);else openGroups.delete(name);}
+                }
+            });
+            updateColumnGroupToggleLabel();
+        });
         const textPanel=document.createElement('div');textPanel.className='deluxe-column-text-panel';
         const textLabel=document.createElement('label');textLabel.textContent='Min kolumnordning – semikolonseparerad';
         textArea=document.createElement('textarea');textArea.rows=3;
@@ -13077,7 +13103,7 @@
         selectedHost=document.createElement('div');selectedHost.className='deluxe-column-selected';
         textPanel.append(textLabel,textArea,help,actions,selectedLabel,selectedHost);
         list=document.createElement('div');list.className='deluxe-column-items';
-        editor.append(textPanel,searchInput,list);
+        editor.append(textPanel,searchInput,columnGroupToggle,list);
         columnPanel.append(editor);container.append(columnPanel);wrapper.before(container);
         const workBar=document.querySelector('.working-selection-bar');
         if(workBar)workBar.append(toolbar);else container.prepend(toolbar);
