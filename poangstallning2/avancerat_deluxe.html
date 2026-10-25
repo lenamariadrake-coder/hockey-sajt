@@ -10465,6 +10465,13 @@
                         // 1) Återställ alla filter till defaultläget (allt synligt)
                         resetTableFiltersToDefaults();
 
+                        // Återställ även de filtergrupper som har egna kontroller,
+                        // rensa felaktiga "Ändrad"-markeringar och fäll ihop grupperna.
+                        // Funktionen kopplas in av initFilterGroupUI nedan.
+                        if (typeof window.resetDeluxeFilterGroupUI === 'function') {
+                            window.resetDeluxeFilterGroupUI();
+                        }
+
                         // 2) Synka tabellens kryss med huvudvyns lagchips
                         if (typeof syncWorkingSelectionFromMainView === 'function') {
                             // console.log('>> [ARBETSURVAL] Panel öppnad - synkar tabellen med huvudvyn.');
@@ -12100,6 +12107,16 @@
                     const group = button.closest('.filter-group');
                     if (group) resetOneGroup(group);
                 }, true);
+
+                // Anropas när lagväljaren öppnas igen. Återställning via
+                // resetOneGroup omfattar också numeriska filter och Matchurval.
+                window.resetDeluxeFilterGroupUI = function () {
+                    functionalGroups.forEach(resetOneGroup);
+                    groups.forEach(group => { group.open = false; });
+                    refreshChangedStates();
+                    refreshToggleLabel();
+                    applyTableFilters();
+                };
 
                 document.getElementById('reset-all-table-filters')?.addEventListener('click', () => {
                     functionalGroups.forEach(resetOneGroup);
