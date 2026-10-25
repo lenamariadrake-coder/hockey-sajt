@@ -1703,6 +1703,21 @@
             .team-summary-row .team-summary-sort { margin-left: 0; }
         }
     </style>
+<style>
+.team-summary-sort[hidden], #deluxe-paint-toggle[hidden], #deluxe-quick-palette[hidden] {display:none!important}
+.working-selection-bar {flex-wrap:wrap;}
+.working-selection-bar .deluxe-view-switch {margin-left:0; padding:0;}
+.quick-paint-wrap {position:relative;display:inline-flex;align-items:center;}
+#deluxe-paint-toggle {font-size:1.2rem;cursor:pointer;}
+#deluxe-paint-toggle.is-painting {outline:2px solid #5f2570;outline-offset:2px;}
+#deluxe-quick-palette {position:absolute;top:calc(100% + 6px);left:0;z-index:1100;min-width:220px;max-width:310px;padding:12px;border:1px solid #d6c8da;border-radius:9px;background:white;box-shadow:0 5px 22px #0002;}
+.quick-paint-title {font-weight:600;margin-bottom:8px;}
+.quick-paint-swatches {display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px;}
+.quick-paint-swatch {width:28px;height:28px;border-radius:50%;border:1px solid #888;cursor:pointer;}
+.quick-paint-swatch.selected {outline:3px solid #5f2570;outline-offset:2px;}
+.quick-paint-erase {margin-right:8px;}
+.quick-paint-hint {font-size:.8rem;color:#666;margin-top:9px;}
+</style>
 </head>
 
 <body>
@@ -2793,6 +2808,11 @@
                 }
                 instructionEl.classList.remove('hidden');
             }
+            const sortControls=document.querySelector('.team-summary-sort');
+            if(sortControls)sortControls.hidden=!hasChips;
+            const paintBtn=document.getElementById('deluxe-paint-toggle');
+            if(paintBtn)paintBtn.hidden=!hasChips;
+            if(!hasChips && typeof closeQuickPaint==='function')closeQuickPaint();
             updateBatchColorButtonState();
         }
 
@@ -4824,6 +4844,7 @@
                     maintainAspectRatio: false,
                     indexAxis: 'y',
                     onClick: (evt, elements) => {
+                        if(quickPaintColor)return;
                         // Om long-press nyss öppnade palett: hindra att click efteråt gör något
                         if (chartSuppressNextClick) {
                             chartSuppressNextClick = false;
@@ -5047,6 +5068,8 @@
 
             // 5) Koppla alla events och tabellfunktioner
             setupEventListeners();
+            setupQuickPaint();
+            updateChipActionsUI();
             setupTableSorting();           // klick på tabellhuvud
             setupWorkingSelection();       // aktivera arbetsurvalet i tabellen
             syncWorkingSelectionFromMainView(); // nu: inga valda lag, vilket är ok
@@ -11348,6 +11371,73 @@
         });
 
 
+        // SNABBFÄRGLÄGGNING – återanvänder exakt de befintliga palettfärgerna.
+        let quickPaintColor=null;
+        let quickPaintOpen=false;
+        let quickPaintPanel=null;
+        let quickPaintButton=null;
+        function closeQuickPaint(){
+            quickPaintColor=null;quickPaintOpen=false;
+            if(quickPaintPanel)quickPaintPanel.hidden=true;
+            if(quickPaintButton){quickPaintButton.setAttribute('aria-expanded','false');quickPaintButton.classList.remove('is-painting');}
+        }
+        function paintTeamKey(key,name){
+            if(!quickPaintColor)return false;
+            if(quickPaintColor==='__ERASE__'){if(key)delete teamSeasonColors[key];if(name)delete teamColors[name];}
+            else if(key)teamSeasonColors[key]=quickPaintColor;
+            else if(name)teamColors[name]=quickPaintColor;
+            if(resetAllColorsBtn)resetAllColorsBtn.classList.remove('hidden');
+            updateChart();
+            return true;
+        }
+        function setupQuickPaint(){
+            const actions=document.querySelector('.action-buttons');if(!actions)return;
+            quickPaintButton=document.createElement('button');
+            quickPaintButton.type='button';quickPaintButton.id='deluxe-paint-toggle';
+            quickPaintButton.textContent='🖌️';quickPaintButton.title='Snabbfärgläggning – välj färg och klicka på lag eller staplar';
+            quickPaintButton.setAttribute('aria-label','Snabbfärgläggning');
+            quickPaintButton.setAttribute('aria-expanded','false');
+            quickPaintButton.hidden=!document.querySelector('#team-selection .team-item-wrapper');
+            quickPaintPanel=document.createElement('div');quickPaintPanel.id='deluxe-quick-palette';quickPaintPanel.hidden=true;
+            const title=document.createElement('div');title.textContent='Välj penselfärg';title.className='quick-paint-title';
+            const swatches=document.createElement('div');swatches.className='quick-paint-swatches';
+            PALETTE_COLORS.forEach(color=>{
+                const btn=document.createElement('button');btn.type='button';btn.className='quick-paint-swatch';
+                btn.style.backgroundColor=color;btn.dataset.color=color;btn.title='Måla med den här färgen';
+                btn.addEventListener('click',e=>{e.stopPropagation();quickPaintColor=color;quickPaintPanel.querySelectorAll('.quick-paint-swatch').forEach(b=>b.classList.toggle('selected',b===btn));quickPaintButton.classList.add('is-painting');});
+                swatches.append(btn);
+            });
+            const erase=document.createElement('button');erase.type='button';erase.className='quick-paint-erase';erase.textContent='Sudda';erase.title='Återställ färgen för lag du klickar på';
+            erase.addEventListener('click',()=>{quickPaintColor='__ERASE__';quickPaintPanel.querySelectorAll('.quick-paint-swatch').forEach(b=>b.classList.remove('selected'));quickPaintButton.classList.add('is-painting');});
+            const done=document.createElement('button');done.type='button';done.textContent='Klar';done.addEventListener('click',closeQuickPaint);
+            const hint=document.createElement('div');hint.className='quick-paint-hint';hint.textContent='Klicka på lagbrickor eller staplar för att färglägga flera i följd.';
+            quickPaintPanel.append(title,swatches,erase,done,hint);
+            const wrap=document.createElement('span');wrap.className='quick-paint-wrap';wrap.append(quickPaintButton,quickPaintPanel);
+            actions.append(wrap);
+            quickPaintButton.addEventListener('click',e=>{e.stopPropagation();quickPaintOpen=!quickPaintOpen;quickPaintPanel.hidden=!quickPaintOpen;quickPaintButton.setAttribute('aria-expanded',String(quickPaintOpen));if(!quickPaintOpen)closeQuickPaint();});
+            document.getElementById('team-selection')?.addEventListener('click',e=>{
+                if(!quickPaintColor)return;
+                const chip=e.target.closest('.team-item-wrapper');if(!chip)return;
+                e.preventDefault();e.stopImmediatePropagation();
+                const cb=chip.querySelector('input.team-checkbox');
+                if(!cb)return;
+                paintTeamKey(cb.dataset.teamSeasonKey||'',cb.value||'');
+            },true);
+            document.getElementById('team-selection')?.addEventListener('change',e=>{
+                if(quickPaintColor && e.target.matches('input.team-checkbox'))e.stopImmediatePropagation();
+            },true);
+            chartCanvas?.addEventListener('click',e=>{
+                if(!quickPaintColor || !pointsChart)return;
+                const hits=pointsChart.getElementsAtEventForMode(e,'nearest',{intersect:true},false);
+                if(!hits.length)return;
+                const source=(Array.isArray(chartRenderDataByKey)&&chartRenderDataByKey.length)?chartRenderDataByKey:chartDataByKey;
+                const entry=source[hits[0].index];if(!entry?.key)return;
+                e.preventDefault();e.stopImmediatePropagation();
+                paintTeamKey(entry.key,entry.teamName||'');
+            },true);
+            document.addEventListener('keydown',e=>{if(e.key==='Escape'&&quickPaintOpen)closeQuickPaint();});
+        }
+
         function setupEventListeners() {
             //console.log('[COLOR DEBUG] setupEventListeners körs – colorPalette:', !!colorPalette, colorPalette);
 
@@ -11435,6 +11525,7 @@
 
             // Använd event delegation för färgikon-klick
             teamSelectionContainer.addEventListener('click', (e) => {
+                if(quickPaintColor)return;
                 const icon = e.target.closest('.color-picker-icon');
 
                 // console.log('[COLOR DEBUG] klick i teamSelection', {
@@ -12928,7 +13019,9 @@
         textPanel.append(textLabel,textArea,help,actions,selectedLabel,selectedHost);
         list=document.createElement('div');list.className='deluxe-column-items';
         editor.append(textPanel,searchInput,list);
-        columnPanel.append(editor);container.append(toolbar,columnPanel);wrapper.before(container);
+        columnPanel.append(editor);container.append(columnPanel);wrapper.before(container);
+        const workBar=document.querySelector('.working-selection-bar');
+        if(workBar)workBar.append(toolbar);else container.prepend(toolbar);
         // När lagväljaren lämnas ska redigeringspanelen vara stängd och tillfälliga
         // sökningar, utfällningar och felmeddelanden borta. Kolumnvalen sparas.
         const advancedDetails=document.querySelector('.advanced-filter-section');
