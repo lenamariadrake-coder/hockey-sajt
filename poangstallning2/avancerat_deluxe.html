@@ -1850,28 +1850,22 @@
                                         </div>
                                     </details>
 
-                                    <!-- EXPERIMENT: växla mellan två oberoende grundseriefilter. -->
-                                    <div id="regular-mode-switch" style="margin:10px 0 8px;padding:10px 12px;border:1px solid #ddd;border-radius:8px">
-                                        <div style="font-weight:600;margin-bottom:5px">Jämför Grundserie-filter</div>
-                                        <label style="display:inline-flex;align-items:center;margin-right:16px"><input type="radio" name="regular-filter-mode" value="experiment" checked> Experiment</label>
-                                        <label style="display:inline-flex;align-items:center"><input type="radio" name="regular-filter-mode" value="original"> Original</label>
-                                    </div>
+                                    <!-- GRUNDSERIE: enbart placeringar. Den gamla kontrolluppsättningen
+                                         behålls osynligt för befintlig kod, men styr inte urvalet. -->
                                     <details class="filter-group" data-filter-group="regular-experiment">
-                                        <summary><span class="filter-group-title">Grundserie · experiment</span><span class="filter-group-state" aria-hidden="true"></span></summary>
+                                        <summary><span class="filter-group-title">Grundserie</span><span class="filter-group-state" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block" id="regular-experiment">
-                                            <p style="margin:0 0 9px;color:#777;font-size:.88em">Kombinera val med ELLER. Sportsliga kategorier följer säsongens utfall, inte fasta tabellplaceringar.</p>
                                             <label><input type="checkbox" id="rex-all" checked> Alla grundserieplaceringar</label>
-                                            <div style="margin-top:12px;font-weight:600">Sportsliga kategorier</div>
-                                            <label><input type="checkbox" class="rex-category" value="up"> Vidare uppåt</label>
-                                            <label><input type="checkbox" class="rex-category" value="middle"> Ingenmansland</label>
-                                            <label><input type="checkbox" class="rex-category" value="down"> Kval nedåt/nedflyttning</label>
-                                            <div style="margin-top:12px;font-weight:600">Egna placeringar</div>
+                                            <div style="margin-top:12px;font-weight:600">Specifika placeringar</div>
                                             <label for="rex-interval">Intervall / sekvens:</label>
                                             <div class="interval-row"><input id="rex-interval" type="text" placeholder="Exempel: 1-3, 7, 10-12"><button type="button" id="rex-apply">Använd intervall</button></div>
-                                            <label for="rex-last">Sista antal lag (räknat per säsong):</label>
+                                            <div style="margin-top:12px;font-weight:600">Placeringar räknat från slutet</div>
+                                            <label><input type="radio" name="rex-last-mode" value="last" checked> De sista</label>
+                                            <label><input type="radio" name="rex-last-mode" value="except"> Alla utom de sista</label>
+                                            <label for="rex-last">Antal lag (per säsong):</label>
                                             <input id="rex-last" type="number" min="1" step="1" placeholder="Exempel: 2" style="max-width:115px">
                                             <label style="margin-top:10px"><input type="checkbox" id="rex-unresolved" checked> Ej avgjort</label>
-                                            <button type="button" id="rex-reset" style="margin-top:10px">Återställ experimentfiltret</button>
+                                            <button type="button" id="rex-reset" style="margin-top:10px">Återställ grundseriefiltret</button>
                                         </div>
                                     </details>
                                     <div style="display:none" id="regular-original-preserved">
@@ -8646,7 +8640,7 @@
                 }
 
                 // EXPERIMENT: fristående grundseriebedömning, utan ändring av originalfunktionen.
-                if (window.regularExperiment && window.regularExperiment.active()) {
+                if (window.regularExperiment) {
                     regularOk = window.regularExperiment.matches(row, rank);
                 }
 
@@ -10322,6 +10316,10 @@
 
                     cbSeasonAll.checked = all;
                     cbSeasonAll.indeterminate = any && !all;
+                }
+
+                if (window.regularExperiment && typeof window.regularExperiment.reset === 'function') {
+                    window.regularExperiment.reset();
                 }
 
                 // --- GRUNDSERIE (checkboxar) ---
@@ -12182,82 +12180,112 @@
     </script>
 <script>
 /* =========================================================
-   EXPERIMENT – alternativt Grundserie-filter.
-   Originalets filterlogik och HTML bevaras dolt i denna KOPIA.
+   GRUNDSERIE – placeringar, relativt sista N och dess negation.
+   Sportsliga utfall hanteras uteslutande av Säsongsutfall.
+   Gamla Grundserie-kontroller finns dolt endast för bakåtkompatibilitet.
    ========================================================= */
 (function () {
     const init = () => {
         const root = document.getElementById('regular-experiment');
         if (!root) return;
         const all = root.querySelector('#rex-all');
-        const cats = [...root.querySelectorAll('.rex-category')];
         const interval = root.querySelector('#rex-interval');
         const last = root.querySelector('#rex-last');
         const unresolved = root.querySelector('#rex-unresolved');
-        const experimentGroup = root.closest('details');
-        const originalGroup = document.getElementById('regular-original-preserved');
-        const modeRadios = [...document.querySelectorAll('input[name="regular-filter-mode"]')];
-        let mode = 'experiment';
-        const updateMode = () => {
-            mode = modeRadios.find(r => r.checked)?.value || 'experiment';
-            if (experimentGroup) experimentGroup.style.display = mode === 'experiment' ? '' : 'none';
-            if (originalGroup) originalGroup.style.display = mode === 'original' ? '' : 'none';
-            refresh();
-        };
-        modeRadios.forEach(r => r.addEventListener('change', updateMode));
+        const modes = [...root.querySelectorAll('input[name="rex-last-mode"]')];
         let saved = '';
-        const refresh = () => { if (typeof applyTableFilters === 'function') applyTableFilters(); };
-        const maxForSeason = (row) => {
-            const league = row.dataset.league;
-            const season = row.dataset.seasonId;
-            let max = 0;
-            document.querySelectorAll('.team-table tbody tr').forEach(tr => {
-                if (tr.dataset.league === league && tr.dataset.seasonId === season) {
-                    max = Math.max(max, Number(tr.dataset.regularRank) || 0);
-                }
+        let lastApplied = '';
+        let ranks = new Set();
+        let seasonMax = new Map();
+        const refresh = () => {
+            seasonMax = new Map();
+            document.querySelectorAll('.team-table tbody tr').forEach(row => {
+                const rank = Number(row.dataset.regularRank);
+                if (!Number.isInteger(rank) || rank < 1) return;
+                const key = row.dataset.league + '|' + row.dataset.seasonId;
+                seasonMax.set(key, Math.max(seasonMax.get(key) || 0, rank));
             });
-            return max;
+            if (typeof applyTableFilters === 'function') applyTableFilters();
+        };
+        const hasSelection = () => !!saved || !!lastApplied;
+        const markChanged = () => {
+            root.closest('details')?.classList.toggle('is-changed', !all.checked || !unresolved.checked);
         };
         window.regularExperiment = {
-            active: () => mode === 'experiment',
             matches(row, rank) {
                 if (!Number.isFinite(rank)) return unresolved.checked;
                 if (all.checked) return true;
-                const outcome = Number(row.dataset.seasonOutcome);
-                const selected = new Set(cats.filter(cb => cb.checked).map(cb => cb.value));
-                if (selected.has('up') && outcome >= 3) return true;
-                if (selected.has('middle') && outcome === 2) return true;
-                if (selected.has('down') && (outcome === 1 || outcome === 0)) return true;
-                if (saved && typeof parseRegularIntervalText === 'function' && parseRegularIntervalText(saved).includes(rank)) return true;
-                const n = Number(last.value);
+                if (ranks.has(rank)) return true;
+                const n = Number(lastApplied);
                 if (Number.isInteger(n) && n > 0) {
-                    const max = maxForSeason(row);
-                    if (max && rank > max - n) return true;
+                    const key = row.dataset.league + '|' + row.dataset.seasonId;
+                    const max = seasonMax.get(key) || 0;
+                    if (max) {
+                        const isLast = rank > max - n;
+                        const mode = modes.find(r => r.checked)?.value || 'last';
+                        if (mode === 'except' ? !isLast : isLast) return true;
+                    }
                 }
                 return false;
+            },
+            reset() {
+                all.checked = true;
+                saved = ''; ranks = new Set(); interval.value = '';
+                last.value = ''; lastApplied = '';
+                modes[0].checked = true;
+                unresolved.checked = true;
+                markChanged(); refresh();
             }
         };
-        const customChange = () => { all.checked = false; refresh(); };
-        all.addEventListener('change', () => { if (all.checked) { cats.forEach(c => c.checked = false); saved = ''; interval.value = ''; last.value = ''; } refresh(); });
-        cats.forEach(cb => cb.addEventListener('change', customChange));
-        last.addEventListener('change', customChange);
-        last.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                last.blur();
-                customChange();
+        const applyInterval = () => {
+            const raw = interval.value.trim();
+            const parsed = raw && typeof parseRegularIntervalText === 'function'
+                ? parseRegularIntervalText(raw) : [];
+            if (raw && (!Array.isArray(parsed) || !parsed.length)) {
+                interval.value = saved;
+                interval.blur();
+                return;
             }
+            saved = raw;
+            ranks = new Set(parsed);
+            if (saved) all.checked = false;
+            interval.blur();
+            markChanged(); refresh();
+        };
+        const applyLast = () => {
+            const raw = last.value.trim();
+            const n = Number(raw);
+            if (raw && (!Number.isInteger(n) || n < 1)) {
+                last.value = lastApplied;
+                last.blur();
+                return;
+            }
+            lastApplied = raw;
+            if (raw) all.checked = false;
+            last.blur();
+            markChanged(); refresh();
+        };
+        all.addEventListener('change', () => {
+            if (all.checked) {
+                saved = ''; ranks.clear(); interval.value = '';
+                lastApplied = ''; last.value = '';
+            }
+            markChanged(); refresh();
         });
-        unresolved.addEventListener('change', refresh);
-        const apply = () => { saved = interval.value.trim(); interval.value = saved; interval.blur(); all.checked = false; refresh(); };
-        root.querySelector('#rex-apply').addEventListener('click', apply);
-        interval.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
-        root.querySelector('#rex-reset').addEventListener('click', () => {
-            all.checked = true; cats.forEach(c => c.checked = false);
-            saved = ''; interval.value = ''; last.value = ''; unresolved.checked = true;
-            refresh();
+        root.querySelector('#rex-apply').addEventListener('click', applyInterval);
+        interval.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); applyInterval(); }
         });
-        updateMode();
+        last.addEventListener('change', applyLast);
+        last.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); applyLast(); }
+        });
+        modes.forEach(r => r.addEventListener('change', () => { markChanged(); refresh(); }));
+        unresolved.addEventListener('change', () => { markChanged(); refresh(); });
+        root.querySelector('#rex-reset').addEventListener('click', () => window.regularExperiment.reset());
+        // Global återställning anropar appens befintliga reset-funktion;
+        // synkronisera det nya filtret via återställningsknappen där.
+        refresh();
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
