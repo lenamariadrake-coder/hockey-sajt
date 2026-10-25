@@ -1880,6 +1880,7 @@
                                             <label><input type="checkbox" id="filter-playoff-none" value="none" checked> -</label>
                                             <label><input type="checkbox" id="filter-playoff-playout" value="play_out" checked> Play-out</label>
                                             <label><input type="checkbox" id="filter-playoff-relegated" value="relegated" checked> Åkte ur</label>
+                                            <label><input type="checkbox" id="filter-playoff-unclassified" value="EK" checked> Ej klassificerat</label>
                                             <label><input type="checkbox" id="filter-playoff-unresolved" checked> Ej avgjort</label>
                                         </div>
                                     </details>
@@ -3581,7 +3582,9 @@
                     const regularSeasonPoints = parseInt(parts[5]);
                     const goalDifference = parseInt(String(parts[6]).replace(/\u2212/g, "-"), 10);
                     const playoffResult = parts[7].trim();       // playoff_result
-                    const playoffRoundNumeric = parseInt(parts[8]);
+                    const playoffRoundNumericRaw = (parts[8] || '').trim();
+                    const playoffRoundNumeric = playoffRoundNumericRaw.toUpperCase() === 'EK'
+                        ? 'EK' : parseInt(playoffRoundNumericRaw, 10);
                     const outcomeIndex = summaryColumn('season_outcome_numeric');
                     const outcomeNumeric = outcomeIndex < 0 ? null : Number.parseInt(parts[outcomeIndex], 10);
                     const noteIndex = summaryColumn('season_outcome_note');
@@ -3600,7 +3603,7 @@
                         regularSeasonPoints: isNaN(regularSeasonPoints) ? null : regularSeasonPoints,
                         goalDifference: isNaN(goalDifference) ? null : goalDifference,
                         playoffResult,
-                        playoffRoundNumeric: isNaN(playoffRoundNumeric) ? null : playoffRoundNumeric,
+                        playoffRoundNumeric: playoffRoundNumeric === 'EK' ? 'EK' : (isNaN(playoffRoundNumeric) ? null : playoffRoundNumeric),
                         seasonOutcomeNumeric: Number.isInteger(outcomeNumeric) && outcomeNumeric >= 0 && outcomeNumeric <= 4 ? outcomeNumeric : null,
                         seasonOutcomeNote: outcomeNote
                     };
@@ -6094,6 +6097,8 @@
 
                 case 'none':
                     return '-';
+                case 'EK':
+                    return 'ej klassificerat';
                 case '':
                     return 'ej avgjort';
                 default:
@@ -7087,14 +7092,16 @@
                 state.isDirty = true;
             });
 
-            applyBtn.addEventListener('mousedown', () => {
+            applyBtn.addEventListener('mousedown', event => {
+                // Behåll fokus tills det aktuella värdet har lästs och sparats.
+                event.preventDefault();
                 state.justConfirmed = true;
             });
 
             applyBtn.addEventListener('click', event => {
                 event.preventDefault();
 
-                const cleaned = pendingValue.trim();
+                const cleaned = input.value.trim();
                 const parsed = parseRegularIntervalText(cleaned);
 
                 if (cleaned === '') {
@@ -8415,6 +8422,7 @@
             const cbNone = document.getElementById('filter-playoff-none');
             const cbPlayOut = document.getElementById('filter-playoff-playout');
             const cbRelegated = document.getElementById('filter-playoff-relegated');
+            const cbUnclassified = document.getElementById('filter-playoff-unclassified');
             const cbUnresolved = document.getElementById('filter-playoff-unresolved');
 
             let playoffActive = false;    // true = vi begränsar på slutspel
@@ -8429,6 +8437,7 @@
                 cbNone,
                 cbPlayOut,
                 cbRelegated,
+                cbUnclassified,
                 cbUnresolved
             ];
 
@@ -8443,6 +8452,7 @@
                 if (cbNone.checked) activeResults.push('none');
                 if (cbPlayOut.checked) activeResults.push('play_out');
                 if (cbRelegated.checked) activeResults.push('relegated');
+                if (cbUnclassified.checked) activeResults.push('EK');
                 if (cbUnresolved.checked) activeResults.push('unresolved');
                 const totalSegments = playoffCbs.length;
 
@@ -9250,6 +9260,7 @@
             const cbNone = document.getElementById('filter-playoff-none');
             const cbPlayOut = document.getElementById('filter-playoff-playout');
             const cbRelegated = document.getElementById('filter-playoff-relegated');
+            const cbUnclassified = document.getElementById('filter-playoff-unclassified');
             const cbUnresolved = document.getElementById('filter-playoff-unresolved');
 
             const segmentCbs = [
@@ -9261,6 +9272,7 @@
                 cbNone,
                 cbPlayOut,
                 cbRelegated,
+                cbUnclassified,
                 cbUnresolved
             ];
 
@@ -9519,20 +9531,23 @@
             });
 
             // 1) Klick på knappen = spara text + tolka till positionslista
-            applyBtn.addEventListener('mousedown', () => {
-                // Markerar att klicket precis har hänt (så blur direkt efteråt inte ångrar)
+            applyBtn.addEventListener('mousedown', event => {
+                // Hindra blur från att återställa fältet före knappens click-händelse.
+                event.preventDefault();
                 regularIntervalJustConfirmed = true;
             });
 
             applyBtn.addEventListener('click', (evt) => {
                 evt.preventDefault();
 
-                const cleaned = pendingValue.trim();
+                const cleaned = input.value.trim();
                 const parsed = parseRegularIntervalText(cleaned);
 
                 // FALL A: Tomt fält - giltigt val = noll platser (aktivt intervall)
                 if (cleaned === "") {
                     regularIntervalSavedValue = "";
+                    pendingValue = "";
+                    pendingDirty = false;
                     regularIntervalSelection = [];
                     regularIntervalIsDirty = false;
                     regularIntervalHasBeenApplied = true; // intervall aktivt från och med nu
@@ -9556,7 +9571,9 @@
 
                 // FALL B: Giltig lista med placeringar
                 if (parsed.length > 0) {
-                    regularIntervalSavedValue = cleaned;
+                    regularIntervalSavedValue = formatRegularIntervalSelection(parsed);
+                    pendingValue = regularIntervalSavedValue;
+                    pendingDirty = false;
                     regularIntervalSelection = parsed;
                     regularIntervalIsDirty = false;
                     regularIntervalHasBeenApplied = true;
@@ -9575,7 +9592,7 @@
                     // });
 
                     // Skriv tillbaka normaliserad text
-                    input.value = formatRegularIntervalSelection(parsed);
+                    input.value = regularIntervalSavedValue;
 
                     // Synka kryssrutor + tabell
                     applyCheckboxesFromInterval(parsed, FILTER_MAX_REGULAR_RANK);
@@ -10307,6 +10324,7 @@
                 const cbPONone = document.getElementById('filter-playoff-none');
                 const cbPOPlayOut = document.getElementById('filter-playoff-playout');
                 const cbPORelegated = document.getElementById('filter-playoff-relegated');
+                const cbPOUnclassified = document.getElementById('filter-playoff-unclassified');
                 const cbPOUnresolved = document.getElementById('filter-playoff-unresolved');
 
                 if (cbPOAll) cbPOAll.checked = true;
@@ -10318,6 +10336,7 @@
                 if (cbPONone) cbPONone.checked = true;
                 if (cbPOPlayOut) cbPOPlayOut.checked = true;
                 if (cbPORelegated) cbPORelegated.checked = true;
+                if (cbPOUnclassified) cbPOUnclassified.checked = true;
                 if (cbPOUnresolved) cbPOUnresolved.checked = true;
 
                 // NYTT: Default för "Visa ikryssade lag överst" baserat på lagchips
