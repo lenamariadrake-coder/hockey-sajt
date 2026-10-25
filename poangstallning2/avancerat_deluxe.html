@@ -10484,6 +10484,36 @@
                         advancedSummary.textContent = isOpen
                             ? 'Avbryt och återgå'
                             : 'Ändra lag att välja mellan';
+                        // Extra bekräftelselänk i övre raden. Använder exakt samma
+                        // bekräftelsefunktion som knappen ovanför tabellen.
+                        if (isOpen) {
+                            const topConfirm = document.createElement('button');
+                            topConfirm.type = 'button';
+                            topConfirm.className = 'advanced-filter-top-confirm';
+                            topConfirm.textContent = '✓ Bekräfta urval';
+                            const originalConfirm = document.getElementById('apply-working-selection');
+                            const syncDisabled = () => {
+                                topConfirm.disabled = !originalConfirm || originalConfirm.disabled;
+                                topConfirm.setAttribute('aria-disabled', String(topConfirm.disabled));
+                            };
+                            syncDisabled();
+                            if (originalConfirm) {
+                                const observer = new MutationObserver(syncDisabled);
+                                observer.observe(originalConfirm, {attributes:true,attributeFilter:['disabled']});
+                                topConfirm.addEventListener('click', e => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (!originalConfirm.disabled) originalConfirm.click();
+                                });
+                                advancedDetails.addEventListener('toggle', function cleanup() {
+                                    if (!advancedDetails.open) {
+                                        observer.disconnect();
+                                        advancedDetails.removeEventListener('toggle', cleanup);
+                                    }
+                                });
+                            }
+                            advancedSummary.appendChild(topConfirm);
+                        }
                     }
 
                     // När panelen ÖPPNAS:
@@ -11394,7 +11424,7 @@
             const actions=document.querySelector('.action-buttons');if(!actions)return;
             quickPaintButton=document.createElement('button');
             quickPaintButton.type='button';quickPaintButton.id='deluxe-paint-toggle';
-            quickPaintButton.textContent='🖌️';quickPaintButton.title='Snabbfärgläggning – välj färg och klicka på lag eller staplar';
+            quickPaintButton.innerHTML='<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.7 6.3 3 3"/><path d="M19.3 3.7a2 2 0 0 0-2.8 0l-9.2 9.2 3.8 3.8 9.2-9.2a2 2 0 0 0 0-2.8Z"/><path d="M9.6 15.3c-.4 2.4-2.3 4.1-5.6 4.7.8-2.7.5-4.1 2.5-5.6a3 3 0 0 1 3.1.9Z"/></svg>';quickPaintButton.title='Snabbfärgläggning – välj färg och klicka på lag eller staplar';
             quickPaintButton.setAttribute('aria-label','Snabbfärgläggning');
             quickPaintButton.setAttribute('aria-expanded','false');
             quickPaintButton.hidden=!document.querySelector('#team-selection .team-item-wrapper');
@@ -12532,6 +12562,13 @@
 .deluxe-view-switch button:focus-visible { outline:2px solid #5f2570; outline-offset:3px; }
 .deluxe-view-arrow { margin-left:8px; font-size:1.15em; }
 .deluxe-column-panel[hidden] { display:none !important; }
+
+/* Övre åtgärdslänken: samma diskreta typografi som den befintliga summary-raden. */
+.advanced-filter-top-confirm { margin-left:24px; padding:0; border:0; background:none; color:inherit; font:inherit; font-weight:inherit; cursor:pointer; }
+.advanced-filter-top-confirm:hover:not(:disabled) { text-decoration:underline; }
+.advanced-filter-top-confirm:disabled { opacity:.38; cursor:default; }
+#deluxe-paint-toggle { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; min-width:56px; min-height:34px; line-height:1; }
+#deluxe-paint-toggle svg { display:block; flex:none; }
 </style>
 <script>
 /* STATISKA SÄSONGSKOLUMNER – beräknas från fullständiga Games + Season_summary.
@@ -12812,7 +12849,7 @@
             customButton.classList.toggle('is-active',!defaultMode);
             customButton.setAttribute('aria-pressed',String(!defaultMode));
             customButton.setAttribute('aria-expanded',String(!defaultMode && !columnPanel.hidden));
-            customButton.querySelector('.deluxe-view-arrow').textContent=!defaultMode && !columnPanel.hidden?'▾':'▸';
+            customButton.querySelector('.deluxe-view-arrow').textContent=!defaultMode && !columnPanel.hidden?'▴':'▾';
         }
         if(columnPanel && defaultMode)columnPanel.hidden=true;
         if(columnPanel)columnPanel.hidden=defaultMode || columnPanel.dataset.collapsed==='true';
@@ -12944,7 +12981,7 @@
             save();apply();
         });
         customButton=document.createElement('button');customButton.type='button';
-        customButton.innerHTML='Anpassad vy <span class="deluxe-view-arrow" aria-hidden="true">▸</span>';
+        customButton.innerHTML='Anpassad vy <span class="deluxe-view-arrow" aria-hidden="true">▾</span>';
         customButton.addEventListener('click',()=>{
             if(defaultMode){
                 defaultMode=false;
