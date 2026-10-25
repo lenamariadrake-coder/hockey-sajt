@@ -7124,6 +7124,7 @@
 
                     input.classList.add('interval-saved');
                     window.setTimeout(() => input.classList.remove('interval-saved'), 200);
+                    input.blur(); // Bekräftat: ta bort markören ur fältet.
                     return;
                 }
 
@@ -7142,6 +7143,7 @@
 
                     input.classList.add('interval-saved');
                     window.setTimeout(() => input.classList.remove('interval-saved'), 200);
+                    input.blur(); // Bekräftat: ta bort markören ur fältet.
                     return;
                 }
 
@@ -7151,6 +7153,7 @@
                 pendingDirty = false;
                 state.isDirty = false;
                 state.justConfirmed = false;
+                input.blur();
             });
 
             input.addEventListener('keydown', event => {
@@ -9572,6 +9575,7 @@
 
                     input.classList.add('interval-saved');
                     setTimeout(() => input.classList.remove('interval-saved'), 200);
+                    input.blur(); // Bekräftat: ta bort markören ur fältet.
                     return;
                 }
 
@@ -9606,6 +9610,7 @@
 
                     input.classList.add('interval-saved');
                     setTimeout(() => input.classList.remove('interval-saved'), 200);
+                    input.blur(); // Bekräftat: ta bort markören ur fältet.
                     return;
                 }
 
@@ -9615,6 +9620,7 @@
                 pendingValue = regularIntervalSavedValue;
                 regularIntervalIsDirty = false;
                 regularIntervalJustConfirmed = false;
+                input.blur();
 
                 // console.log("Intervall ogiltigt - ändrar inget");
             });
