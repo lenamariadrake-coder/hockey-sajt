@@ -300,6 +300,7 @@
          */
         .filter-group:is(
             [data-filter-group="streaks"],
+            [data-filter-group="season-length"],
             [data-filter-group="goals"],
             [data-filter-group="games"],
             [data-filter-group="decision"],
@@ -314,6 +315,7 @@
         }
         .filter-group:is(
             [data-filter-group="streaks"],
+            [data-filter-group="season-length"],
             [data-filter-group="goals"],
             [data-filter-group="games"],
             [data-filter-group="decision"],
@@ -324,6 +326,7 @@
         }
         .filter-group:is(
             [data-filter-group="streaks"],
+            [data-filter-group="season-length"],
             [data-filter-group="goals"],
             [data-filter-group="games"],
             [data-filter-group="decision"],
@@ -331,6 +334,7 @@
         ) .goal-filter-row > select,
         .filter-group:is(
             [data-filter-group="streaks"],
+            [data-filter-group="season-length"],
             [data-filter-group="goals"],
             [data-filter-group="games"],
             [data-filter-group="decision"],
@@ -1946,6 +1950,17 @@
                                         </div>
                                     </details>
 
+                                    <details class="filter-group" data-filter-group="season-length">
+                                        <summary><span class="filter-group-title">Säsongslängd</span><span class="filter-group-state" id="season-length-filter-count" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block">
+                                            <div class="goal-filter-row">
+                                                <label for="filter-season-length-value">Antal matcher per säsong</label>
+                                                <select id="filter-season-length-op" aria-label="Jämförelse för Antal matcher per säsong"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-season-length-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Antal matcher per säsong">
+                                            </div>
+                                        </div>
+                                    </details>
+
                                     <details class="filter-group" data-filter-group="streaks">
                                         <summary><span class="filter-group-title">Sviter</span><span class="filter-group-state" id="streak-filter-count" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block">
@@ -1968,6 +1983,31 @@
                                                 <label for="filter-streak-zero-value">Nollpoängssvit</label>
                                                 <select id="filter-streak-zero-op" aria-label="Jämförelse för nollpoängssvit"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
                                                 <input type="number" id="filter-streak-zero-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Längsta nollpoängssvit">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-streak-points-value">Poängsvit</label>
+                                                <select id="filter-streak-points-op" aria-label="Jämförelse för Poängsvit"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-streak-points-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Poängsvit">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-streak-without-win-value">Utan seger</label>
+                                                <select id="filter-streak-without-win-op" aria-label="Jämförelse för Utan seger"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-streak-without-win-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Utan seger">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-streak-without-loss-value">Utan förlust</label>
+                                                <select id="filter-streak-without-loss-op" aria-label="Jämförelse för Utan förlust"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-streak-without-loss-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Utan förlust">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-streak-scoring-value">Målsvit</label>
+                                                <select id="filter-streak-scoring-op" aria-label="Jämförelse för Målsvit"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-streak-scoring-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Målsvit">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-streak-clean-sheet-value">Nollsvit</label>
+                                                <select id="filter-streak-clean-sheet-op" aria-label="Jämförelse för Nollsvit"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-streak-clean-sheet-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Nollsvit">
                                             </div>
                                         </div>
                                     </details>
@@ -2001,6 +2041,26 @@
                                                     <option value="max">högst</option>
                                                 </select>
                                                 <input type="number" id="filter-goal-difference-value" step="1" inputmode="numeric" placeholder="–" aria-label="Målskillnad">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-goals-shutouts-value">Hållna nollor</label>
+                                                <select id="filter-goals-shutouts-op" aria-label="Jämförelse för Hållna nollor"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-goals-shutouts-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Hållna nollor">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-goals-scoreless-value">Noll mål framåt</label>
+                                                <select id="filter-goals-scoreless-op" aria-label="Jämförelse för Noll mål framåt"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-goals-scoreless-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Noll mål framåt">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-goals-for-average-value">Mål per match</label>
+                                                <select id="filter-goals-for-average-op" aria-label="Jämförelse för Mål per match"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-goals-for-average-value" min="0" step="0.01" inputmode="decimal" placeholder="–" aria-label="Mål per match">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-goals-against-average-value">Insläppta mål per match</label>
+                                                <select id="filter-goals-against-average-op" aria-label="Jämförelse för Insläppta mål per match"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-goals-against-average-value" min="0" step="0.01" inputmode="decimal" placeholder="–" aria-label="Insläppta mål per match">
                                             </div>
                                         </div>
                                     </details>
@@ -2037,6 +2097,11 @@
                                                 <label for="filter-game-one-goal-losses-value">Uddamålsförluster</label>
                                                 <select id="filter-game-one-goal-losses-op" aria-label="Jämförelse för antal uddamålsförluster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
                                                 <input type="number" id="filter-game-one-goal-losses-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal uddamålsförluster">
+                                            </div>
+                                            <div class="goal-filter-row">
+                                                <label for="filter-game-most-total-value">Målrikaste match</label>
+                                                <select id="filter-game-most-total-op" aria-label="Jämförelse för Målrikaste match"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
+                                                <input type="number" id="filter-game-most-total-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Målrikaste match">
                                             </div>
                                         </div>
                                     </details>
@@ -5080,6 +5145,8 @@
             setupSeasonOutcomeFilterListeners();
             setupGoalFilterListeners();    // målstatistik från games
             setupStreakFilterListeners();  // längsta sviter från games
+            setupSeasonLengthFilterListeners();
+            setupNumericFilterEnterBlur();
             setupSingleGameFilterListeners(); // extremvärden från enskilda matcher
             setupDecisionFilterListeners();   // FT / OT / SO / OT+SO
             setupPointsFilterListeners();     // poäng i valt matchunderlag
@@ -8217,7 +8284,11 @@
             return {
                 goalsFor: readGoalFilter('filter-goals-for'),
                 goalsAgainst: readGoalFilter('filter-goals-against'),
-                goalDifference: readGoalFilter('filter-goal-difference')
+                goalDifference: readGoalFilter('filter-goal-difference'),
+                shutouts: readGoalFilter('filter-goals-shutouts'),
+                scoreless: readGoalFilter('filter-goals-scoreless'),
+                forAverage: readGoalFilter('filter-goals-for-average'),
+                againstAverage: readGoalFilter('filter-goals-against-average')
             };
         }
 
@@ -8226,7 +8297,12 @@
                 win: readGoalFilter('filter-streak-win'),
                 loss: readGoalFilter('filter-streak-loss'),
                 threePointWin: readGoalFilter('filter-streak-three'),
-                zeroPointLoss: readGoalFilter('filter-streak-zero')
+                zeroPointLoss: readGoalFilter('filter-streak-zero'),
+                points: readGoalFilter('filter-streak-points'),
+                withoutWin: readGoalFilter('filter-streak-without-win'),
+                withoutLoss: readGoalFilter('filter-streak-without-loss'),
+                scoring: readGoalFilter('filter-streak-scoring'),
+                cleanSheet: readGoalFilter('filter-streak-clean-sheet')
             };
         }
 
@@ -8237,7 +8313,8 @@
                 goalsFor: readGoalFilter('filter-game-goals-for'),
                 goalsAgainst: readGoalFilter('filter-game-goals-against'),
                 oneGoalWins: readGoalFilter('filter-game-one-goal-wins'),
-                oneGoalLosses: readGoalFilter('filter-game-one-goal-losses')
+                oneGoalLosses: readGoalFilter('filter-game-one-goal-losses'),
+                mostTotal: readGoalFilter('filter-game-most-total')
             };
         }
 
@@ -8570,6 +8647,43 @@
 
             // --- MÅLSTATISTIK ---
             // Tomt värdefält betyder inaktivt filter. Operatorn ensam påverkar alltså inget.
+            const seasonLengthFilter = readGoalFilter('filter-season-length');
+            const extraStreakKeys = ['points','withoutWin','withoutLoss','scoring','cleanSheet'];
+            const extraGoalKeys = ['shutouts','scoreless','forAverage','againstAverage'];
+            const extraStreakActive = extraStreakKeys.some(k => !!getActiveStreakFilters()[k]);
+            const extraGoalActive = extraGoalKeys.some(k => !!getActiveGoalFilters()[k]);
+            const seasonMatchCache = new Map();
+            function getSeasonGames(team, season, league) {
+                const key = `${league}::${season}::${team}`;
+                if (!seasonMatchCache.has(key)) seasonMatchCache.set(key, matches.filter(m =>
+                    m.seasonId === season && m.league === league && (m.homeTeam === team || m.awayTeam === team)));
+                return seasonMatchCache.get(key);
+            }
+            function extraStats(team, games) {
+                const totals = {points:0,withoutWin:0,withoutLoss:0,scoring:0,cleanSheet:0};
+                const current = {...totals};
+                let shutouts=0, scoreless=0, goalsFor=0, goalsAgainst=0, mostTotal=0;
+                for (const m of games) {
+                    const home = m.homeTeam === team;
+                    const gf = home ? m.homeGoals : m.awayGoals;
+                    const ga = home ? m.awayGoals : m.homeGoals;
+                    const pts = home ? m.homePoints : m.awayPoints;
+                    const win = pts === 2 || pts === 3;
+                    const checks = {points:pts>0,withoutWin:!win,withoutLoss:pts!==0 && pts!==1,scoring:gf>0,cleanSheet:ga===0};
+                    for (const k of extraStreakKeys) {
+                        current[k] = checks[k] ? current[k]+1 : 0;
+                        totals[k] = Math.max(totals[k],current[k]);
+                    }
+                    if (ga===0) shutouts++;
+                    if (gf===0) scoreless++;
+                    goalsFor+=gf; goalsAgainst+=ga;
+                    mostTotal=Math.max(mostTotal,gf+ga);
+                }
+                return {...totals,shutouts,scoreless,
+                    forAverage:games.length?goalsFor/games.length:0,
+                    againstAverage:games.length?goalsAgainst/games.length:0,
+                    mostTotal};
+            }
             const goalFilters = getActiveGoalFilters();
             const streakFilters = getActiveStreakFilters();
             const singleGameFilters = getActiveSingleGameFilters();
@@ -8721,20 +8835,27 @@
                     ? computeStatsForSelectedMatches(row.dataset.team || '', selectedMatches)
                     : null;
                 const matchSelectionOk = !matchSelectionActive || selectedMatches.length > 0;
+                const fullSeasonGames = (seasonLengthFilter || extraStreakActive || extraGoalActive || singleGameFilters.mostTotal)
+                    ? getSeasonGames(row.dataset.team || '', seasonId, league) : null;
+                const seasonLengthOk = !seasonLengthFilter ||
+                    numericFilterMatches(fullSeasonGames?.length, seasonLengthFilter);
+                const extra = (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal)
+                    ? extraStats(row.dataset.team || '', matchSelectionActive ? selectedMatches : fullSeasonGames) : null;
                 const goalStats = matchSelectionActive ? selectedStats?.goals || null : teamSeasonGoalStats[goalStatsKey] || null;
-                const hasActiveGoalFilter = !!(goalFilters.goalsFor || goalFilters.goalsAgainst || goalFilters.goalDifference);
+                const hasActiveGoalFilter = !!(goalFilters.goalsFor || goalFilters.goalsAgainst || goalFilters.goalDifference || extraGoalActive);
                 let goalsOk = true;
 
                 if (hasActiveGoalFilter) {
                     goalsOk = !!goalStats &&
                         numericFilterMatches(goalStats.goalsFor, goalFilters.goalsFor) &&
                         numericFilterMatches(goalStats.goalsAgainst, goalFilters.goalsAgainst) &&
-                        numericFilterMatches(goalStats.goalDifference, goalFilters.goalDifference);
+                        numericFilterMatches(goalStats.goalDifference, goalFilters.goalDifference) &&
+                        extraGoalKeys.every(k => numericFilterMatches(extra?.[k], goalFilters[k]));
                 }
 
                 // --- SVITER ---
                 const streakStats = matchSelectionActive ? selectedStats?.streak || null : teamSeasonStreakStats[goalStatsKey] || null;
-                const hasActiveStreakFilter = !!(streakFilters.win || streakFilters.loss || streakFilters.threePointWin || streakFilters.zeroPointLoss);
+                const hasActiveStreakFilter = !!(streakFilters.win || streakFilters.loss || streakFilters.threePointWin || streakFilters.zeroPointLoss || extraStreakActive);
                 let streaksOk = true;
 
                 if (hasActiveStreakFilter) {
@@ -8742,12 +8863,13 @@
                         numericFilterMatches(streakStats.longestWin, streakFilters.win) &&
                         numericFilterMatches(streakStats.longestLoss, streakFilters.loss) &&
                         numericFilterMatches(streakStats.longestThreePointWin, streakFilters.threePointWin) &&
-                        numericFilterMatches(streakStats.longestZeroPointLoss, streakFilters.zeroPointLoss);
+                        numericFilterMatches(streakStats.longestZeroPointLoss, streakFilters.zeroPointLoss) &&
+                        extraStreakKeys.every(k => numericFilterMatches(extra?.[k], streakFilters[k]));
                 }
 
                 // --- ENSKILDA MATCHER ---
                 const singleGameStats = matchSelectionActive ? selectedStats?.single || null : teamSeasonSingleGameStats[goalStatsKey] || null;
-                const hasActiveSingleGameFilter = !!(singleGameFilters.biggestWin || singleGameFilters.biggestLoss || singleGameFilters.goalsFor || singleGameFilters.goalsAgainst || singleGameFilters.oneGoalWins || singleGameFilters.oneGoalLosses);
+                const hasActiveSingleGameFilter = !!(singleGameFilters.biggestWin || singleGameFilters.biggestLoss || singleGameFilters.goalsFor || singleGameFilters.goalsAgainst || singleGameFilters.oneGoalWins || singleGameFilters.oneGoalLosses || singleGameFilters.mostTotal);
                 let singleGamesOk = true;
 
                 if (hasActiveSingleGameFilter) {
@@ -8757,7 +8879,8 @@
                         (!singleGameFilters.goalsFor || singleGameStats.goalsForValues.some(value => numericFilterMatches(value, singleGameFilters.goalsFor))) &&
                         (!singleGameFilters.goalsAgainst || singleGameStats.goalsAgainstValues.some(value => numericFilterMatches(value, singleGameFilters.goalsAgainst))) &&
                         numericFilterMatches(singleGameStats.oneGoalWins, singleGameFilters.oneGoalWins) &&
-                        numericFilterMatches(singleGameStats.oneGoalLosses, singleGameFilters.oneGoalLosses);
+                        numericFilterMatches(singleGameStats.oneGoalLosses, singleGameFilters.oneGoalLosses) &&
+                        numericFilterMatches(extra?.mostTotal, singleGameFilters.mostTotal);
                 }
 
                 // --- POÄNG ---
@@ -8794,7 +8917,7 @@
                     });
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && outcomeOk && matchSelectionOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && outcomeOk && matchSelectionOk && seasonLengthOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
@@ -9053,7 +9176,8 @@
                 document.getElementById('filter-game-goals-for-value'),
                 document.getElementById('filter-game-goals-against-value'),
                 document.getElementById('filter-game-one-goal-wins-value'),
-                document.getElementById('filter-game-one-goal-losses-value')
+                document.getElementById('filter-game-one-goal-losses-value'),
+                document.getElementById('filter-game-most-total-value')
             ].filter(Boolean);
             const controls = Array.from(group.querySelectorAll('input, select'));
             const countEl = document.getElementById('single-game-filter-count');
@@ -9081,7 +9205,12 @@
                 document.getElementById('filter-streak-win-value'),
                 document.getElementById('filter-streak-loss-value'),
                 document.getElementById('filter-streak-three-value'),
-                document.getElementById('filter-streak-zero-value')
+                document.getElementById('filter-streak-zero-value'),
+                document.getElementById('filter-streak-points-value'),
+                document.getElementById('filter-streak-without-win-value'),
+                document.getElementById('filter-streak-without-loss-value'),
+                document.getElementById('filter-streak-scoring-value'),
+                document.getElementById('filter-streak-clean-sheet-value')
             ].filter(Boolean);
             const controls = Array.from(group.querySelectorAll('input, select'));
             const countEl = document.getElementById('streak-filter-count');
@@ -9108,7 +9237,11 @@
             const valueInputs = [
                 document.getElementById('filter-goals-for-value'),
                 document.getElementById('filter-goals-against-value'),
-                document.getElementById('filter-goal-difference-value')
+                document.getElementById('filter-goal-difference-value'),
+                document.getElementById('filter-goals-shutouts-value'),
+                document.getElementById('filter-goals-scoreless-value'),
+                document.getElementById('filter-goals-for-average-value'),
+                document.getElementById('filter-goals-against-average-value')
             ].filter(Boolean);
             const controls = Array.from(group.querySelectorAll('input, select'));
             const countEl = document.getElementById('goal-filter-count');
@@ -9131,6 +9264,38 @@
             });
 
             refreshGoalCount();
+        }
+
+        function setupSeasonLengthFilterListeners() {
+            const group = document.querySelector('[data-filter-group="season-length"]');
+            if (!group || group.dataset.bound === '1') return;
+            group.dataset.bound = '1';
+            const value = document.getElementById('filter-season-length-value');
+            const count = document.getElementById('season-length-filter-count');
+            const refresh = () => {
+                const active = value.value.trim() !== '';
+                group.classList.toggle('is-changed', active);
+                count.textContent = active ? '(1)' : '';
+                applyTableFilters();
+            };
+            group.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input',refresh);
+                el.addEventListener('change',refresh);
+            });
+        }
+
+        // Enter ska bekräfta numeriska filter och lämna fältet.
+        function setupNumericFilterEnterBlur() {
+            document.querySelectorAll('.filter-group .goal-filter-row input[type="number"]').forEach(input => {
+                if (input.dataset.enterBlurBound) return;
+                input.dataset.enterBlurBound = '1';
+                input.addEventListener('keydown', event => {
+                    if (event.key !== 'Enter' || event.isComposing) return;
+                    event.preventDefault();
+                    input.dispatchEvent(new Event('change', {bubbles:true}));
+                    input.blur();
+                });
+            });
         }
 
         // Enkel init-funktion som bara kör första filtreringen
