@@ -8650,14 +8650,30 @@
             const seasonLengthFilter = readGoalFilter('filter-season-length');
             const extraStreakKeys = ['points','withoutWin','withoutLoss','scoring','cleanSheet'];
             const extraGoalKeys = ['shutouts','scoreless','forAverage','againstAverage'];
-            const extraStreakActive = extraStreakKeys.some(k => !!getActiveStreakFilters()[k]);
-            const extraGoalActive = extraGoalKeys.some(k => !!getActiveGoalFilters()[k]);
-            const seasonMatchCache = new Map();
+            const goalFilters = getActiveGoalFilters();
+            const streakFilters = getActiveStreakFilters();
+            const extraStreakActive = extraStreakKeys.some(k => !!streakFilters[k]);
+            const extraGoalActive = extraGoalKeys.some(k => !!goalFilters[k]);
+            // Indexera matcherna en gång per inläst datamängd, inte för varje lagrad.
+            // Indexet byggs först när något av de nya filtren används.
+            if (!window.__deluxeSeasonMatchIndex || window.__deluxeSeasonMatchSource !== matches) {
+                window.__deluxeSeasonMatchIndex = null;
+                window.__deluxeSeasonMatchSource = matches;
+            }
             function getSeasonGames(team, season, league) {
-                const key = `${league}::${season}::${team}`;
-                if (!seasonMatchCache.has(key)) seasonMatchCache.set(key, matches.filter(m =>
-                    m.seasonId === season && m.league === league && (m.homeTeam === team || m.awayTeam === team)));
-                return seasonMatchCache.get(key);
+                if (!window.__deluxeSeasonMatchIndex) {
+                    const index = new Map();
+                    for (const m of matches) {
+                        for (const name of [m.homeTeam, m.awayTeam]) {
+                            const key = `${m.league}::${m.seasonId}::${name}`;
+                            if (!index.has(key)) index.set(key, []);
+                            index.get(key).push(m);
+                        }
+                    }
+                    for (const games of index.values()) games.sort((a,b) => String(a.date).localeCompare(String(b.date)));
+                    window.__deluxeSeasonMatchIndex = index;
+                }
+                return window.__deluxeSeasonMatchIndex.get(`${league}::${season}::${team}`) || [];
             }
             function extraStats(team, games) {
                 const totals = {points:0,withoutWin:0,withoutLoss:0,scoring:0,cleanSheet:0};
@@ -8684,9 +8700,8 @@
                     againstAverage:games.length?goalsAgainst/games.length:0,
                     mostTotal};
             }
-            const goalFilters = getActiveGoalFilters();
-            const streakFilters = getActiveStreakFilters();
             const singleGameFilters = getActiveSingleGameFilters();
+            const extraStatsCache = new Map();
             const decisionFilters = getActiveDecisionFilters();
             const pointsFilter = getActivePointsFilter();
             const matchSelection = getMatchSelectionConfig();
@@ -8839,8 +8854,13 @@
                     ? getSeasonGames(row.dataset.team || '', seasonId, league) : null;
                 const seasonLengthOk = !seasonLengthFilter ||
                     numericFilterMatches(fullSeasonGames?.length, seasonLengthFilter);
-                const extra = (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal)
-                    ? extraStats(row.dataset.team || '', matchSelectionActive ? selectedMatches : fullSeasonGames) : null;
+                const extraKey = goalStatsKey + (matchSelectionActive ? '::selection' : '::full');
+                let extra = null;
+                if (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal) {
+                    if (!extraStatsCache.has(extraKey)) extraStatsCache.set(extraKey,
+                        extraStats(row.dataset.team || '', matchSelectionActive ? selectedMatches : fullSeasonGames));
+                    extra = extraStatsCache.get(extraKey);
+                }
                 const goalStats = matchSelectionActive ? selectedStats?.goals || null : teamSeasonGoalStats[goalStatsKey] || null;
                 const hasActiveGoalFilter = !!(goalFilters.goalsFor || goalFilters.goalsAgainst || goalFilters.goalDifference || extraGoalActive);
                 let goalsOk = true;
