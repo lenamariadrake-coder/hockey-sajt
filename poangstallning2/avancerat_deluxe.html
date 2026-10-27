@@ -1714,7 +1714,23 @@
         @media (max-width: 700px) {
             .team-summary-row .team-summary-sort { margin-left: 0; }
         }
-    </style>
+    
+/* Direktlänk för att öppna lag- och säsongsfiltren. */
+.open-team-filters {
+    flex: 0 0 auto;
+    border: 0;
+    background: none;
+    color: #087e85;
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+}
+.open-team-filters:hover { color: #055c62; }
+.open-team-filters:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+</style>
 <style>
 .team-summary-sort[hidden], #deluxe-paint-toggle[hidden], #deluxe-quick-palette[hidden] {display:none!important}
 .working-selection-bar {flex-wrap:wrap;}
@@ -1788,6 +1804,7 @@
         <details class="filter-section">
             <summary class="team-summary-row">
                 <span id="filter-summary">Laddar…</span>
+                <button type="button" id="open-team-filters" class="open-team-filters" aria-label="Ändra lagurval och filter">Ändra</button>
                 <!-- Sorteringsvalet ligger i rubrikraden, även när lagväljaren är stängd. -->
                 <span class="team-summary-sort control-group" role="group" aria-label="Sortera lag">
                     <strong>Sortera:</strong>
@@ -1818,7 +1835,7 @@
                     <div class="action-buttons">
                         <!-- Instruktion som syns när det INTE finns några lagchips -->
                         <span id="chip-actions-instruction" class="chip-actions-instruction">
-                            Klicka på <strong>Ändra lag att välja mellan</strong> nedan för att lägga till lagknappar
+                            Klicka på <strong>Ändra</strong> i rubrikraden ovan för att lägga till lagknappar
                             här, som du kan
                             kryssa i och ur för att styra huruvida de ska synas i diagrammet eller inte.
                             Tips: Du kan välja färg via lagknapparna så att enskilda staplar i diagrammet utmärker sig.
@@ -1836,11 +1853,11 @@
 
                     <!-- 2: Sekundär sektion - Ändra lag att välja mellan (filter + tabell) -->
                     <details class="advanced-filter-section">
-                        <summary class="advanced-filter-summary">Ändra lag att välja mellan</summary>
+                        <!-- Ingen extra klickbar mellanrubrik: Ändra-länken i huvudrubriken öppnar filtren. -->
                         <div class="advanced-filter-content">
 
                             <div class="filter-header">
-                                <p class="filter-header-title">Ändra lag att välja mellan och klicka på Bekräfta urval
+                                <p class="filter-header-title">Ändra lag att välja mellan och klicka på Bekräfta urval och återgå
                                 </p>
                                 <p class="filter-header-subtitle">
                                     Använd filtren nedan för att begränsa tabellen enligt önskemål. Välj sedan lag med
@@ -2257,10 +2274,7 @@
 
                                     <div class="working-selection-actions">
                                         <button id="apply-working-selection" disabled>
-                                            Bekräfta urval
-                                        </button>
-                                        <button id="cancel-working-selection" type="button">
-                                            Avbryt och återgå
+                                            Bekräfta urval och återgå
                                         </button>
                                         <button id="range-working-selection" type="button">
                                             Markera intervall
@@ -10594,7 +10608,6 @@
             const workingTextEl = document.getElementById('working-selection-text');
             const applyBtn = document.getElementById('apply-working-selection');
             const rangeBtn = document.getElementById('range-working-selection');
-            const cancelBtn = document.getElementById('cancel-working-selection');
             const advancedDetails = document.querySelector('.advanced-filter-section');
 
             // --- STEG 1: Återställ filter + synka när panelen öppnas ---
@@ -10737,52 +10750,10 @@
                 }
             }
 
-            // Rubriken i advanced-filter-section (Ändra lag att välja mellan / Avbryt och återgå)
-            const advancedSummary = advancedDetails
-                ? advancedDetails.querySelector('.advanced-filter-summary')
-                : null;
-
-            // När panelen öppnas/stängs
+            // Synka arbetsurvalet när filterpanelen öppnas.
             if (advancedDetails) {
                 advancedDetails.addEventListener('toggle', () => {
                     const isOpen = advancedDetails.open;
-
-                    // Byt rubriktext (om du redan har liknande logik gör det inget - resultatet blir samma)
-                    if (advancedSummary) {
-                        advancedSummary.textContent = isOpen
-                            ? 'Avbryt och återgå'
-                            : 'Ändra lag att välja mellan';
-                        // Extra bekräftelselänk i övre raden. Använder exakt samma
-                        // bekräftelsefunktion som knappen ovanför tabellen.
-                        if (isOpen) {
-                            const topConfirm = document.createElement('button');
-                            topConfirm.type = 'button';
-                            topConfirm.className = 'advanced-filter-top-confirm';
-                            topConfirm.textContent = '✓ Bekräfta urval';
-                            const originalConfirm = document.getElementById('apply-working-selection');
-                            const syncDisabled = () => {
-                                topConfirm.disabled = !originalConfirm || originalConfirm.disabled;
-                                topConfirm.setAttribute('aria-disabled', String(topConfirm.disabled));
-                            };
-                            syncDisabled();
-                            if (originalConfirm) {
-                                const observer = new MutationObserver(syncDisabled);
-                                observer.observe(originalConfirm, {attributes:true,attributeFilter:['disabled']});
-                                topConfirm.addEventListener('click', e => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    if (!originalConfirm.disabled) originalConfirm.click();
-                                });
-                                advancedDetails.addEventListener('toggle', function cleanup() {
-                                    if (!advancedDetails.open) {
-                                        observer.disconnect();
-                                        advancedDetails.removeEventListener('toggle', cleanup);
-                                    }
-                                });
-                            }
-                            advancedSummary.appendChild(topConfirm);
-                        }
-                    }
 
                     // När panelen ÖPPNAS:
                     if (isOpen) {
@@ -11644,12 +11615,6 @@
             // Sätt initial text och knappstatus
             updateWorkingSelectionSummary();
 
-            // Avbryt och återgå: stäng endast "Ändra lag att välja mellan"-panelen
-            if (cancelBtn && advancedDetails) {
-                cancelBtn.addEventListener('click', () => {
-                    advancedDetails.open = false;
-                });
-            }
         }
         // console.log('[DEBUG] typeof updateManualSortLabelsForNarrowScreen =', typeof updateManualSortLabelsForNarrowScreen);
 
@@ -13375,6 +13340,24 @@
         apply();
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
+<script>
+// Ändra-länken öppnar både huvudpanelen och filterpanelen utan att aktivera sorteringsreglagen.
+(function () {
+    const edit = document.getElementById('open-team-filters');
+    const outer = document.querySelector('.filter-section');
+    const inner = document.querySelector('.advanced-filter-section');
+    if (!edit || !outer || !inner) return;
+    edit.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        outer.open = true;
+        inner.open = true;
+    });
+    edit.addEventListener('keydown', function (event) {
+        event.stopPropagation();
+    });
 })();
 </script>
 </body>
