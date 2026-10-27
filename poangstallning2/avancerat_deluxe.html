@@ -349,10 +349,12 @@
         }
 
         .season-length-hint { font-size: .83rem; color: #5b6470; margin: .5rem 0 .65rem; }
-        .season-length-master { display: inline-flex; align-items: center; gap: .4rem; margin: 0 0 .7rem; font-weight: 600; font-size: .87rem; cursor: pointer; }
-        .season-length-options { display: flex; flex-wrap: wrap; gap: .45rem .9rem; }
-        .season-length-options label { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; cursor: pointer; font-size: .87rem; }
-        .season-length-options input { margin: 0; }
+        /* Samma kryssruteavstånd och vänsterkant som i filtret Säsonger. */
+        .season-length-master { display: flex; align-items: center; gap: 0; margin: 0 0 .45rem; font-size: .87rem; cursor: pointer; font-weight: 500; }
+        .season-length-options { display: grid; grid-template-columns: repeat(2, max-content); column-gap: 1rem; row-gap: .35rem; }
+        .season-length-options label { display: flex; align-items: center; gap: 0; white-space: nowrap; cursor: pointer; font-size: .87rem; }
+        .season-length-master input, .season-length-options input { margin: 0 4px 0 0; }
+        @media (max-width: 350px) { .season-length-options { grid-template-columns: 1fr; } }
 
         /* MATCHURVAL – egen, luftig layout. Befintliga radio-inputs och ID:n
            behålls för att inte ändra filterlogiken. */
@@ -5090,7 +5092,7 @@
                 input.id = 'filter-season-' + season;
                 input.value = season;
                 input.checked = true;
-                label.append(input, document.createTextNode(' ' + season));
+                label.append(input, document.createTextNode(' ' + season.replace('-', '/')));
                 container.append(label);
             }
         }
@@ -8858,10 +8860,12 @@
                 const matchSelectionOk = !matchSelectionActive || selectedMatches.length > 0;
                 const fullSeasonGames = (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal)
                     ? getSeasonGames(row.dataset.team || '', seasonId, league) : null;
-                // Pågående säsong har ännu inte sin slutliga längd och påverkas inte av filtret.
-                const seasonLengthOk = !seasonLengthActive ||
-                    seasonId === window.__deluxeOngoingSeasonId ||
-                    activeSeasonLengths.has(window.__deluxeSeasonLengths?.get(goalStatsKey) ?? -1);
+                // HÅRDKODAT: från och med 2026/27 är ordinarie säsongslängd 52 matcher.
+                // Gäller även pågående säsonger som ännu inte har alla matcher i Games.
+                const seasonStartYear = Number(String(seasonId).slice(0, 4));
+                const seasonLength = seasonStartYear >= 2026 ? 52 :
+                    (window.__deluxeSeasonLengths?.get(goalStatsKey) ?? -1);
+                const seasonLengthOk = !seasonLengthActive || activeSeasonLengths.has(seasonLength);
                 const extraKey = goalStatsKey + (matchSelectionActive ? '::selection' : '::full');
                 let extra = null;
                 if (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal) {
@@ -9294,18 +9298,22 @@
             refreshGoalCount();
         }
 
-        // Säsongslängd: räkna endast färdigspelade säsonger när alternativ skapas.
-        // Pågående säsong varken skapar ett missvisande alternativ eller filtreras bort.
+        /*
+         * SÄSONGSLÄNGD – VIKTIG HÅRDKODAD REGEL
+         * ---------------------------------------------------------------
+         * Från och med säsongen 2026/2027 ska grundserien räknas som
+         * 52 matcher per lag, oavsett hur många matcher som hittills
+         * hunnit läggas in i Games. Ändra värdet 52 nedan om ligornas
+         * framtida grundserieformat ändras.
+         *
+         * För äldre säsonger hämtas antalet matcher per lag ur Games.
+         * Säsongslängd är alltså INTE antal spelade matcher hittills.
+         */
         function setupSeasonLengthFilterListeners() {
             const group = document.querySelector('[data-filter-group="season-length"]');
             const root = document.getElementById('season-length-options');
             const master = document.getElementById('season-length-all');
             if (!group || !root || !master) return;
-
-            const now = new Date();
-            const seasonStart = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-            const ongoingId = `${seasonStart}-${seasonStart + 1}`;
-            window.__deluxeOngoingSeasonId = ongoingId;
 
             if (window.__deluxeSeasonLengthsSource !== matches) {
                 const counts = new Map();
@@ -9319,9 +9327,12 @@
                 window.__deluxeSeasonLengthsSource = matches;
             }
 
-            const lengths = [...new Set([...window.__deluxeSeasonLengths.entries()]
-                .filter(([key]) => !key.split('::').includes(ongoingId))
-                .map(([, count]) => count))].sort((a,b) => a-b);
+            const lengths = [...new Set([
+                ...[...window.__deluxeSeasonLengths.entries()]
+                    .filter(([key]) => Number(key.split('::')[1]?.slice(0,4)) < 2026)
+                    .map(([, count]) => count),
+                52 // HÅRDKODAT: alla säsonger från 2026/27 och framåt.
+            ])].sort((a,b) => a-b);
 
             // Behåll kryssade alternativ om funktionen skulle anropas igen.
             const previous = new Map([...root.querySelectorAll('input[type="checkbox"]')]
