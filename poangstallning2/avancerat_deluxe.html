@@ -1705,7 +1705,8 @@
             column-gap: 1.5rem;
             row-gap: 0.6rem;
         }
-        .team-summary-row #filter-summary { flex: 1 1 19rem; }
+        .team-summary-row #filter-summary { flex: 0 1 auto; }
+        .team-summary-heading { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; flex: 0 1 auto; min-width: 0; }
         .team-summary-row .team-summary-sort {
             margin-left: auto;
             font-weight: normal;
@@ -1748,6 +1749,10 @@
 .quick-paint-swatch.selected {outline:3px solid #5f2570;outline-offset:2px;}
 .quick-paint-erase {margin-right:8px;}
 .quick-paint-hint {font-size:.8rem;color:#666;margin-top:9px;}
+</style>
+<style>
+/* Diskret visuell markering för specialfallet Ej avgjort. */
+.filter-group label.unresolved-special { display: inline-flex; align-items: center; gap: 0.3rem; width: fit-content; max-width: 100%; background: #eaf5f4; border-radius: 5px; padding: 4px 9px; }
 </style>
 </head>
 
@@ -1806,8 +1811,8 @@
 
         <details class="filter-section">
             <summary class="team-summary-row">
-                <span id="filter-summary">Laddar…</span>
-                <button type="button" id="open-team-filters" class="open-team-filters" aria-label="Ändra lagurval och filter">Ändra</button>
+                <span class="team-summary-heading"><span id="filter-summary">Laddar…</span>
+                <button type="button" id="open-team-filters" class="open-team-filters" aria-label="Ändra lagurval och filter">Ändra</button></span>
                 <!-- Sorteringsvalet ligger i rubrikraden, även när lagväljaren är stängd. -->
                 <span class="team-summary-sort control-group" role="group" aria-label="Sortera lag">
                     <strong>Sortera:</strong>
@@ -1838,10 +1843,7 @@
                     <div class="action-buttons">
                         <!-- Instruktion som syns när det INTE finns några lagchips -->
                         <span id="chip-actions-instruction" class="chip-actions-instruction">
-                            Klicka på <strong>Ändra</strong> i rubrikraden ovan för att lägga till lagknappar
-                            här, som du kan
-                            kryssa i och ur för att styra huruvida de ska synas i diagrammet eller inte.
-                            Tips: Du kan välja färg via lagknapparna så att enskilda staplar i diagrammet utmärker sig.
+                            Klicka på <strong>Ändra</strong> ovan för att välja vilka lag och säsonger du vill jämföra. Dina val visas sedan här som lagknappar. Med kryssrutorna bestämmer du vilka som ska synas i diagrammet. Du kan också ändra färg via lagknapparna eller direkt på staplarna i diagrammet.
                         </span>
 
                         <!-- Dessa två knappar styrs av JavaScript och är dolda tills det finns lagchips -->
@@ -1903,7 +1905,7 @@
                                         <summary><span class="filter-group-title">Grundserie</span><span class="filter-group-state" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block" id="regular-experiment">
                                             <label><input type="checkbox" id="rex-all" checked> Alla grundserieplaceringar</label>
-                                            <label style="margin-top:7px"><input type="checkbox" id="rex-unresolved" checked> Ej avgjort</label>
+                                            <label class="unresolved-special" style="margin-top:7px"><input type="checkbox" id="rex-unresolved" checked> Ej avgjort</label>
                                             <div style="margin-top:12px;font-weight:600">Specifika placeringar</div>
                                             <label for="rex-interval">Intervall / sekvens:</label>
                                             <div class="interval-row"><input id="rex-interval" type="text" placeholder="Exempel: 1-3, 7, 10-12"><button type="button" id="rex-apply">Använd intervall</button></div>
@@ -1935,7 +1937,7 @@
                                             <label><input type="checkbox" id="filter-regular-top6"> Topp sex (1-6)</label>
                                             <label><input type="checkbox" id="filter-regular-middle"> Mitten (7-12)</label>
                                             <label><input type="checkbox" id="filter-regular-bottom2"> Plats 13–14</label>
-                                            <label><input type="checkbox" id="filter-regular-unresolved" checked> Ej avgjort</label>
+                                            <label class="unresolved-special"><input type="checkbox" id="filter-regular-unresolved" checked> Ej avgjort</label>
                                             <div class="filter-advanced">
                                                 <label for="regular-interval-input">Intervall / sekvens:</label>
                                                 <div class="interval-row">
@@ -1961,7 +1963,7 @@
                                             <label><input type="checkbox" id="filter-playoff-playout" value="play_out" checked> Play-out</label>
                                             <label><input type="checkbox" id="filter-playoff-relegated" value="relegated" checked> Åkte ur</label>
                                             <label><input type="checkbox" id="filter-playoff-unclassified" value="EK" checked> Ej klassificerat</label>
-                                            <label><input type="checkbox" id="filter-playoff-unresolved" checked> Ej avgjort</label>
+                                            <label class="unresolved-special"><input type="checkbox" id="filter-playoff-unresolved" checked> Ej avgjort</label>
                                         </div>
                                     </details>
 
@@ -1970,11 +1972,11 @@
                                         <div class="filter-group-content filter-block">
                                             <label><input type="checkbox" id="filter-outcome-all" checked> Alla</label>
                                             <label><input type="checkbox" class="filter-outcome-option" value="4" checked> Mästare / uppflyttad</label>
-                                            <label><input type="checkbox" class="filter-outcome-option" value="3" checked> Vidare mot titel / uppflyttning</label>
-                                            <label><input type="checkbox" class="filter-outcome-option" value="2" checked> Tidig semester</label>
-                                            <label><input type="checkbox" class="filter-outcome-option" value="1" checked> Kval nedåt – kvar</label>
+                                            <label><input type="checkbox" class="filter-outcome-option" value="3" checked> Vidare (slutspel)</label>
+                                            <label><input type="checkbox" class="filter-outcome-option" value="2" checked> Ej vidare</label>
+                                            <label><input type="checkbox" class="filter-outcome-option" value="1" checked> Vidare (kval nedåt)</label>
                                             <label><input type="checkbox" class="filter-outcome-option" value="0" checked> Nedflyttad</label>
-                                            <label><input type="checkbox" class="filter-outcome-option" value="unresolved" checked> Ej avgjort</label>
+                                            <label class="unresolved-special"><input type="checkbox" class="filter-outcome-option" value="unresolved" checked> Ej avgjort</label>
                                         </div>
                                     </details>
 
@@ -4525,8 +4527,9 @@
                 if (loadingIndicator) {
                     loadingIndicator.classList.remove('hidden');
                     loadingIndicator.innerHTML = `
-    <p>För att lägga till lag till diagrammet, klicka på <strong>"Välj lag i kombination med säsong ..."</strong> högst upp under rubriken och sedan <strong>"Ändra lag att välja mellan"</strong>.</p> 
-    <p style="margin-top:0">När lag valts kan du dra i reglaget under diagramytan för att se poängutvecklingen.`;
+    <p><strong>Välj lag och säsonger för att komma igång.</strong></p>
+    <p>Klicka på <strong>Ändra</strong> ovan och markera de lag och säsonger du vill jämföra. Bekräfta sedan urvalet för att visa dem i diagrammet.</p>
+    <p>När du har valt lag kan du använda reglaget under diagrammet för att följa poängutvecklingen under säsongen.</p>`;
 
                 }
 
@@ -6729,7 +6732,7 @@
 
                 const tdOutcome = document.createElement('td');
                 tdOutcome.className = 'historical-tooltip-target historical-tooltip-outcome';
-                const outcomeLabels = {4:'Mästare / uppflyttad',3:'Vidare mot titel / uppflyttning',2:'Tidig semester',1:'Kval nedåt – kvar',0:'Nedflyttad'};
+                const outcomeLabels = {4:'Mästare / uppflyttad',3:'Vidare (slutspel)',2:'Ej vidare',1:'Vidare (kval nedåt)',0:'Nedflyttad'};
                 tdOutcome.textContent = outcomeLabels[row.seasonOutcomeNumeric] ?? 'Ej avgjort';
                 tr.insertBefore(tdOutcome, tdPlayoff);
                 tbody.appendChild(tr);
@@ -12836,7 +12839,7 @@
    En egen tabellvy sparas, standardvyn förblir orörd. */
 (function () {
     const original = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall','Slutspel'];
-    const defaults = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall'];
+    const defaults = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall','Utfallsvärde'];
     const groups = [
       ['Grunduppgifter', ['Lag','Liga','Säsong','Grundserie','Antal lag','Seriematcher','Första match','Sista match']],
       ['Poäng och tabell', ['Poäng','Poäng/match','Poängandel %','Poäng efter ettan','Poäng till ovanför','Poäng före nedanför','Poäng före jumbon','Poäng mot ligasnitt','Relativ placering %']],
@@ -13050,7 +13053,7 @@
           'Kval nedåt':r.seasonOutcomeNumeric===1?'Ja':'Nej',
           'Ingenmansland':r.seasonOutcomeNumeric===2?'Ja':'Nej'
         };
-        if(id==='Säsongsutfall')return ({4:'Mästare / uppflyttad',3:'Vidare mot titel / uppflyttning',2:'Tidig semester',1:'Kval nedåt – kvar',0:'Nedflyttad'})[r.seasonOutcomeNumeric]??'Ej avgjort';
+        if(id==='Säsongsutfall')return ({4:'Mästare / uppflyttad',3:'Vidare (slutspel)',2:'Ej vidare',1:'Vidare (kval nedåt)',0:'Nedflyttad'})[r.seasonOutcomeNumeric]??'Ej avgjort';
         if(Object.prototype.hasOwnProperty.call(o.streaks,id))return fmt(o.streaks[id]);
         const v=vals[id];
         if(v==null||v==='')return '–';
