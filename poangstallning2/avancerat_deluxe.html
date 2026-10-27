@@ -538,6 +538,9 @@
             color: #6b7280;
         }
 
+        /* Den dolda summaryn hindrar webbläsaren från att skapa en egen "Details"-rad. */
+        .advanced-filter-invisible-summary { display: none; }
+
         /* Sekundär sektion: Ändra lag att välja mellan */
         .advanced-filter-section {
             margin-top: 1rem;
@@ -573,7 +576,7 @@
 
         .advanced-filter-content {
             padding: 0.5rem 0 0.5rem 0;
-            border-top: 1px solid #e5e7eb;
+            border-top: 0;
             margin-top: 0.25rem;
         }
 
@@ -1853,7 +1856,7 @@
 
                     <!-- 2: Sekundär sektion - Ändra lag att välja mellan (filter + tabell) -->
                     <details class="advanced-filter-section">
-                        <!-- Ingen extra klickbar mellanrubrik: Ändra-länken i huvudrubriken öppnar filtren. -->
+                        <summary class="advanced-filter-invisible-summary">Lagurval och filter</summary>
                         <div class="advanced-filter-content">
 
                             <div class="filter-header">
@@ -2273,9 +2276,10 @@
                                     </label>
 
                                     <div class="working-selection-actions">
-                                        <button id="apply-working-selection" disabled>
+                                        <button id="apply-working-selection" type="button">
                                             Bekräfta urval och återgå
                                         </button>
+                                        <button id="cancel-working-selection" type="button">Avbryt och återgå</button>
                                         <button id="range-working-selection" type="button">
                                             Markera intervall
                                         </button>
@@ -10237,6 +10241,10 @@
             return selected.concat(unselected);
         }
 
+        // Gemensam, stabil gruppering för även de anpassade kolumnerna.
+        // Endast BEKRÄFTADE nycklar avgör grupp, aldrig arbetsurvalets kryss.
+        window.deluxePartitionConfirmedRows = rows => partitionRowsByMainViewSelection(rows, true);
+
         // --- TABELL: SORTERING - LAG, LIGA, SÄSONG, GRUNDSERIE, SLUTSPEL ---
         function setupTableSorting() {
             const table = document.querySelector('.team-table');
@@ -10608,6 +10616,11 @@
             const workingTextEl = document.getElementById('working-selection-text');
             const applyBtn = document.getElementById('apply-working-selection');
             const rangeBtn = document.getElementById('range-working-selection');
+            const cancelBtn = document.getElementById('cancel-working-selection');
+            if (cancelBtn) cancelBtn.addEventListener('click', () => {
+                const panel = document.querySelector('.advanced-filter-section');
+                if (panel) panel.open = false;
+            });
             const advancedDetails = document.querySelector('.advanced-filter-section');
 
             // --- STEG 1: Återställ filter + synka när panelen öppnas ---
@@ -10765,6 +10778,11 @@
                             // console.log('>> [ARBETSURVAL] Panel öppnad - synkar tabellen med huvudvyn.');
                             syncWorkingSelectionFromMainView();
                         }
+                        // Behåll sorteringens gruppindelning även efter synk av arbetsurvalet.
+                        const confirmedFirst = document.getElementById('sort-checked-first');
+                        if (confirmedFirst && confirmedFirst.checked) {
+                            confirmedFirst.dispatchEvent(new Event('change'));
+                        }
                     }
                 });
             }
@@ -10812,7 +10830,8 @@
                 }
 
                 if (applyBtn) {
-                    applyBtn.disabled = (count === 0);
+                    // Noll valda lag är ett giltigt, uttryckligt arbetsurval.
+                    applyBtn.disabled = false;
                 }
 
                 // Uppdatera header-checkboxens status (alla synliga ikryssade?)
@@ -13166,7 +13185,10 @@
             return x.localeCompare(y,'sv',{numeric:true})*(ascending?1:-1);
         });
         const checkedFirst=document.getElementById('sort-checked-first')?.checked;
-        if(checkedFirst){rows.sort((a,b)=>Number(!!b.querySelector('input.team-table-row-checkbox')?.checked)-Number(!!a.querySelector('input.team-table-row-checkbox')?.checked));}
+        if(checkedFirst && typeof window.deluxePartitionConfirmedRows==='function'){
+            const grouped=window.deluxePartitionConfirmedRows(rows);
+            rows.splice(0,rows.length,...grouped);
+        }
         rows.forEach(r=>body.appendChild(r));
     }
     window.deluxeApplyTableColumns=apply;
