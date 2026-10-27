@@ -348,6 +348,11 @@
             padding: 0.32rem 0.4rem;
         }
 
+        .season-length-hint { font-size: .83rem; color: #5b6470; margin: .5rem 0 .65rem; }
+        .season-length-options { display: flex; flex-wrap: wrap; gap: .45rem .9rem; }
+        .season-length-options label { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; cursor: pointer; font-size: .87rem; }
+        .season-length-options input { margin: 0; }
+
         /* MATCHURVAL – egen, luftig layout. Befintliga radio-inputs och ID:n
            behålls för att inte ändra filterlogiken. */
         .filter-group[data-filter-group="match-selection"] .filter-group-content {
@@ -1953,11 +1958,8 @@
                                     <details class="filter-group" data-filter-group="season-length">
                                         <summary><span class="filter-group-title">Säsongslängd</span><span class="filter-group-state" id="season-length-filter-count" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block">
-                                            <div class="goal-filter-row">
-                                                <label for="filter-season-length-value">Antal matcher per säsong</label>
-                                                <select id="filter-season-length-op" aria-label="Jämförelse för Antal matcher per säsong"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
-                                                <input type="number" id="filter-season-length-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Antal matcher per säsong">
-                                            </div>
+                                            <p class="season-length-hint">Välj vilka antal grundseriematcher som ska ingå. Alla är valda från början.</p>
+                                            <div id="season-length-options" class="season-length-options" role="group" aria-label="Antal matcher per säsong"></div>
                                         </div>
                                     </details>
 
@@ -5097,6 +5099,7 @@
 
             // 1) Bygg säsongslistan innan checkboxarnas lyssnare kopplas.
             populateSeasonFilter();
+            setupSeasonLengthFilterListeners();
             setupLeagueFilter();
             setupAllCheckboxLogic();
 
@@ -5145,7 +5148,6 @@
             setupSeasonOutcomeFilterListeners();
             setupGoalFilterListeners();    // målstatistik från games
             setupStreakFilterListeners();  // längsta sviter från games
-            setupSeasonLengthFilterListeners();
             setupNumericFilterEnterBlur();
             setupSingleGameFilterListeners(); // extremvärden från enskilda matcher
             setupDecisionFilterListeners();   // FT / OT / SO / OT+SO
@@ -8647,7 +8649,9 @@
 
             // --- MÅLSTATISTIK ---
             // Tomt värdefält betyder inaktivt filter. Operatorn ensam påverkar alltså inget.
-            const seasonLengthFilter = readGoalFilter('filter-season-length');
+            const seasonLengthOptions = Array.from(document.querySelectorAll('#season-length-options input[type="checkbox"]'));
+            const activeSeasonLengths = new Set(seasonLengthOptions.filter(cb => cb.checked).map(cb => Number(cb.value)));
+            const seasonLengthActive = seasonLengthOptions.length > 0 && activeSeasonLengths.size !== seasonLengthOptions.length;
             const extraStreakKeys = ['points','withoutWin','withoutLoss','scoring','cleanSheet'];
             const extraGoalKeys = ['shutouts','scoreless','forAverage','againstAverage'];
             const goalFilters = getActiveGoalFilters();
@@ -8850,10 +8854,10 @@
                     ? computeStatsForSelectedMatches(row.dataset.team || '', selectedMatches)
                     : null;
                 const matchSelectionOk = !matchSelectionActive || selectedMatches.length > 0;
-                const fullSeasonGames = (seasonLengthFilter || extraStreakActive || extraGoalActive || singleGameFilters.mostTotal)
+                const fullSeasonGames = (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal)
                     ? getSeasonGames(row.dataset.team || '', seasonId, league) : null;
-                const seasonLengthOk = !seasonLengthFilter ||
-                    numericFilterMatches(fullSeasonGames?.length, seasonLengthFilter);
+                const seasonLengthOk = !seasonLengthActive ||
+                    activeSeasonLengths.has(window.__deluxeSeasonLengths?.get(goalStatsKey) ?? -1);
                 const extraKey = goalStatsKey + (matchSelectionActive ? '::selection' : '::full');
                 let extra = null;
                 if (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal) {
@@ -9286,22 +9290,38 @@
             refreshGoalCount();
         }
 
+        // Antal matcher per lag och säsong räknas EN gång från Games.
+        // Beräkningen är fristående från de dyrare matchstatistiken.
         function setupSeasonLengthFilterListeners() {
             const group = document.querySelector('[data-filter-group="season-length"]');
-            if (!group || group.dataset.bound === '1') return;
+            const root = document.getElementById('season-length-options');
+            if (!group || !root) return;
+            if (window.__deluxeSeasonLengthsSource !== matches) {
+                const counts = new Map();
+                for (const m of matches) {
+                    for (const team of [m.homeTeam, m.awayTeam]) {
+                        const key = `${m.league}::${m.seasonId}::${team}`;
+                        counts.set(key, (counts.get(key) || 0) + 1);
+                    }
+                }
+                window.__deluxeSeasonLengths = counts;
+                window.__deluxeSeasonLengthsSource = matches;
+            }
+            const lengths = [...new Set(window.__deluxeSeasonLengths.values())].sort((a,b) => a-b);
+            root.replaceChildren();
+            for (const length of lengths) {
+                const label = document.createElement('label');
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.value = String(length);
+                input.checked = true;
+                input.dataset.filterUiDefault = '1';
+                label.append(input, document.createTextNode(`${length} matcher`));
+                root.append(label);
+            }
+            if (group.dataset.bound === '1') return;
             group.dataset.bound = '1';
-            const value = document.getElementById('filter-season-length-value');
-            const count = document.getElementById('season-length-filter-count');
-            const refresh = () => {
-                const active = value.value.trim() !== '';
-                group.classList.toggle('is-changed', active);
-                count.textContent = active ? '(1)' : '';
-                applyTableFilters();
-            };
-            group.querySelectorAll('input, select').forEach(el => {
-                el.addEventListener('input',refresh);
-                el.addEventListener('change',refresh);
-            });
+            root.addEventListener('change', () => applyTableFilters());
         }
 
         // Enter ska bekräfta numeriska filter och lämna fältet.
@@ -10712,20 +10732,8 @@
 
                     // När panelen ÖPPNAS:
                     if (isOpen) {
-                        // 1) Återställ alla filter till defaultläget (allt synligt)
-                        beginDeluxeFilterResetBatch();
-                        try {
-                            resetTableFiltersToDefaults();
-
-                        // Återställ även de filtergrupper som har egna kontroller,
-                        // rensa felaktiga "Ändrad"-markeringar och fäll ihop grupperna.
-                        // Funktionen kopplas in av initFilterGroupUI nedan.
-                        if (typeof window.resetDeluxeFilterGroupUI === 'function') {
-                            window.resetDeluxeFilterGroupUI();
-                        }
-                        } finally {
-                            endDeluxeFilterResetBatch();
-                        }
+                        // Filter behålls när panelen öppnas igen.
+                        // Återställning sker bara via användarens Återställ-knappar.
 
                         // 2) Synka tabellens kryss med huvudvyns lagchips
                         if (typeof syncWorkingSelectionFromMainView === 'function') {
