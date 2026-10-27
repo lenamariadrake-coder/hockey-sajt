@@ -1752,7 +1752,8 @@
 </style>
 <style>
 /* Diskret visuell markering för specialfallet Ej avgjort. */
-.filter-group label.unresolved-special { display: inline-flex; align-items: center; gap: 0.3rem; width: fit-content; max-width: 100%; background: #eaf5f4; border-radius: 5px; padding: 4px 9px; }
+/* Bakgrund utan padding eller ändrad layout: kryssruta och text behåller exakt sina positioner. */
+.filter-group label.unresolved-special { background: #eaf5f4; border-radius: 2px; box-shadow: 0 0 0 5px #eaf5f4; }
 </style>
 </head>
 
@@ -12848,7 +12849,7 @@
       ['Hemma och borta', ['Hemmamatcher','Bortamatcher','Hemmapoäng','Bortapoäng','Poäng/match hemma','Poäng/match borta','Hemmavinster','Bortavinster','Målskillnad hemma','Målskillnad borta']],
       ['Sviter', ['Segersvit','Förlustsvit','3-poängssvit','0-poängssvit','Poängsvit','Utan seger','Utan förlust','Målsvit','Nollsvit']],
       ['Enskilda matcher', ['Största seger','Största förlust','Flest mål framåt','Flest mål bakåt','Målrikaste match','Uddamålssegrar','Uddamålsförluster','Matcher med 8+ mål','Matcher med 10+ mål']],
-      ['Slutspel och utfall', ['Säsongsutfall','Slutspel','Slutspelsnivå','Utfallsvärde','Utfallskommentar','Seriesegrare','Mästare','Uppflyttad','Nedflyttad','Kval nedåt','Ingenmansland']]
+      ['Slutspel och utfall', ['Säsongsutfall','Utfallsvärde','Slutspel','Slutspelsnivå','Utfallskommentar','Seriesegrare','Mästare','Uppflyttad','Nedflyttad','Kval nedåt','Ingenmansland']]
     ];
     // Kom ihåg vilka grupper besökaren har öppnat även när kolumnvalen ritas om.
     const openGroups = new Set(['Grunduppgifter']);
