@@ -349,6 +349,7 @@
         }
 
         .season-length-hint { font-size: .83rem; color: #5b6470; margin: .5rem 0 .65rem; }
+        .season-length-master { display: inline-flex; align-items: center; gap: .4rem; margin: 0 0 .7rem; font-weight: 600; font-size: .87rem; cursor: pointer; }
         .season-length-options { display: flex; flex-wrap: wrap; gap: .45rem .9rem; }
         .season-length-options label { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; cursor: pointer; font-size: .87rem; }
         .season-length-options input { margin: 0; }
@@ -1959,6 +1960,7 @@
                                         <summary><span class="filter-group-title">Säsongslängd</span><span class="filter-group-state" id="season-length-filter-count" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block">
                                             <p class="season-length-hint">Välj vilka antal grundseriematcher som ska ingå. Alla är valda från början.</p>
+                                            <label class="season-length-master"><input type="checkbox" id="season-length-all" checked> Markera/avmarkera alla</label>
                                             <div id="season-length-options" class="season-length-options" role="group" aria-label="Antal matcher per säsong"></div>
                                         </div>
                                     </details>
@@ -8856,7 +8858,9 @@
                 const matchSelectionOk = !matchSelectionActive || selectedMatches.length > 0;
                 const fullSeasonGames = (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal)
                     ? getSeasonGames(row.dataset.team || '', seasonId, league) : null;
+                // Pågående säsong har ännu inte sin slutliga längd och påverkas inte av filtret.
                 const seasonLengthOk = !seasonLengthActive ||
+                    seasonId === window.__deluxeOngoingSeasonId ||
                     activeSeasonLengths.has(window.__deluxeSeasonLengths?.get(goalStatsKey) ?? -1);
                 const extraKey = goalStatsKey + (matchSelectionActive ? '::selection' : '::full');
                 let extra = null;
@@ -9290,12 +9294,19 @@
             refreshGoalCount();
         }
 
-        // Antal matcher per lag och säsong räknas EN gång från Games.
-        // Beräkningen är fristående från de dyrare matchstatistiken.
+        // Säsongslängd: räkna endast färdigspelade säsonger när alternativ skapas.
+        // Pågående säsong varken skapar ett missvisande alternativ eller filtreras bort.
         function setupSeasonLengthFilterListeners() {
             const group = document.querySelector('[data-filter-group="season-length"]');
             const root = document.getElementById('season-length-options');
-            if (!group || !root) return;
+            const master = document.getElementById('season-length-all');
+            if (!group || !root || !master) return;
+
+            const now = new Date();
+            const seasonStart = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+            const ongoingId = `${seasonStart}-${seasonStart + 1}`;
+            window.__deluxeOngoingSeasonId = ongoingId;
+
             if (window.__deluxeSeasonLengthsSource !== matches) {
                 const counts = new Map();
                 for (const m of matches) {
@@ -9307,21 +9318,53 @@
                 window.__deluxeSeasonLengths = counts;
                 window.__deluxeSeasonLengthsSource = matches;
             }
-            const lengths = [...new Set(window.__deluxeSeasonLengths.values())].sort((a,b) => a-b);
+
+            const lengths = [...new Set([...window.__deluxeSeasonLengths.entries()]
+                .filter(([key]) => !key.split('::').includes(ongoingId))
+                .map(([, count]) => count))].sort((a,b) => a-b);
+
+            // Behåll kryssade alternativ om funktionen skulle anropas igen.
+            const previous = new Map([...root.querySelectorAll('input[type="checkbox"]')]
+                .map(input => [input.value, input.checked]));
             root.replaceChildren();
             for (const length of lengths) {
                 const label = document.createElement('label');
                 const input = document.createElement('input');
                 input.type = 'checkbox';
                 input.value = String(length);
-                input.checked = true;
+                input.checked = previous.has(input.value) ? previous.get(input.value) : true;
                 input.dataset.filterUiDefault = '1';
                 label.append(input, document.createTextNode(`${length} matcher`));
                 root.append(label);
             }
+
+            function syncMaster() {
+                const options = [...root.querySelectorAll('input[type="checkbox"]')];
+                const selected = options.filter(input => input.checked).length;
+                master.checked = options.length > 0 && selected === options.length;
+                master.indeterminate = selected > 0 && selected < options.length;
+                const count = document.getElementById('season-length-filter-count');
+                if (count) count.textContent = selected === options.length ? '' : `(${selected}/${options.length})`;
+            }
+            syncMaster();
             if (group.dataset.bound === '1') return;
             group.dataset.bound = '1';
-            root.addEventListener('change', () => applyTableFilters());
+            master.addEventListener('change', () => {
+                const options = [...root.querySelectorAll('input[type="checkbox"]')];
+                // Delvis markerat -> markera alla, helt markerat -> avmarkera alla.
+                const allSelected = options.every(input => input.checked);
+                const target = !allSelected;
+                options.forEach(input => { input.checked = target; });
+                syncMaster();
+                applyTableFilters();
+            });
+            root.addEventListener('change', () => {
+                syncMaster();
+                applyTableFilters();
+            });
+            // Återställ-knappar kan ändra kryssrutorna programmatiskt.
+            group.addEventListener('change', syncMaster);
+            window.__deluxeSyncSeasonLengthMaster = syncMaster;
         }
 
         // Enter ska bekräfta numeriska filter och lämna fältet.
@@ -12421,8 +12464,14 @@
                     }
                     // De interna lyssnarna sköter visning av Mellan-fält och beräkning.
                     // En change-signal räcker för att uppdatera respektive grupps logik.
-                    const first = group.querySelector('input, select');
-                    if (first) first.dispatchEvent(new Event('change', { bubbles: true }));
+                    if (key === 'season-length') {
+                        // Master-checkboxen får inte triggas vid återställning:
+                        // dess change-hanterare skulle annars växla alla val igen.
+                        window.__deluxeSyncSeasonLengthMaster?.();
+                    } else {
+                        const first = group.querySelector('input, select');
+                        if (first) first.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                     group.open = wasOpen;
                     refreshChangedStates();
                     applyTableFilters();
