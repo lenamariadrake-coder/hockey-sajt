@@ -348,6 +348,13 @@
             padding: 0.32rem 0.4rem;
         }
 
+
+        /* Undergrupper inom Serie & säsongsformat. */
+        .series-format-content .series-format-section + .series-format-section { margin-top: 1.05rem; padding-top: .85rem; border-top: 1px solid #e5e7eb; }
+        .series-format-heading { font-weight: 650; margin-bottom: .55rem; }
+        .series-format-content .season-length-hint { margin-top: .15rem; }
+        .series-format-content .season-length-options { margin-top: .3rem; }
+        .format-info { cursor: help; color: #557487; font-size: .88em; font-weight: 500; }
         .season-length-hint { font-size: .83rem; color: #5b6470; margin: .5rem 0 .65rem; }
         /* Samma kryssruteavstånd och vänsterkant som i filtret Säsonger. */
         .season-length-master { display: flex; align-items: center; gap: 0; margin: 0 0 .45rem; font-size: .87rem; cursor: pointer; font-weight: 500; }
@@ -1891,12 +1898,33 @@
                                 </div>
 
                                 <div class="filter-groups" id="filter-groups">
-                                    <details class="filter-group" data-filter-group="league">
-                                        <summary><span class="filter-group-title">Ligor</span><span class="filter-group-state" aria-hidden="true"></span></summary>
-                                        <div class="filter-group-content filter-block">
+                                    <details class="filter-group" data-filter-group="series-format">
+                                        <summary><span class="filter-group-title">Serie &amp; säsongsformat</span><span class="filter-group-state" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block series-format-content">
+                                            <section class="series-format-section" data-filter-group="league">
+                                                <div class="series-format-heading">Serietillhörighet</div>
+
                                             <label><input type="checkbox" id="filter-league-all"> Alla</label>
                                             <label><input type="checkbox" id="filter-league-ha" value="HA" checked> Hockeyallsvenskan</label>
                                             <label><input type="checkbox" id="filter-league-shl" value="SHL" checked> SHL</label>
+                                                                                    </section>
+                                            <section class="series-format-section" data-filter-group="season-length">
+                                                <div class="series-format-heading">Säsongslängd</div>
+
+                                            <p class="season-length-hint">Välj vilka antal grundseriematcher som ska ingå. Alla är valda från början.</p>
+                                            <label class="season-length-master"><input type="checkbox" id="season-length-all" checked> Markera/avmarkera alla</label>
+                                            <div id="season-length-options" class="season-length-options" role="group" aria-label="Antal matcher per säsong"></div>
+                                                                                    </section>
+                                            <section class="series-format-section" data-filter-group="team-count">
+                                                <div class="series-format-heading">Antal lag</div>
+                                                <label class="season-length-master"><input type="checkbox" id="team-count-all" checked> Markera/avmarkera alla</label>
+                                                <div id="team-count-options" class="season-length-options" role="group" aria-label="Antal lag i serien"></div>
+                                            </section>
+                                            <section class="series-format-section" data-filter-group="points-system">
+                                                <div class="series-format-heading">Poängsystem <span class="format-info" title="Tre poäng för seger innebär inte att varje match delade ut tre poäng. Historiskt kunde matcher sluta oavgjort även efter förlängning." aria-label="Information om poängsystem">ⓘ</span></div>
+                                                <label class="season-length-master"><input type="checkbox" id="points-system-all" checked> Markera/avmarkera alla</label>
+                                                <div id="points-system-options" class="season-length-options" role="group" aria-label="Poäng för seger"></div>
+                                            </section>
                                         </div>
                                     </details>
 
@@ -2010,15 +2038,6 @@
                                             <label><input type="checkbox" class="filter-outcome-option" value="1" checked> Vidare (kval nedåt)</label>
                                             <label><input type="checkbox" class="filter-outcome-option" value="0" checked> Nedflyttad</label>
                                             <label class="unresolved-special"><input type="checkbox" class="filter-outcome-option" value="unresolved" checked> Ej avgjort</label>
-                                        </div>
-                                    </details>
-
-                                    <details class="filter-group" data-filter-group="season-length">
-                                        <summary><span class="filter-group-title">Säsongslängd</span><span class="filter-group-state" id="season-length-filter-count" aria-hidden="true"></span></summary>
-                                        <div class="filter-group-content filter-block">
-                                            <p class="season-length-hint">Välj vilka antal grundseriematcher som ska ingå. Alla är valda från början.</p>
-                                            <label class="season-length-master"><input type="checkbox" id="season-length-all" checked> Markera/avmarkera alla</label>
-                                            <div id="season-length-options" class="season-length-options" role="group" aria-label="Antal matcher per säsong"></div>
                                         </div>
                                     </details>
 
@@ -5140,6 +5159,7 @@
             // 1) Bygg säsongslistan innan checkboxarnas lyssnare kopplas.
             populateSeasonFilter();
             setupSeasonLengthFilterListeners();
+            setupSeriesFormatFilters();
             setupLeagueFilter();
             setupAllCheckboxLogic();
 
@@ -8692,6 +8712,12 @@
             const seasonLengthOptions = Array.from(document.querySelectorAll('#season-length-options input[type="checkbox"]'));
             const activeSeasonLengths = new Set(seasonLengthOptions.filter(cb => cb.checked).map(cb => Number(cb.value)));
             const seasonLengthActive = seasonLengthOptions.length > 0 && activeSeasonLengths.size !== seasonLengthOptions.length;
+            const teamCountOptions = [...document.querySelectorAll('#team-count-options input')];
+            const selectedTeamCounts = new Set(teamCountOptions.filter(cb => cb.checked).map(cb => Number(cb.value)));
+            const teamCountActive = teamCountOptions.length > 0 && selectedTeamCounts.size !== teamCountOptions.length;
+            const pointSystemOptions = [...document.querySelectorAll('#points-system-options input')];
+            const selectedPointSystems = new Set(pointSystemOptions.filter(cb => cb.checked).map(cb => Number(cb.value)));
+            const pointSystemActive = pointSystemOptions.length > 0 && selectedPointSystems.size !== pointSystemOptions.length;
             const extraStreakKeys = ['points','withoutWin','withoutLoss','scoring','cleanSheet'];
             const extraGoalKeys = ['shutouts','scoreless','forAverage','againstAverage'];
             const goalFilters = getActiveGoalFilters();
@@ -8909,6 +8935,11 @@
                 const seasonLength = seasonStartYear >= 2026 ? 52 :
                     (window.__deluxeSeasonLengths?.get(goalStatsKey) ?? -1);
                 const seasonLengthOk = !seasonLengthActive || activeSeasonLengths.has(seasonLength);
+                const seasonFormatKey = `${league}::${seasonId}`;
+                const teamCount = window.__deluxeTeamCounts?.get(seasonFormatKey);
+                const teamCountOk = !teamCountActive || selectedTeamCounts.has(teamCount);
+                const pointSystem = window.__deluxeSeasonPointSystems?.get(seasonFormatKey);
+                const pointSystemOk = !pointSystemActive || selectedPointSystems.has(pointSystem);
                 const extraKey = goalStatsKey + (matchSelectionActive ? '::selection' : '::full');
                 let extra = null;
                 if (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal) {
@@ -8992,7 +9023,7 @@
                     });
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && outcomeOk && progressionOk && matchSelectionOk && seasonLengthOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && outcomeOk && progressionOk && matchSelectionOk && seasonLengthOk && teamCountOk && pointSystemOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
@@ -9357,6 +9388,67 @@
          * För äldre säsonger hämtas antalet matcher per lag ur Games.
          * Säsongslängd är alltså INTE antal spelade matcher hittills.
          */
+        // Serieformat härleds ur season_summary och poängfördelningen i Games.
+        // Säsongen 2005/2006 i HA hade 15 deltagande lag efter en uteslutning.
+        function setupSeriesFormatFilters() {
+            const counts = new Map();
+            for (const row of seasonSummaryRows || []) {
+                if (!['HA', 'SHL'].includes(row.league)) continue;
+                const key = `${row.league}::${row.seasonId}`;
+                if (!counts.has(key)) counts.set(key, new Set());
+                counts.get(key).add(row.team);
+            }
+            window.__deluxeTeamCounts = new Map([...counts].map(([key, teams]) => [key, teams.size]));
+            const points = new Map();
+            for (const match of matches || []) {
+                const key = `${match.league}::${match.seasonId}`;
+                const high = Math.max(Number(match.homePoints) || 0, Number(match.awayPoints) || 0);
+                if (high >= 2) points.set(key, Math.max(points.get(key) || 0, high));
+            }
+            window.__deluxeSeasonPointSystems = points;
+
+            function build(rootId, masterId, values, format) {
+                const root = document.getElementById(rootId);
+                const master = document.getElementById(masterId);
+                if (!root || !master) return;
+                root.replaceChildren();
+                for (const value of values) {
+                    const label = document.createElement('label');
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox'; cb.value = String(value); cb.checked = true;
+                    cb.dataset.filterUiDefault = '1';
+                    label.append(cb, document.createTextNode(format(value)));
+                    if (rootId === 'team-count-options' && value === 15) {
+                        const info = document.createElement('span');
+                        info.className = 'format-info';
+                        info.textContent = ' ⓘ';
+                        info.title = 'Hockeyallsvenskan 2005/2006 hade 15 lag eftersom ett lag uteslöts ur serien.';
+                        info.setAttribute('aria-label', info.title);
+                        label.append(info);
+                    }
+                    root.append(label);
+                }
+                const sync = () => {
+                    const all = [...root.querySelectorAll('input')];
+                    const checked = all.filter(cb => cb.checked).length;
+                    master.checked = checked === all.length;
+                    master.indeterminate = checked > 0 && checked < all.length;
+                };
+                master.addEventListener('change', () => {
+                    const all = [...root.querySelectorAll('input')];
+                    const target = !all.every(cb => cb.checked);
+                    all.forEach(cb => cb.checked = target);
+                    sync(); applyTableFilters();
+                });
+                root.addEventListener('change', () => { sync(); applyTableFilters(); });
+                window.addEventListener('deluxe-series-format-reset', sync);
+            }
+            build('team-count-options', 'team-count-all',
+                [...new Set(window.__deluxeTeamCounts.values())].sort((a,b) => a-b), n => `${n} lag`);
+            // Visa 2 och 3 även om den inlästa historiken bara innehåller 3-poängssegrar.
+            build('points-system-options', 'points-system-all', [2, 3], n => `${n} poäng för seger`);
+        }
+
         function setupSeasonLengthFilterListeners() {
             const group = document.querySelector('[data-filter-group="season-length"]');
             const root = document.getElementById('season-length-options');
@@ -12489,6 +12581,10 @@
                     }
                     // De interna lyssnarna sköter visning av Mellan-fält och beräkning.
                     // En change-signal räcker för att uppdatera respektive grupps logik.
+                    if (key === 'series-format') {
+                        window.__deluxeSyncSeasonLengthMaster?.();
+                        window.dispatchEvent(new Event('deluxe-series-format-reset'));
+                    }
                     if (key === 'season-length') {
                         // Master-checkboxen får inte triggas vid återställning:
                         // dess change-hanterare skulle annars växla alla val igen.
