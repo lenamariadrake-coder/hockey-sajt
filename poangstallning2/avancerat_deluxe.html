@@ -2546,11 +2546,11 @@
                     const outcome = Number(meta?.seasonOutcomeNumeric);
                     if (meta?.seasonOutcomeNumeric == null) return '\u00B7 Ej klassificerat';
                     switch (outcome) {
-                        case 4: return meta.league === 'HA' ? 'Uppflyttad (EK)' : '\u{1F3C6} Mästare (EK)';
-                        case 3: return 'Vidare till slutspel (EK)';
-                        case 2: return '\u00B7 Ej vidare (EK)';
-                        case 1: return 'Vidare till kval nedåt (EK)';
-                        case 0: return 'Nedflyttad (EK)';
+                        case 4: return meta.league === 'HA' ? 'Uppflyttad' : '\u{1F3C6} Mästare';
+                        case 3: return 'Vidare till slutspel';
+                        case 2: return '\u00B7 Ej vidare';
+                        case 1: return 'Vidare till kval nedåt';
+                        case 0: return 'Nedflyttad';
                         default: return '\u00B7 Ej klassificerat';
                     }
                 }
@@ -11840,6 +11840,13 @@
                     updateChipActionsUI();
 
                     // console.log('=== [ARBETSURVAL] FÄRDIG - huvudvyn uppdaterad enligt A/B/C ===');
+
+                    // Bekräftade lag överst: gruppera om även när alternativet redan är ikryssat.
+                    // Huvudvyns urval är nu uppdaterat, så sorteringen får rätt nycklar.
+                    const confirmedFirstAfterApply = document.getElementById('sort-checked-first');
+                    if (confirmedFirstAfterApply?.checked) {
+                        confirmedFirstAfterApply.dispatchEvent(new Event('change'));
+                    }
 
                     // Bekräfta sparar urvalet, men användaren stannar kvar i tabellen.
                     // Återgå är en separat knapp.
