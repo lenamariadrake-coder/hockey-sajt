@@ -12836,8 +12836,6 @@
 .deluxe-column-search { display:block; width:min(100%,400px); padding:8px; margin:6px 0 12px; border:1px solid #ccd0d6; border-radius:6px; }
 .team-table th.deluxe-extra-sortable { cursor:pointer; }
 .deluxe-column-item { display:inline-flex; gap:5px; align-items:center; border:1px solid #ddd; border-radius:6px; padding:5px 7px; background:#fafafa; }
-.deluxe-column-item[draggable="true"] { cursor:grab; }
-.deluxe-column-item.drag-over { outline:2px solid #5f2570; }
 .deluxe-column-item button { padding:2px 5px; }
 .deluxe-column-item button:disabled { opacity:.3; cursor:default; }
 .team-table [data-column-hidden="true"] { display:none !important; }
@@ -12855,6 +12853,10 @@
 .deluxe-column-editor[hidden] { display:none !important; }
 .deluxe-column-order-item { display:inline-flex; gap:5px; align-items:center; padding:4px 6px; border:1px solid #ded6e3; border-radius:6px; }
 .deluxe-column-order-item button { min-width:26px; padding:2px 5px; }
+.deluxe-column-order-item[draggable="true"] { cursor:grab; }
+.deluxe-column-order-item.is-dragging { opacity:.45; cursor:grabbing; }
+.deluxe-column-order-item.drag-over { outline:2px solid #5f2570; outline-offset:2px; background:#f3eaf7; }
+.deluxe-column-order-item button { cursor:pointer; }
 .deluxe-column-selected .deluxe-column-position { color:#777; font-size:.8em; }
 
 .deluxe-view-switch { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:5px 0; }
@@ -13165,6 +13167,33 @@
             const chosen=visibleOrder();
             chosen.forEach((id,i)=>{
                 const item=document.createElement('span');item.className='deluxe-column-order-item';
+                item.draggable=true;
+                item.title='Dra för att ändra kolumnordningen';
+                item.addEventListener('dragstart',e=>{
+                    // Dra enbart den valda kolumnbrickan, inte pilknapparna.
+                    if(e.target.closest?.('button')){e.preventDefault();return;}
+                    e.dataTransfer.effectAllowed='move';
+                    e.dataTransfer.setData('text/plain',id);
+                    item.classList.add('is-dragging');
+                });
+                item.addEventListener('dragend',()=>item.classList.remove('is-dragging'));
+                item.addEventListener('dragover',e=>{
+                    if(!e.dataTransfer.types.includes('text/plain'))return;
+                    e.preventDefault();e.dataTransfer.dropEffect='move';
+                    item.classList.add('drag-over');
+                });
+                item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
+                item.addEventListener('drop',e=>{
+                    e.preventDefault();item.classList.remove('drag-over');
+                    const from=e.dataTransfer.getData('text/plain');
+                    const current=visibleOrder();
+                    const fromIndex=current.indexOf(from),toIndex=current.indexOf(id);
+                    if(fromIndex<0||toIndex<0||fromIndex===toIndex)return;
+                    current.splice(fromIndex,1);
+                    current.splice(toIndex,0,from);
+                    custom.order=[...current,...custom.order.filter(x=>!current.includes(x))];
+                    save();apply();
+                });
                 const num=document.createElement('span');num.className='deluxe-column-position';num.textContent=String(i+1)+'. '+id;
                 item.append(num);
                 for(const delta of [-1,1]){
@@ -13258,22 +13287,12 @@
             section.appendChild(summary);
             const itemsBox=document.createElement('div');itemsBox.className='deluxe-column-group-items';
             for(const id of matches){
-                const index=state.order.indexOf(id),item=document.createElement('div');
-                item.className='deluxe-column-item';item.draggable=!defaultMode&&!q;
+                const item=document.createElement('div');
+                item.className='deluxe-column-item';
                 const label=document.createElement('label'),check=document.createElement('input');
                 check.type='checkbox';check.checked=state.visible.includes(id);check.disabled=false;
                 check.addEventListener('change',()=>{if(check.checked&&!custom.visible.includes(id))custom.visible.push(id);else if(!check.checked)custom.visible=custom.visible.filter(x=>x!==id);save();apply();});
                 label.append(check,document.createTextNode(' '+id));item.append(label);
-                for(const delta of [-1,1]){
-                    const btn=document.createElement('button');btn.type='button';btn.textContent=delta<0?'↑':'↓';
-                    btn.title=delta<0?'Flytta tidigare':'Flytta senare';
-                    btn.disabled=defaultMode||index+delta<0||index+delta>=state.order.length;
-                    btn.addEventListener('click',()=>move(id,index+delta));item.append(btn);
-                }
-                item.addEventListener('dragstart',e=>{if(defaultMode){e.preventDefault();return;}e.dataTransfer.setData('text/plain',id);});
-                item.addEventListener('dragover',e=>{if(!defaultMode){e.preventDefault();item.classList.add('drag-over');}});
-                item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
-                item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');const from=e.dataTransfer.getData('text/plain');if(ids.includes(from))move(from,custom.order.indexOf(id));});
                 itemsBox.append(item);
             }
             section.append(itemsBox);list.append(section);
@@ -13380,7 +13399,7 @@
             save();apply();
         });
         actions.append(use,copy,copyAll,clear,textMessage);
-        const selectedLabel=document.createElement('div');selectedLabel.textContent='Valda kolumner i tabellordning (använd pilarna för att flytta):';selectedLabel.className='deluxe-column-text-help';
+        const selectedLabel=document.createElement('div');selectedLabel.textContent='Valda kolumner i tabellordning (dra brickorna eller använd pilarna för att flytta):';selectedLabel.className='deluxe-column-text-help';
         selectedHost=document.createElement('div');selectedHost.className='deluxe-column-selected';
         textPanel.append(textLabel,textArea,help,actions,selectedLabel,selectedHost);
         list=document.createElement('div');list.className='deluxe-column-items';
