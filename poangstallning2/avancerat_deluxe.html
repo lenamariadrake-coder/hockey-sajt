@@ -1755,6 +1755,15 @@
 /* Bakgrund utan padding eller ändrad layout: kryssruta och text behåller exakt sina positioner. */
 .filter-group label.unresolved-special { background: #eaf5f4; border-radius: 2px; box-shadow: 0 0 0 5px #eaf5f4; }
 </style>
+<style>
+/* Grundserie: underrubriker utan ytterligare utfällbara nivåer. */
+#regular-experiment .rex-subsection { margin-top:16px; padding-top:12px; border-top:1px solid #e1e4e8; }
+#regular-experiment .rex-subsection-title { font-weight:700; margin-bottom:7px; }
+#regular-experiment .rex-subsection-hint { font-size:12px; color:#68717b; margin-bottom:8px; }
+#regular-experiment #rex-progression label { display:flex; align-items:center; gap:7px; margin:6px 0; }
+#regular-experiment #rex-progression input { margin:0; }
+#regular-experiment #rex-points .goal-filter-row { margin-top:5px; }
+</style>
 </head>
 
 <body>
@@ -1928,6 +1937,29 @@
                                                 <div class="rex-small-note">Räknas separat för varje säsong.</div>
                                             </div>
                                             <div id="rex-summary" class="rex-summary" hidden aria-live="polite"></div>
+                                            <div class="rex-subsection" id="rex-progression">
+                                                <div class="rex-subsection-title">Fortsatt spel</div>
+                                                <div class="rex-subsection-hint">Grundseriens väg vidare (skilt från det slutliga säsongsutfallet).</div>
+                                                <label><input type="checkbox" class="rex-progression-option" value="up" checked> Vidare (slutspel)</label>
+                                                <label><input type="checkbox" class="rex-progression-option" value="none" checked> Ej vidare</label>
+                                                <label><input type="checkbox" class="rex-progression-option" value="down" checked> Vidare (kval nedåt)</label>
+                                            </div>
+                                            <div class="rex-subsection" id="rex-points">
+                                                <div class="rex-subsection-title">Poäng</div>
+<div class="goal-filter-row">
+                                                <label for="filter-points-value">Poäng</label>
+                                                <select id="filter-points-op" aria-label="Jämförelse för poäng"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option><option value="between">mellan</option></select>
+                                                <div id="filter-points-values" style="min-width:0;">
+                                                    <input type="number" id="filter-points-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal poäng" style="width:100%;">
+                                                    <div id="filter-points-between-values" hidden style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:.35rem;">
+                                                        <input type="number" id="filter-points-min-value" min="0" step="1" inputmode="numeric" placeholder="från" aria-label="Poäng från" style="width:100%;min-width:0;">
+                                                        <span aria-hidden="true">–</span>
+                                                        <input type="number" id="filter-points-max-value" min="0" step="1" inputmode="numeric" placeholder="till" aria-label="Poäng till" style="width:100%;min-width:0;">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            </div>
+
                                         </div>
                                     </details>
                                     <div style="display:none" id="regular-original-preserved">
@@ -2197,24 +2229,6 @@
                                                 <label for="filter-decision-otso-losses-value">OT + SO förluster</label>
                                                 <select id="filter-decision-otso-losses-op" aria-label="Jämförelse för OT + SO förluster"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
                                                 <input type="number" id="filter-decision-otso-losses-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal OT + SO förluster">
-                                            </div>
-                                        </div>
-                                    </details>
-
-                                    <details class="filter-group" data-filter-group="points">
-                                        <summary><span class="filter-group-title">Poäng</span><span class="filter-group-state" id="points-filter-count" aria-hidden="true"></span></summary>
-                                        <div class="filter-group-content filter-block">
-                                            <div class="goal-filter-row">
-                                                <label for="filter-points-value">Poäng</label>
-                                                <select id="filter-points-op" aria-label="Jämförelse för poäng"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option><option value="between">mellan</option></select>
-                                                <div id="filter-points-values" style="min-width:0;">
-                                                    <input type="number" id="filter-points-value" min="0" step="1" inputmode="numeric" placeholder="–" aria-label="Antal poäng" style="width:100%;">
-                                                    <div id="filter-points-between-values" hidden style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:.35rem;">
-                                                        <input type="number" id="filter-points-min-value" min="0" step="1" inputmode="numeric" placeholder="från" aria-label="Poäng från" style="width:100%;min-width:0;">
-                                                        <span aria-hidden="true">–</span>
-                                                        <input type="number" id="filter-points-max-value" min="0" step="1" inputmode="numeric" placeholder="till" aria-label="Poäng till" style="width:100%;min-width:0;">
-                                                    </div>
-                                                </div>
                                             </div>
                                         </div>
                                     </details>
@@ -8870,6 +8884,13 @@
 
                 const outcomeValue = row.dataset.seasonOutcome === '' ? 'unresolved' : row.dataset.seasonOutcome;
                 const outcomeOk = !outcomeActive || selectedOutcomes.has(outcomeValue);
+                // Snabbval för fortsatt spel: 3–4 = slutspel, 2 = ej vidare,
+                // 0–1 = kval nedåt. Okänt utfall hanteras separat av Ej avgjort.
+                const progressionChoices = Array.from(document.querySelectorAll('.rex-progression-option'));
+                const progressionSelected = new Set(progressionChoices.filter(cb => cb.checked).map(cb => cb.value));
+                const progressionCategory = outcomeValue === 'unresolved' ? null
+                    : (Number(outcomeValue) >= 3 ? 'up' : Number(outcomeValue) === 2 ? 'none' : 'down');
+                const progressionOk = progressionCategory === null || progressionSelected.has(progressionCategory);
 
                 // --- MÅLSTATISTIK ---
                 const goalStatsKey = `${league}::${seasonId}::${row.dataset.team || ''}`;
@@ -8971,7 +8992,7 @@
                     });
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && outcomeOk && matchSelectionOk && seasonLengthOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
+                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && outcomeOk && progressionOk && matchSelectionOk && seasonLengthOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
@@ -12683,7 +12704,9 @@
         };
         const hasSelection = () => !!saved || !!lastApplied;
         const markChanged = () => {
-            root.closest('details')?.classList.toggle('is-changed', !all.checked || !unresolved.checked);
+            root.closest('details')?.classList.toggle('is-changed',
+                !all.checked || !unresolved.checked ||
+                Array.from(root.querySelectorAll('.rex-progression-option')).some(cb => !cb.checked));
             const parts = [];
             if (!all.checked && saved) parts.push('placering ' + saved);
             if (!all.checked && extraVisible && lastApplied) {
@@ -12709,7 +12732,8 @@
                 return false;
             },
             isChanged() {
-                return !all.checked || !unresolved.checked;
+                return !all.checked || !unresolved.checked ||
+                    Array.from(root.querySelectorAll('.rex-progression-option')).some(cb => !cb.checked);
             },
             reset() {
                 all.checked = true;
@@ -12717,6 +12741,7 @@
                 last.value = ''; lastApplied = '';
                 mode.value = 'last'; showExtra(false);
                 unresolved.checked = true;
+                root.querySelectorAll('.rex-progression-option').forEach(cb => cb.checked = true);
                 markChanged(); refresh();
             }
         };
@@ -12776,6 +12801,13 @@
             markChanged(); refresh();
         });
         unresolved.addEventListener('change', () => { markChanged(); refresh(); });
+        root.querySelectorAll('.rex-progression-option').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const changed = Array.from(root.querySelectorAll('.rex-progression-option')).some(c => !c.checked);
+                root.closest('details')?.classList.toggle('is-changed', changed || window.regularExperiment.isChanged());
+                refresh();
+            });
+        });
         // Global återställning anropar appens befintliga reset-funktion;
         // synkronisera det nya filtret via återställningsknappen där.
         refresh();
