@@ -1921,9 +1921,9 @@
                                                 <div id="team-count-options" class="season-length-options" role="group" aria-label="Antal lag i serien"></div>
                                             </section>
                                             <section class="series-format-section" data-filter-group="points-system">
-                                                <div class="series-format-heading">Poängsystem <span class="format-info" title="Tre poäng för seger innebär inte att varje match delade ut tre poäng. Historiskt kunde matcher sluta oavgjort även efter förlängning." aria-label="Information om poängsystem">ⓘ</span></div>
+                                                <div class="series-format-heading">Poängsystem <span class="format-info" title="Alla säsonger i materialet har tre poäng för seger. Skillnaden är om matcher kunde sluta oavgjort efter förlängning (totalt två poäng) eller alltid avgjordes (totalt tre poäng)." aria-label="Information om poängsystem">ⓘ</span></div>
                                                 <label class="season-length-master"><input type="checkbox" id="points-system-all" checked> Markera/avmarkera alla</label>
-                                                <div id="points-system-options" class="season-length-options" role="group" aria-label="Poäng för seger"></div>
+                                                <div id="points-system-options" class="season-length-options" role="group" aria-label="Poängfördelning och oavgjorda matcher"></div>
                                             </section>
                                         </div>
                                     </details>
@@ -2561,6 +2561,11 @@
                 ]
             },
 
+            seasonFormat: {
+                key: 'seasonFormat',
+                label: 'Serie- och säsongsformat',
+                tsv: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvuIqGdu30mQnILQDkAuQ-pytFyCMUORvfcpYtmVjczSB6GyRXMvXxoWcgB3ZaMH9qbvy5mfFFBJTY/pub?gid=1215426778&single=true&output=tsv'
+            },
             seasonSummary: {
                 key: 'seasonSummary',
                 label: 'Säsongssammanfattning',
@@ -3514,16 +3519,59 @@
                 }
                 const [
                     { rows: gameRows },
-                    { rows: seasonSummaryRowsRaw }
+                    { rows: seasonSummaryRowsRaw },
+                    { rows: seasonFormatRowsRaw }
                 ] = await Promise.all([
                     fetchPublishedTsvRows(DATA_SOURCES.games),
-                    fetchPublishedTsvRows(DATA_SOURCES.seasonSummary)
+                    fetchPublishedTsvRows(DATA_SOURCES.seasonSummary),
+                    fetchPublishedTsvRows(DATA_SOURCES.seasonFormat)
                 ]);
+
+                // season_format är den enda auktoriteten för vilka liga/säsong-par
+                // som ska ingå i Avancerat Deluxe. Historiska rader får ligga kvar
+                // orörda i games2 och season_summary2.
+                const formatHeaders = seasonFormatRowsRaw[0].map(v => String(v).trim().replace(/^\uFEFF/, ''));
+                const formatIndex = name => formatHeaders.indexOf(name);
+                for (const required of ['league', 'season_id', 'team_count', 'games_per_team', 'draws_allowed']) {
+                    if (formatIndex(required) < 0) throw new Error(`season_format saknar kolumnen ${required}`);
+                }
+                const seasonFormats = new Map();
+                for (const cells of seasonFormatRowsRaw.slice(1)) {
+                    const league = String(cells[formatIndex('league')] || '').trim().toUpperCase();
+                    const seasonId = String(cells[formatIndex('season_id')] || '').trim();
+                    if (!['HA', 'SHL'].includes(league) || !/^\d{4}-\d{4}$/.test(seasonId)) continue;
+                    const teamCount = Number(cells[formatIndex('team_count')]);
+                    const gamesPerTeam = Number(cells[formatIndex('games_per_team')]);
+                    const drawsAllowed = String(cells[formatIndex('draws_allowed')] || '').trim().toUpperCase();
+                    if (!Number.isInteger(teamCount) || teamCount <= 0 ||
+                        !Number.isInteger(gamesPerTeam) || gamesPerTeam <= 0 ||
+                        !['TRUE', 'FALSE'].includes(drawsAllowed)) {
+                        throw new Error(`Ogiltigt säsongsformat: ${league} ${seasonId}`);
+                    }
+                    const key = `${league}::${seasonId}`;
+                    if (seasonFormats.has(key)) throw new Error(`Dubblett i season_format: ${key}`);
+                    seasonFormats.set(key, {
+                        teamCount, gamesPerTeam,
+                        pointSystem: drawsAllowed === 'TRUE' ? 'draw-possible' : 'always-decided'
+                    });
+                }
+                if (!seasonFormats.size) throw new Error('season_format innehåller inga giltiga säsonger');
+                window.__deluxeSeasonFormats = seasonFormats;
+                const onlyIncludedSeasons = rows => {
+                    const headers = rows[0].map(v => String(v).trim().replace(/^\uFEFF/, ''));
+                    const leagueIdx = headers.indexOf('league');
+                    const seasonIdx = headers.indexOf('season_id');
+                    if (leagueIdx < 0 || seasonIdx < 0) throw new Error('Datakällan saknar league eller season_id');
+                    return [rows[0], ...rows.slice(1).filter(cells =>
+                        seasonFormats.has(`${String(cells[leagueIdx] || '').trim().toUpperCase()}::${String(cells[seasonIdx] || '').trim()}`))];
+                };
+                const includedGames = onlyIncludedSeasons(gameRows);
+                const includedSummary = onlyIncludedSeasons(seasonSummaryRowsRaw);
 
                 // Behåll den befintliga datamodellen och den efterföljande parsningen
                 // helt orörda genom att mata in samma TSV-form som koden väntar sig.
-                const rawDataString = rowsToLegacyTsv(gameRows);
-                const rawSummaryString = rowsToLegacyTsv(seasonSummaryRowsRaw);
+                const rawDataString = rowsToLegacyTsv(includedGames);
+                const rawSummaryString = rowsToLegacyTsv(includedSummary);
 
 
                 // 2. Parsa rådatan (TSV)
@@ -8716,7 +8764,7 @@
             const selectedTeamCounts = new Set(teamCountOptions.filter(cb => cb.checked).map(cb => Number(cb.value)));
             const teamCountActive = teamCountOptions.length > 0 && selectedTeamCounts.size !== teamCountOptions.length;
             const pointSystemOptions = [...document.querySelectorAll('#points-system-options input')];
-            const selectedPointSystems = new Set(pointSystemOptions.filter(cb => cb.checked).map(cb => Number(cb.value)));
+            const selectedPointSystems = new Set(pointSystemOptions.filter(cb => cb.checked).map(cb => cb.value));
             const pointSystemActive = pointSystemOptions.length > 0 && selectedPointSystems.size !== pointSystemOptions.length;
             const extraStreakKeys = ['points','withoutWin','withoutLoss','scoring','cleanSheet'];
             const extraGoalKeys = ['shutouts','scoreless','forAverage','againstAverage'];
@@ -8929,11 +8977,9 @@
                 const matchSelectionOk = !matchSelectionActive || selectedMatches.length > 0;
                 const fullSeasonGames = (extraStreakActive || extraGoalActive || singleGameFilters.mostTotal)
                     ? getSeasonGames(row.dataset.team || '', seasonId, league) : null;
-                // HÅRDKODAT: från och med 2026/27 är ordinarie säsongslängd 52 matcher.
-                // Gäller även pågående säsonger som ännu inte har alla matcher i Games.
-                const seasonStartYear = Number(String(seasonId).slice(0, 4));
-                const seasonLength = seasonStartYear >= 2026 ? 52 :
-                    (window.__deluxeSeasonLengths?.get(goalStatsKey) ?? -1);
+                // Ordinarie säsongslängd enligt season_format (även pågående säsonger).
+                const seasonLength = window.__deluxeSeasonFormats
+                    ?.get(`${league}::${seasonId}`)?.gamesPerTeam ?? -1;
                 const seasonLengthOk = !seasonLengthActive || activeSeasonLengths.has(seasonLength);
                 const seasonFormatKey = `${league}::${seasonId}`;
                 const teamCount = window.__deluxeTeamCounts?.get(seasonFormatKey);
@@ -9388,24 +9434,11 @@
          * För äldre säsonger hämtas antalet matcher per lag ur Games.
          * Säsongslängd är alltså INTE antal spelade matcher hittills.
          */
-        // Serieformat härleds ur season_summary och poängfördelningen i Games.
-        // Säsongen 2005/2006 i HA hade 15 deltagande lag efter en uteslutning.
+        // Serieformat och tillåtna säsonger hämtas från publicerade season_format.
         function setupSeriesFormatFilters() {
-            const counts = new Map();
-            for (const row of seasonSummaryRows || []) {
-                if (!['HA', 'SHL'].includes(row.league)) continue;
-                const key = `${row.league}::${row.seasonId}`;
-                if (!counts.has(key)) counts.set(key, new Set());
-                counts.get(key).add(row.team);
-            }
-            window.__deluxeTeamCounts = new Map([...counts].map(([key, teams]) => [key, teams.size]));
-            const points = new Map();
-            for (const match of matches || []) {
-                const key = `${match.league}::${match.seasonId}`;
-                const high = Math.max(Number(match.homePoints) || 0, Number(match.awayPoints) || 0);
-                if (high >= 2) points.set(key, Math.max(points.get(key) || 0, high));
-            }
-            window.__deluxeSeasonPointSystems = points;
+            const formats = window.__deluxeSeasonFormats || new Map();
+            window.__deluxeTeamCounts = new Map([...formats].map(([key, format]) => [key, format.teamCount]));
+            window.__deluxeSeasonPointSystems = new Map([...formats].map(([key, format]) => [key, format.pointSystem]));
 
             function build(rootId, masterId, values, format) {
                 const root = document.getElementById(rootId);
@@ -9418,7 +9451,7 @@
                     cb.type = 'checkbox'; cb.value = String(value); cb.checked = true;
                     cb.dataset.filterUiDefault = '1';
                     label.append(cb, document.createTextNode(format(value)));
-                    if (rootId === 'team-count-options' && value === 15) {
+                    if (false) {
                         const info = document.createElement('span');
                         info.className = 'format-info';
                         info.textContent = ' ⓘ';
@@ -9445,8 +9478,11 @@
             }
             build('team-count-options', 'team-count-all',
                 [...new Set(window.__deluxeTeamCounts.values())].sort((a,b) => a-b), n => `${n} lag`);
-            // Visa 2 och 3 även om den inlästa historiken bara innehåller 3-poängssegrar.
-            build('points-system-options', 'points-system-all', [2, 3], n => `${n} poäng för seger`);
+            build('points-system-options', 'points-system-all',
+                ['draw-possible', 'always-decided'],
+                value => value === 'draw-possible'
+                    ? 'Oavgjort möjligt (2 eller 3 poäng per match)'
+                    : 'Alla matcher avgörs (alltid 3 poäng per match)');
         }
 
         function setupSeasonLengthFilterListeners() {
@@ -9455,24 +9491,10 @@
             const master = document.getElementById('season-length-all');
             if (!group || !root || !master) return;
 
-            if (window.__deluxeSeasonLengthsSource !== matches) {
-                const counts = new Map();
-                for (const m of matches) {
-                    for (const team of [m.homeTeam, m.awayTeam]) {
-                        const key = `${m.league}::${m.seasonId}::${team}`;
-                        counts.set(key, (counts.get(key) || 0) + 1);
-                    }
-                }
-                window.__deluxeSeasonLengths = counts;
-                window.__deluxeSeasonLengthsSource = matches;
-            }
-
-            const lengths = [...new Set([
-                ...[...window.__deluxeSeasonLengths.entries()]
-                    .filter(([key]) => Number(key.split('::')[1]?.slice(0,4)) < 2026)
-                    .map(([, count]) => count),
-                52 // HÅRDKODAT: alla säsonger från 2026/27 och framåt.
-            ])].sort((a,b) => a-b);
+            // Säsongslängd kommer från season_format, inte från antalet
+            // hittills registrerade matcher i games2 (även pågående säsonger).
+            const lengths = [...new Set([... (window.__deluxeSeasonFormats || new Map()).values()]
+                .map(format => format.gamesPerTeam))].sort((a, b) => a - b);
 
             // Behåll kryssade alternativ om funktionen skulle anropas igen.
             const previous = new Map([...root.querySelectorAll('input[type="checkbox"]')]
