@@ -361,6 +361,14 @@
         .season-length-options { display: grid; grid-template-columns: repeat(2, max-content); column-gap: 1rem; row-gap: .35rem; }
         .season-length-options label { display: flex; align-items: center; gap: 0; white-space: nowrap; cursor: pointer; font-size: .87rem; }
         .season-length-master input, .season-length-options input { margin: 0 4px 0 0; }
+        /* Gemensam vänsterkant för huvudkryss och underalternativ. */
+        .series-format-content .season-length-master,
+        .series-format-content .season-length-options { padding-left: 0; margin-left: 0; }
+        /* Låt de längre poängsystemetiketterna radbrytas i den smala panelen. */
+        #points-system-options { grid-template-columns: minmax(0, 1fr); }
+        #points-system-options label { white-space: normal; align-items: flex-start; min-width: 0; }
+        #points-system-options label input { flex: 0 0 auto; margin-top: .16rem; }
+        #points-system-options .points-system-detail { display: block; }
         @media (max-width: 350px) { .season-length-options { grid-template-columns: 1fr; } }
 
         /* MATCHURVAL – egen, luftig layout. Befintliga radio-inputs och ID:n
@@ -638,7 +646,8 @@
         }
 
 
-        #cancel-working-selection {
+        #cancel-working-selection,
+        #return-working-selection {
             font-size: 0.85rem;
             padding: 0.3rem 0.7rem;
         }
@@ -653,6 +662,7 @@
 
         /* --- Knappar i arbetsurvalet: samma stil som Markera/Avmarkera --- */
         #apply-working-selection,
+        #return-working-selection,
         #cancel-working-selection,
         #range-working-selection {
             background-color: #ffffff;
@@ -675,6 +685,7 @@
 
         /* Hover-effekt (endast för aktiva knappar) */
         #apply-working-selection:not(:disabled):hover,
+        #return-working-selection:hover,
         #cancel-working-selection:hover,
         #range-working-selection:hover {
             background-color: #f9fafb;
@@ -1879,7 +1890,7 @@
                         <div class="advanced-filter-content">
 
                             <div class="filter-header">
-                                <p class="filter-header-title">Ändra lag att välja mellan och klicka på Bekräfta urval och återgå
+                                <p class="filter-header-title">Ändra lag att välja mellan och klicka på Bekräfta urval
                                 </p>
                                 <p class="filter-header-subtitle">
                                     Använd filtren nedan för att begränsa tabellen enligt önskemål. Välj sedan lag med
@@ -2313,8 +2324,9 @@
 
                                     <div class="working-selection-actions">
                                         <button id="apply-working-selection" type="button">
-                                            Bekräfta urval och återgå
+                                            Bekräfta urval
                                         </button>
+                                        <button id="return-working-selection" type="button">Återgå</button>
                                         <button id="cancel-working-selection" type="button">Avbryt och återgå</button>
                                         <button id="range-working-selection" type="button">
                                             Markera intervall
@@ -9450,7 +9462,23 @@
                     const cb = document.createElement('input');
                     cb.type = 'checkbox'; cb.value = String(value); cb.checked = true;
                     cb.dataset.filterUiDefault = '1';
-                    label.append(cb, document.createTextNode(format(value)));
+                    if (rootId === 'points-system-options') {
+                        const description = format(value);
+                        const match = description.match(/^(.*?)\s*(\(.*\))$/);
+                        const text = document.createElement('span');
+                        if (match) {
+                            text.append(document.createTextNode(match[1]));
+                            const detail = document.createElement('span');
+                            detail.className = 'points-system-detail';
+                            detail.textContent = match[2];
+                            text.append(detail);
+                        } else {
+                            text.textContent = description;
+                        }
+                        label.append(cb, text);
+                    } else {
+                        label.append(cb, document.createTextNode(format(value)));
+                    }
                     if (false) {
                         const info = document.createElement('span');
                         info.className = 'format-info';
@@ -10760,6 +10788,11 @@
             const workingTextEl = document.getElementById('working-selection-text');
             const applyBtn = document.getElementById('apply-working-selection');
             const rangeBtn = document.getElementById('range-working-selection');
+            const returnBtn = document.getElementById('return-working-selection');
+            if (returnBtn) returnBtn.addEventListener('click', () => {
+                const panel = document.querySelector('.advanced-filter-section');
+                if (panel) panel.open = false;
+            });
             const cancelBtn = document.getElementById('cancel-working-selection');
             if (cancelBtn) cancelBtn.addEventListener('click', () => {
                 const panel = document.querySelector('.advanced-filter-section');
@@ -11766,9 +11799,8 @@
 
                     // console.log('=== [ARBETSURVAL] FÄRDIG - huvudvyn uppdaterad enligt A/B/C ===');
 
-                    // NYTT: stäng tabellen när urvalet bekräftas 
-                    const advancedDetails = document.querySelector('.advanced-filter-section');
-                    if (advancedDetails) advancedDetails.open = false;
+                    // Bekräfta sparar urvalet, men användaren stannar kvar i tabellen.
+                    // Återgå är en separat knapp.
 
                 });
             }
