@@ -9201,7 +9201,7 @@
 
         // POÄNG: poängsumma i det matchunderlag som Matchurval lämnar kvar.
         function setupPointsFilterListeners() {
-            const group = document.querySelector('.filter-group[data-filter-group="points"]');
+            const group = document.getElementById('rex-points');
             if (!group || group.dataset.pointsBound === '1') return;
             group.dataset.pointsBound = '1';
 
@@ -9228,6 +9228,11 @@
                     ? !!minInput && !!maxInput && minInput.value.trim() !== '' && maxInput.value.trim() !== ''
                     : !!valueInput && valueInput.value.trim() !== '';
                 group.classList.toggle('is-changed', active);
+                // Poäng är en egen AND-begränsning under Grundserie.
+                // Även Grundseries övergripande ändringsindikator ska reagera.
+                const regularGroup = group.closest('.filter-group');
+                if (regularGroup) regularGroup.classList.toggle('is-changed',
+                    active || !!window.regularExperiment?.isChanged?.());
                 if (countEl) countEl.textContent = active ? '(1)' : '';
             }
 
@@ -12411,7 +12416,7 @@
                             .some(input => input.value.trim() !== '');
                     }
                     if (key === 'regular-experiment' && window.regularExperiment?.isChanged) {
-                        return window.regularExperiment.isChanged();
+                        return window.regularExperiment.isChanged() || !!getActivePointsFilter();
                     }
                     if (key === 'points') {
                         const op = document.getElementById('filter-points-op');
