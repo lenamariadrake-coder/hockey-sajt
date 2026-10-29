@@ -2537,6 +2537,24 @@
     <div id="color-palette"></div>
 
     <script>
+                // EK = Ej klassificerat: använd säsongsutfallet som reservinformation.
+                // Säsongsutfallet säger inte vilken slutspelsrunda laget nådde.
+                function getUnclassifiedPlayoffFallback(meta) {
+                    const ek = String(meta?.playoffResult ?? '').trim().toUpperCase() === 'EK'
+                        || String(meta?.playoffRoundNumeric ?? '').trim().toUpperCase() === 'EK';
+                    if (!ek) return '\u00B7 Ingen slutspelsplats';
+                    const outcome = Number(meta?.seasonOutcomeNumeric);
+                    if (meta?.seasonOutcomeNumeric == null) return '\u00B7 Ej klassificerat';
+                    switch (outcome) {
+                        case 4: return meta.league === 'HA' ? 'Uppflyttad (EK)' : '\u{1F3C6} Mästare (EK)';
+                        case 3: return 'Vidare till slutspel (EK)';
+                        case 2: return '\u00B7 Ej vidare (EK)';
+                        case 1: return 'Vidare till kval nedåt (EK)';
+                        case 0: return 'Nedflyttad (EK)';
+                        default: return '\u00B7 Ej klassificerat';
+                    }
+                }
+
         // console.log('[FILE VERSION] ONCLICK-TEST 2025-12-13 18:xx');
 
         // --- DATA OCH KONSTANTER ---
@@ -4748,7 +4766,7 @@
 
                             case 'none':
                             default:
-                                playoffSymbol = '\u00B7 Ingen slutspelsplats';
+                                playoffSymbol = getUnclassifiedPlayoffFallback(meta);
                                 break;
                         }
 
@@ -5186,7 +5204,7 @@
                                                     break;
                                                 case 'none':
                                                 default:
-                                                    playoffText = '\u00B7 Ingen slutspelsplats';
+                                                    playoffText = getUnclassifiedPlayoffFallback(meta);
                                                     break;
                                             }
 
@@ -11470,7 +11488,7 @@
 
                                     case 'none':
                                     default:
-                                        playoffSymbol = '\u00B7 Ingen slutspelsplats';
+                                        playoffSymbol = getUnclassifiedPlayoffFallback(meta);
                                         break;
                                 }
 
@@ -11593,7 +11611,7 @@
 
                                     case 'none':
                                     default:
-                                        playoffSymbol = '\u00B7 Ingen slutspelsplats';
+                                        playoffSymbol = getUnclassifiedPlayoffFallback(appliedMeta);
                                         break;
                                 }
 
@@ -11775,7 +11793,7 @@
                                             break;
                                         case 'none':
                                         default:
-                                            playoffSymbol = '\u00B7 Ingen slutspelsplats';
+                                            playoffSymbol = getUnclassifiedPlayoffFallback(meta);
                                             break;
                                     }
 
