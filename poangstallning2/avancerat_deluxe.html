@@ -4340,7 +4340,7 @@
 
                         // Startläge i match-historiken
                         if (!teamSeasonHistory[key]) {
-                            teamSeasonHistory[key] = [{ games: 0, points: 0, goalDiff: 0 }];
+                            teamSeasonHistory[key] = [{ games: 0, points: 0, goalDiff: 0, goalsFor: 0, goalsAgainst: 0 }];
                         }
 
                         // Startläge i datum-historiken (utan år)
@@ -4365,10 +4365,10 @@
 
                     // Se till att det alltid finns ett startläge även om någon kombination saknas i season_summary
                     if (!teamSeasonHistory[homeKey]) {
-                        teamSeasonHistory[homeKey] = [{ games: 0, points: 0, goalDiff: 0 }];
+                        teamSeasonHistory[homeKey] = [{ games: 0, points: 0, goalDiff: 0, goalsFor: 0, goalsAgainst: 0 }];
                     }
                     if (!teamSeasonHistory[awayKey]) {
-                        teamSeasonHistory[awayKey] = [{ games: 0, points: 0, goalDiff: 0 }];
+                        teamSeasonHistory[awayKey] = [{ games: 0, points: 0, goalDiff: 0, goalsFor: 0, goalsAgainst: 0 }];
                     }
 
                     // Se till att det finns en behållare i pointsByDateKey för båda lag+säsonger
@@ -4395,13 +4395,17 @@
                     teamSeasonHistory[homeKey].push({
                         games: homeGames,
                         points: homePoints,
-                        goalDiff: homeGoalDiff
+                        goalDiff: homeGoalDiff,
+                        goalsFor: homeLast.goalsFor + match.homeGoals,
+                        goalsAgainst: homeLast.goalsAgainst + match.awayGoals
                     });
 
                     teamSeasonHistory[awayKey].push({
                         games: awayGames,
                         points: awayPoints,
-                        goalDiff: awayGoalDiff
+                        goalDiff: awayGoalDiff,
+                        goalsFor: awayLast.goalsFor + match.awayGoals,
+                        goalsAgainst: awayLast.goalsAgainst + match.homeGoals
                     });
 
                     // NYTT: uppdatera datum-historiken (per kalenderdag utan år)
@@ -4414,13 +4418,17 @@
                     pointsByDateKey[homeKey][dk] = {
                         games: homeGames,
                         points: homePoints,
-                        goalDiff: homeGoalDiff
+                        goalDiff: homeGoalDiff,
+                        goalsFor: homeLast.goalsFor + match.homeGoals,
+                        goalsAgainst: homeLast.goalsAgainst + match.awayGoals
                     };
 
                     pointsByDateKey[awayKey][dk] = {
                         games: awayGames,
                         points: awayPoints,
-                        goalDiff: awayGoalDiff
+                        goalDiff: awayGoalDiff,
+                        goalsFor: awayLast.goalsFor + match.awayGoals,
+                        goalsAgainst: awayLast.goalsAgainst + match.homeGoals
                     };
 
                     // Lite debug för de första matcherna
@@ -5129,6 +5137,12 @@
                                     }
                                     lines.push(line2);
 
+                                    // Målstatistik vid samma match/datum som poängen.
+                                    if (entry && Number.isFinite(entry.goalsFor) && Number.isFinite(entry.goalsAgainst)) {
+                                        const diff = entry.goalsFor - entry.goalsAgainst;
+                                        lines.push(`Mål: ${entry.goalsFor}–${entry.goalsAgainst} (målskillnad ${diff > 0 ? '+' : ''}${diff})`);
+                                    }
+
                                     // Rad 3–4: antingen "Aktuell säsong pågår" eller grundserie + slutspel
                                     if (meta) {
                                         // Viktigt: det är fältet playoffResult (inte playoff_result) i rowObj
@@ -5579,7 +5593,9 @@
                         step,
                         games: snapshot.games,
                         points: snapshot.points,
-                        goalDiff: snapshot.goalDiff
+                        goalDiff: snapshot.goalDiff,
+                        goalsFor: snapshot.goalsFor,
+                        goalsAgainst: snapshot.goalsAgainst
                     };
                 });
 
@@ -5744,17 +5760,23 @@
                     // använd den som källa för stapelhöjden. Annars fall tillbaka till totalsiffror.
                     let effectivePoints = safeSummaryPoints;
                     let effectiveGoalDiff = dataSourceTeam.goalDiff ?? 0;
+                    let effectiveGoalsFor = null;
+                    let effectiveGoalsAgainst = null;
                     let effectiveGames = safeSummaryGames;
 
                     if (mode === 'matches' && matchSnapshotByKey && matchSnapshotByKey[key]) {
                         const snap = matchSnapshotByKey[key];
                         effectivePoints = typeof snap.points === 'number' ? snap.points : 0;
                         effectiveGoalDiff = typeof snap.goalDiff === 'number' ? snap.goalDiff : 0;
+                        effectiveGoalsFor = snap.goalsFor ?? null;
+                        effectiveGoalsAgainst = snap.goalsAgainst ?? null;
                         effectiveGames = typeof snap.games === 'number' ? snap.games : 0;
                     } else if (mode === 'date' && dateSnapshotByKey && dateSnapshotByKey[key]) {
                         const snap = dateSnapshotByKey[key];
                         effectivePoints = typeof snap.points === 'number' ? snap.points : 0;
                         effectiveGoalDiff = typeof snap.goalDiff === 'number' ? snap.goalDiff : 0;
+                        effectiveGoalsFor = snap.goalsFor ?? null;
+                        effectiveGoalsAgainst = snap.goalsAgainst ?? null;
                         effectiveGames = typeof snap.games === 'number' ? snap.games : 0;
                     }
 
@@ -5768,6 +5790,8 @@
                         // Dessa fält används av diagrammet:
                         points: effectivePoints,
                         goalDiff: effectiveGoalDiff,
+                        goalsFor: effectiveGoalsFor,
+                        goalsAgainst: effectiveGoalsAgainst,
                         games: effectiveGames,
 
                         // Behåll extra fälten för debug om vi vill kika senare
