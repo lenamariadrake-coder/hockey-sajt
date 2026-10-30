@@ -637,6 +637,13 @@
             cursor: not-allowed;
         }
 
+        #working-selection-confirmation {
+            color: #23765b;
+            font-size: .8rem;
+            font-weight: 600;
+        }
+        #working-selection-confirmation[hidden] { display: none; }
+
         .working-selection-actions {
             display: flex;
             flex-wrap: wrap;
@@ -2336,6 +2343,7 @@
                                     </div>
                                     <div class="working-selection-meta">
                                         <span class="working-selection-text" id="working-selection-text">Urval: 0 rader</span>
+                                        <span id="working-selection-confirmation" role="status" aria-live="polite" hidden>✓ Urvalet har uppdaterats!</span>
                                         <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Rensa alla valda rader, även dem som döljs av filtren" hidden>Rensa urval</button>
                                     </div>
                                 </div>
@@ -11110,6 +11118,30 @@
                 }
             }
 
+            // Jämför hela lag+säsong-urvalet, inte bara antalet ikryssade rader.
+            let lastConfirmedSelection = new Set(mainViewSelectedKeys);
+            let confirmationHideTimer = null;
+            const confirmationMessage = document.getElementById('working-selection-confirmation');
+
+            function getWorkingSelectionKeys() {
+                return new Set(rowCheckboxes.filter(cb => cb.checked).map(cb => {
+                    const row = cb.closest('tr');
+                    return row?.dataset.teamSeasonKey || cb.dataset.teamSeasonKey || null;
+                }).filter(Boolean));
+            }
+
+            function selectionHasChanged() {
+                const current = getWorkingSelectionKeys();
+                return current.size !== lastConfirmedSelection.size ||
+                    Array.from(current).some(key => !lastConfirmedSelection.has(key));
+            }
+
+            function hideSelectionConfirmation() {
+                if (confirmationHideTimer !== null) clearTimeout(confirmationHideTimer);
+                confirmationHideTimer = null;
+                if (confirmationMessage) confirmationMessage.hidden = true;
+            }
+
             function updateWorkingSelectionSummary() {
                 let count = 0;
 
@@ -11126,8 +11158,11 @@
                 }
 
                 if (applyBtn) {
-                    // Noll valda lag är ett giltigt, uttryckligt arbetsurval.
-                    applyBtn.disabled = false;
+                    // Även noll valda lag får bekräftas, om urvalet faktiskt har ändrats.
+                    applyBtn.disabled = !selectionHasChanged();
+                }
+                if (selectionHasChanged()) {
+                    hideSelectionConfirmation();
                 }
 
                 // Uppdatera header-checkboxens status (alla synliga ikryssade?)
@@ -11925,8 +11960,18 @@
                         confirmedFirstAfterApply.dispatchEvent(new Event('change'));
                     }
 
-                    // Bekräfta sparar urvalet, men användaren stannar kvar i tabellen.
-                    // Återgå är en separat knapp.
+                    // Urvalet är sparat: uppdatera jämförelsen och visa en kort bekräftelse.
+                    lastConfirmedSelection = new Set(workingSelectedKeys);
+                    updateWorkingSelectionSummary();
+                    hideSelectionConfirmation();
+                    if (confirmationMessage) {
+                        confirmationMessage.hidden = false;
+                        confirmationHideTimer = setTimeout(() => {
+                            confirmationMessage.hidden = true;
+                            confirmationHideTimer = null;
+                        }, 3000);
+                    }
+                    // Användaren stannar kvar i tabellen; Återgå är separat.
 
                 });
             }
@@ -13761,7 +13806,9 @@
         const rows = document.querySelectorAll('.team-table tbody .team-table-row-checkbox');
         if (!apply || !rows.length) return;
         rows.forEach(cb => { cb.checked = false; });
-        apply.click();
+        // Uppdatera knappstatus innan det programstyrda klicket.
+        window._updateWorkingSelectionSummaryFromOutside?.();
+        if (!apply.disabled) apply.click();
         // Uppdatera arbetsurvalets räknare utan att ändra filterinställningar.
         const counter = document.getElementById('working-selection-text');
         if (counter) counter.textContent = 'Urval: 0 rader';
