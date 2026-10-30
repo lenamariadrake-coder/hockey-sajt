@@ -10707,8 +10707,23 @@
                     let finalRows;
 
                     if (checkedFirst) {
-                        // På: behåll aktuell kolumnsortering och lägg bara på gruppningen
-                        finalRows = partitionRowsByMainViewSelection(rows, true);
+                        // Återskapa först samma grundsortering som när rutan avmarkeras.
+                        // Då blir Bekräfta urval identiskt med att kryssa ur och i igen,
+                        // även om den bekräftade gruppens sammansättning har ändrats.
+                        const activeHeader = Array.from(headerCells).find(h =>
+                            h.classList.contains('sort-asc') || h.classList.contains('sort-desc')
+                        );
+                        const baseRows = activeHeader
+                            ? sortRowsByColumnLabel(
+                                rows,
+                                activeHeader.textContent.trim(),
+                                activeHeader.cellIndex,
+                                activeHeader.classList.contains('sort-asc') ? 'asc' : 'desc'
+                            )
+                            : rows.slice().sort((a, b) =>
+                                Number(a.dataset.originalIndex ?? 0) - Number(b.dataset.originalIndex ?? 0)
+                            );
+                        finalRows = partitionRowsByMainViewSelection(baseRows, true);
 
                         // console.log('[TABLE SORT][checked-first] PÅ – grupperar om med ikryssade överst', {
                         // totalRows: finalRows.length
