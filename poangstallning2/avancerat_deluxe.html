@@ -2317,9 +2317,6 @@
                                 </details>
 
                                 <div class="working-selection-bar">
-                                    <span class="working-selection-text" id="working-selection-text">
-                                        Arbetsurval: 0 lag markerade
-                                    </span>
 
                                     <!-- NYTT: Sorteringskryss – bara UI än så länge -->
                                     <label class="working-selection-toggle">
@@ -2328,7 +2325,6 @@
                                     </label>
 
                                     <div class="working-selection-actions">
-                                        <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Rensa alla valda lag, även filtrerade rader">Rensa lagurval</button>
                                         <button id="apply-working-selection" type="button">
                                             Bekräfta urval
                                         </button>
@@ -2337,6 +2333,10 @@
                                         <button id="range-working-selection" type="button">
                                             Markera intervall
                                         </button>
+                                    </div>
+                                    <div class="working-selection-meta">
+                                        <span class="working-selection-text" id="working-selection-text">Urval: 0 rader</span>
+                                        <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Rensa alla valda rader, även dem som döljs av filtren" hidden>Rensa urval</button>
                                     </div>
                                 </div>
 
@@ -2979,7 +2979,7 @@
             const paintBtn=document.getElementById('deluxe-paint-toggle');
             if(paintBtn)paintBtn.hidden=!hasChips;
             if(!hasChips && typeof closeQuickPaint==='function')closeQuickPaint();
-            document.querySelectorAll('.clear-team-selection').forEach(btn => { btn.disabled = !hasChips; });
+            // Rensa-länken styrs av arbetsurvalets markerade rader, inte av diagrammets brickor.
             updateBatchColorButtonState();
         }
 
@@ -11118,8 +11118,11 @@
                 });
 
                 if (workingTextEl) {
-                    workingTextEl.textContent =
-                        `Arbetsurval: ${count} lag markerade`;
+                    workingTextEl.textContent = `Urval: ${count} rader`;
+                }
+                const clearLink = document.getElementById('clear-team-selection-table');
+                if (clearLink) {
+                    clearLink.hidden = count === 0;
                 }
 
                 if (applyBtn) {
@@ -13136,6 +13139,41 @@
 .deluxe-view-switch button { cursor:pointer; border:1px solid #cfc8d4; background:transparent; color:#5f2570; padding:7px 13px; border-radius:7px; font:inherit; font-weight:500; }
 .deluxe-view-switch button.is-active { background:#5f2570; color:#fff; border-color:#5f2570; font-weight:600; }
 .deluxe-view-switch button:focus-visible { outline:2px solid #5f2570; outline-offset:3px; }
+/* Urvalsinformation på en egen låg rad, efter samtliga knappar och vyval. */
+.working-selection-bar .working-selection-meta {
+    order: 999;
+    flex: 0 0 100%;
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    min-height: 1rem;
+    margin-top: -.35rem;
+    font-size: .8rem;
+    line-height: 1.2;
+    color: #6b7280;
+}
+.working-selection-bar .working-selection-meta .working-selection-text { font-size: inherit; color: inherit; }
+.working-selection-bar .working-selection-meta .clear-team-selection {
+    font: inherit;
+    font-weight: 400;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #087e85;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+.working-selection-bar .working-selection-meta .clear-team-selection[hidden] { display: none; }
+/* Vyknapparna ska ha samma höjd som de övriga knapparna i verktygsraden. */
+.working-selection-bar .deluxe-view-switch { padding: 0; }
+.working-selection-bar .deluxe-view-switch button {
+    font-size: .85rem;
+    padding: .35rem .9rem;
+    line-height: normal;
+    border-radius: .5rem;
+}
+
 .deluxe-view-arrow { margin-left:8px; font-size:1.15em; }
 .deluxe-column-panel[hidden] { display:none !important; }
 
@@ -13711,7 +13749,9 @@
         apply.click();
         // Uppdatera arbetsurvalets räknare utan att ändra filterinställningar.
         const counter = document.getElementById('working-selection-text');
-        if (counter) counter.textContent = 'Arbetsurval: 0 lag markerade';
+        if (counter) counter.textContent = 'Urval: 0 rader';
+        const clearLink = document.getElementById('clear-team-selection-table');
+        if (clearLink) clearLink.hidden = true;
     }
     document.querySelectorAll('.clear-team-selection').forEach(btn => {
         btn.addEventListener('click', clearSelection);
