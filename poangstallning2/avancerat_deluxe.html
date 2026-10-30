@@ -1774,13 +1774,7 @@
 .deluxe-text-inner h2 {margin:0;font-size:1.3rem;}
 .deluxe-text-inner p {margin:0;font-size:.9rem;line-height:1.5;}
 #deluxe-text-input {box-sizing:border-box;width:100%;min-height:245px;resize:vertical;border:1px solid #b9c2ce;border-radius:7px;padding:12px;font:14px/1.6 Consolas,monospace;}
-.deluxe-text-timeline {border:1px solid #dce2e9;border-radius:8px;padding:12px;display:grid;gap:9px;}
-.deluxe-text-timeline strong {font-size:.92rem;}
-.deluxe-text-timeline-row {display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
-.deluxe-text-timeline label {font-size:.88rem;}
-.deluxe-text-timeline select,.deluxe-text-timeline input {font:inherit;padding:6px 8px;border:1px solid #b9c2ce;border-radius:5px;}
-#deluxe-text-step {width:95px;}
-.deluxe-text-timeline small {color:#64748b;line-height:1.4;}
+.deluxe-text-directive-hint {font-size:.88rem;color:#526277;line-height:1.5;}
 #deluxe-text-feedback {white-space:pre-wrap;font-size:.85rem;line-height:1.5;max-height:145px;overflow:auto;}
 #deluxe-text-feedback.error {color:#a52222;}
 .deluxe-text-actions {display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap;}
@@ -1877,24 +1871,10 @@
         <dialog id="deluxe-text-dialog" aria-labelledby="deluxe-text-title">
           <div class="deluxe-text-inner">
             <h2 id="deluxe-text-title">Redigera urval som text</h2>
-            <p>Ett lag och en säsong per rad. Färg är valfri. Textens ordning blir manuell ordning. Exempel: <code>Djurgården 2024/2025 [gul];</code></p>
+            <p>Ett lag och en säsong per rad. Färg är valfri. Textens ordning blir manuell ordning. Du kan även klistra in tidsaxel och position i samma text. Exempel: <code>Djurgården 2024/2025 [gul];</code></p>
             <textarea id="deluxe-text-input" spellcheck="false" aria-label="Lagurval som text"></textarea>
             <p>Färger: blå, rosa, grå, gammelrosa, brun, gul, grön, lila, turkos. Skriv <code>HA:</code> eller <code>SHL:</code> före lagnamnet om samma lag och säsong finns i båda ligorna. En tom ruta innebär inget valt lag.</p>
-            <!-- Valfria diagraminställningar: lämna tomt för att behålla nuvarande läge. -->
-            <div class="deluxe-text-timeline" role="group" aria-label="Valfri tidsinställning">
-              <strong>Diagrammets tidsläge (valfritt)</strong>
-              <div class="deluxe-text-timeline-row">
-                <label for="deluxe-text-axis">Tidsaxel</label>
-                <select id="deluxe-text-axis">
-                  <option value="">Behåll nuvarande</option>
-                  <option value="matches">Spelade matcher</option>
-                  <option value="date">Datum</option>
-                </select>
-                <label for="deluxe-text-step">Position på tidsaxeln</label>
-                <input id="deluxe-text-step" type="number" min="0" step="1" placeholder="Oförändrad" inputmode="numeric">
-              </div>
-              <small id="deluxe-text-step-hint">Lämna tomt för att behålla aktuell position. 0 = Start. I datumläge avser siffran ett steg på datumaxeln.</small>
-            </div>
+            <p class="deluxe-text-directive-hint">Valfria inställningar kan skrivas var som helst i texten, exempelvis <code>Tidsaxel: Matcher;</code> och <code>Position: 26;</code>. Utelämnade inställningar lämnas oförändrade. I datumläge betyder position ett steg på datumaxeln.</p>
             <div id="deluxe-text-feedback" role="status" aria-live="polite"></div>
             <div class="deluxe-text-actions"><button type="button" id="deluxe-text-cancel">Avbryt</button><button type="button" id="deluxe-text-save">Bekräfta urval</button></div>
           </div>
@@ -13918,8 +13898,6 @@
   const feedback = document.getElementById('deluxe-text-feedback');
   const save = document.getElementById('deluxe-text-save');
   const cancel = document.getElementById('deluxe-text-cancel');
-  const axisInput = document.getElementById('deluxe-text-axis');
-  const stepInput = document.getElementById('deluxe-text-step');
   if (!open || !dialog || !input) return;
   const colorNames = ['blå','rosa','grå','gammelrosa','brun','gul','grön','lila','turkos'];
   const paletteIndex = {blå:0,rosa:1,grå:2,gammelrosa:3,brun:4,gul:5,grön:6,lila:7,turkos:8};
@@ -13947,8 +13925,30 @@
       byName.get(name).push(row);
     });
     const result=[], errors=[], seen=new Set();
+    let requestedAxis=null, requestedStep=null;
     input.value.split(/\r?\n/).forEach((raw,index)=>{
       const line=raw.trim(); if(!line)return;
+      // Direktiven är frivilliga och kan placeras före, efter eller mellan lagraderna.
+      const directive=line.match(/^(Tidsaxel|Position)\s*:\s*(.*?)\s*;?\s*$/i);
+      if(directive){
+        const field=normalize(directive[1]);
+        const value=directive[2].replace(/;\s*$/,'').trim();
+        if(field==='tidsaxel'){
+          const axis=normalize(value);
+          if(!['matcher','spelade matcher','datum'].includes(axis)){
+            errors.push(`Rad ${index+1}: Tidsaxel måste vara Matcher eller Datum.`);
+          }else if(requestedAxis!==null){
+            errors.push(`Rad ${index+1}: Tidsaxel är redan angiven.`);
+          }else requestedAxis=axis==='datum'?'date':'matches';
+        }else{
+          if(!/^\d+$/.test(value) || Number(value)>100000){
+            errors.push(`Rad ${index+1}: Position måste vara ett heltal från 0 till 100000.`);
+          }else if(requestedStep!==null){
+            errors.push(`Rad ${index+1}: Position är redan angiven.`);
+          }else requestedStep=Number(value);
+        }
+        return;
+      }
       const match=line.match(/^(?:(HA|SHL)\s*:\s*)?(.+?)\s+(\d{4})[\/-](\d{4})\s*(?:\[([^\]]+)\])?\s*;?\s*$/i);
       if(!match){errors.push(`Rad ${index+1}: Felaktigt format: ${line}`);return;}
       const [,league,team,start,end,colorRaw]=match;
@@ -13961,7 +13961,7 @@
       if(seen.has(key))return; // Första förekomsten gäller.
       seen.add(key);result.push({key,color});
     });
-    return {result,errors};
+    return {result,errors,requestedAxis,requestedStep};
   }
   function validate(){
     const {result,errors}=parse();
@@ -13979,22 +13979,12 @@
       const idx=typeof PALETTE_COLORS!=='undefined'?PALETTE_COLORS.indexOf(c):-1;
       return `${prefix}${labelFor(row)}${idx>=0?' ['+colorNames[idx]+']':''};`;
     }).filter(Boolean).join('\n');
-    axisInput.value = '';
-    stepInput.value = '';
     validate();dialog.showModal();input.focus();
   });
   input.addEventListener('input',validate);
-  stepInput.addEventListener('input',()=>{
-    const value=stepInput.value.trim();
-    stepInput.setCustomValidity(value && (!/^\d+$/.test(value) || Number(value)>100000) ? 'Ange ett heltal från 0 till 100000.' : '');
-    save.disabled=!!stepInput.validationMessage || parse().errors.length>0;
-  });
   cancel.addEventListener('click',()=>dialog.close());
   save.addEventListener('click',()=>{
-    const {result,errors}=parse();if(errors.length){validate();return;}
-    if (!stepInput.reportValidity()) return;
-    const requestedAxis=axisInput.value;
-    const requestedStep=stepInput.value.trim()===''?null:Number(stepInput.value);
+    const {result,errors,requestedAxis,requestedStep}=parse();if(errors.length){validate();return;}
     const allRows=rows();
     const selected=new Set(result.map(x=>x.key));
     const apply=document.getElementById('apply-working-selection');
