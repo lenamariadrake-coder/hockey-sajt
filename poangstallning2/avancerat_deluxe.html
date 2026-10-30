@@ -1772,6 +1772,8 @@
 #deluxe-text-dialog::backdrop {background:#1b2637a8;}
 .deluxe-text-inner {padding:22px;display:grid;gap:12px;}
 .deluxe-text-inner h2 {margin:0;font-size:1.3rem;}
+.deluxe-text-title-row {display:flex;justify-content:space-between;align-items:center;gap:12px;}
+#deluxe-text-copy {font:inherit;padding:6px 12px;border:1px solid #b7c0cc;background:white;border-radius:6px;cursor:pointer;}
 .deluxe-text-inner p {margin:0;font-size:.9rem;line-height:1.5;}
 #deluxe-text-input {box-sizing:border-box;width:100%;min-height:245px;resize:vertical;border:1px solid #b9c2ce;border-radius:7px;padding:12px;font:14px/1.6 Consolas,monospace;}
 .deluxe-text-directive-hint {font-size:.88rem;color:#526277;line-height:1.5;}
@@ -1870,11 +1872,11 @@
 
         <dialog id="deluxe-text-dialog" aria-labelledby="deluxe-text-title">
           <div class="deluxe-text-inner">
-            <h2 id="deluxe-text-title">Redigera urval som text</h2>
-            <p>Ett lag och en säsong per rad. Färg är valfri. Textens ordning blir manuell ordning. Du kan även klistra in tidsaxel och position i samma text. Exempel: <code>Djurgården 2024/2025 [gul];</code></p>
+            <div class="deluxe-text-title-row"><h2 id="deluxe-text-title">Redigera urval som text</h2><button type="button" id="deluxe-text-copy">Kopiera</button></div>
+            <p>Ett lag och en säsong per rad. Färg är valfri. Textens ordning blir manuell ordning. Du kan även klistra in tidsaxel, låsning av stapelordning och position i samma text. Exempel: <code>Djurgården 2024/2025 [gul];</code></p>
             <textarea id="deluxe-text-input" spellcheck="false" aria-label="Lagurval som text"></textarea>
             <p>Färger: blå, rosa, grå, gammelrosa, brun, gul, grön, lila, turkos. Skriv <code>HA:</code> eller <code>SHL:</code> före lagnamnet om samma lag och säsong finns i båda ligorna. En tom ruta innebär inget valt lag.</p>
-            <p class="deluxe-text-directive-hint">Valfria inställningar kan skrivas var som helst i texten, exempelvis <code>Tidsaxel: Matcher;</code> och <code>Position: 26;</code>. Utelämnade inställningar lämnas oförändrade. I datumläge betyder position ett steg på datumaxeln.</p>
+            <p class="deluxe-text-directive-hint">Texten visar alltid diagrammets aktuella tidsaxel, låsning och position (även 0). Exempel: <code>Tidsaxel: Matcher;</code>, <code>Låst vid: 52;</code>, <code>Position: 13;</code>. <code>Låst vid: Nej;</code> betyder olåst stapelordning. Om en inställningsrad tas bort behålls dess nuvarande värde. I datumläge används stegnummer.</p>
             <div id="deluxe-text-feedback" role="status" aria-live="polite"></div>
             <div class="deluxe-text-actions"><button type="button" id="deluxe-text-cancel">Avbryt</button><button type="button" id="deluxe-text-save">Bekräfta urval</button></div>
           </div>
@@ -2800,6 +2802,11 @@
         // När låset är aktivt sparas REFERENSTIDPUNKTEN, inte bara en lista med lag.
         // Därför kan även lag som väljs senare placeras korrekt vid den låsta tidpunkten.
         let placementOrderLock = null;
+        // Läsbar brygga för textredigeraren; låsets befintliga funktioner ändras inte.
+        window.__deluxeTextReadPlacement = () => ({
+            lock: placementOrderLock ? { ...placementOrderLock } : null,
+            dateKeys: [...activeDateKeysNoYear]
+        });
 
 
 
@@ -13898,6 +13905,7 @@
   const feedback = document.getElementById('deluxe-text-feedback');
   const save = document.getElementById('deluxe-text-save');
   const cancel = document.getElementById('deluxe-text-cancel');
+  const copy = document.getElementById('deluxe-text-copy');
   if (!open || !dialog || !input) return;
   const colorNames = ['blå','rosa','grå','gammelrosa','brun','gul','grön','lila','turkos'];
   const paletteIndex = {blå:0,rosa:1,grå:2,gammelrosa:3,brun:4,gul:5,grön:6,lila:7,turkos:8};
@@ -13925,11 +13933,11 @@
       byName.get(name).push(row);
     });
     const result=[], errors=[], seen=new Set();
-    let requestedAxis=null, requestedStep=null;
+    let requestedAxis=null, requestedStep=null, requestedLock=undefined;
     input.value.split(/\r?\n/).forEach((raw,index)=>{
       const line=raw.trim(); if(!line)return;
       // Direktiven är frivilliga och kan placeras före, efter eller mellan lagraderna.
-      const directive=line.match(/^(Tidsaxel|Position)\s*:\s*(.*?)\s*;?\s*$/i);
+      const directive=line.match(/^(Tidsaxel|Position|Låst vid)\s*:\s*(.*?)\s*;?\s*$/i);
       if(directive){
         const field=normalize(directive[1]);
         const value=directive[2].replace(/;\s*$/,'').trim();
@@ -13940,6 +13948,17 @@
           }else if(requestedAxis!==null){
             errors.push(`Rad ${index+1}: Tidsaxel är redan angiven.`);
           }else requestedAxis=axis==='datum'?'date':'matches';
+        }else if(field==='låst vid'){
+          if(requestedLock!==undefined){
+            errors.push(`Rad ${index+1}: Låst vid är redan angivet.`);
+          }else if(normalize(value)==='nej'){
+            requestedLock=null;
+          }else{
+            const lockMatch=value.match(/^(?:(Matcher|Datum)\s+)?(\d+)$/i);
+            if(!lockMatch || Number(lockMatch[2])>100000){
+              errors.push(`Rad ${index+1}: Låst vid måste vara Nej, ett stegnummer eller t.ex. Matcher 52.`);
+            }else requestedLock={mode:lockMatch[1]?(normalize(lockMatch[1])==='datum'?'date':'matches'):null,step:Number(lockMatch[2])};
+          }
         }else{
           if(!/^\d+$/.test(value) || Number(value)>100000){
             errors.push(`Rad ${index+1}: Position måste vara ett heltal från 0 till 100000.`);
@@ -13961,7 +13980,7 @@
       if(seen.has(key))return; // Första förekomsten gäller.
       seen.add(key);result.push({key,color});
     });
-    return {result,errors,requestedAxis,requestedStep};
+    return {result,errors,requestedAxis,requestedStep,requestedLock};
   }
   function validate(){
     const {result,errors}=parse();
@@ -13971,7 +13990,19 @@
     const allRows=rows();
     if(!allRows.length){alert('Lagtabellen har inte laddats ännu. Försök igen om en stund.');return;}
     const lookup=new Map(allRows.map(row=>[row.dataset.teamSeasonKey,row]));
-    input.value=findCurrent().map(key=>{
+    const timelineMode=document.querySelector('input[name="timeline-mode"]:checked')?.value||'matches';
+    const timelineStep=Number(document.getElementById('timeline-slider')?.value)||0;
+    const placement=window.__deluxeTextReadPlacement?.() || {lock:null,dateKeys:[]};
+    let lockText='Nej';
+    if(placement.lock){
+      const locked=placement.lock;
+      const lockStep=locked.mode==='matches' ? locked.step : placement.dateKeys.indexOf(locked.dateKey);
+      // Om låset hör till en annan tidsaxel anges axeln uttryckligen.
+      const prefix=locked.mode!==timelineMode ? (locked.mode==='matches'?'Matcher ':'Datum ') : '';
+      lockText=lockStep>=0 ? `${prefix}${lockStep}` : 'Nej';
+    }
+    const settings=`Tidsaxel: ${timelineMode==='date'?'Datum':'Matcher'};\nLåst vid: ${lockText};\nPosition: ${timelineStep};`;
+    const teamText=findCurrent().map(key=>{
       const row=lookup.get(key);if(!row)return null;
       const same=allRows.filter(r=>normalize(labelFor(r))===normalize(labelFor(row)));
       const prefix=same.length>1?row.dataset.league+': ':'';
@@ -13979,12 +14010,22 @@
       const idx=typeof PALETTE_COLORS!=='undefined'?PALETTE_COLORS.indexOf(c):-1;
       return `${prefix}${labelFor(row)}${idx>=0?' ['+colorNames[idx]+']':''};`;
     }).filter(Boolean).join('\n');
+    input.value=settings+(teamText?'\n\n'+teamText:'');
     validate();dialog.showModal();input.focus();
   });
   input.addEventListener('input',validate);
+  copy?.addEventListener('click',async()=>{
+    try{
+      await navigator.clipboard.writeText(input.value);
+      showMessage('Hela uppställningen kopierad.');
+    }catch(_){
+      input.focus();input.select();
+      showMessage('Markera texten och kopiera med Ctrl+C.');
+    }
+  });
   cancel.addEventListener('click',()=>dialog.close());
   save.addEventListener('click',()=>{
-    const {result,errors,requestedAxis,requestedStep}=parse();if(errors.length){validate();return;}
+    const {result,errors,requestedAxis,requestedStep,requestedLock}=parse();if(errors.length){validate();return;}
     const allRows=rows();
     const selected=new Set(result.map(x=>x.key));
     const apply=document.getElementById('apply-working-selection');
@@ -14015,15 +14056,45 @@
       const radio=document.querySelector(`input[name="timeline-mode"][value="${requestedAxis}"]`);
       if(radio && !radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change',{bubbles:true}));}
     }
+    const originalTimelinePosition=Number(document.getElementById('timeline-slider')?.value)||0;
+    // Låset avser staplarnas SORTERINGSORDNING, inte reglagets maxvärde.
+    // Använd samma kryssruta och knappar som den vanliga låsfunktionen.
+    if(requestedLock!==undefined){
+      const checkbox=document.getElementById('sort-by-placement');
+      const lockButton=document.getElementById('lock-placement-order');
+      const unlockButton=document.getElementById('unlock-placement-order');
+      const timelineSlider=document.getElementById('timeline-slider');
+      const targetAxis=requestedAxis || document.querySelector('input[name="timeline-mode"]:checked')?.value || 'matches';
+      if(requestedLock===null){
+        if(window.__deluxeTextReadPlacement?.().lock)unlockButton?.click();
+      }else if(checkbox && lockButton && timelineSlider){
+        const originalAxis=document.querySelector('input[name="timeline-mode"]:checked')?.value || 'matches';
+        const lockAxis=requestedLock.mode || targetAxis;
+        if(window.__deluxeTextReadPlacement?.().lock)unlockButton?.click();
+        if(lockAxis!==originalAxis){
+          const radio=document.querySelector(`input[name="timeline-mode"][value="${lockAxis}"]`);
+          if(radio){radio.checked=true;radio.dispatchEvent(new Event('change',{bubbles:true}));}
+        }
+        if(!checkbox.checked){checkbox.checked=true;checkbox.dispatchEvent(new Event('change',{bubbles:true}));}
+        const max=Number(timelineSlider.max)||0;
+        timelineSlider.value=Math.max(0,Math.min(max,requestedLock.step));
+        timelineSlider.dispatchEvent(new Event('input',{bubbles:true}));
+        lockButton.click();
+        if(lockAxis!==targetAxis){
+          const radio=document.querySelector(`input[name="timeline-mode"][value="${targetAxis}"]`);
+          if(radio){radio.checked=true;radio.dispatchEvent(new Event('change',{bubbles:true}));}
+        }
+      }
+    }
     // Om position saknas påverkas inte den befintliga positionen (förutom
     // normal nollställning när användaren uttryckligen byter tidsaxel).
-    if(requestedStep!==null){
+    if(requestedStep!==null || (requestedLock!==undefined && requestedLock!==null)){
       const timelineSlider=document.getElementById('timeline-slider') ||
         (typeof slider!=='undefined'?slider:null);
       if(timelineSlider){
         const min=Number(timelineSlider.min)||0;
         const max=Number(timelineSlider.max)||0;
-        timelineSlider.value=Math.max(min,Math.min(max,requestedStep));
+        timelineSlider.value=Math.max(min,Math.min(max,requestedStep!==null?requestedStep:originalTimelinePosition));
         timelineSlider.dispatchEvent(new Event('input',{bubbles:true}));
       }
     }
