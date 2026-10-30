@@ -4783,6 +4783,66 @@
             }
         };
 
+        // Målflagga för avslutade, kortare säsonger. Längderna kommer från
+        // season_format (inte från sista poängökningen eller antalet inlästa matcher).
+        // Returnerar matchantal först när den sista matchen nåtts på tidslinjen.
+        function completedShortSeasonFlagGames(entry) {
+            if (!entry || !entry.key) return null;
+            const meta = seasonSummaryByLabel[entry.label];
+            if (!meta || !meta.playoffResult) return null; // pågående säsong har stoppskylt
+
+            const source = chartRenderDataByKey.length ? chartRenderDataByKey : chartDataByKey;
+            const formats = window.__deluxeSeasonFormats;
+            const formatFor = item => {
+                const m = seasonSummaryByLabel[item.label];
+                const league = String(item.league || m?.league || '').toUpperCase();
+                const season = String(item.seasonId || m?.seasonId || '');
+                return formats?.get(`${league}::${season}`)?.gamesPerTeam || null;
+            };
+            const seasonGames = formatFor(entry);
+            if (!seasonGames || !source.some(other => other.key !== entry.key && formatFor(other) > seasonGames)) return null;
+
+            const history = TEAM_SEASON_HISTORY[entry.key];
+            if (!Array.isArray(history) || !history.length) return null;
+            const lastPlayed = history[history.length - 1]?.games;
+            // Skydda mot ofullständigt inlästa historiska säsonger.
+            if (!Number.isFinite(lastPlayed) || lastPlayed < seasonGames) return null;
+
+            const step = Number(slider.value);
+            const mode = document.querySelector('input[name="timeline-mode"]:checked')?.value;
+            if (!Number.isFinite(step)) return null;
+            if (mode === 'matches') return step >= seasonGames ? seasonGames : null;
+            if (mode === 'date') {
+                const perDate = pointsByDateKey[entry.key] || {};
+                const dateAxis = Array.isArray(activeDateKeysNoYear) ? activeDateKeysNoYear : [];
+                let lastDateIndex = -1;
+                Object.keys(perDate).forEach(dateKey => {
+                    const index = dateAxis.indexOf(dateKey);
+                    if (index > lastDateIndex) lastDateIndex = index;
+                });
+                return lastDateIndex >= 0 && step >= lastDateIndex ? seasonGames : null;
+            }
+            return null;
+        }
+
+        const completedSeasonFinishFlagPlugin = {
+            id: 'completedSeasonFinishFlagPlugin',
+            afterDatasetsDraw(chart) {
+                const bars = chart.getDatasetMeta(0)?.data || [];
+                const source = chartRenderDataByKey.length ? chartRenderDataByKey : chartDataByKey;
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.font = '16px "Segoe UI Emoji", "Apple Color Emoji", system-ui, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                bars.forEach((bar, index) => {
+                    if (completedShortSeasonFlagGames(source[index]) == null) return;
+                    ctx.fillText('🏁', bar.x + 6, bar.y);
+                });
+                ctx.restore();
+            }
+        };
+
         // Plugin som ritar &#9940; för pågående säsong
         // först när tidslinjen har passerat lagets sista spelade match.
         const ongoingSeasonStopIconPlugin = {
@@ -4881,7 +4941,7 @@
         };
 
         // Registrera båda plugins
-        Chart.register(barLabelPlugin, ongoingSeasonStopIconPlugin);
+        Chart.register(barLabelPlugin, ongoingSeasonStopIconPlugin, completedSeasonFinishFlagPlugin);
 
 
 
@@ -5154,6 +5214,13 @@
                                         line2 += ` (efter ${games} matcher)`;
                                     }
                                     lines.push(line2);
+
+                                    // Samma villkor som målflaggan: ingen text innan
+                                    // stapeln nått den avslutade, kortare säsongens sista match.
+                                    const finishGames = completedShortSeasonFlagGames(entry);
+                                    if (finishGames != null) {
+                                        lines.push(`🏁 Säsongen avslutad efter ${finishGames} matcher`);
+                                    }
 
                                     // Målstatistik vid samma match/datum som poängen.
                                     if (entry && Number.isFinite(entry.goalsFor) && Number.isFinite(entry.goalsAgainst)) {
