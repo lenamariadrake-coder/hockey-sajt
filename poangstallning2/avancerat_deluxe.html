@@ -1764,6 +1764,24 @@
 .clear-team-selection:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .clear-team-selection:disabled { opacity: .4; cursor: default; text-decoration: none; }
 .team-summary-heading { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .25rem; }
+
+/* TILLÄGG: fristående textredigerare för lagurval. Befintliga kontroller lämnas orörda. */
+#deluxe-text-open {position:absolute;right:1rem;top:1rem;z-index:3;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#5f2570;padding:7px 11px;font:inherit;font-size:.85rem;cursor:pointer;}
+#deluxe-text-open:hover {background:#f7f2fa;border-color:#aa86b8;}
+#deluxe-text-dialog {border:1px solid #d7dce3;border-radius:12px;box-shadow:0 18px 60px #0004;padding:0;width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 40px);color:#253047;}
+#deluxe-text-dialog::backdrop {background:#1b2637a8;}
+.deluxe-text-inner {padding:22px;display:grid;gap:12px;}
+.deluxe-text-inner h2 {margin:0;font-size:1.3rem;}
+.deluxe-text-inner p {margin:0;font-size:.9rem;line-height:1.5;}
+#deluxe-text-input {box-sizing:border-box;width:100%;min-height:245px;resize:vertical;border:1px solid #b9c2ce;border-radius:7px;padding:12px;font:14px/1.6 Consolas,monospace;}
+#deluxe-text-feedback {white-space:pre-wrap;font-size:.85rem;line-height:1.5;max-height:145px;overflow:auto;}
+#deluxe-text-feedback.error {color:#a52222;}
+.deluxe-text-actions {display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap;}
+.deluxe-text-actions button {font:inherit;padding:8px 13px;border-radius:6px;border:1px solid #b7c0cc;background:white;cursor:pointer;}
+#deluxe-text-save {background:#168d94;color:white;border-color:#168d94;}
+#deluxe-text-save:disabled {opacity:.45;cursor:not-allowed;}
+@media(max-width:650px){#deluxe-text-open{position:static;margin:8px 0 0 auto;display:block}.deluxe-text-inner{padding:15px}}
+
 </style>
 <style>
 .team-summary-sort[hidden], #deluxe-paint-toggle[hidden], #deluxe-quick-palette[hidden] {display:none!important}
@@ -1846,8 +1864,19 @@
                 </a-->
                 <!--a href="faq.html" class="title-icon faq-icon faq-large"><span class="faq-icon-symbol">?</span></a-->
             </div>
+            <button type="button" id="deluxe-text-open" aria-haspopup="dialog">✎ Redigera urval som text</button>
         </div>
 
+        <dialog id="deluxe-text-dialog" aria-labelledby="deluxe-text-title">
+          <div class="deluxe-text-inner">
+            <h2 id="deluxe-text-title">Redigera urval som text</h2>
+            <p>Ett lag och en säsong per rad. Färg är valfri. Textens ordning blir manuell ordning. Exempel: <code>Djurgården 2024/2025 [gul];</code></p>
+            <textarea id="deluxe-text-input" spellcheck="false" aria-label="Lagurval som text"></textarea>
+            <p>Färger: blå, rosa, grå, gammelrosa, brun, gul, grön, lila, turkos. Skriv <code>HA:</code> eller <code>SHL:</code> före lagnamnet om samma lag och säsong finns i båda ligorna. En tom ruta innebär inget valt lag.</p>
+            <div id="deluxe-text-feedback" role="status" aria-live="polite"></div>
+            <div class="deluxe-text-actions"><button type="button" id="deluxe-text-cancel">Avbryt</button><button type="button" id="deluxe-text-save">Bekräfta urval</button></div>
+          </div>
+        </dialog>
 
         <details class="filter-section">
             <summary class="team-summary-row">
@@ -13855,6 +13884,110 @@
     edit.addEventListener('keydown', function (event) {
         event.stopPropagation();
     });
+})();
+</script>
+<script>
+/* TILLÄGG: texturval använder samma tabellrader och befintliga Bekräfta urval-handler.
+   Ingen befintlig urvals-, sorterings- eller färgläggningsfunktion ersätts. */
+(function () {
+  const open = document.getElementById('deluxe-text-open');
+  const dialog = document.getElementById('deluxe-text-dialog');
+  const input = document.getElementById('deluxe-text-input');
+  const feedback = document.getElementById('deluxe-text-feedback');
+  const save = document.getElementById('deluxe-text-save');
+  const cancel = document.getElementById('deluxe-text-cancel');
+  if (!open || !dialog || !input) return;
+  const colorNames = ['blå','rosa','grå','gammelrosa','brun','gul','grön','lila','turkos'];
+  const paletteIndex = {blå:0,rosa:1,grå:2,gammelrosa:3,brun:4,gul:5,grön:6,lila:7,turkos:8};
+  const normalize = text => String(text).normalize('NFC').trim().toLocaleLowerCase('sv-SE');
+  const rows = () => Array.from(document.querySelectorAll('.team-table tbody tr[data-team-season-key]'));
+  function findCurrent() {
+    const chips = Array.from(document.querySelectorAll('#team-selection .team-item-wrapper[data-team-season-key]'));
+    return chips.map(chip => chip.dataset.teamSeasonKey).filter(Boolean);
+  }
+  function labelFor(row) {
+    const season = String(row.dataset.seasonId || '').replace(/-/g,'/');
+    return `${row.dataset.team} ${season}`;
+  }
+  function showMessage(message, error=false) {
+    feedback.textContent=message;
+    feedback.classList.toggle('error',error);
+    save.disabled=error;
+  }
+  function parse() {
+    const allRows=rows();
+    const byName=new Map();
+    allRows.forEach(row => {
+      const name=normalize(labelFor(row));
+      if(!byName.has(name))byName.set(name,[]);
+      byName.get(name).push(row);
+    });
+    const result=[], errors=[], seen=new Set();
+    input.value.split(/\r?\n/).forEach((raw,index)=>{
+      const line=raw.trim(); if(!line)return;
+      const match=line.match(/^(?:(HA|SHL)\s*:\s*)?(.+?)\s+(\d{4})[\/-](\d{4})\s*(?:\[([^\]]+)\])?\s*;?\s*$/i);
+      if(!match){errors.push(`Rad ${index+1}: Felaktigt format: ${line}`);return;}
+      const [,league,team,start,end,colorRaw]=match;
+      const color=colorRaw ? normalize(colorRaw) : null;
+      if(color && !(color in paletteIndex)){errors.push(`Rad ${index+1}: Okänd färg ”${colorRaw}”.`);return;}
+      const candidates=(byName.get(normalize(`${team} ${start}/${end}`))||[]).filter(r=>!league||r.dataset.league.toUpperCase()===league.toUpperCase());
+      if(!candidates.length){errors.push(`Rad ${index+1}: Hittar inte ${team} ${start}/${end}${league?' i '+league:''}.`);return;}
+      if(candidates.length>1){errors.push(`Rad ${index+1}: Flera träffar för ${team} ${start}/${end}. Ange HA: eller SHL:.`);return;}
+      const key=candidates[0].dataset.teamSeasonKey;
+      if(seen.has(key))return; // Första förekomsten gäller.
+      seen.add(key);result.push({key,color});
+    });
+    return {result,errors};
+  }
+  function validate(){
+    const {result,errors}=parse();
+    showMessage(errors.length ? errors.join('\n') : `${result.length} lag/säsonger identifierade. ${result.length ? 'Klart att bekräfta.' : 'Bekräfta för att tömma urvalet.'}`,!!errors.length);
+  }
+  open.addEventListener('click',()=>{
+    const allRows=rows();
+    if(!allRows.length){alert('Lagtabellen har inte laddats ännu. Försök igen om en stund.');return;}
+    const lookup=new Map(allRows.map(row=>[row.dataset.teamSeasonKey,row]));
+    input.value=findCurrent().map(key=>{
+      const row=lookup.get(key);if(!row)return null;
+      const same=allRows.filter(r=>normalize(labelFor(r))===normalize(labelFor(row)));
+      const prefix=same.length>1?row.dataset.league+': ':'';
+      const c=typeof teamSeasonColors!=='undefined'?teamSeasonColors[key]:null;
+      const idx=typeof PALETTE_COLORS!=='undefined'?PALETTE_COLORS.indexOf(c):-1;
+      return `${prefix}${labelFor(row)}${idx>=0?' ['+colorNames[idx]+']':''};`;
+    }).filter(Boolean).join('\n');
+    validate();dialog.showModal();input.focus();
+  });
+  input.addEventListener('input',validate);
+  cancel.addEventListener('click',()=>dialog.close());
+  save.addEventListener('click',()=>{
+    const {result,errors}=parse();if(errors.length){validate();return;}
+    const allRows=rows();
+    const selected=new Set(result.map(x=>x.key));
+    const apply=document.getElementById('apply-working-selection');
+    if(!apply){showMessage('Urvalsfunktionen är inte redo ännu. Inga ändringar gjordes.',true);return;}
+    // Kryssrutorna är arbetsurvalets befintliga gränssnitt.
+    allRows.forEach(row=>{
+      const cb=row.querySelector('.team-table-row-checkbox');
+      if(!cb)return;
+      const wanted=selected.has(row.dataset.teamSeasonKey);
+      if(cb.checked!==wanted){cb.checked=wanted;cb.dispatchEvent(new Event('change',{bubbles:true}));}
+    });
+    // Befintlig knapp ansvarar för att skapa/ta bort lagbrickor och uppdatera diagrammet.
+    if(!apply.disabled)apply.click();
+    // Applicera uttryckligen angivna färger först efter att lagbrickorna skapats.
+    result.forEach(item=>{
+      if(item.color)teamSeasonColors[item.key]=PALETTE_COLORS[paletteIndex[item.color]];
+    });
+    // Textordningen är den manuella ordningen, men den aktiveras bara vid textbekräftelse.
+    manualOrderKeys=result.map(item=>item.key);
+    manualOrderVersion++;
+    const manual=document.querySelector('input[name="sort-order"][value="manual"]');
+    if(manual){manual.checked=true;manual.dispatchEvent(new Event('change',{bubbles:true}));}
+    if(typeof applyManualOrderToChipDOM==='function')applyManualOrderToChipDOM(manualOrderKeys);
+    if(typeof updateColorIcons==='function')updateColorIcons();
+    if(typeof updateChart==='function')updateChart();
+    dialog.close();
+  });
 })();
 </script>
 </body>
