@@ -2329,7 +2329,7 @@
                                             Bekräfta urval
                                         </button>
                                         <button id="return-working-selection" type="button">Återgå</button>
-                                        <button id="cancel-working-selection" type="button">Avbryt och återgå</button>
+                                        <button id="cancel-working-selection" type="button">Avbryt</button>
                                         <button id="range-working-selection" type="button">
                                             Markera intervall
                                         </button>
@@ -10887,7 +10887,7 @@
             //   - hantera arbetsurvalets UI (markerade rader i tabellen)
             //   - hålla summeringen i botten uppdaterad
             //   - se till att filtren återställs + synkas när panelen "Ändra lag att välja mellan" öppnas
-            //   - koppla knapparna: Markera intervall / Bekräfta urval / Avbryt och återgå
+            //   - koppla knapparna: Markera intervall / Bekräfta urval / Avbryt
             const table = document.querySelector('.team-table');
             if (!table) return;
 
@@ -13139,19 +13139,28 @@
 .deluxe-view-switch button { cursor:pointer; border:1px solid #cfc8d4; background:transparent; color:#5f2570; padding:7px 13px; border-radius:7px; font:inherit; font-weight:500; }
 .deluxe-view-switch button.is-active { background:#5f2570; color:#fff; border-color:#5f2570; font-weight:600; }
 .deluxe-view-switch button:focus-visible { outline:2px solid #5f2570; outline-offset:3px; }
-/* Urvalsinformation på en egen låg rad, efter samtliga knappar och vyval. */
+
+/* Bara tabellsektionen flyttas upp; ändra -8px här för att justera avståndet.
+   Ändra inte gap i .filter-layout eftersom det påverkar alla andra filterblock. */
+.filter-layout > .team-table-wrapper { margin-top: -8px; }
+
+/* Urvalsinformation på en egen låg rad, efter samtliga knappar och vyval.
+   Justera padding-left för att ändra indraget. */
 .working-selection-bar .working-selection-meta {
     order: 999;
     flex: 0 0 100%;
     display: flex;
     align-items: center;
     gap: .7rem;
+    padding-left: 5px; /* Ändra indraget här */
+    box-sizing: border-box;
     min-height: 1rem;
     margin-top: -.35rem;
     font-size: .8rem;
     line-height: 1.2;
     color: #6b7280;
 }
+
 .working-selection-bar .working-selection-meta .working-selection-text { font-size: inherit; color: inherit; }
 .working-selection-bar .working-selection-meta .clear-team-selection {
     font: inherit;
@@ -13169,7 +13178,13 @@
 .working-selection-bar .deluxe-view-switch { padding: 0; }
 .working-selection-bar .deluxe-view-switch button {
     font-size: .85rem;
-    padding: .35rem .9rem;
+    padding: 0 .9rem;
+    height: 28px; /* Samma kompakta höjd som övriga åtgärdsknappar. */
+    min-height: 0;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     line-height: normal;
     border-radius: .5rem;
 }
