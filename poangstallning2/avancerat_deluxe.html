@@ -13274,7 +13274,7 @@
       ['Hemma och borta', ['Hemmamatcher','Bortamatcher','Hemmapoäng','Bortapoäng','Poäng/match hemma','Poäng/match borta','Hemmavinster','Bortavinster','Målskillnad hemma','Målskillnad borta']],
       ['Sviter', ['Segersvit','Förlustsvit','3-poängssvit','0-poängssvit','Poängsvit','Utan seger','Utan förlust','Målsvit','Nollsvit']],
       ['Enskilda matcher', ['Största seger','Största förlust','Flest mål framåt','Flest mål bakåt','Målrikaste match','Uddamålssegrar','Uddamålsförluster','Matcher med 8+ mål','Matcher med 10+ mål']],
-      ['Slutspel och utfall', ['Säsongsutfall','Utfallsvärde','Slutspel','Slutspelsnivå','Utfallskommentar','Seriesegrare','Mästare','Uppflyttad','Nedflyttad','Kval nedåt','Ingenmansland']]
+      ['Slutspel och utfall', ['Säsongsutfall','Utfallsvärde','Slutspel','Slutspelsnivå','Utfallskommentar','Seriesegrare','Mästare / uppflyttad','Nedflyttad','Kval nedåt','Ingenmansland']]
     ];
     // Kom ihåg vilka grupper besökaren har öppnat även när kolumnvalen ritas om.
     const openGroups = new Set(['Grunduppgifter']);
@@ -13352,8 +13352,7 @@
       "Utfallsvärde": "Numerisk kod för sammanfattande säsongsutfall.",
       "Utfallskommentar": "Kommentar om säsongsutfallet i säsongssammanfattningen.",
       "Seriesegrare": "Om laget slutade etta i grundserien.",
-      "Mästare": "Högsta säsongsutfall (värde 4): SM-guld i SHL eller uppflyttning från HA, oavsett liga.",
-      "Uppflyttad": "Förenklad indikator för högsta säsongsutfall i HA; kontrollera historiska undantag.",
+      "Mästare / uppflyttad": "Högsta säsongsutfall (värde 4): SM-guld i SHL eller uppflyttning från HA, oavsett liga.",
       "Nedflyttad": "Om säsongsutfallet har värdet noll.",
       "Kval nedåt": "Om säsongsutfallet har värdet ett.",
       "Ingenmansland": "Om säsongsutfallet har värdet två."
@@ -13364,8 +13363,13 @@
     try {
         const saved=JSON.parse(localStorage.getItem(storageKey));
         if(saved && Array.isArray(saved.order) && Array.isArray(saved.visible)) {
-            custom.order=[...new Set(saved.order.filter(x=>ids.includes(x))),...ids.filter(x=>!saved.order.includes(x))];
-            custom.visible=[...new Set(saved.visible.filter(x=>ids.includes(x)))];
+            // Migrera äldre sparade vyer: både Mästare och Uppflyttad motsvarar nu en gemensam kolumn.
+            // Behåll kolumnens första position och välj den om någon av de gamla var vald.
+            const migrateColumn = id => (id === 'Mästare' || id === 'Uppflyttad') ? 'Mästare / uppflyttad' : id;
+            const savedOrder = [...new Set(saved.order.map(migrateColumn))];
+            const savedVisible = [...new Set(saved.visible.map(migrateColumn))];
+            custom.order=[...savedOrder.filter(x=>ids.includes(x)),...ids.filter(x=>!savedOrder.includes(x))];
+            custom.visible=savedVisible.filter(x=>ids.includes(x));
             defaultMode=saved.defaultMode!==false;
         }
     } catch(e) {console.warn('Kolumnval kunde inte läsas',e);}
@@ -13448,7 +13452,7 @@
     const renderValue=(id,o)=>{
         if(!o)return '–';
         const r=o.row, n=o.played,points=Number.isFinite(r.regularSeasonPoints)?r.regularSeasonPoints:null;
-        const matchBased=!['Lag','Liga','Säsong','Grundserie','Antal lag','Poäng','Poäng efter ettan','Poäng till ovanför','Poäng före nedanför','Poäng före jumbon','Poäng mot ligasnitt','Relativ placering %','Säsongsutfall','Slutspel','Slutspelsnivå','Utfallsvärde','Utfallskommentar','Seriesegrare','Mästare','Uppflyttad','Nedflyttad','Kval nedåt','Ingenmansland','Målskillnad'].includes(id);
+        const matchBased=!['Lag','Liga','Säsong','Grundserie','Antal lag','Poäng','Poäng efter ettan','Poäng till ovanför','Poäng före nedanför','Poäng före jumbon','Poäng mot ligasnitt','Relativ placering %','Säsongsutfall','Slutspel','Slutspelsnivå','Utfallsvärde','Utfallskommentar','Seriesegrare','Mästare / uppflyttad','Nedflyttad','Kval nedåt','Ingenmansland','Målskillnad'].includes(id);
         if(!n && matchBased)return '–';
         const vals={
           'Lag':r.teamLabel||r.team,'Liga':r.league==='HA'?'Hockeyallsvenskan':r.league==='SHL'?'SHL':r.league,
@@ -13473,8 +13477,7 @@
           'Matcher med 8+ mål':o.eight,'Matcher med 10+ mål':o.ten,
           'Slutspel':r.playoffResult,'Slutspelsnivå':r.playoffRoundNumeric,'Utfallsvärde':r.seasonOutcomeNumeric,
           'Utfallskommentar':r.seasonOutcomeNote,'Seriesegrare':r.regularSeasonRank===1?'Ja':'Nej',
-          'Mästare':r.seasonOutcomeNumeric===4?'Ja':'Nej',
-          'Uppflyttad':r.seasonOutcomeNumeric===4&&r.league==='HA'?'Ja':'Nej',
+          'Mästare / uppflyttad':r.seasonOutcomeNumeric===4?'Ja':'Nej',
           'Nedflyttad':r.seasonOutcomeNumeric===0?'Ja':'Nej',
           'Kval nedåt':r.seasonOutcomeNumeric===1?'Ja':'Nej',
           'Ingenmansland':r.seasonOutcomeNumeric===2?'Ja':'Nej'
