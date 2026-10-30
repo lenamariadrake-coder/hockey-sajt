@@ -1752,6 +1752,11 @@
 }
 .open-team-filters:hover { color: #055c62; }
 .open-team-filters:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.clear-team-selection { border: 0; background: transparent; color: #087e85; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; padding: .2rem .35rem; }
+.clear-team-selection:hover:not(:disabled) { color: #055c62; }
+.clear-team-selection:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.clear-team-selection:disabled { opacity: .4; cursor: default; text-decoration: none; }
+.team-summary-heading { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .25rem; }
 </style>
 <style>
 .team-summary-sort[hidden], #deluxe-paint-toggle[hidden], #deluxe-quick-palette[hidden] {display:none!important}
@@ -1840,7 +1845,7 @@
         <details class="filter-section">
             <summary class="team-summary-row">
                 <span class="team-summary-heading"><span id="filter-summary">Laddar…</span>
-                <button type="button" id="open-team-filters" class="open-team-filters" aria-label="Ändra lagurval och filter">Ändra</button></span>
+                <button type="button" id="open-team-filters" class="open-team-filters" aria-label="Ändra lagurval och filter">Ändra</button><button type="button" class="clear-team-selection" id="clear-team-selection-top" title="Rensa hela lagurvalet, även lag som döljs av filter">Rensa lagurval</button></span>
                 <!-- Sorteringsvalet ligger i rubrikraden, även när lagväljaren är stängd. -->
                 <span class="team-summary-sort control-group" role="group" aria-label="Sortera lag">
                     <strong>Sortera:</strong>
@@ -2323,6 +2328,7 @@
                                     </label>
 
                                     <div class="working-selection-actions">
+                                        <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Rensa alla valda lag, även filtrerade rader">Rensa lagurval</button>
                                         <button id="apply-working-selection" type="button">
                                             Bekräfta urval
                                         </button>
@@ -2973,6 +2979,7 @@
             const paintBtn=document.getElementById('deluxe-paint-toggle');
             if(paintBtn)paintBtn.hidden=!hasChips;
             if(!hasChips && typeof closeQuickPaint==='function')closeQuickPaint();
+            document.querySelectorAll('.clear-team-selection').forEach(btn => { btn.disabled = !hasChips; });
             updateBatchColorButtonState();
         }
 
@@ -13688,6 +13695,28 @@
         apply();
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
+<script>
+// Rensa lagurval: omfattar ALLA tabellrader, inte bara dem som visas av filtren.
+// Återanvänd den befintliga Bekräfta-logiken så att chips, diagram och urvalsnycklar synkas.
+(function () {
+    function clearSelection(event) {
+        event.preventDefault();
+        event.stopPropagation(); // Öppna inte details när länken ligger i summary.
+        const apply = document.getElementById('apply-working-selection');
+        const rows = document.querySelectorAll('.team-table tbody .team-table-row-checkbox');
+        if (!apply || !rows.length) return;
+        rows.forEach(cb => { cb.checked = false; });
+        apply.click();
+        // Uppdatera arbetsurvalets räknare utan att ändra filterinställningar.
+        const counter = document.getElementById('working-selection-text');
+        if (counter) counter.textContent = 'Arbetsurval: 0 lag markerade';
+    }
+    document.querySelectorAll('.clear-team-selection').forEach(btn => {
+        btn.addEventListener('click', clearSelection);
+        btn.addEventListener('keydown', event => event.stopPropagation());
+    });
 })();
 </script>
 <script>
