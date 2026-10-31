@@ -1772,8 +1772,9 @@
 #deluxe-text-dialog::backdrop {background:#1b2637a8;}
 .deluxe-text-inner {padding:22px;display:grid;gap:12px;}
 .deluxe-text-inner h2 {margin:0;font-size:1.3rem;}
+.deluxe-text-title-buttons {display:flex;gap:6px;flex-wrap:wrap;}
 .deluxe-text-title-row {display:flex;justify-content:space-between;align-items:center;gap:12px;}
-#deluxe-text-copy {font:inherit;padding:6px 12px;border:1px solid #b7c0cc;background:white;border-radius:6px;cursor:pointer;}
+#deluxe-text-copy, #deluxe-text-copy-link {font:inherit;padding:6px 12px;border:1px solid #b7c0cc;background:white;border-radius:6px;cursor:pointer;}
 .deluxe-text-inner p {margin:0;font-size:.9rem;line-height:1.5;}
 #deluxe-text-input {box-sizing:border-box;width:100%;min-height:245px;resize:vertical;border:1px solid #b9c2ce;border-radius:7px;padding:12px;font:14px/1.6 Consolas,monospace;}
 .deluxe-text-directive-hint {font-size:.88rem;color:#526277;line-height:1.5;}
@@ -1872,7 +1873,7 @@
 
         <dialog id="deluxe-text-dialog" aria-labelledby="deluxe-text-title">
           <div class="deluxe-text-inner">
-            <div class="deluxe-text-title-row"><h2 id="deluxe-text-title">Redigera urval som text</h2><button type="button" id="deluxe-text-copy">Kopiera</button></div>
+            <div class="deluxe-text-title-row"><h2 id="deluxe-text-title">Redigera urval som text</h2><div class="deluxe-text-title-buttons"><button type="button" id="deluxe-text-copy">Kopiera</button> <button type="button" id="deluxe-text-copy-link">Kopiera länk</button></div></div>
             <p>Ett lag och en säsong per rad. Färg är valfri. Textens ordning blir manuell ordning. Du kan även klistra in tidsaxel, låsning av stapelordning och position i samma text. Exempel: <code>Djurgården 2024/2025 [gul];</code></p>
             <textarea id="deluxe-text-input" spellcheck="false" aria-label="Lagurval som text"></textarea>
             <p>Färger: blå, rosa, grå, gammelrosa, brun, gul, grön, lila, turkos. Skriv <code>HA:</code> eller <code>SHL:</code> före lagnamnet om samma lag och säsong finns i båda ligorna. En tom ruta innebär inget valt lag.</p>
@@ -13906,6 +13907,7 @@
   const save = document.getElementById('deluxe-text-save');
   const cancel = document.getElementById('deluxe-text-cancel');
   const copy = document.getElementById('deluxe-text-copy');
+  const copyLink = document.getElementById('deluxe-text-copy-link');
   if (!open || !dialog || !input) return;
   const colorNames = ['blå','rosa','grå','gammelrosa','brun','gul','grön','lila','turkos'];
   const paletteIndex = {blå:0,rosa:1,grå:2,gammelrosa:3,brun:4,gul:5,grön:6,lila:7,turkos:8};
@@ -14023,6 +14025,52 @@
       showMessage('Markera texten och kopiera med Ctrl+C.');
     }
   });
+  // Delningslänken innehåller samma textformat som dialogen. Den ändrar inte
+  // adressfältet eller webbläsarhistoriken och återanvänder befintlig bekräftelse.
+  const shareParameter='deluxe';
+  copyLink?.addEventListener('click',async()=>{
+    if(parse().errors.length){validate();return;}
+    const url=new URL(window.location.href);
+    url.searchParams.set(shareParameter,input.value);
+    const link=url.toString();
+    try{
+      await navigator.clipboard.writeText(link);
+      showMessage(link.length>8000?'Länken kopierad. Obs: den är lång och kan vara svår att dela i vissa tjänster.':'Länken kopierad! Den återskapar uppställningen när sidan öppnas.');
+    }catch(_){
+      // Även file:// och osäkra kontexter kan sakna Clipboard API.
+      window.prompt('Kopiera länken med Ctrl+C:',link);
+    }
+  });
+  // Vänta på att sidans vanliga asynkrona tabellinitiering är klar.
+  // Avbryt vid fel i stället för att råka tillämpa ett ofullständigt urval.
+  const sharedText=new URL(window.location.href).searchParams.get(shareParameter);
+  if(sharedText!==null){
+    let attempts=0;
+    const tryRestore=()=>{
+      attempts++;
+      const allRows=rows();
+      const ready=allRows.length>0 && document.getElementById('apply-working-selection') &&
+        document.getElementById('timeline-slider') && document.querySelector('input[name="timeline-mode"]:checked');
+      if(!ready){
+        if(attempts<160)setTimeout(tryRestore,250);
+        else console.warn('Deluxe-delning: sidans data hann inte laddas. Länken tillämpades inte.');
+        return;
+      }
+      // Öppna via ordinarie handler, så att alla referenser och standardvärden
+      // hämtas från samma källa som vid manuell redigering.
+      open.click();
+      if(!dialog.open)return;
+      input.value=sharedText;
+      validate();
+      if(save.disabled){
+        showMessage('Delningslänken kunde inte tillämpas:\n'+feedback.textContent,true);
+        return; // Behåll dialogen öppen så att felet kan rättas.
+      }
+      save.click();
+    };
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tryRestore,{once:true});
+    else tryRestore();
+  }
   cancel.addEventListener('click',()=>dialog.close());
   save.addEventListener('click',()=>{
     const {result,errors,requestedAxis,requestedStep,requestedLock}=parse();if(errors.length){validate();return;}
