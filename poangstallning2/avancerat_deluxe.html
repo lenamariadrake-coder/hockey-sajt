@@ -291,6 +291,15 @@
 
         .filter-group-placeholder > summary { color: #6b7280; }
 
+
+        /* Nya svitvillkor: tydlig koppling mellan målkrav och svitlängd. */
+        .streak-subtitle {font-weight:650; margin:1.2rem 0 .25rem;}
+        .streak-help {font-size:.8rem; color:#6b7280; margin:.2rem 0 .65rem;}
+        .streak-advanced {display:grid; grid-template-columns:1fr; gap:.4rem; margin:.7rem 0 1.1rem; padding:.75rem; border:1px solid #dce3e8; border-radius:.6rem;}
+        .streak-advanced label {font-size:.85rem; font-weight:550;}
+        .streak-advanced select, .streak-advanced input {min-width:0; max-width:100%; box-sizing:border-box; padding:.35rem;}
+        .streak-inline {display:grid; grid-template-columns:1fr 1fr; gap:.5rem;}
+
         /*
          * NYA NUMERISKA FILTER – luftig två-radslayout.
          * Gäller endast Sviter, Målstatistik, Enskilda matcher,
@@ -300,6 +309,7 @@
          */
         .filter-group:is(
             [data-filter-group="streaks"],
+            [data-filter-group="goal-streaks"],
             [data-filter-group="season-length"],
             [data-filter-group="goals"],
             [data-filter-group="games"],
@@ -315,6 +325,7 @@
         }
         .filter-group:is(
             [data-filter-group="streaks"],
+            [data-filter-group="goal-streaks"],
             [data-filter-group="season-length"],
             [data-filter-group="goals"],
             [data-filter-group="games"],
@@ -326,6 +337,7 @@
         }
         .filter-group:is(
             [data-filter-group="streaks"],
+            [data-filter-group="goal-streaks"],
             [data-filter-group="season-length"],
             [data-filter-group="goals"],
             [data-filter-group="games"],
@@ -334,6 +346,7 @@
         ) .goal-filter-row > select,
         .filter-group:is(
             [data-filter-group="streaks"],
+            [data-filter-group="goal-streaks"],
             [data-filter-group="season-length"],
             [data-filter-group="goals"],
             [data-filter-group="games"],
@@ -2099,7 +2112,7 @@
                                     </details>
 
                                     <details class="filter-group" data-filter-group="streaks">
-                                        <summary><span class="filter-group-title">Sviter</span><span class="filter-group-state" id="streak-filter-count" aria-hidden="true"></span></summary>
+                                        <summary><span class="filter-group-title">Resultatsviter</span><span class="filter-group-state" id="streak-filter-count" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block">
                                             <div class="goal-filter-row">
                                                 <label for="filter-streak-win-value">Segersvit</label>
@@ -2136,6 +2149,26 @@
                                                 <select id="filter-streak-without-loss-op" aria-label="Jämförelse för Utan förlust"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
                                                 <input type="number" id="filter-streak-without-loss-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Utan förlust">
                                             </div>
+                                            <div class="streak-subtitle">Seger- och förlustmarginal</div>
+                                            <p class="streak-help">Varje match i sviten måste ha den valda målmarginalen.</p>
+                                            <div class="streak-advanced">
+                                                <label for="filter-streak-win-margin-goals">Segermarginal (mål)</label>
+                                                <div class="streak-inline"><select id="filter-streak-win-margin-goal-op" aria-label="Jämförelse av målmarginal"><option value="eq">exakt</option><option value="min">minst</option><option value="max">högst</option></select><input id="filter-streak-win-margin-goals" type="number" min="1" step="1" placeholder="Mål"></div>
+                                                <label for="filter-streak-win-margin-value">Sviten omfattar</label>
+                                                <div class="streak-inline"><select id="filter-streak-win-margin-op"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select><input id="filter-streak-win-margin-value" type="number" min="1" step="1" placeholder="Matcher"></div>
+                                            </div>
+                                            <div class="streak-advanced">
+                                                <label for="filter-streak-loss-margin-goals">Förlustmarginal (mål)</label>
+                                                <div class="streak-inline"><select id="filter-streak-loss-margin-goal-op" aria-label="Jämförelse av målmarginal"><option value="eq">exakt</option><option value="min">minst</option><option value="max">högst</option></select><input id="filter-streak-loss-margin-goals" type="number" min="1" step="1" placeholder="Mål"></div>
+                                                <label for="filter-streak-loss-margin-value">Sviten omfattar</label>
+                                                <div class="streak-inline"><select id="filter-streak-loss-margin-op"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select><input id="filter-streak-loss-margin-value" type="number" min="1" step="1" placeholder="Matcher"></div>
+                                            </div>
+                                        </div>
+                                    </details>
+
+                                    <details class="filter-group" data-filter-group="goal-streaks">
+                                        <summary><span class="filter-group-title">Målsviter</span><span class="filter-group-state" id="goal-streak-filter-count" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block">
                                             <div class="goal-filter-row">
                                                 <label for="filter-streak-scoring-value">Målsvit</label>
                                                 <select id="filter-streak-scoring-op" aria-label="Jämförelse för Målsvit"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
@@ -2145,6 +2178,18 @@
                                                 <label for="filter-streak-clean-sheet-value">Nollsvit</label>
                                                 <select id="filter-streak-clean-sheet-op" aria-label="Jämförelse för Nollsvit"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select>
                                                 <input type="number" id="filter-streak-clean-sheet-value" min="0" step="1" inputmode="decimal" placeholder="–" aria-label="Nollsvit">
+                                            </div>
+                                            <div class="goal-filter-row"><label for="filter-streak-scoreless-value">Utan gjorda mål</label><select id="filter-streak-scoreless-op"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select><input type="number" id="filter-streak-scoreless-value" min="0" step="1" placeholder="–"></div>
+                                            <div class="streak-subtitle">Anpassad målsvit</div>
+                                            <p class="streak-help">Alla villkor ska uppfyllas i samma matcher i följd.</p>
+                                            <div class="streak-advanced">
+                                                <label for="filter-streak-custom-type">Mål per match</label>
+                                                <select id="filter-streak-custom-type"><option value="for">Gjorda mål</option><option value="against">Insläppta mål</option></select>
+                                                <div class="streak-inline"><select id="filter-streak-custom-goal-op"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select><input id="filter-streak-custom-goals" type="number" min="0" step="1" placeholder="Mål"></div>
+                                                <label for="filter-streak-custom-result">Matchresultat</label>
+                                                <select id="filter-streak-custom-result"><option value="all">Alla resultat</option><option value="win">Endast segrar</option><option value="loss">Endast förluster</option><option value="three">Endast trepoängssegrar</option><option value="zero">Endast nollpoängsförluster</option></select>
+                                                <label for="filter-streak-custom-value">Sviten omfattar</label>
+                                                <div class="streak-inline"><select id="filter-streak-custom-op"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select><input id="filter-streak-custom-value" type="number" min="1" step="1" placeholder="Matcher"></div>
                                             </div>
                                         </div>
                                     </details>
@@ -8587,7 +8632,11 @@
                 withoutWin: readGoalFilter('filter-streak-without-win'),
                 withoutLoss: readGoalFilter('filter-streak-without-loss'),
                 scoring: readGoalFilter('filter-streak-scoring'),
-                cleanSheet: readGoalFilter('filter-streak-clean-sheet')
+                cleanSheet: readGoalFilter('filter-streak-clean-sheet'),
+                scorelessStreak: readGoalFilter('filter-streak-scoreless'),
+                winMargin: document.getElementById('filter-streak-win-margin-goals')?.value !== '' ? readGoalFilter('filter-streak-win-margin') : null,
+                lossMargin: document.getElementById('filter-streak-loss-margin-goals')?.value !== '' ? readGoalFilter('filter-streak-loss-margin') : null,
+                custom: document.getElementById('filter-streak-custom-goals')?.value !== '' ? readGoalFilter('filter-streak-custom') : null
             };
         }
 
@@ -8941,11 +8990,11 @@
             const pointSystemOptions = [...document.querySelectorAll('#points-system-options input')];
             const selectedPointSystems = new Set(pointSystemOptions.filter(cb => cb.checked).map(cb => cb.value));
             const pointSystemActive = pointSystemOptions.length > 0 && selectedPointSystems.size !== pointSystemOptions.length;
-            const extraStreakKeys = ['points','withoutWin','withoutLoss','scoring','cleanSheet'];
+            const extraStreakKeys = ['points','withoutWin','withoutLoss','scoring','cleanSheet','scorelessStreak'];
             const extraGoalKeys = ['shutouts','scoreless','forAverage','againstAverage'];
             const goalFilters = getActiveGoalFilters();
             const streakFilters = getActiveStreakFilters();
-            const extraStreakActive = extraStreakKeys.some(k => !!streakFilters[k]);
+            const extraStreakActive = extraStreakKeys.some(k => !!streakFilters[k]) || !!streakFilters.winMargin || !!streakFilters.lossMargin || !!streakFilters.custom;
             const extraGoalActive = extraGoalKeys.some(k => !!goalFilters[k]);
             // Indexera matcherna en gång per inläst datamängd, inte för varje lagrad.
             // Indexet byggs först när något av de nya filtren används.
@@ -8969,7 +9018,7 @@
                 return window.__deluxeSeasonMatchIndex.get(`${league}::${season}::${team}`) || [];
             }
             function extraStats(team, games) {
-                const totals = {points:0,withoutWin:0,withoutLoss:0,scoring:0,cleanSheet:0};
+                const totals = {points:0,withoutWin:0,withoutLoss:0,scoring:0,cleanSheet:0,scorelessStreak:0};
                 const current = {...totals};
                 let shutouts=0, scoreless=0, goalsFor=0, goalsAgainst=0, mostTotal=0;
                 for (const m of games) {
@@ -8978,7 +9027,7 @@
                     const ga = home ? m.awayGoals : m.homeGoals;
                     const pts = home ? m.homePoints : m.awayPoints;
                     const win = pts === 2 || pts === 3;
-                    const checks = {points:pts>0,withoutWin:!win,withoutLoss:pts!==0 && pts!==1,scoring:gf>0,cleanSheet:ga===0};
+                    const checks = {points:pts>0,withoutWin:!win,withoutLoss:pts!==0 && pts!==1,scoring:gf>0,cleanSheet:ga===0,scorelessStreak:gf===0};
                     for (const k of extraStreakKeys) {
                         current[k] = checks[k] ? current[k]+1 : 0;
                         totals[k] = Math.max(totals[k],current[k]);
@@ -8988,7 +9037,38 @@
                     goalsFor+=gf; goalsAgainst+=ga;
                     mostTotal=Math.max(mostTotal,gf+ga);
                 }
-                return {...totals,shutouts,scoreless,
+                // Specialsviter beräknas match för match, aldrig som fristående säsongstotaler.
+                function longestMatching(predicate) {
+                    let currentLength = 0, longest = 0;
+                    for (const match of games) {
+                        currentLength = predicate(match) ? currentLength + 1 : 0;
+                        longest = Math.max(longest, currentLength);
+                    }
+                    return longest;
+                }
+                function marginMatch(match, kind) {
+                    const home = match.homeTeam === team;
+                    const margin = (home ? match.homeGoals - match.awayGoals : match.awayGoals - match.homeGoals);
+                    const signed = kind === 'win' ? margin : -margin;
+                    const prefix = kind === 'win' ? 'filter-streak-win-margin' : 'filter-streak-loss-margin';
+                    const threshold = Number(document.getElementById(prefix + '-goals')?.value);
+                    const operator = document.getElementById(prefix + '-goal-op')?.value;
+                    return signed > 0 && (operator === 'eq' ? signed === threshold : operator === 'max' ? signed <= threshold : signed >= threshold);
+                }
+                const winMargin = longestMatching(m => marginMatch(m, 'win'));
+                const lossMargin = longestMatching(m => marginMatch(m, 'loss'));
+                const customType = document.getElementById('filter-streak-custom-type')?.value;
+                const customGoalOp = document.getElementById('filter-streak-custom-goal-op')?.value;
+                const customGoal = Number(document.getElementById('filter-streak-custom-goals')?.value);
+                const customResult = document.getElementById('filter-streak-custom-result')?.value;
+                const custom = longestMatching(m => {
+                    const home = m.homeTeam === team;
+                    const goals = customType === 'against' ? (home ? m.awayGoals : m.homeGoals) : (home ? m.homeGoals : m.awayGoals);
+                    const pts = home ? m.homePoints : m.awayPoints;
+                    const resultOk = customResult === 'all' || (customResult === 'win' && pts >= 2) || (customResult === 'loss' && pts <= 1) || (customResult === 'three' && pts === 3) || (customResult === 'zero' && pts === 0);
+                    return resultOk && (customGoalOp === 'eq' ? goals === customGoal : customGoalOp === 'max' ? goals <= customGoal : goals >= customGoal);
+                });
+                return {...totals,winMargin,lossMargin,custom,shutouts,scoreless,
                     forAverage:games.length?goalsFor/games.length:0,
                     againstAverage:games.length?goalsAgainst/games.length:0,
                     mostTotal};
@@ -9191,7 +9271,10 @@
                         numericFilterMatches(streakStats.longestLoss, streakFilters.loss) &&
                         numericFilterMatches(streakStats.longestThreePointWin, streakFilters.threePointWin) &&
                         numericFilterMatches(streakStats.longestZeroPointLoss, streakFilters.zeroPointLoss) &&
-                        extraStreakKeys.every(k => numericFilterMatches(extra?.[k], streakFilters[k]));
+                        extraStreakKeys.every(k => numericFilterMatches(extra?.[k], streakFilters[k])) &&
+                        (!streakFilters.winMargin || (document.getElementById('filter-streak-win-margin-goals')?.value !== '' && numericFilterMatches(extra?.winMargin, streakFilters.winMargin))) &&
+                        (!streakFilters.lossMargin || (document.getElementById('filter-streak-loss-margin-goals')?.value !== '' && numericFilterMatches(extra?.lossMargin, streakFilters.lossMargin))) &&
+                        (!streakFilters.custom || (document.getElementById('filter-streak-custom-goals')?.value !== '' && numericFilterMatches(extra?.custom, streakFilters.custom)));
                 }
 
                 // --- ENSKILDA MATCHER ---
@@ -9529,35 +9612,32 @@
 
         // SVITER: lyssnare + aktiv-räknare i gruppens rubrik.
         function setupStreakFilterListeners() {
-            const group = document.querySelector('.filter-group[data-filter-group="streaks"]');
-            if (!group || group.dataset.streakBound === '1') return;
-            group.dataset.streakBound = '1';
-
-            const valueInputs = [
-                document.getElementById('filter-streak-win-value'),
-                document.getElementById('filter-streak-loss-value'),
-                document.getElementById('filter-streak-three-value'),
-                document.getElementById('filter-streak-zero-value'),
-                document.getElementById('filter-streak-points-value'),
-                document.getElementById('filter-streak-without-win-value'),
-                document.getElementById('filter-streak-without-loss-value'),
-                document.getElementById('filter-streak-scoring-value'),
-                document.getElementById('filter-streak-clean-sheet-value')
-            ].filter(Boolean);
-            const controls = Array.from(group.querySelectorAll('input, select'));
-            const countEl = document.getElementById('streak-filter-count');
-
-            function refreshStreakCount() {
-                const count = valueInputs.filter(input => input.value.trim() !== '').length;
-                group.classList.toggle('is-changed', count > 0);
-                if (countEl) countEl.textContent = count > 0 ? `(${count})` : '';
+            for (const [groupName, countId, prefixes] of [
+                ['streaks', 'streak-filter-count', ['win','loss','three','zero','points','without-win','without-loss','win-margin','loss-margin']],
+                ['goal-streaks', 'goal-streak-filter-count', ['scoring','clean-sheet','scoreless','custom']]
+            ]) {
+                const group = document.querySelector(`.filter-group[data-filter-group="${groupName}"]`);
+                if (!group || group.dataset.streakBound === '1') continue;
+                group.dataset.streakBound = '1';
+                const controls = [...group.querySelectorAll('input, select')];
+                const countEl = document.getElementById(countId);
+                const refresh = () => {
+                    const count = prefixes.filter(prefix => {
+                        const value = document.getElementById(`filter-streak-${prefix}-value`);
+                        if (!value || value.value.trim() === '') return false;
+                        if (['win-margin','loss-margin','custom'].includes(prefix))
+                            return document.getElementById(`filter-streak-${prefix}-goals`)?.value.trim() !== '';
+                        return true;
+                    }).length;
+                    group.classList.toggle('is-changed', count > 0);
+                    if (countEl) countEl.textContent = count ? `(${count})` : '';
+                };
+                for (const control of controls) {
+                    control.addEventListener('input', () => {refresh(); applyTableFilters();});
+                    control.addEventListener('change', () => {refresh(); applyTableFilters();});
+                }
+                refresh();
             }
-
-            controls.forEach(control => {
-                control.addEventListener('input', () => { refreshStreakCount(); applyTableFilters(); });
-                control.addEventListener('change', () => { refreshStreakCount(); applyTableFilters(); });
-            });
-            refreshStreakCount();
         }
 
         // MÅLSTATISTIK: lyssnare + aktiv-räknare i gruppens rubrik.
