@@ -299,6 +299,12 @@
         .streak-advanced label {font-size:.85rem; font-weight:550;}
         .streak-advanced select, .streak-advanced input {min-width:0; max-width:100%; box-sizing:border-box; padding:.35rem;}
         .streak-inline {display:grid; grid-template-columns:1fr 1fr; gap:.5rem;}
+        /* Anpassad målsvit: flervalskryss utan påverkan på andra filter. */
+        .streak-choice-heading { font-size:.85rem; font-weight:550; margin-top:.25rem; }
+        .streak-checkbox-options { display:flex; flex-wrap:wrap; gap:.45rem .85rem; align-items:center; }
+        .streak-checkbox-options label { display:inline-flex; align-items:center; gap:.3rem; font-size:.85rem; font-weight:400; cursor:pointer; white-space:nowrap; }
+        .streak-checkbox-options input[type="checkbox"] { width:auto; margin:0; padding:0; flex:none; accent-color:#0d9488; }
+
 
         /*
          * NYA NUMERISKA FILTER – luftig två-radslayout.
@@ -2186,8 +2192,20 @@
                                                 <label for="filter-streak-custom-type">Mål per match</label>
                                                 <select id="filter-streak-custom-type"><option value="for">Gjorda mål</option><option value="against">Insläppta mål</option></select>
                                                 <div class="streak-inline"><select id="filter-streak-custom-goal-op"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select><input id="filter-streak-custom-goals" type="number" min="0" step="1" placeholder="Mål"></div>
-                                                <label for="filter-streak-custom-result">Matchresultat</label>
-                                                <select id="filter-streak-custom-result"><option value="all">Alla resultat</option><option value="win">Endast segrar</option><option value="loss">Endast förluster</option><option value="three">Endast trepoängssegrar</option><option value="zero">Endast nollpoängsförluster</option></select>
+                                                <!-- Oberoende flerval: OR inom varje grupp, AND mellan grupperna. -->
+                                                <span class="streak-choice-heading">Matchutfall</span>
+                                                <div class="streak-checkbox-options" role="group" aria-label="Matchutfall i varje match i sviten">
+                                                    <label><input type="checkbox" class="streak-custom-outcome" value="win" checked> Seger</label>
+                                                    <label><input type="checkbox" class="streak-custom-outcome" value="draw" checked> Oavgjort</label>
+                                                    <label><input type="checkbox" class="streak-custom-outcome" value="loss" checked> Förlust</label>
+                                                </div>
+                                                <span class="streak-choice-heading">Poäng i matchen</span>
+                                                <div class="streak-checkbox-options" role="group" aria-label="Poäng i varje match i sviten">
+                                                    <label><input type="checkbox" class="streak-custom-points" value="0" checked> 0</label>
+                                                    <label><input type="checkbox" class="streak-custom-points" value="1" checked> 1</label>
+                                                    <label><input type="checkbox" class="streak-custom-points" value="2" checked> 2</label>
+                                                    <label><input type="checkbox" class="streak-custom-points" value="3" checked> 3</label>
+                                                </div>
                                                 <label for="filter-streak-custom-value">Sviten omfattar</label>
                                                 <div class="streak-inline"><select id="filter-streak-custom-op"><option value="min">minst</option><option value="eq">exakt</option><option value="max">högst</option></select><input id="filter-streak-custom-value" type="number" min="1" step="1" placeholder="Matcher"></div>
                                             </div>
@@ -9060,12 +9078,18 @@
                 const customType = document.getElementById('filter-streak-custom-type')?.value;
                 const customGoalOp = document.getElementById('filter-streak-custom-goal-op')?.value;
                 const customGoal = Number(document.getElementById('filter-streak-custom-goals')?.value);
-                const customResult = document.getElementById('filter-streak-custom-result')?.value;
+                // Kryssrutorna gäller varje match i samma sammanhängande svit.
+                // Matchutfall avgörs av resultatet, inte av poängen (historiska poängsystem varierar).
+                const allowedOutcomes = new Set([...document.querySelectorAll('.streak-custom-outcome:checked')].map(el => el.value));
+                const allowedPoints = new Set([...document.querySelectorAll('.streak-custom-points:checked')].map(el => Number(el.value)));
                 const custom = longestMatching(m => {
                     const home = m.homeTeam === team;
-                    const goals = customType === 'against' ? (home ? m.awayGoals : m.homeGoals) : (home ? m.homeGoals : m.awayGoals);
+                    const gf = home ? m.homeGoals : m.awayGoals;
+                    const ga = home ? m.awayGoals : m.homeGoals;
+                    const goals = customType === 'against' ? ga : gf;
                     const pts = home ? m.homePoints : m.awayPoints;
-                    const resultOk = customResult === 'all' || (customResult === 'win' && pts >= 2) || (customResult === 'loss' && pts <= 1) || (customResult === 'three' && pts === 3) || (customResult === 'zero' && pts === 0);
+                    const outcome = gf > ga ? 'win' : gf < ga ? 'loss' : 'draw';
+                    const resultOk = allowedOutcomes.has(outcome) && allowedPoints.has(pts);
                     return resultOk && (customGoalOp === 'eq' ? goals === customGoal : customGoalOp === 'max' ? goals <= customGoal : goals >= customGoal);
                 });
                 return {...totals,winMargin,lossMargin,custom,shutouts,scoreless,
@@ -14229,6 +14253,139 @@
     if(typeof updateChart==='function')updateChart();
     dialog.close();
   });
+})();
+</script>
+<!-- ============================================================
+     AVANCERAT DELUXE – FRISTÅENDE CONSOLE-DIAGNOSTIK (v1)
+     Endast läsning. Inga händelselyssnare, ingen påverkan på UI.
+     Kräver att ordinarie matchdata har lästs in av sidan.
+     ============================================================ -->
+<script>
+(function () {
+    'use strict';
+    const api = {};
+    const normalize = value => String(value ?? '').trim().toLocaleLowerCase('sv-SE');
+    const source = () => {
+        const rows = window.__deluxeSeasonMatchSource;
+        if (!Array.isArray(rows)) {
+            console.warn('[AvanceratDebug] Matchdata är inte tillgänglig ännu. Vänta tills sidan laddats och tabellen uppdaterats.');
+            return [];
+        }
+        return rows;
+    };
+    function rowsFor(team, seasonId, league) {
+        const wanted = normalize(team);
+        const season = String(seasonId ?? '').trim();
+        const liga = normalize(league);
+        return source().filter(m =>
+            (!season || String(m.seasonId) === season) &&
+            (!liga || normalize(m.league) === liga) &&
+            (!wanted || normalize(m.homeTeam).includes(wanted) || normalize(m.awayTeam).includes(wanted))
+        ).flatMap(m => {
+            const sides = [];
+            if (!wanted || normalize(m.homeTeam).includes(wanted)) sides.push(true);
+            if (!wanted || normalize(m.awayTeam).includes(wanted)) sides.push(false);
+            return sides.map(home => {
+                const gf = Number(home ? m.homeGoals : m.awayGoals);
+                const ga = Number(home ? m.awayGoals : m.homeGoals);
+                const points = Number(home ? m.homePoints : m.awayPoints);
+                return {
+                    league: m.league, seasonId: m.seasonId,
+                    team: home ? m.homeTeam : m.awayTeam,
+                    date: m.date, place: home ? 'H' : 'B',
+                    opponent: home ? m.awayTeam : m.homeTeam,
+                    goalsFor: gf, goalsAgainst: ga, goalDifference: gf - ga,
+                    points, outcome: gf > ga ? 'win' : gf < ga ? 'loss' : 'draw',
+                    resultText: m.resultText
+                };
+            });
+        }).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    }
+    function printRows(title, rows) {
+        console.groupCollapsed(`[AvanceratDebug] ${title} (${rows.length} matcher)`);
+        console.table(rows);
+        console.groupEnd();
+        return rows;
+    }
+    api.matches = (team, seasonId, league) => printRows('Matcher', rowsFor(team, seasonId, league));
+    api.streaks = (team, seasonId, league) => {
+        const fn = window.debugStreaks;
+        if (typeof fn !== 'function') {
+            console.warn('[AvanceratDebug] Befintlig debugStreaks är inte tillgänglig.');
+            return [];
+        }
+        const result = fn(team, seasonId, league);
+        console.table(result);
+        return result;
+    };
+    api.sequence = (team, seasonId, league) => {
+        const rows = rowsFor(team, seasonId, league);
+        const groups = new Map();
+        for (const r of rows) {
+            const key = `${r.league}::${r.seasonId}::${r.team}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(r);
+        }
+        for (const [key, games] of groups) {
+            console.log(`${key}: ${games.map(r => `${r.outcome === 'win' ? 'V' : r.outcome === 'loss' ? 'F' : 'O'}${r.points}`).join(' – ')}`);
+        }
+        return rows;
+    };
+    function passesNumber(value, rule) {
+        if (rule === undefined || rule === null) return true;
+        if (typeof rule === 'number') return value === rule;
+        if (rule.min !== undefined && value < Number(rule.min)) return false;
+        if (rule.max !== undefined && value > Number(rule.max)) return false;
+        if (rule.eq !== undefined && value !== Number(rule.eq)) return false;
+        return true;
+    }
+    function customRows(team, seasonId, league, conditions = {}, minLength = 1) {
+        const rows = rowsFor(team, seasonId, league);
+        const groups = new Map();
+        for (const row of rows) {
+            const key = `${row.league}::${row.seasonId}::${row.team}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(row);
+        }
+        const results = [];
+        for (const [key, games] of groups) {
+            let run = 0, longest = 0;
+            const marked = games.map((g, i) => {
+                const match = passesNumber(g.goalsFor, conditions.goalsFor) &&
+                    passesNumber(g.goalsAgainst, conditions.goalsAgainst) &&
+                    passesNumber(g.goalDifference, conditions.goalDifference) &&
+                    passesNumber(Math.abs(g.goalDifference), conditions.margin) &&
+                    (!conditions.outcomes || conditions.outcomes.includes(g.outcome)) &&
+                    (!conditions.points || conditions.points.includes(g.points));
+                run = match ? run + 1 : 0;
+                longest = Math.max(longest, run);
+                return { game: i + 1, ...g, matches: match ? 'JA' : 'NEJ', run };
+            });
+            const current = run;
+            const qualifying = marked.filter(g => g.run >= minLength);
+            console.groupCollapsed(`[AvanceratDebug] ${key} – längsta ${longest}, aktuell ${current}, minst ${minLength}: ${qualifying.length ? 'JA' : 'NEJ'}`);
+            console.table(marked);
+            console.groupEnd();
+            results.push({ key, longest, current, qualifies: longest >= minLength, games: marked });
+        }
+        if (!results.length) console.info('[AvanceratDebug] Inga matchande lag/säsonger hittades.');
+        return results;
+    }
+    api.customStreak = customRows;
+    api.help = () => {
+        console.table([
+            { command: 'AvanceratDebug.streaks("Djurgården", "2025-2026", "SHL")', description: 'Befintlig svitstatistik' },
+            { command: 'AvanceratDebug.matches("Djurgården", "2025-2026", "SHL")', description: 'Alla matcher med mål och poäng' },
+            { command: 'AvanceratDebug.sequence("Djurgården", "2025-2026", "SHL")', description: 'V3 – F0 – ... per lag och säsong' },
+            { command: 'AvanceratDebug.customStreak("Djurgården", "2025-2026", "SHL", {goalsFor:{min:3},outcomes:["loss"],points:[0,1]}, 5)', description: 'Fem raka förluster med minst tre gjorda mål' }
+        ]);
+    };
+    // Lägg enbart till ett namngivet, skrivskyddat API. Befintliga debugfunktioner behålls.
+    if (!Object.prototype.hasOwnProperty.call(window, 'AvanceratDebug')) {
+        Object.defineProperty(window, 'AvanceratDebug', { value: Object.freeze(api), configurable: true });
+    } else {
+        console.warn('[AvanceratDebug] Namnet används redan. Befintligt objekt lämnas orört.');
+    }
 })();
 </script>
 </body>
