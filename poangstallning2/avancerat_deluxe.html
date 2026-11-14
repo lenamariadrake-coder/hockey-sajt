@@ -4900,14 +4900,15 @@
             }
         };
 
-        // Målflagga för alla avslutade säsonger, oavsett säsongslängd.
-        // Längden hämtas från season_format (inte från sista poängökningen).
-        // Returnerar matchantal först när sista matchen nåtts på tidslinjen.
-        function completedSeasonFlagGames(entry) {
+        // Målflagga för avslutade, kortare säsonger. Längderna kommer från
+        // season_format (inte från sista poängökningen eller antalet inlästa matcher).
+        // Returnerar matchantal först när den sista matchen nåtts på tidslinjen.
+        function completedShortSeasonFlagGames(entry) {
             if (!entry || !entry.key) return null;
             const meta = seasonSummaryByLabel[entry.label];
             if (!meta || !meta.playoffResult) return null; // pågående säsong har stoppskylt
 
+            const source = chartRenderDataByKey.length ? chartRenderDataByKey : chartDataByKey;
             const formats = window.__deluxeSeasonFormats;
             const formatFor = item => {
                 const m = seasonSummaryByLabel[item.label];
@@ -4916,7 +4917,7 @@
                 return formats?.get(`${league}::${season}`)?.gamesPerTeam || null;
             };
             const seasonGames = formatFor(entry);
-            if (!seasonGames) return null;
+            if (!seasonGames || !source.some(other => other.key !== entry.key && formatFor(other) > seasonGames)) return null;
 
             const history = TEAM_SEASON_HISTORY[entry.key];
             if (!Array.isArray(history) || !history.length) return null;
@@ -4952,7 +4953,7 @@
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
                 bars.forEach((bar, index) => {
-                    if (completedSeasonFlagGames(source[index]) == null) return;
+                    if (completedShortSeasonFlagGames(source[index]) == null) return;
                     ctx.fillText('🏁', bar.x + 6, bar.y);
                 });
                 ctx.restore();
@@ -4960,7 +4961,7 @@
         };
 
         // Plugin som ritar &#9940; för pågående säsong
-        // från och med lagets sista spelade match eller sista spelade datum.
+        // först när tidslinjen har passerat lagets sista spelade match.
         const ongoingSeasonStopIconPlugin = {
             id: 'ongoingSeasonStopIconPlugin',
             afterDatasetsDraw(chart, args, options) {
@@ -5005,27 +5006,27 @@
                     const currentGamesShown =
                         typeof dataEntry.games === 'number' ? dataEntry.games : null;
 
-                    // Stoppskylten visas när tidslinjen når lagets sista faktiska
-                    // datapunkt (inklusive den punkten). Match- och datumläge
-                    // avgör detta på olika sätt.
+                    // Stoppskylten betyder alltid att tidslinjen har passerat
+                    // lagets sista faktiska datapunkt, men match- och datumläge
+                    // behöver avgöra detta på olika sätt.
                     const timelineMode = document.querySelector('input[name="timeline-mode"]:checked')?.value;
                     const timelineStep = parseInt(slider.value, 10);
                     if (!Number.isFinite(timelineStep)) return;
 
                     if (timelineMode === 'matches') {
-                        // Matchläge: har laget spelat 3 matcher visas skylten redan
-                        // på steg 3 och ligger sedan kvar.
+                        // Matchläge: har laget spelat 3 matcher kommer skylten först
+                        // på steg 4 och ligger sedan kvar.
                         if (
                             totalGamesForSeason == null ||
                             currentGamesShown == null ||
-                            timelineStep < totalGamesForSeason
+                            timelineStep <= totalGamesForSeason
                         ) {
                             return;
                         }
                     } else if (timelineMode === 'date') {
                         // Datumläge: jämför positioner på den gemensamma hockeyårsaxeln
-                        // (aug–dec, därefter jan–jul). Skylten visas redan på
-                        // datumsteget FÖR lagets sista faktiskt spelade datum.
+                        // (aug–dec, därefter jan–jul). Skylten visas först på första
+                        // datumsteget EFTER lagets sista faktiskt spelade datum.
                         const perDate = pointsByDateKey[key] || {};
                         const dateAxis = Array.isArray(activeDateKeysNoYear) ? activeDateKeysNoYear : [];
 
@@ -5037,7 +5038,7 @@
                             }
                         });
 
-                        if (lastPlayedDateIndex < 0 || timelineStep < lastPlayedDateIndex) {
+                        if (lastPlayedDateIndex < 0 || timelineStep <= lastPlayedDateIndex) {
                             return;
                         }
                     } else {
@@ -5332,8 +5333,8 @@
                                     lines.push(line2);
 
                                     // Samma villkor som målflaggan: ingen text innan
-                                    // stapeln nått den avslutade säsongens sista match.
-                                    const finishGames = completedSeasonFlagGames(entry);
+                                    // stapeln nått den avslutade, kortare säsongens sista match.
+                                    const finishGames = completedShortSeasonFlagGames(entry);
                                     if (finishGames != null) {
                                         lines.push(`🏁 Säsongen avslutad efter ${finishGames} matcher`);
                                     }
@@ -13045,6 +13046,106 @@
 
             attachManualDnDListenersOnce();
         }
+
+
+        /* ============================================================
+         * MASSFÄRGLÄGGNING – ISOLERAT TILLÄGG (FÖRSTA TESTVERSIONEN)
+         * Använder samma teamSeasonColors och PALETTE_COLORS som diagrammet.
+         * Egna färger sparas i localStorage. Ingen befintlig funktion ersätts.
+         * ============================================================ */
+        (function setupBatchPaletteAddon() {
+            const STORAGE = 'SHL_DELUXE_CUSTOM_PALETTE_V1';
+            const colorIsValid = v => /^#[0-9a-f]{6}$/i.test(v);
+            let custom = [];
+            try { const saved = JSON.parse(localStorage.getItem(STORAGE) || '[]');
+                if (Array.isArray(saved)) custom = saved.filter(colorIsValid).map(x => x.toLowerCase()).filter((x,i,a) => a.indexOf(x)===i);
+            } catch (_) {}
+            const toRgba = hex => {
+                const n = parseInt(hex.slice(1),16);
+                return `rgba(${n>>16}, ${(n>>8)&255}, ${n&255}, 0.7)`;
+            };
+            const save = () => { try {localStorage.setItem(STORAGE,JSON.stringify(custom));} catch (_) {} };
+            const allColors = () => [...PALETTE_COLORS,...custom.map(toRgba)];
+            const selected = () => Array.from(document.querySelectorAll('.team-table tbody .team-table-row-checkbox:checked'))
+                .map(cb => ({key:cb.dataset.teamSeasonKey, name:cb.dataset.team})).filter(x=>x.key);
+            const usedCount = color => Object.values(teamSeasonColors).filter(v=>v===color).length;
+            function init() {
+                const actions = document.querySelector('.working-selection-actions');
+                if (!actions || document.getElementById('deluxe-batch-palette-button')) return;
+                const btn = document.createElement('button');
+                btn.type='button';btn.id='deluxe-batch-palette-button';btn.textContent='🎨';
+                btn.title='Färglägg ikryssade rader';btn.setAttribute('aria-label','Färglägg ikryssade rader');
+                actions.append(btn);
+                const dialog=document.createElement('dialog');dialog.id='deluxe-batch-palette-dialog';
+                dialog.innerHTML=`<div class="batch-palette-inner">
+                    <h3>Färglägg ikryssade rader</h3>
+                    <p id="batch-palette-count"></p>
+                    <strong>Välj färg</strong><div id="batch-palette-swatches" class="batch-palette-swatches"></div>
+                    <label class="batch-palette-custom">Egen färg <input id="batch-palette-hex" type="color" value="#5f2570"><button type="button" id="batch-palette-add">Lägg till</button></label>
+                    <label class="batch-palette-only"><input id="batch-palette-only-blank" type="checkbox" checked> Färglägg endast rader som saknar aktiv färg</label>
+                    <p id="batch-palette-impact"></p><p id="batch-palette-message" role="status"></p>
+                    <div class="batch-palette-buttons"><button type="button" id="batch-palette-clear">Ta bort färg från ikryssade</button><button type="button" id="batch-palette-cancel">Avbryt</button><button type="button" id="batch-palette-apply">Använd färg</button></div>
+                </div>`;
+                document.body.append(dialog);
+                const $=id=>dialog.querySelector('#'+id);
+                let chosen=PALETTE_COLORS[0];
+                const message = t => $('batch-palette-message').textContent=t;
+                const activeColor = key => teamSeasonColors[key] || null;
+                function impact(){
+                    const rows=selected();const blank=rows.filter(x=>!activeColor(x.key)).length;
+                    $('batch-palette-count').textContent=`${rows.length} ikryssade rader · ${blank} utan aktiv färg · ${rows.length-blank} färgade`;
+                    $('batch-palette-impact').textContent=`Kommer att färglägga ${$('batch-palette-only-blank').checked?blank:rows.length} rader.`;
+                }
+                function render(){
+                    const root=$('batch-palette-swatches');root.replaceChildren();
+                    allColors().forEach((color,index)=>{
+                        const wrapper=document.createElement('span');wrapper.className='batch-palette-item';
+                        const swatch=document.createElement('button');swatch.type='button';swatch.className='batch-palette-swatch';
+                        swatch.style.background=color;swatch.title=index<PALETTE_COLORS.length?'Standardfärg':'Egen färg';
+                        swatch.setAttribute('aria-label',swatch.title+' '+color);
+                        if(chosen===color)swatch.classList.add('is-selected');
+                        swatch.addEventListener('click',()=>{chosen=color;render();});wrapper.append(swatch);
+                        if(index>=PALETTE_COLORS.length){
+                            const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.title='Ta bort egen färg';
+                            remove.addEventListener('click',()=>{
+                                const count=usedCount(color);
+                                if(count && !confirm(`Färgen används av ${count} lag-säsonger (även bortfiltrerade). Vill du ta bort färgen från ALLA dessa rader och därefter radera färgen ur paletten?`))return;
+                                if(count)Object.keys(teamSeasonColors).forEach(key=>{if(teamSeasonColors[key]===color)delete teamSeasonColors[key];});
+                                custom.splice(index-PALETTE_COLORS.length,1);save();
+                                if(chosen===color)chosen=PALETTE_COLORS[0];render();impact();
+                                if(count){updateChart();if(typeof updateColorIcons==='function')updateColorIcons();}
+                                message('Den egna färgen har tagits bort.');
+                            });wrapper.append(remove);
+                        }
+                        root.append(wrapper);
+                    });
+                }
+                btn.addEventListener('click',()=>{if(!selected().length)return;message('');render();impact();dialog.showModal();});
+                $('batch-palette-only-blank').addEventListener('change',impact);
+                $('batch-palette-cancel').addEventListener('click',()=>dialog.close());
+                $('batch-palette-add').addEventListener('click',()=>{
+                    const hex=$('batch-palette-hex').value.toLowerCase();const rgba=toRgba(hex);
+                    if(!allColors().includes(rgba)){custom.push(hex);save();}
+                    chosen=rgba;render();message('Egen färg sparad.');
+                });
+                $('batch-palette-apply').addEventListener('click',()=>{
+                    const rows=selected().filter(x=>!$('batch-palette-only-blank').checked||!activeColor(x.key));
+                    rows.forEach(x=>{teamSeasonColors[x.key]=chosen;});
+                    updateChart();if(typeof updateColorIcons==='function')updateColorIcons();
+                    dialog.close();
+                });
+                $('batch-palette-clear').addEventListener('click',()=>{
+                    if(!confirm('Ta bort färgen från alla ikryssade rader, även dem som redan är färgade?'))return;
+                    selected().forEach(x=>{delete teamSeasonColors[x.key];});
+                    updateChart();if(typeof updateColorIcons==='function')updateColorIcons();dialog.close();
+                });
+                const refresh=()=>{btn.disabled=!selected().length;};
+                document.addEventListener('change',e=>{if(e.target.matches('.team-table-row-checkbox'))refresh();});
+                new MutationObserver(refresh).observe(document.querySelector('.team-table tbody'),{childList:true,subtree:true});
+                refresh();
+            }
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+        })();
 
         // --- STARTA PROGRAMMET ---
         loadAndProcessData(); // Initierar datahämtning och sedan UI
