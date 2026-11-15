@@ -762,7 +762,7 @@
             text-align: center;
         }
 
-        /* Sparad färg visas i en egen kolumn före urvalskryssrutan. */
+        /* Bekräftelsestatus visas i kolumnen före urvalskryssrutan. */
         .team-table th.deluxe-saved-color-head,
         .team-table td.deluxe-saved-color-cell {
             width: 1.8rem;
@@ -770,15 +770,47 @@
             text-align: center;
             padding: .25rem;
         }
-        .deluxe-saved-color-dot {
+        .deluxe-confirmed-check {
             display: inline-block;
-            width: 13px;
-            height: 13px;
-            border: 1px dashed #b6bec8;
-            border-radius: 50%;
+            min-width: 18px;
+            font-size: 18px;
+            font-weight: 800;
+            color: #16803c;
+            vertical-align: middle;
+            line-height: 1;
+        }
+        /* Radfärgen ligger UTANFÖR kryssrutan, även när den är avmarkerad. */
+        .deluxe-checkbox-color-frame {
+            display: inline-flex;
+            padding: 4px;
+            border-radius: 4px;
+            background: transparent;
             vertical-align: middle;
         }
-        .deluxe-saved-color-dot.has-color { border: 1px solid #657180; }
+        .team-table .deluxe-checkbox-color-frame .team-table-row-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            margin: 0;
+            width: 19px;
+            height: 19px;
+            border: 1px solid #777;
+            border-radius: 3px;
+            background: #fff;
+            display: inline-grid;
+            place-items: center;
+            cursor: pointer;
+        }
+        .team-table .deluxe-checkbox-color-frame .team-table-row-checkbox:checked::after {
+            content: "✓";
+            font-size: 17px;
+            line-height: 1;
+            font-weight: 800;
+            color: #111;
+        }
+        .team-table .deluxe-checkbox-color-frame .team-table-row-checkbox:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 2px;
+        }
 
         .team-table tbody tr:nth-child(even) {
             background-color: #f9fafb;
@@ -5734,14 +5766,23 @@
         // --------------------------------------------------------------------------
 
         function refreshDeluxeSavedColorDots() {
+            /* Enbart presentation: inga arbetskryss, lagbrickor eller bekräftelser ändras. */
+            const confirmed = mainViewSelectedKeys instanceof Set ? mainViewSelectedKeys : new Set();
             document.querySelectorAll('.team-table tbody tr[data-team-season-key]').forEach(row => {
-                const dot=row.querySelector('.deluxe-saved-color-dot');
-                if(!dot)return;
-                const color=teamSeasonColors[row.dataset.teamSeasonKey];
-                dot.style.backgroundColor=color || 'transparent';
-                dot.classList.toggle('has-color',Boolean(color));
-                dot.title=color ? `Sparad färg: ${color}` : 'Ingen sparad färg';
-                dot.setAttribute('aria-label',dot.title);
+                const key = row.dataset.teamSeasonKey;
+                const status = row.querySelector('.deluxe-confirmed-check');
+                if (status) {
+                    const isConfirmed = confirmed.has(key);
+                    status.textContent = isConfirmed ? '✓' : '';
+                    status.title = isConfirmed ? 'Bekräftat lag' : 'Inte bekräftat';
+                    status.setAttribute('aria-label', status.title);
+                }
+                const frame = row.querySelector('.deluxe-checkbox-color-frame');
+                if (frame) {
+                    const color = teamSeasonColors[key];
+                    frame.style.backgroundColor = color || 'transparent';
+                    frame.title = color ? `Sparad färg: ${color}` : 'Ingen sparad färg';
+                }
             });
         }
 
@@ -7093,13 +7134,13 @@
                 tr.dataset.teamSeasonKey = row.teamSeasonKey || ''; // NYTT
 
 
-                // Separat färgkolumn: visar bara aktivt sparad färg, inte diagrammets standardblå.
+                // Bekräftelsekolumn: en grön bock visar om laget finns i diagrammets urval.
                 const tdColor = document.createElement('td');
                 tdColor.className = 'deluxe-saved-color-cell';
-                const colorDot = document.createElement('span');
-                colorDot.className = 'deluxe-saved-color-dot';
-                colorDot.setAttribute('aria-label', 'Ingen sparad färg');
-                tdColor.appendChild(colorDot);
+                const confirmedCheck = document.createElement('span');
+                confirmedCheck.className = 'deluxe-confirmed-check';
+                confirmedCheck.setAttribute('aria-label', 'Inte bekräftat');
+                tdColor.appendChild(confirmedCheck);
                 tr.appendChild(tdColor);
 
                 // Kolumn 1: kryssruta
@@ -7119,7 +7160,10 @@
                 // NYTT: bär med sig samma key som raden
                 checkbox.dataset.teamSeasonKey = row.teamSeasonKey || '';
 
-                tdSelect.appendChild(checkbox);
+                const colorFrame = document.createElement('span');
+                colorFrame.className = 'deluxe-checkbox-color-frame';
+                colorFrame.appendChild(checkbox);
+                tdSelect.appendChild(colorFrame);
                 tr.appendChild(tdSelect);
 
 
@@ -13862,7 +13906,7 @@
                 if(!c.dataset.columnId&&original[i]){c.dataset.columnId=original[i];existing.set(original[i],c);}
             });
             let colorHead=header.querySelector('.deluxe-saved-color-head');
-            if(!colorHead){colorHead=document.createElement('th');colorHead.className='deluxe-saved-color-head';colorHead.textContent='●';colorHead.title='Sparad radfärg';}
+            if(!colorHead){colorHead=document.createElement('th');colorHead.className='deluxe-saved-color-head';colorHead.textContent='✓';colorHead.title='Bekräftat lag';}
             header.insertBefore(colorHead,header.firstElementChild);
             for(const id of ids){
                 if(!existing.has(id)){
