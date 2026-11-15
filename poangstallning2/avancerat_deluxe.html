@@ -661,7 +661,10 @@
             font-size: .8rem;
             font-weight: 600;
         }
-        #working-selection-confirmation[hidden] { display: none; }
+        /* TEST 3D: Ett dolt meddelande ska inte reservera något utrymme. */
+        #working-selection-confirmation[hidden] {
+            display: none;
+        }
 
         .working-selection-actions {
             display: flex;
@@ -13611,7 +13614,16 @@
 
 /* Urvalsinformation på en egen låg rad, efter samtliga knappar och vyval.
    Justera padding-left för att ändra indraget. */
+/* TEST 3D: Verktygsraden ska alltid uppta en hel rad i filterlayouten.
+   Bekräftelsemeddelandet får inte skapa en ny flexrad och skjuta tabellen nedåt. */
+.filter-layout > .working-selection-bar {
+    flex: 0 0 100%;
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .working-selection-bar .working-selection-meta {
+    white-space: nowrap;
     order: 999;
     flex: 0 0 100%;
     display: flex;
