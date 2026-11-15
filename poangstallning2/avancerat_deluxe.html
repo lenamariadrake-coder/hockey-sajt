@@ -4882,6 +4882,7 @@
                 // 7. Bygg tabellen och initiera UI när all data är klar
                 buildTeamTableFromSeasonSummary();
                 initializeUI();
+                refreshDeluxeSavedColorDots();
 
                 // Visa instruktion istället för uppvärmnings-texten
                 if (loadingIndicator) {
@@ -5767,7 +5768,10 @@
 
         function refreshDeluxeSavedColorDots() {
             /* Enbart presentation: inga arbetskryss, lagbrickor eller bekräftelser ändras. */
-            const confirmed = mainViewSelectedKeys instanceof Set ? mainViewSelectedKeys : new Set();
+            /* Bekräftelse = att lagbrickan finns, även om dess synlighetskryss är av. */
+            const confirmed = new Set(Array.from(document.querySelectorAll(
+                '#team-selection .team-item-wrapper[data-team-season-key]'
+            )).map(el => el.dataset.teamSeasonKey).filter(Boolean));
             document.querySelectorAll('.team-table tbody tr[data-team-season-key]').forEach(row => {
                 const key = row.dataset.teamSeasonKey;
                 const status = row.querySelector('.deluxe-confirmed-check');
@@ -5787,7 +5791,6 @@
         }
 
         function updateChart() {
-            refreshDeluxeSavedColorDots();
             // -----------------------------------------------------
             // OBS: När vi städar bort "preferred season"-logiken
             // ska vi helst låta grundflödet i updateChart vara:
@@ -12263,6 +12266,8 @@
                         updateChart();
                     }
 
+                    /* Uppdatera bekräftelsebockarna en gång, efter att lagbrickorna ändrats. */
+                    refreshDeluxeSavedColorDots();
                     // NYTT: uppdatera knappar + instruktion efter att huvudvyns lagchips ändrats
                     updateChipActionsUI();
 
