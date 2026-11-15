@@ -762,6 +762,24 @@
             text-align: center;
         }
 
+        /* Sparad färg visas i en egen kolumn före urvalskryssrutan. */
+        .team-table th.deluxe-saved-color-head,
+        .team-table td.deluxe-saved-color-cell {
+            width: 1.8rem;
+            min-width: 1.8rem;
+            text-align: center;
+            padding: .25rem;
+        }
+        .deluxe-saved-color-dot {
+            display: inline-block;
+            width: 13px;
+            height: 13px;
+            border: 1px dashed #b6bec8;
+            border-radius: 50%;
+            vertical-align: middle;
+        }
+        .deluxe-saved-color-dot.has-color { border: 1px solid #657180; }
+
         .team-table tbody tr:nth-child(even) {
             background-color: #f9fafb;
         }
@@ -5715,7 +5733,20 @@
         // säsongsnamn och metadata oavsett hur etiketter renderas i UI.
         // --------------------------------------------------------------------------
 
+        function refreshDeluxeSavedColorDots() {
+            document.querySelectorAll('.team-table tbody tr[data-team-season-key]').forEach(row => {
+                const dot=row.querySelector('.deluxe-saved-color-dot');
+                if(!dot)return;
+                const color=teamSeasonColors[row.dataset.teamSeasonKey];
+                dot.style.backgroundColor=color || 'transparent';
+                dot.classList.toggle('has-color',Boolean(color));
+                dot.title=color ? `Sparad färg: ${color}` : 'Ingen sparad färg';
+                dot.setAttribute('aria-label',dot.title);
+            });
+        }
+
         function updateChart() {
+            refreshDeluxeSavedColorDots();
             // -----------------------------------------------------
             // OBS: När vi städar bort "preferred season"-logiken
             // ska vi helst låta grundflödet i updateChart vara:
@@ -7061,6 +7092,15 @@
                 tr.dataset.team = row.team || '';
                 tr.dataset.teamSeasonKey = row.teamSeasonKey || ''; // NYTT
 
+
+                // Separat färgkolumn: visar bara aktivt sparad färg, inte diagrammets standardblå.
+                const tdColor = document.createElement('td');
+                tdColor.className = 'deluxe-saved-color-cell';
+                const colorDot = document.createElement('span');
+                colorDot.className = 'deluxe-saved-color-dot';
+                colorDot.setAttribute('aria-label', 'Ingen sparad färg');
+                tdColor.appendChild(colorDot);
+                tr.appendChild(tdColor);
 
                 // Kolumn 1: kryssruta
                 const tdSelect = document.createElement('td');
@@ -13818,9 +13858,12 @@
         const header=table.querySelector('thead tr');
         if(header){
             const existing=new Map([...header.children].filter(c=>c.dataset.columnId).map(c=>[c.dataset.columnId,c]));
-            [...header.children].filter(c=>!c.classList.contains('col-select')).forEach((c,i)=>{
+            [...header.children].filter(c=>!c.classList.contains('col-select')&&!c.classList.contains('deluxe-saved-color-head')).forEach((c,i)=>{
                 if(!c.dataset.columnId&&original[i]){c.dataset.columnId=original[i];existing.set(original[i],c);}
             });
+            let colorHead=header.querySelector('.deluxe-saved-color-head');
+            if(!colorHead){colorHead=document.createElement('th');colorHead.className='deluxe-saved-color-head';colorHead.textContent='●';colorHead.title='Sparad radfärg';}
+            header.insertBefore(colorHead,header.firstElementChild);
             for(const id of ids){
                 if(!existing.has(id)){
                     const th=document.createElement('th');th.textContent=id;th.dataset.columnId=id;
@@ -13837,7 +13880,7 @@
             if(!first)return;
             const byId=new Map(cells.filter(c=>c.dataset.columnId).map(c=>[c.dataset.columnId,c]));
             // Färska rader från originalfunktionen har ännu inga ID:n.
-            const untagged=cells.filter(c=>c!==first&&!c.dataset.columnId);
+            const untagged=cells.filter(c=>c!==first&&!c.classList.contains('deluxe-saved-color-cell')&&!c.dataset.columnId);
             untagged.forEach((c,i)=>{if(original[i]){c.dataset.columnId=original[i];byId.set(original[i],c);}});
             const o=statsCache?.get(tr.dataset.teamSeasonKey);
             for(const id of ids){if(!byId.has(id)){
@@ -13846,6 +13889,8 @@
                 if(id==='Utfallskommentar')td.title=td.textContent;
                 byId.set(id,td);
             }}
+            const colorCell=tr.querySelector('.deluxe-saved-color-cell');
+            if(colorCell)tr.insertBefore(colorCell,tr.firstElementChild);
             tr.appendChild(first);
             state.order.forEach(id=>{const c=byId.get(id);if(c){c.dataset.columnHidden=String(!state.visible.includes(id));tr.appendChild(c);}});
         });
