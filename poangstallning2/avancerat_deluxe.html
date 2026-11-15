@@ -2949,6 +2949,7 @@
         // Enskilda matcher: extremvärden per lag+säsong, direkt från games.
         let teamSeasonSingleGameStats = {};
         let seasonSummaryByLabel = {}; // Ny: metadata per team_label från season_summary
+        let seasonSummaryRows = []; // Samtliga säsongsrader; används även av tabellfilter och kolumnstatistik
         let GLOBAL_MAX_REGULAR_RANK = 14; // Max grundserieplacering i råunderlaget (används av äldre delar)
         let FILTER_MAX_REGULAR_RANK = 14; // Minst 14; höjs automatiskt om datan innehåller fler placeringar
         // NYTT: index för (lag, säsong)
@@ -13608,9 +13609,10 @@
 .deluxe-view-switch button.is-active { background:#5f2570; color:#fff; border-color:#5f2570; font-weight:600; }
 .deluxe-view-switch button:focus-visible { outline:2px solid #5f2570; outline-offset:3px; }
 
-/* Bara tabellsektionen flyttas upp; ändra -8px här för att justera avståndet.
-   Ändra inte gap i .filter-layout eftersom det påverkar alla andra filterblock. */
-.filter-layout > .team-table-wrapper { margin-top: -8px; }
+/* Tabellavstånd: neutralisera flexlayoutens 16 px gap och håll
+   tabellen nära informationsraden utan transform eller extra reserverad yta. */
+.filter-layout > .working-selection-bar { margin-bottom: 0; }
+.filter-layout > .team-table-wrapper { margin-top: -24px; }
 
 /* Urvalsinformation på en egen låg rad, efter samtliga knappar och vyval.
    Justera padding-left för att ändra indraget. */
@@ -13636,6 +13638,14 @@
     font-size: .8rem;
     line-height: 1.2;
     color: #6b7280;
+}
+
+/* Bekräftelsemeddelandet ska ärva radens mått och inte öka höjden. */
+.working-selection-meta #working-selection-confirmation {
+    font-size: inherit;
+    line-height: inherit;
+    font-style: normal;
+    white-space: nowrap;
 }
 
 .working-selection-bar .working-selection-meta .working-selection-text { font-size: inherit; color: inherit; }
