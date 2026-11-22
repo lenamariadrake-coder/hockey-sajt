@@ -675,7 +675,6 @@
         }
 
 
-        #cancel-working-selection,
         #return-working-selection {
             font-size: 0.85rem;
             padding: 0.3rem 0.7rem;
@@ -694,7 +693,6 @@
         #remove-working-selection,
         #replace-working-selection,
         #return-working-selection,
-        #cancel-working-selection,
         #range-working-selection {
             background-color: #ffffff;
             border: 1px solid #d1d5db;
@@ -721,7 +719,6 @@
         #remove-working-selection:not(:disabled):hover,
         #replace-working-selection:not(:disabled):hover,
         #return-working-selection:hover,
-        #cancel-working-selection:hover,
         #range-working-selection:hover {
             background-color: #f9fafb;
             border-color: #9ca3af;
@@ -2590,7 +2587,6 @@
                                             Ersätt urval
                                         </button>
                                         <button id="return-working-selection" type="button">Återgå</button>
-                                        <button id="cancel-working-selection" type="button">Avbryt</button>
                                         <button id="range-working-selection" type="button">
                                             Markera intervall
                                         </button>
@@ -2598,6 +2594,7 @@
                                     <div class="working-selection-meta">
                                         <span class="working-selection-text" id="working-selection-text">Bekräftade lag: 0</span>
                                         <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Ta bort samtliga bekräftade lag, även dem som inte syns i tabellen" hidden>Rensa urval</button>
+                                        <button type="button" class="clear-team-selection" id="reset-all-table-filters-shortcut" title="Återställ alla tabellfilter till standardvärden">Återställ alla filter</button>
                                         <span id="working-selection-confirmation" role="status" aria-live="polite" hidden>✓ Lag har lagts till!</span>
                                     </div>
                                 </div>
@@ -11299,11 +11296,6 @@
                 const panel = document.querySelector('.advanced-filter-section');
                 if (panel) panel.open = false;
             });
-            const cancelBtn = document.getElementById('cancel-working-selection');
-            if (cancelBtn) cancelBtn.addEventListener('click', () => {
-                const panel = document.querySelector('.advanced-filter-section');
-                if (panel) panel.open = false;
-            });
             const advancedDetails = document.querySelector('.advanced-filter-section');
 
             // --- STEG 1: Återställ filter + synka när panelen öppnas ---
@@ -12769,6 +12761,11 @@
                             }
                         }
                     });
+                    /* Samma ändringsbedömning som används för filtergruppernas etiketter. */
+                    const shortcut = document.getElementById('reset-all-table-filters-shortcut');
+                    if (shortcut) {
+                        shortcut.disabled = !functionalGroups.some(group => groupIsChanged(group));
+                    }
                 }
 
                 function resetOneGroup(group) {
@@ -12843,6 +12840,12 @@
                     }
                 };
 
+                /* Genvägen skickar ett riktigt klick till originalknappen, så att
+                   exakt samma återställningskod körs och kan underhållas på ett ställe. */
+                document.getElementById('reset-all-table-filters-shortcut')?.addEventListener('click', () => {
+                    document.getElementById('reset-all-table-filters')?.click();
+                });
+
                 document.getElementById('reset-all-table-filters')?.addEventListener('click', () => {
                     beginDeluxeFilterResetBatch();
                     try {
@@ -12867,7 +12870,6 @@
                 // Programmatisk återställning av checkboxar utlöser inte alltid change-event.
                 // En MutationObserver hjälper inte för JS-properties, så uppdatera även efter klick i panelen.
                 groupsRoot.addEventListener('click', () => setTimeout(refreshChangedStates, 0));
-                document.getElementById('cancel-working-selection')?.addEventListener('click', () => setTimeout(refreshChangedStates, 0));
 
                 if (toggleButton) {
                     toggleButton.addEventListener('click', () => {
@@ -13322,6 +13324,7 @@
 
 /* Bekräftelsemeddelandet ska ärva radens mått och inte öka höjden. */
 .working-selection-meta #working-selection-confirmation {
+    margin-left: auto; /* Meddelandet sist, utan att flytta länkarna. */
     font-size: inherit;
     line-height: inherit;
     font-style: normal;
@@ -13346,6 +13349,15 @@
     cursor: pointer;
 }
 .working-selection-bar .working-selection-meta .clear-team-selection[hidden] { display: none; }
+.working-selection-bar .working-selection-meta #reset-all-table-filters-shortcut:disabled {
+    color: #9ca3af;
+    text-decoration: none;
+    cursor: default;
+}
+/* Gömda meddelanden ska inte uppta plats eller påverka länkarna. */
+.working-selection-bar .working-selection-meta #working-selection-confirmation[hidden] {
+    display: none;
+}
 /* Vyknapparna ska ha samma höjd som de övriga knapparna i verktygsraden. */
 .working-selection-bar .deluxe-view-switch { padding: 0; }
 .working-selection-bar .deluxe-view-switch button {
@@ -13933,7 +13945,7 @@
 <script>
 /* Rensa urval tar bort bekräftade lag, inte tabellens arbetskryss. */
 (function () {
-    document.querySelectorAll('.clear-team-selection').forEach(btn => {
+    document.querySelectorAll('#clear-team-selection-table').forEach(btn => {
         btn.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
