@@ -12210,6 +12210,14 @@
             if(quickPaintPanel)quickPaintPanel.hidden=true;
             if(quickPaintButton){quickPaintButton.setAttribute('aria-expanded','false');quickPaintButton.classList.remove('is-painting');}
         }
+        /* När en färg ändras kan raden behöva lämna det aktiva färgfiltret.
+           Anropa bara filtreringen vid färgändringar, inte vid varje diagramritning. */
+        function refreshTableAfterColorChange() {
+            if (document.getElementById('deluxe-color-filter-enabled')?.checked &&
+                typeof applyTableFilters === 'function') {
+                applyTableFilters();
+            }
+        }
         function paintTeamKey(key,name){
             if(!quickPaintColor)return false;
             if(quickPaintColor==='__ERASE__'){if(key)delete teamSeasonColors[key];if(name)delete teamColors[name];}
@@ -12219,6 +12227,7 @@
             updateChart();
             refreshDeluxeSavedColorDots();
             if (typeof updateColorIcons === 'function') updateColorIcons();
+            refreshTableAfterColorChange();
             return true;
         }
         function setupQuickPaint(){
@@ -12527,6 +12536,7 @@
                    både för enskilda staplar/lagbrickor och flera markerade brickor. */
                 refreshDeluxeSavedColorDots();
                 if (typeof updateColorIcons === 'function') updateColorIcons();
+                refreshTableAfterColorChange();
             });
 
 
@@ -13443,13 +13453,16 @@
                     rows.forEach(x=>{teamSeasonColors[x.key]=chosen;});
                     updateChart();if(typeof updateColorIcons==='function')updateColorIcons();
                     refreshDeluxeSavedColorDots();
+                    refreshTableAfterColorChange();
                     dialog.close();
                 });
                 $('batch-palette-clear').addEventListener('click',()=>{
                     if(!confirm('Ta bort sparad färg från alla ikryssade rader?'))return;
                     selected().forEach(x=>{delete teamSeasonColors[x.key];});
                     updateChart();if(typeof updateColorIcons==='function')updateColorIcons();
-                    refreshDeluxeSavedColorDots();dialog.close();
+                    refreshDeluxeSavedColorDots();
+                    refreshTableAfterColorChange();
+                    dialog.close();
                 });
                 const refresh=()=>{btn.disabled=!selected().length;};
                 /* Även huvudkrysset i tabellhuvudet ändrar radkryss programmässigt.
@@ -14648,6 +14661,8 @@
     if(manual){manual.checked=true;manual.dispatchEvent(new Event('change',{bubbles:true}));}
     if(typeof applyManualOrderToChipDOM==='function')applyManualOrderToChipDOM(manualOrderKeys);
     if(typeof updateColorIcons==='function')updateColorIcons();
+    refreshDeluxeSavedColorDots();
+    refreshTableAfterColorChange();
     // Ändra tidsläge först efter ordinarie urvalsbekräftelse. Befintlig
     // radioknappshantering sköter omräkning av reglagets tillåtna intervall.
     if(requestedAxis){
