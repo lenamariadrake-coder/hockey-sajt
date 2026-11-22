@@ -1946,7 +1946,15 @@
             outline: 3px solid #2563eb; outline-offset: 2px;
         }
 
-    </style>
+    
+/* Information om rader som enbart döljs av färgfiltret. */
+.filter-remaining-group { display:inline-flex; flex-wrap:wrap; align-items:center; gap:.45rem; }
+.filter-color-hidden-notice:not([hidden]) { display:inline-flex; flex-wrap:wrap; align-items:center; gap:.45rem; color:#64748b; font-size:.8rem; }
+.filter-color-hidden-notice.all-hidden { color:#9a3412; font-weight:600; }
+.filter-color-disable-shortcut { border:0; padding:0; background:none; color:#2563eb; text-decoration:underline; text-underline-offset:2px; cursor:pointer; font:inherit; }
+.filter-color-disable-shortcut:hover { color:#1d4ed8; }
+.filter-color-disable-shortcut:focus-visible { outline:2px solid #2563eb; outline-offset:3px; border-radius:2px; }
+</style>
 <style>
 /* Färgfilter – separat, kompakt verktygsrad ovanför tabellen. */
 .deluxe-color-filter { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; margin:.55rem 0; font-size:.85rem; }
@@ -2160,7 +2168,14 @@
 
                                 <!-- UI-GRUPPER FÖR FILTER. Befintliga input-id:n är oförändrade. -->
                                 <div class="filter-groups-toolbar">
-                                    <span id="filter-remaining-rows" class="filter-remaining-rows" role="status" aria-live="polite">– rader återstår</span>
+                                    <span class="filter-remaining-group" role="status" aria-live="polite">
+                                        <span id="filter-remaining-rows" class="filter-remaining-rows">– rader återstår</span>
+                                        <span id="filter-color-hidden-notice" class="filter-color-hidden-notice" hidden>
+                                            <span aria-hidden="true">🎨</span>
+                                            <span id="filter-color-hidden-count"></span>
+                                            <button type="button" id="filter-color-disable-shortcut" class="filter-color-disable-shortcut">Stäng av färgfiltret</button>
+                                        </span>
+                                    </span>
                                     <button type="button" id="toggle-filter-groups">Fäll ut alla</button>
                                     <button type="button" id="reset-all-table-filters">Återställ alla filter</button>
                                 </div>
@@ -9700,6 +9715,15 @@
             if (remainingRowsLabel) {
                 remainingRowsLabel.textContent = `${remainingRowCount} ${remainingRowCount === 1 ? 'rad' : 'rader'} återstår`;
             }
+            /* Visa endast rader som döljs av just färgfiltret, inte av övriga filter. */
+            const hiddenByColor = Math.max(0, deluxeColorBaseKeys.size - remainingRowCount);
+            const colorNotice = document.getElementById('filter-color-hidden-notice');
+            const colorCount = document.getElementById('filter-color-hidden-count');
+            if (colorNotice && colorCount) {
+                colorNotice.hidden = hiddenByColor === 0;
+                colorNotice.classList.toggle('all-hidden', hiddenByColor > 0 && remainingRowCount === 0);
+                colorCount.textContent = `${hiddenByColor} ${hiddenByColor === 1 ? 'rad döljs' : 'rader döljs'} av färgfiltret`;
+            }
 
             // --- FÖRKLARING: räkna tratten steg för steg ---
             // Detta är separat från själva radvisningen ovan. Vi börjar med de rader
@@ -13037,6 +13061,11 @@
                     if (shortcut && enabled.checked) shortcut.disabled = false;
                 };
                 enabled.addEventListener('change', update);
+                /* Snabbvalet slår enbart av färgfiltret och bevarar alla färgval. */
+                document.getElementById('filter-color-disable-shortcut')?.addEventListener('click', () => {
+                    enabled.checked = false;
+                    enabled.dispatchEvent(new Event('change', { bubbles: true }));
+                });
                 colored.addEventListener('change', () => { saveSimple(); update(); });
                 uncolored.addEventListener('change', () => { saveSimple(); update(); });
                 simpleButton.addEventListener('click', () => { mode = 'simple'; saveMode(); update(); });
