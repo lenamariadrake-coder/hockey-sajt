@@ -691,6 +691,7 @@
 
         /* --- Knappar i arbetsurvalet: samma stil som Markera/Avmarkera --- */
         #apply-working-selection,
+        #remove-working-selection,
         #return-working-selection,
         #cancel-working-selection,
         #range-working-selection {
@@ -705,7 +706,8 @@
         }
 
         /* Disabled-läget ska också se snyggt ut */
-        #apply-working-selection:disabled {
+        #apply-working-selection:disabled,
+        #remove-working-selection:disabled {
             background-color: #f3f4f6;
             color: #9ca3af;
             border-color: #e5e7eb;
@@ -714,6 +716,7 @@
 
         /* Hover-effekt (endast för aktiva knappar) */
         #apply-working-selection:not(:disabled):hover,
+        #remove-working-selection:not(:disabled):hover,
         #return-working-selection:hover,
         #cancel-working-selection:hover,
         #range-working-selection:hover {
@@ -2577,6 +2580,9 @@
                                         <button id="apply-working-selection" type="button">
                                             Lägg till
                                         </button>
+                                        <button id="remove-working-selection" type="button" disabled>
+                                            Ta bort
+                                        </button>
                                         <button id="return-working-selection" type="button">Återgå</button>
                                         <button id="cancel-working-selection" type="button">Avbryt</button>
                                         <button id="range-working-selection" type="button">
@@ -2585,8 +2591,8 @@
                                     </div>
                                     <div class="working-selection-meta">
                                         <span class="working-selection-text" id="working-selection-text">Bekräftade lag: 0</span>
-                                        <span id="working-selection-confirmation" role="status" aria-live="polite" hidden>✓ Lag har lagts till!</span>
                                         <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Ta bort samtliga bekräftade lag, även dem som inte syns i tabellen" hidden>Rensa urval</button>
+                                        <span id="working-selection-confirmation" role="status" aria-live="polite" hidden>✓ Lag har lagts till!</span>
                                     </div>
                                 </div>
 
@@ -11279,6 +11285,7 @@
 
             const workingTextEl = document.getElementById('working-selection-text');
             const applyBtn = document.getElementById('apply-working-selection');
+            const removeBtn = document.getElementById('remove-working-selection');
             const rangeBtn = document.getElementById('range-working-selection');
             const returnBtn = document.getElementById('return-working-selection');
             if (returnBtn) returnBtn.addEventListener('click', () => {
@@ -11509,6 +11516,11 @@
                 return Array.from(getWorkingSelectionKeys()).some(key => !confirmed.has(key));
             }
 
+            function hasConfirmedWorkingRows() {
+                const confirmed = getConfirmedSelectionKeys();
+                return Array.from(getWorkingSelectionKeys()).some(key => confirmed.has(key));
+            }
+
             function hideSelectionConfirmation() {
                 if (confirmationHideTimer !== null) clearTimeout(confirmationHideTimer);
                 confirmationHideTimer = null;
@@ -11533,10 +11545,8 @@
                     clearLink.hidden = getConfirmedSelectionKeys().size === 0;
                 }
 
-                if (applyBtn) {
-                    // Även noll valda lag får bekräftas, om urvalet faktiskt har ändrats.
-                    applyBtn.disabled = !hasUnconfirmedWorkingRows();
-                }
+                if (applyBtn) applyBtn.disabled = !hasUnconfirmedWorkingRows();
+                if (removeBtn) removeBtn.disabled = !hasConfirmedWorkingRows();
                 if (hasUnconfirmedWorkingRows()) {
                     hideSelectionConfirmation();
                 }
@@ -11714,6 +11724,40 @@
             }
 
 
+            /* Ta bort: avlägsna bara de bekräftade lag/säsonger som är
+               arbetskryssade. Övriga bekräftade lag och arbetskryss behålls. */
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    const container = document.getElementById('team-selection');
+                    if (!container) return;
+                    const workKeys = getWorkingSelectionKeys();
+                    let removed = 0;
+                    container.querySelectorAll('.team-item-wrapper').forEach(wrapper => {
+                        const key = wrapper.dataset.teamSeasonKey ||
+                            wrapper.querySelector('input.team-checkbox')?.dataset.teamSeasonKey;
+                        if (key && workKeys.has(key)) {
+                            wrapper.remove();
+                            removed++;
+                        }
+                    });
+                    if (!removed) return;
+
+                    updateChart();
+                    updateChipActionsUI();
+                    refreshDeluxeSavedColorDots();
+                    if (typeof updateColorIcons === 'function') updateColorIcons();
+                    const confirmedFirst = document.getElementById('sort-checked-first');
+                    if (confirmedFirst?.checked) confirmedFirst.dispatchEvent(new Event('change'));
+                    updateWorkingSelectionSummary();
+                    hideSelectionConfirmation();
+                    if (confirmationMessage) {
+                        confirmationMessage.textContent = `✓ ${removed} lag har tagits bort!`;
+                        confirmationMessage.hidden = false;
+                        confirmationHideTimer = setTimeout(hideSelectionConfirmation, 3000);
+                    }
+                });
+            }
+
             /* Lägg till: komplettera bekräftade lag utan att ersätta dem.
                Redan bekräftade säsonger, inklusive diagramdolda, lämnas orörda. */
             if (applyBtn) {
@@ -11725,6 +11769,7 @@
                         .filter(key => !existingKeys.has(key));
                     if (!missingKeys.length) return;
 
+                    let added = 0;
                     missingKeys.forEach(teamKey => {
                         const meta = seasonSummaryRows.find(r => r.teamSeasonKey === teamKey);
                         const matchingCheckbox = rowCheckboxes.find(cb =>
@@ -11842,7 +11887,9 @@
                             wrapper.appendChild(label);
                             wrapper.appendChild(colorIcon);
                             teamSelectionContainer.appendChild(wrapper);
+                            added++;
                     });
+                    if (!added) return;
 
                     if (typeof updateColorIcons === 'function') updateColorIcons();
                     if (typeof updateManualSortHints === 'function') updateManualSortHints();
@@ -11857,11 +11904,9 @@
                     updateWorkingSelectionSummary();
                     hideSelectionConfirmation();
                     if (confirmationMessage) {
+                        confirmationMessage.textContent = `✓ ${added} lag har lagts till!`;
                         confirmationMessage.hidden = false;
-                        confirmationHideTimer = setTimeout(() => {
-                            confirmationMessage.hidden = true;
-                            confirmationHideTimer = null;
-                        }, 3000);
+                        confirmationHideTimer = setTimeout(hideSelectionConfirmation, 3000);
                     }
                 });
             }
@@ -12867,7 +12912,7 @@
                     dialog.close();
                 });
                 $('batch-palette-clear').addEventListener('click',()=>{
-                    if(!confirm('Ta bort färgen från alla ikryssade rader, även dem som redan är färgade?'))return;
+                    if(!confirm('Ta bort sparad färg från alla ikryssade rader?'))return;
                     selected().forEach(x=>{delete teamSeasonColors[x.key];});
                     updateChart();if(typeof updateColorIcons==='function')updateColorIcons();
                     refreshDeluxeSavedColorDots();dialog.close();
