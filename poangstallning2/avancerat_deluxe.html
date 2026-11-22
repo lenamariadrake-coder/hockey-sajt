@@ -1945,6 +1945,14 @@
     </style>
 <style>
 .team-summary-sort[hidden], #deluxe-paint-toggle[hidden], #deluxe-quick-palette[hidden] {display:none!important}
+/* Test 3H: behåll sorteringens plats i rubriken även utan bekräftade lag.
+   Kontrollerna är osynliga och går inte att använda förrän lag finns. */
+.team-summary-row .team-summary-sort[hidden] {
+    display: inline-flex !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
 .working-selection-bar {flex-wrap:wrap;}
 .working-selection-bar .deluxe-view-switch {margin-left:0; padding:0;}
 .quick-paint-wrap {position:relative;display:inline-flex;align-items:center;}
@@ -5797,9 +5805,16 @@
                     status.setAttribute('aria-label', status.title);
                 }
                 const frame = row.querySelector('.deluxe-checkbox-color-frame');
-                if (frame) {
+                const cell = row.querySelector('td.col-select');
+                if (frame && cell) {
                     const color = teamSeasonColors[key];
-                    frame.style.backgroundColor = color || 'transparent';
+                    /* Färga hela cellen, precis som i Console-testet. */
+                    if (color) {
+                        cell.style.setProperty('background-color', color, 'important');
+                    } else {
+                        cell.style.removeProperty('background-color');
+                    }
+                    frame.style.backgroundColor = 'transparent';
                     frame.title = color ? `Sparad färg: ${color}` : 'Ingen sparad färg';
                 }
             });
@@ -12345,6 +12360,7 @@
             else if(name)teamColors[name]=quickPaintColor;
             if(resetAllColorsBtn)resetAllColorsBtn.classList.remove('hidden');
             updateChart();
+            refreshDeluxeSavedColorDots();
             return true;
         }
         function setupQuickPaint(){
@@ -13290,7 +13306,7 @@
                                 if(count)Object.keys(teamSeasonColors).forEach(key=>{if(teamSeasonColors[key]===color)delete teamSeasonColors[key];});
                                 custom.splice(index-PALETTE_COLORS.length,1);save();
                                 if(chosen===color)chosen=PALETTE_COLORS[0];render();impact();
-                                if(count){updateChart();if(typeof updateColorIcons==='function')updateColorIcons();}
+                                if(count){updateChart();if(typeof updateColorIcons==='function')updateColorIcons();refreshDeluxeSavedColorDots();}
                                 message('Den egna färgen har tagits bort.');
                             });wrapper.append(remove);
                         }
@@ -13309,12 +13325,14 @@
                     const rows=selected().filter(x=>!$('batch-palette-only-blank').checked||!activeColor(x.key));
                     rows.forEach(x=>{teamSeasonColors[x.key]=chosen;});
                     updateChart();if(typeof updateColorIcons==='function')updateColorIcons();
+                    refreshDeluxeSavedColorDots();
                     dialog.close();
                 });
                 $('batch-palette-clear').addEventListener('click',()=>{
                     if(!confirm('Ta bort färgen från alla ikryssade rader, även dem som redan är färgade?'))return;
                     selected().forEach(x=>{delete teamSeasonColors[x.key];});
-                    updateChart();if(typeof updateColorIcons==='function')updateColorIcons();dialog.close();
+                    updateChart();if(typeof updateColorIcons==='function')updateColorIcons();
+                    refreshDeluxeSavedColorDots();dialog.close();
                 });
                 const refresh=()=>{btn.disabled=!selected().length;};
                 document.addEventListener('change',e=>{if(e.target.matches('.team-table-row-checkbox'))refresh();});
