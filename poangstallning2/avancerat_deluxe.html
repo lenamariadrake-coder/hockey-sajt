@@ -9325,6 +9325,7 @@
             const rows = tbody.querySelectorAll('tr');
             const currentFilterRows = [];
             let remainingRowCount = 0;
+            let clearedWorkingChecks = false;
 
             rows.forEach(row => {
                 clearHistoricalTooltipFromRow(row);
@@ -9573,10 +9574,28 @@
                 row.style.display = rowVisible ? '' : 'none';
                 if (rowVisible) remainingRowCount += 1;
 
+                /* Arbetskryss ska bara finnas kvar på rader som ingår i
+                   det aktuella filterresultatet. Bekräftelser och färger
+                   påverkas inte. */
+                if (!rowVisible) {
+                    const workCheckbox = row.querySelector('.col-select input[type="checkbox"]');
+                    if (workCheckbox?.checked) {
+                        workCheckbox.checked = false;
+                        row.classList.remove('working-selected-row');
+                        clearedWorkingChecks = true;
+                    }
+                }
+
                 if (rowVisible && historicalResultForTooltip?.status === 'match') {
                     setHistoricalTooltipForRow(row, historicalResultForTooltip.details);
                 }
             });
+
+            /* Synka räknare, huvudkryss och bekräftelseknapp en gång
+               efter filtreringen, men bara om något arbetskryss försvann. */
+            if (clearedWorkingChecks) {
+                window._updateWorkingSelectionSummaryFromOutside?.();
+            }
 
             // Samma slutliga radurval som tabellen, inklusive historiska filter.
             const remainingRowsLabel = document.getElementById('filter-remaining-rows');
