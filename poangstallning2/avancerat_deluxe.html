@@ -9659,9 +9659,13 @@
                 const showColored = !!document.getElementById('deluxe-color-filter-colored')?.checked;
                 const showUncolored = !!document.getElementById('deluxe-color-filter-uncolored')?.checked;
                 const savedColor = teamSeasonColors[row.dataset.teamSeasonKey] || '';
-                /* Avancerat läge är ännu bara ett gränssnittstest: filtrerar inte. */
+                /* Avancerat läge använder de sparade individuella färgvalen.
+                   Grundurvalet ovan beräknas oberoende av färgfiltret. */
                 const advancedMode = document.getElementById('deluxe-color-filter-advanced')?.getAttribute('aria-pressed') === 'true';
-                const colorOk = !colorEnabled || advancedMode || (savedColor ? showColored : showUncolored);
+                const colorOk = !colorEnabled ||
+                    (advancedMode
+                        ? (window.deluxeAdvancedColorAllowed?.(savedColor) ?? true)
+                        : (savedColor ? showColored : showUncolored));
                 const rowVisible = currentFiltersOk && historicalOk && colorOk;
                 row.style.display = rowVisible ? '' : 'none';
                 if (rowVisible) remainingRowCount += 1;
@@ -13004,6 +13008,9 @@
                 const saveAdvanced = () => {
                     try { localStorage.setItem(ADVANCED_KEY, JSON.stringify([...excludedColors])); } catch (_) {}
                 };
+                /* Ofärgat har en egen stabil nyckel; nya färger tillåts automatiskt. */
+                window.deluxeAdvancedColorAllowed = color =>
+                    !excludedColors.has(color || '__uncolored__');
                 let mode = 'simple';
                 try {
                     mode = localStorage.getItem(STORAGE_KEY) === 'advanced' ? 'advanced' : 'simple';
@@ -13099,6 +13106,7 @@
                             const checkbox = document.createElement('input');
                             checkbox.type = 'checkbox';
                             checkbox.className = 'deluxe-color-detail-check';
+                            checkbox.dataset.colorSelectionKey = selectionKey;
                             checkbox.checked = !excludedColors.has(selectionKey);
                             checkbox.setAttribute('aria-label', `Visa ${name}`);
                             checkbox.addEventListener('change', () => {
@@ -13106,6 +13114,7 @@
                                 else excludedColors.add(selectionKey);
                                 saveAdvanced();
                                 syncMaster();
+                                if (enabled.checked && mode === 'advanced') applyTableFilters();
                             });
                             label.append(checkbox);
                         }
@@ -13161,11 +13170,16 @@
                         master.indeterminate = boxes.some(box => box.checked) && !master.checked;
                     };
                     master.addEventListener('change', () => {
+                        const checked = master.checked;
                         tbody.querySelectorAll('.deluxe-color-detail-check').forEach(box => {
-                            box.checked = master.checked;
-                            box.dispatchEvent(new Event('change'));
+                            box.checked = checked;
+                            const key = box.dataset.colorSelectionKey;
+                            if (checked) excludedColors.delete(key);
+                            else excludedColors.add(key);
                         });
+                        saveAdvanced();
                         syncMaster();
+                        if (enabled.checked && mode === 'advanced') applyTableFilters();
                     });
                     content.append(masterLabel, table);
                     syncMaster();
