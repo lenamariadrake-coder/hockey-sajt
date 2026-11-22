@@ -12218,6 +12218,7 @@
             if(resetAllColorsBtn)resetAllColorsBtn.classList.remove('hidden');
             updateChart();
             refreshDeluxeSavedColorDots();
+            if (typeof updateColorIcons === 'function') updateColorIcons();
             return true;
         }
         function setupQuickPaint(){
@@ -12522,6 +12523,10 @@
                 }
 
                 updateChart();
+                /* Synkronisera tabellens färgmarkering efter färgval och avfärgning,
+                   både för enskilda staplar/lagbrickor och flera markerade brickor. */
+                refreshDeluxeSavedColorDots();
+                if (typeof updateColorIcons === 'function') updateColorIcons();
             });
 
 
