@@ -1970,6 +1970,21 @@
 #deluxe-color-filter-dialog .deluxe-color-item .deluxe-color-count { margin-left:auto; color:#64748b; }
 #deluxe-color-filter-dialog .deluxe-color-item.is-outside { opacity:.6; }
 #deluxe-color-filter-dialog .deluxe-color-swatch { display:inline-block; width:20px; height:20px; border:1px solid #94a3b8; border-radius:5px; flex:none; }
+
+/* Steg 2: dynamisk färgstatistik i tabellform, utan detaljfiltrering. */
+#deluxe-color-filter-dialog { min-width:min(475px, 92vw); }
+#deluxe-color-filter-dialog .deluxe-color-stat-table { width:100%; border-collapse:collapse; font-size:.84rem; font-variant-numeric:tabular-nums; }
+#deluxe-color-filter-dialog .deluxe-color-stat-table th,
+#deluxe-color-filter-dialog .deluxe-color-stat-table td { padding:.48rem .55rem; border-bottom:1px solid #e2e8f0; }
+#deluxe-color-filter-dialog .deluxe-color-stat-table thead th { font-size:.77rem; color:#64748b; text-align:right; white-space:nowrap; }
+#deluxe-color-filter-dialog .deluxe-color-stat-table thead th:first-child { text-align:left; }
+#deluxe-color-filter-dialog .deluxe-color-stat-table tbody td:not(:first-child) { text-align:right; }
+#deluxe-color-filter-dialog .deluxe-color-stat-label { display:inline-flex; align-items:center; gap:.55rem; }
+#deluxe-color-filter-dialog .deluxe-color-stat-table tr.is-outside { color:#94a3b8; }
+#deluxe-color-filter-dialog .deluxe-color-stat-table tr.is-total { font-weight:700; background:#f8fafc; }
+#deluxe-color-filter-dialog .deluxe-color-stat-table tr.is-uncolored-row { color:#64748b; }
+#deluxe-color-filter-dialog .deluxe-color-stat-table tr.is-uncolored-row td { border-top:2px solid #cbd5e1; }
+#deluxe-color-filter-dialog .deluxe-color-swatch.is-uncolored { background:#fff; border-style:dashed; }
 #deluxe-color-filter-dialog .dialog-actions { display:flex; justify-content:flex-end; margin-top:1rem; }
 #deluxe-color-filter-dialog .dialog-actions button { padding:.4rem .8rem; border-radius:7px; border:1px solid #9ca3af; background:#fff; cursor:pointer; }
 </style>
@@ -2647,7 +2662,7 @@
                                 </div>
                                 <dialog id="deluxe-color-filter-dialog" aria-labelledby="deluxe-color-filter-dialog-title">
                                     <h3 id="deluxe-color-filter-dialog-title">Använda färger</h3>
-                                    <p class="deluxe-color-dialog-note">Färgerna grupperas efter om de förekommer i grundurvalet, innan färgfiltret tillämpas. Detta är enbart en översikt i den här testversionen.</p>
+                                    <p class="deluxe-color-dialog-note">Färgerna räknas i grundurvalet (före färgfiltret) och utanför. Detta är fortfarande bara en översikt.</p>
                                     <div id="deluxe-color-filter-dialog-content"></div>
                                     <div class="dialog-actions"><button type="button" id="deluxe-color-filter-dialog-close">Stäng</button></div>
                                 </dialog>
@@ -13027,48 +13042,88 @@
                     const availableKeys = new Set(rows.map(row => row.dataset.teamSeasonKey));
                     const totals = new Map();
                     const inBase = new Map();
+                    let blankTotal = 0;
+                    let blankInBase = 0;
                     availableKeys.forEach(key => {
                         const color = teamSeasonColors[key];
-                        if (!color) return;
+                        if (!color) {
+                            blankTotal++;
+                            if (lastBaseKeys.has(key)) blankInBase++;
+                            return;
+                        }
                         totals.set(color, (totals.get(color) || 0) + 1);
                         if (lastBaseKeys.has(key)) inBase.set(color, (inBase.get(color) || 0) + 1);
                     });
-                    content.replaceChildren();
-                    const addGroup = (heading, entries, outside) => {
-                        const section = document.createElement('section');
-                        section.className = 'deluxe-color-group';
-                        const title = document.createElement('h4');
-                        title.textContent = heading;
-                        section.append(title);
-                        if (!entries.length) {
-                            const empty = document.createElement('p');
-                            empty.className = 'deluxe-color-dialog-note';
-                            empty.textContent = 'Inga färger i denna grupp.';
-                            section.append(empty);
-                        }
-                        entries.forEach(([color, count]) => {
-                            const item = document.createElement('div');
-                            item.className = 'deluxe-color-item' + (outside ? ' is-outside' : '');
-                            const swatch = document.createElement('span');
-                            swatch.className = 'deluxe-color-swatch';
-                            swatch.style.backgroundColor = color;
-                            const name = document.createElement('span');
-                            const paletteIndex = PALETTE_COLORS.indexOf(color);
-                            name.textContent = paletteIndex >= 0 ? `Färg ${paletteIndex + 1}` : color;
-                            const number = document.createElement('span');
-                            number.className = 'deluxe-color-count';
-                            number.textContent = `${count} i grundurvalet · ${totals.get(color) - count} utanför`;
-                            item.append(swatch, name, number);
-                            section.append(item);
-                        });
-                        content.append(section);
-                    };
-                    const ordered = [...totals.keys()].sort((a,b) => {
-                        const ai=PALETTE_COLORS.indexOf(a), bi=PALETTE_COLORS.indexOf(b);
-                        return (ai<0?999:ai)-(bi<0?999:bi) || a.localeCompare(b);
+                    const ordered = [...totals.keys()].sort((a, b) => {
+                        const diff = (inBase.get(b) || 0) - (inBase.get(a) || 0);
+                        return diff || (totals.get(b) || 0) - (totals.get(a) || 0) || a.localeCompare(b);
                     });
-                    addGroup('Finns i grundurvalet', ordered.filter(c => inBase.has(c)).map(c => [c,inBase.get(c)]), false);
-                    addGroup('Används utanför grundurvalet', ordered.filter(c => !inBase.has(c)).map(c => [c,0]), true);
+
+                    content.replaceChildren();
+                    const table = document.createElement('table');
+                    table.className = 'deluxe-color-stat-table';
+                    const thead = document.createElement('thead');
+                    const headingRow = document.createElement('tr');
+                    ['Färg', 'I grundurvalet', 'Utanför'].forEach(label => {
+                        const th = document.createElement('th');
+                        th.textContent = label;
+                        headingRow.append(th);
+                    });
+                    thead.append(headingRow);
+                    const tbody = document.createElement('tbody');
+                    const makeRow = (name, color, inside, outside, className = '') => {
+                        const tr = document.createElement('tr');
+                        if (className) tr.className = className;
+                        const labelCell = document.createElement('td');
+                        const label = document.createElement('span');
+                        label.className = 'deluxe-color-stat-label';
+                        const swatch = document.createElement('span');
+                        swatch.className = 'deluxe-color-swatch';
+                        if (color) swatch.style.backgroundColor = color;
+                        else swatch.classList.add('is-uncolored');
+                        const text = document.createElement('span');
+                        text.textContent = name;
+                        label.append(swatch, text);
+                        labelCell.append(label);
+                        const insideCell = document.createElement('td');
+                        const outsideCell = document.createElement('td');
+                        insideCell.textContent = String(inside);
+                        outsideCell.textContent = String(outside);
+                        tr.append(labelCell, insideCell, outsideCell);
+                        tbody.append(tr);
+                    };
+                    let coloredInside = 0;
+                    let coloredOutside = 0;
+                    ordered.forEach(color => {
+                        const inside = inBase.get(color) || 0;
+                        const outside = totals.get(color) - inside;
+                        coloredInside += inside;
+                        coloredOutside += outside;
+                        const paletteIndex = PALETTE_COLORS.indexOf(color);
+                        const name = paletteIndex >= 0 ? `Färg ${paletteIndex + 1}` : color;
+                        makeRow(name, color, inside, outside, inside ? '' : 'is-outside');
+                    });
+                    if (!ordered.length) {
+                        const tr = document.createElement('tr');
+                        const td = document.createElement('td');
+                        td.colSpan = 3;
+                        td.textContent = 'Inga färgade rader.';
+                        tr.append(td);
+                        tbody.append(tr);
+                    }
+                    const totalRow = document.createElement('tr');
+                    totalRow.className = 'is-total';
+                    const totalLabel = document.createElement('th');
+                    totalLabel.textContent = 'Summa färgade';
+                    const totalInside = document.createElement('td');
+                    totalInside.textContent = String(coloredInside);
+                    const totalOutside = document.createElement('td');
+                    totalOutside.textContent = String(coloredOutside);
+                    totalRow.append(totalLabel, totalInside, totalOutside);
+                    tbody.append(totalRow);
+                    makeRow('Ofärgat', null, blankInBase, blankTotal - blankInBase, 'is-uncolored-row');
+                    table.append(thead, tbody);
+                    content.append(table);
                 };
                 update();
             };
