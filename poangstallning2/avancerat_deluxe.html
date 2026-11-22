@@ -1958,7 +1958,14 @@
 #deluxe-color-filter-dialog-button:hover { background:#f3f4f6; }
 #deluxe-color-filter-dialog { border:1px solid #cbd5e1; border-radius:12px; padding:1.25rem; min-width:min(360px, 85vw); max-width:90vw; box-shadow:0 15px 45px #0003; }
 #deluxe-color-filter-dialog::backdrop { background:rgba(15,23,42,.4); }
-#deluxe-color-filter-dialog h3 { margin:0 0 1rem; }
+#deluxe-color-filter-dialog h3 { margin:0 0 .6rem; }
+#deluxe-color-filter-dialog .deluxe-color-dialog-note { font-size:.82rem; color:#64748b; margin:0 0 1rem; }
+#deluxe-color-filter-dialog .deluxe-color-group { margin:.8rem 0; }
+#deluxe-color-filter-dialog .deluxe-color-group h4 { font-size:.88rem; margin:0 0 .4rem; }
+#deluxe-color-filter-dialog .deluxe-color-item { display:flex; align-items:center; gap:.6rem; padding:.3rem 0; font-size:.85rem; }
+#deluxe-color-filter-dialog .deluxe-color-item .deluxe-color-count { margin-left:auto; color:#64748b; }
+#deluxe-color-filter-dialog .deluxe-color-item.is-outside { opacity:.6; }
+#deluxe-color-filter-dialog .deluxe-color-swatch { display:inline-block; width:20px; height:20px; border:1px solid #94a3b8; border-radius:5px; flex:none; }
 #deluxe-color-filter-dialog .dialog-actions { display:flex; justify-content:flex-end; margin-top:1rem; }
 #deluxe-color-filter-dialog .dialog-actions button { padding:.4rem .8rem; border-radius:7px; border:1px solid #9ca3af; background:#fff; cursor:pointer; }
 </style>
@@ -2626,7 +2633,9 @@
                                     </div>
                                 </div>
                                 <dialog id="deluxe-color-filter-dialog" aria-labelledby="deluxe-color-filter-dialog-title">
-                                    <h3 id="deluxe-color-filter-dialog-title">Välj färger</h3>
+                                    <h3 id="deluxe-color-filter-dialog-title">Använda färger</h3>
+                                    <p class="deluxe-color-dialog-note">Färgerna grupperas efter om de förekommer i grundurvalet, innan färgfiltret tillämpas. Detta är enbart en översikt i den här testversionen.</p>
+                                    <div id="deluxe-color-filter-dialog-content"></div>
                                     <div class="dialog-actions"><button type="button" id="deluxe-color-filter-dialog-close">Stäng</button></div>
                                 </dialog>
 
@@ -9069,6 +9078,7 @@
 
         function applyTableFilters() {
             if (deluxeFilterResetBatch > 0) return;
+            const deluxeColorBaseKeys = new Set();
             setupHistoricalResultTooltips();
             hideHistoricalResultTooltip();
 
@@ -9611,6 +9621,9 @@
                     }
                 }
 
+                /* Samla grundurvalet innan färgfiltret begränsar radvisningen. */
+                if (currentFiltersOk && historicalOk) deluxeColorBaseKeys.add(row.dataset.teamSeasonKey);
+
                 /* Färgfilter: båda kryssade = oförändrat grundurval. */
                 const colorEnabled = !!document.getElementById('deluxe-color-filter-enabled')?.checked;
                 const showColored = !!document.getElementById('deluxe-color-filter-colored')?.checked;
@@ -9637,6 +9650,8 @@
                     setHistoricalTooltipForRow(row, historicalResultForTooltip.details);
                 }
             });
+
+            window.refreshDeluxeColorFilter?.(deluxeColorBaseKeys);
 
             /* Synka räknare, huvudkryss och bekräftelseknapp en gång
                efter filtreringen, men bara om något arbetskryss försvann. */
@@ -12950,7 +12965,10 @@
                 enabled.addEventListener('change', update);
                 colored.addEventListener('change', update);
                 uncolored.addEventListener('change', update);
-                open?.addEventListener('click', () => dialog.showModal());
+                open?.addEventListener('click', () => {
+                    window.refreshDeluxeColorFilter?.();
+                    dialog.showModal();
+                });
                 close?.addEventListener('click', () => dialog.close());
                 window.resetDeluxeColorFilter = () => {
                     enabled.checked = false;
@@ -12959,7 +12977,58 @@
                     options.hidden = true;
                     if (dialog.open) dialog.close();
                 };
-                window.refreshDeluxeColorFilter = () => {};
+                let lastBaseKeys = new Set();
+                window.refreshDeluxeColorFilter = (baseKeys) => {
+                    if (baseKeys instanceof Set) lastBaseKeys = new Set(baseKeys);
+                    const content = document.getElementById('deluxe-color-filter-dialog-content');
+                    if (!content) return;
+                    const rows = Array.from(document.querySelectorAll('.team-table tbody tr[data-team-season-key]'));
+                    const availableKeys = new Set(rows.map(row => row.dataset.teamSeasonKey));
+                    const totals = new Map();
+                    const inBase = new Map();
+                    availableKeys.forEach(key => {
+                        const color = teamSeasonColors[key];
+                        if (!color) return;
+                        totals.set(color, (totals.get(color) || 0) + 1);
+                        if (lastBaseKeys.has(key)) inBase.set(color, (inBase.get(color) || 0) + 1);
+                    });
+                    content.replaceChildren();
+                    const addGroup = (heading, entries, outside) => {
+                        const section = document.createElement('section');
+                        section.className = 'deluxe-color-group';
+                        const title = document.createElement('h4');
+                        title.textContent = heading;
+                        section.append(title);
+                        if (!entries.length) {
+                            const empty = document.createElement('p');
+                            empty.className = 'deluxe-color-dialog-note';
+                            empty.textContent = 'Inga färger i denna grupp.';
+                            section.append(empty);
+                        }
+                        entries.forEach(([color, count]) => {
+                            const item = document.createElement('div');
+                            item.className = 'deluxe-color-item' + (outside ? ' is-outside' : '');
+                            const swatch = document.createElement('span');
+                            swatch.className = 'deluxe-color-swatch';
+                            swatch.style.backgroundColor = color;
+                            const name = document.createElement('span');
+                            const paletteIndex = PALETTE_COLORS.indexOf(color);
+                            name.textContent = paletteIndex >= 0 ? `Färg ${paletteIndex + 1}` : color;
+                            const number = document.createElement('span');
+                            number.className = 'deluxe-color-count';
+                            number.textContent = outside ? `${totals.get(color)} totalt · 0 i grundurvalet` : `${count} i grundurvalet`;
+                            item.append(swatch, name, number);
+                            section.append(item);
+                        });
+                        content.append(section);
+                    };
+                    const ordered = [...totals.keys()].sort((a,b) => {
+                        const ai=PALETTE_COLORS.indexOf(a), bi=PALETTE_COLORS.indexOf(b);
+                        return (ai<0?999:ai)-(bi<0?999:bi) || a.localeCompare(b);
+                    });
+                    addGroup('Finns i grundurvalet', ordered.filter(c => inBase.has(c)).map(c => [c,inBase.get(c)]), false);
+                    addGroup('Används utanför grundurvalet', ordered.filter(c => !inBase.has(c)).map(c => [c,0]), true);
+                };
                 update();
             };
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
