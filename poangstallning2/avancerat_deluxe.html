@@ -1984,6 +1984,8 @@
 #deluxe-color-filter-dialog .deluxe-color-stat-table tr.is-total { font-weight:700; background:#f8fafc; }
 #deluxe-color-filter-dialog .deluxe-color-stat-table tr.is-uncolored-row { color:#64748b; }
 #deluxe-color-filter-dialog .deluxe-color-stat-table tr.is-uncolored-row td { border-top:2px solid #cbd5e1; }
+#deluxe-color-filter-dialog .deluxe-color-detail-master { display:flex; align-items:center; gap:.45rem; margin:.6rem 0; font-weight:600; font-size:.84rem; cursor:pointer; }
+#deluxe-color-filter-dialog .deluxe-color-detail-check { margin:0 .25rem 0 0; cursor:pointer; }
 #deluxe-color-filter-dialog .deluxe-color-swatch.is-uncolored { background:#fff; border-style:dashed; }
 #deluxe-color-filter-dialog .dialog-actions { display:flex; justify-content:flex-end; margin-top:1rem; }
 #deluxe-color-filter-dialog .dialog-actions button { padding:.4rem .8rem; border-radius:7px; border:1px solid #9ca3af; background:#fff; cursor:pointer; }
@@ -12992,6 +12994,16 @@
                 const advancedOptions = document.getElementById('deluxe-color-filter-advanced-options');
                 const STORAGE_KEY = 'SHL_DELUXE_COLOR_FILTER_MODE_V1';
                 const SIMPLE_KEY = 'SHL_DELUXE_COLOR_FILTER_SIMPLE_V1';
+                const ADVANCED_KEY = 'SHL_DELUXE_COLOR_FILTER_ADVANCED_V1';
+                /* Endast uttryckligen avmarkerade färger sparas. Nya färger är valda som standard. */
+                let excludedColors = new Set();
+                try {
+                    const savedAdvanced = JSON.parse(localStorage.getItem(ADVANCED_KEY) || '[]');
+                    if (Array.isArray(savedAdvanced)) excludedColors = new Set(savedAdvanced.filter(x => typeof x === 'string'));
+                } catch (_) {}
+                const saveAdvanced = () => {
+                    try { localStorage.setItem(ADVANCED_KEY, JSON.stringify([...excludedColors])); } catch (_) {}
+                };
                 let mode = 'simple';
                 try {
                     mode = localStorage.getItem(STORAGE_KEY) === 'advanced' ? 'advanced' : 'simple';
@@ -13064,14 +13076,14 @@
                     table.className = 'deluxe-color-stat-table';
                     const thead = document.createElement('thead');
                     const headingRow = document.createElement('tr');
-                    ['Färg', 'I grundurvalet', 'Utanför'].forEach(label => {
+                    ['Välj / färg', 'I grundurvalet', 'Utanför'].forEach(label => {
                         const th = document.createElement('th');
                         th.textContent = label;
                         headingRow.append(th);
                     });
                     thead.append(headingRow);
                     const tbody = document.createElement('tbody');
-                    const makeRow = (name, color, inside, outside, className = '') => {
+                    const makeRow = (name, color, inside, outside, className = '', selectionKey = null) => {
                         const tr = document.createElement('tr');
                         if (className) tr.className = className;
                         const labelCell = document.createElement('td');
@@ -13083,6 +13095,20 @@
                         else swatch.classList.add('is-uncolored');
                         const text = document.createElement('span');
                         text.textContent = name;
+                        if (selectionKey !== null) {
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.className = 'deluxe-color-detail-check';
+                            checkbox.checked = !excludedColors.has(selectionKey);
+                            checkbox.setAttribute('aria-label', `Visa ${name}`);
+                            checkbox.addEventListener('change', () => {
+                                if (checkbox.checked) excludedColors.delete(selectionKey);
+                                else excludedColors.add(selectionKey);
+                                saveAdvanced();
+                                syncMaster();
+                            });
+                            label.append(checkbox);
+                        }
                         label.append(swatch, text);
                         labelCell.append(label);
                         const insideCell = document.createElement('td');
@@ -13101,7 +13127,7 @@
                         coloredOutside += outside;
                         const paletteIndex = PALETTE_COLORS.indexOf(color);
                         const name = paletteIndex >= 0 ? `Färg ${paletteIndex + 1}` : color;
-                        makeRow(name, color, inside, outside, inside ? '' : 'is-outside');
+                        makeRow(name, color, inside, outside, inside ? '' : 'is-outside', color);
                     });
                     if (!ordered.length) {
                         const tr = document.createElement('tr');
@@ -13121,9 +13147,28 @@
                     totalOutside.textContent = String(coloredOutside);
                     totalRow.append(totalLabel, totalInside, totalOutside);
                     tbody.append(totalRow);
-                    makeRow('Ofärgat', null, blankInBase, blankTotal - blankInBase, 'is-uncolored-row');
+                    makeRow('Ofärgat', null, blankInBase, blankTotal - blankInBase, 'is-uncolored-row', '__uncolored__');
                     table.append(thead, tbody);
-                    content.append(table);
+                    const masterLabel = document.createElement('label');
+                    masterLabel.className = 'deluxe-color-detail-master';
+                    const master = document.createElement('input');
+                    master.type = 'checkbox';
+                    master.setAttribute('aria-label', 'Markera eller avmarkera alla färger');
+                    masterLabel.append(master, document.createTextNode(' Alla färger (inklusive ofärgat)'));
+                    const syncMaster = () => {
+                        const boxes = [...tbody.querySelectorAll('.deluxe-color-detail-check')];
+                        master.checked = boxes.length > 0 && boxes.every(box => box.checked);
+                        master.indeterminate = boxes.some(box => box.checked) && !master.checked;
+                    };
+                    master.addEventListener('change', () => {
+                        tbody.querySelectorAll('.deluxe-color-detail-check').forEach(box => {
+                            box.checked = master.checked;
+                            box.dispatchEvent(new Event('change'));
+                        });
+                        syncMaster();
+                    });
+                    content.append(masterLabel, table);
+                    syncMaster();
                 };
                 update();
             };
