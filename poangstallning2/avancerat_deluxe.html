@@ -13354,7 +13354,11 @@
                     refreshDeluxeSavedColorDots();dialog.close();
                 });
                 const refresh=()=>{btn.disabled=!selected().length;};
-                document.addEventListener('change',e=>{if(e.target.matches('.team-table-row-checkbox'))refresh();});
+                /* Även huvudkrysset i tabellhuvudet ändrar radkryss programmässigt.
+                   Sådana ändringar utlöser inte egna change-händelser på raderna. */
+                document.addEventListener('change',e=>{
+                    if(e.target.matches('.team-table-row-checkbox, .team-table thead input[type="checkbox"]'))refresh();
+                });
                 new MutationObserver(refresh).observe(document.querySelector('.team-table tbody'),{childList:true,subtree:true});
                 refresh();
             }
