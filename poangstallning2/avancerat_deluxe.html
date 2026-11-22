@@ -1948,14 +1948,19 @@
 
     </style>
 <style>
-/* Färgfilter ovanför tabellen – egen rad för att inte flytta verktygsknapparna. */
-.deluxe-color-filter { display:flex; align-items:center; flex-wrap:wrap; gap:.55rem; margin:.55rem 0; font-size:.85rem; }
+/* Färgfilter – separat, kompakt verktygsrad ovanför tabellen. */
+.deluxe-color-filter { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; margin:.55rem 0; font-size:.85rem; }
+.deluxe-color-filter label { display:inline-flex; align-items:center; gap:.35rem; cursor:pointer; }
 .deluxe-color-filter > label { font-weight:600; }
-#deluxe-color-filter-mode { border:1px solid #cbd5e1; border-radius:7px; padding:.3rem .5rem; background:#fff; }
-#deluxe-color-filter-choices { display:flex; flex-wrap:wrap; gap:.4rem .8rem; }
-#deluxe-color-filter-choices[hidden] { display:none; }
-#deluxe-color-filter-choices label { display:inline-flex; align-items:center; gap:.25rem; white-space:nowrap; cursor:pointer; }
-.deluxe-color-filter-swatch { display:inline-block; width:15px; height:15px; border-radius:4px; border:1px solid #9ca3af; }
+.deluxe-color-filter-options { display:inline-flex; align-items:center; flex-wrap:wrap; gap:.8rem; }
+.deluxe-color-filter-options[hidden] { display:none; }
+#deluxe-color-filter-dialog-button { padding:.3rem .65rem; border:1px solid #9ca3af; border-radius:8px; background:#fff; color:inherit; cursor:pointer; }
+#deluxe-color-filter-dialog-button:hover { background:#f3f4f6; }
+#deluxe-color-filter-dialog { border:1px solid #cbd5e1; border-radius:12px; padding:1.25rem; min-width:min(360px, 85vw); max-width:90vw; box-shadow:0 15px 45px #0003; }
+#deluxe-color-filter-dialog::backdrop { background:rgba(15,23,42,.4); }
+#deluxe-color-filter-dialog h3 { margin:0 0 1rem; }
+#deluxe-color-filter-dialog .dialog-actions { display:flex; justify-content:flex-end; margin-top:1rem; }
+#deluxe-color-filter-dialog .dialog-actions button { padding:.4rem .8rem; border-radius:7px; border:1px solid #9ca3af; background:#fff; cursor:pointer; }
 </style>
 <style>
 .team-summary-sort[hidden], #deluxe-paint-toggle[hidden], #deluxe-quick-palette[hidden] {display:none!important}
@@ -2611,17 +2616,19 @@
                                 </div>
 
 
-                                <!-- Färgfilter: oberoende av bekräftade lag och arbetskryss. -->
+                                <!-- Färgfilter: separat från övriga filter. -->
                                 <div class="deluxe-color-filter" id="deluxe-color-filter">
-                                    <label for="deluxe-color-filter-mode">Färgfilter</label>
-                                    <select id="deluxe-color-filter-mode" aria-label="Filtrera på sparad färg">
-                                        <option value="all">Alla färger</option>
-                                        <option value="colored">Har färg</option>
-                                        <option value="uncolored">Saknar färg</option>
-                                        <option value="specific">Valda färger</option>
-                                    </select>
-                                    <div id="deluxe-color-filter-choices" hidden aria-label="Välj färger"></div>
+                                    <label><input type="checkbox" id="deluxe-color-filter-enabled"> Färgfilter</label>
+                                    <div class="deluxe-color-filter-options" id="deluxe-color-filter-options" hidden>
+                                        <label><input type="checkbox" id="deluxe-color-filter-colored" checked> Färgade</label>
+                                        <label><input type="checkbox" id="deluxe-color-filter-uncolored" checked> Ofärgade</label>
+                                        <button type="button" id="deluxe-color-filter-dialog-button">Välj färger…</button>
+                                    </div>
                                 </div>
+                                <dialog id="deluxe-color-filter-dialog" aria-labelledby="deluxe-color-filter-dialog-title">
+                                    <h3 id="deluxe-color-filter-dialog-title">Välj färger</h3>
+                                    <div class="dialog-actions"><button type="button" id="deluxe-color-filter-dialog-close">Stäng</button></div>
+                                </dialog>
 
                                 <!-- Tabell med lag att välja i -->
                                 <div class="team-table-wrapper">
@@ -9604,14 +9611,12 @@
                     }
                 }
 
-                /* Färgfilter kombineras med alla befintliga filter. */
-                const colorMode = document.getElementById('deluxe-color-filter-mode')?.value || 'all';
+                /* Färgfilter: båda kryssade = oförändrat grundurval. */
+                const colorEnabled = !!document.getElementById('deluxe-color-filter-enabled')?.checked;
+                const showColored = !!document.getElementById('deluxe-color-filter-colored')?.checked;
+                const showUncolored = !!document.getElementById('deluxe-color-filter-uncolored')?.checked;
                 const savedColor = teamSeasonColors[row.dataset.teamSeasonKey] || '';
-                const selectedColors = Array.from(document.querySelectorAll('#deluxe-color-filter-choices input:checked')).map(cb => cb.value);
-                const colorOk = colorMode === 'all' ||
-                    (colorMode === 'colored' && !!savedColor) ||
-                    (colorMode === 'uncolored' && !savedColor) ||
-                    (colorMode === 'specific' && selectedColors.includes(savedColor));
+                const colorOk = !colorEnabled || (savedColor ? showColored : showUncolored);
                 const rowVisible = currentFiltersOk && historicalOk && colorOk;
                 row.style.display = rowVisible ? '' : 'none';
                 if (rowVisible) remainingRowCount += 1;
@@ -12797,7 +12802,7 @@
                     const shortcut = document.getElementById('reset-all-table-filters-shortcut');
                     if (shortcut) {
                         shortcut.disabled = !functionalGroups.some(group => groupIsChanged(group)) &&
-                            (document.getElementById('deluxe-color-filter-mode')?.value || 'all') === 'all';
+                            !document.getElementById('deluxe-color-filter-enabled')?.checked;
                     }
                 }
 
@@ -12923,57 +12928,42 @@
 
 
         /* ============================================================
-         * FÄRGFILTER – återanvänder exakt samma färgvärden som masspaletten.
+         * FÄRGFILTER – aktiveras separat, dialogen förbereds för nästa steg.
          * ============================================================ */
         (function setupDeluxeColorFilter() {
             const init = () => {
-                const mode = document.getElementById('deluxe-color-filter-mode');
-                const choices = document.getElementById('deluxe-color-filter-choices');
-                if (!mode || !choices) return;
-                const storageKey = 'SHL_DELUXE_CUSTOM_PALETTE_V1';
-                const rgba = hex => {
-                    const n = parseInt(hex.slice(1), 16);
-                    return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, 0.7)`;
-                };
-                const allColors = () => {
-                    let custom = [];
-                    try { custom = JSON.parse(localStorage.getItem(storageKey) || '[]'); } catch (_) {}
-                    return [...new Set([...PALETTE_COLORS, ...(Array.isArray(custom) ? custom.filter(x => /^#[0-9a-f]{6}$/i.test(x)).map(rgba) : [])])];
-                };
-                const sync = () => {
-                    const old = new Set(Array.from(choices.querySelectorAll('input:checked')).map(el => el.value));
-                    choices.replaceChildren();
-                    allColors().forEach((color, i) => {
-                        const label = document.createElement('label');
-                        const cb = document.createElement('input');
-                        cb.type = 'checkbox'; cb.value = color;
-                        cb.checked = old.has(color);
-                        const swatch = document.createElement('span');
-                        swatch.className = 'deluxe-color-filter-swatch';
-                        swatch.style.backgroundColor = color;
-                        label.append(cb, swatch, document.createTextNode(i < PALETTE_COLORS.length ? ` Färg ${i + 1}` : ` Egen ${i + 1 - PALETTE_COLORS.length}`));
-                        choices.append(label);
-                    });
-                };
+                const enabled = document.getElementById('deluxe-color-filter-enabled');
+                const colored = document.getElementById('deluxe-color-filter-colored');
+                const uncolored = document.getElementById('deluxe-color-filter-uncolored');
+                const options = document.getElementById('deluxe-color-filter-options');
+                const dialog = document.getElementById('deluxe-color-filter-dialog');
+                const open = document.getElementById('deluxe-color-filter-dialog-button');
+                const close = document.getElementById('deluxe-color-filter-dialog-close');
+                if (!enabled || !colored || !uncolored || !options || !dialog) return;
+
                 const update = () => {
-                    choices.hidden = mode.value !== 'specific';
+                    options.hidden = !enabled.checked;
                     applyTableFilters();
                     const shortcut = document.getElementById('reset-all-table-filters-shortcut');
-                    if (shortcut && mode.value !== 'all') shortcut.disabled = false;
+                    if (shortcut && enabled.checked) shortcut.disabled = false;
                 };
-                mode.addEventListener('change', () => { sync(); update(); });
-                choices.addEventListener('change', update);
+                enabled.addEventListener('change', update);
+                colored.addEventListener('change', update);
+                uncolored.addEventListener('change', update);
+                open?.addEventListener('click', () => dialog.showModal());
+                close?.addEventListener('click', () => dialog.close());
                 window.resetDeluxeColorFilter = () => {
-                    mode.value = 'all';
-                    choices.querySelectorAll('input').forEach(cb => { cb.checked = false; });
-                    choices.hidden = true;
+                    enabled.checked = false;
+                    colored.checked = true;
+                    uncolored.checked = true;
+                    options.hidden = true;
+                    if (dialog.open) dialog.close();
                 };
-                window.refreshDeluxeColorFilter = () => { sync(); if (mode.value !== 'all') update(); };
-                /* Paletten kan få nya egna färger medan sidan är öppen. */
-                document.getElementById('deluxe-batch-palette-button')?.addEventListener('click', sync);
-                sync();
+                window.refreshDeluxeColorFilter = () => {};
+                update();
             };
-            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true}); else init();
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
+            else init();
         })();
 
         /* ============================================================
