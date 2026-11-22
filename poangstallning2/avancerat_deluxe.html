@@ -2575,7 +2575,7 @@
 
                                     <div class="working-selection-actions">
                                         <button id="apply-working-selection" type="button">
-                                            Bekräfta urval
+                                            Lägg till
                                         </button>
                                         <button id="return-working-selection" type="button">Återgå</button>
                                         <button id="cancel-working-selection" type="button">Avbryt</button>
@@ -2585,8 +2585,8 @@
                                     </div>
                                     <div class="working-selection-meta">
                                         <span class="working-selection-text" id="working-selection-text">Bekräftade lag: 0</span>
-                                        <span id="working-selection-confirmation" role="status" aria-live="polite" hidden>✓ Urvalet har uppdaterats!</span>
-                                        <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Rensa alla valda rader, även dem som döljs av filtren" hidden>Rensa urval</button>
+                                        <span id="working-selection-confirmation" role="status" aria-live="polite" hidden>✓ Lag har lagts till!</span>
+                                        <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Ta bort samtliga bekräftade lag, även dem som inte syns i tabellen" hidden>Rensa urval</button>
                                     </div>
                                 </div>
 
@@ -11486,8 +11486,6 @@
                 }
             }
 
-            // Jämför hela lag+säsong-urvalet, inte bara antalet ikryssade rader.
-            let lastConfirmedSelection = new Set(mainViewSelectedKeys);
             let confirmationHideTimer = null;
             const confirmationMessage = document.getElementById('working-selection-confirmation');
 
@@ -11498,10 +11496,17 @@
                 }).filter(Boolean));
             }
 
-            function selectionHasChanged() {
-                const current = getWorkingSelectionKeys();
-                return current.size !== lastConfirmedSelection.size ||
-                    Array.from(current).some(key => !lastConfirmedSelection.has(key));
+            function getConfirmedSelectionKeys() {
+                return new Set(Array.from(
+                    document.querySelectorAll('#team-selection .team-item-wrapper')
+                ).map(wrapper => wrapper.dataset.teamSeasonKey ||
+                    wrapper.querySelector('input.team-checkbox')?.dataset.teamSeasonKey
+                ).filter(Boolean));
+            }
+
+            function hasUnconfirmedWorkingRows() {
+                const confirmed = getConfirmedSelectionKeys();
+                return Array.from(getWorkingSelectionKeys()).some(key => !confirmed.has(key));
             }
 
             function hideSelectionConfirmation() {
@@ -11520,24 +11525,19 @@
                 if (workingTextEl) {
                     /* Bekräftade lag räknas från lagbrickorna, inte arbetskryssen.
                        Även avbockade (diagramdolda) brickor ingår. */
-                    const confirmedKeys = new Set(
-                        Array.from(document.querySelectorAll('#team-selection .team-item-wrapper'))
-                            .map(wrapper => wrapper.dataset.teamSeasonKey ||
-                                wrapper.querySelector('input.team-checkbox')?.dataset.teamSeasonKey)
-                            .filter(Boolean)
-                    );
+                    const confirmedKeys = getConfirmedSelectionKeys();
                     workingTextEl.textContent = `Bekräftade lag: ${confirmedKeys.size}`;
                 }
                 const clearLink = document.getElementById('clear-team-selection-table');
                 if (clearLink) {
-                    clearLink.hidden = count === 0;
+                    clearLink.hidden = getConfirmedSelectionKeys().size === 0;
                 }
 
                 if (applyBtn) {
                     // Även noll valda lag får bekräftas, om urvalet faktiskt har ändrats.
-                    applyBtn.disabled = !selectionHasChanged();
+                    applyBtn.disabled = !hasUnconfirmedWorkingRows();
                 }
-                if (selectionHasChanged()) {
+                if (hasUnconfirmedWorkingRows()) {
                     hideSelectionConfirmation();
                 }
 
@@ -11557,6 +11557,20 @@
                     }
                 }
             }
+
+            /* Rensa endast bekräftade brickor. Arbetskryss och radfärger behålls. */
+            window._clearConfirmedTeamSelection = function () {
+                const container = document.getElementById('team-selection');
+                if (!container || !container.querySelector('.team-item-wrapper')) return;
+                container.querySelectorAll('.team-item-wrapper').forEach(chip => chip.remove());
+                updateChart();
+                updateChipActionsUI();
+                refreshDeluxeSavedColorDots();
+                const confirmedFirst = document.getElementById('sort-checked-first');
+                if (confirmedFirst?.checked) confirmedFirst.dispatchEvent(new Event('change'));
+                updateWorkingSelectionSummary();
+                hideSelectionConfirmation();
+            };
 
             // Gör summeringsfunktionen nåbar för t.ex. syncWorkingSelectionFromMainView
             window._updateWorkingSelectionSummaryFromOutside = updateWorkingSelectionSummary;
@@ -11700,204 +11714,25 @@
             }
 
 
-            // --- Bekräfta urval: TORRKÖRNING av regler A/B/C ---
+            /* Lägg till: komplettera bekräftade lag utan att ersätta dem.
+               Redan bekräftade säsonger, inklusive diagramdolda, lämnas orörda. */
             if (applyBtn) {
                 applyBtn.addEventListener('click', () => {
-                    // console.log('=== [ARBETSURVAL] Bekräfta urval - TILLÄMPAR A/B/C ===');
-
                     const teamSelectionContainer = document.getElementById('team-selection');
-                    // if (!teamSelectionContainer) {
-                    // console.warn('[ARBETSURVAL] Hittar inte #team-selection - avbryter.');
-                    // return;
-                    // }
+                    if (!teamSelectionContainer) return;
+                    const existingKeys = getConfirmedSelectionKeys();
+                    const missingKeys = Array.from(getWorkingSelectionKeys())
+                        .filter(key => !existingKeys.has(key));
+                    if (!missingKeys.length) return;
 
-                    // 1) Läs huvudvyns lag (lag i huvudvyn) - oavsett aktiv/passiv
-                    const mainViewCheckboxes = Array.from(
-                        teamSelectionContainer.querySelectorAll('input.team-checkbox')
-                    );
-
-                    const mainViewTeams = new Set(
-                        mainViewCheckboxes.map(cb => cb.value) // värdet är t.ex. "Djurgården"
-                    );
-
-                    // 2) Läs arbetsurvalet (tabellens kryss just nu)
-                    const workingCheckboxes = Array.from(
-                        document.querySelectorAll('.team-table tbody .team-table-row-checkbox')
-                    );
-
-                    const workingSelectedTeams = new Set(
-                        workingCheckboxes
-                            .filter(cb => cb.checked)
-                            .map(cb => cb.dataset.team) // samma id som i huvudvyn
-                    );
-
-                    // NYTT: samma urval, men på teamSeasonKey-nivå
-                    const workingSelectedKeys = new Set(
-                        workingCheckboxes
-                            .filter(cb => cb.checked)
-                            .map(cb => {
-                                const row = cb.closest('tr');
-                                return (row && row.dataset.teamSeasonKey) || cb.dataset.teamSeasonKey || null;
-                            })
-                            .filter(Boolean)
-                    );
-
-                    // console.log('[teamSeasonKey debug][STEP8] Arbetsurval (TABELL, KEY):',
-                    // Array.from(workingSelectedKeys));
-                    // console.log('[teamSeasonKey debug][STEP8] Huvudvy (KEY, före):',
-                    // Array.from(mainViewSelectedKeys instanceof Set ? mainViewSelectedKeys : []));
-
-                    // NYTT: jämför nycklar per lag (Huvudvy vs Tabell)
-                    const tableKeysByTeam = {};
-                    Array.from(workingSelectedKeys).forEach(key => {
-                        const parts = key.split('::');
-                        const teamNamePart = parts[parts.length - 1]; // t.ex. "AIK"
-                        if (!tableKeysByTeam[teamNamePart]) {
-                            tableKeysByTeam[teamNamePart] = [];
-                        }
-                        tableKeysByTeam[teamNamePart].push(key);
-                    });
-
-                    // NYTT: räkna "finns i huvudvyn" som alla chips (aktiva + inaktiva)
-                    // så att inaktiva chips inte leder till att vi skapar dubbletter.
-                    const mainKeysNow = Array.from(
-                        teamSelectionContainer.querySelectorAll('.team-item-wrapper input.team-checkbox')
-                    )
-                        .map(cb => {
-                            const wrapper = cb.closest('.team-item-wrapper');
-                            return (
-                                (wrapper && wrapper.dataset.teamSeasonKey) ||
-                                cb.dataset.teamSeasonKey ||
-                                null
-                            );
-                        })
-                        .filter(Boolean);
-
-                    const mainKeysByTeam = {};
-                    mainKeysNow.forEach(key => {
-                        const parts = key.split('::');
-                        const teamNamePart = parts[parts.length - 1];
-                        if (!mainKeysByTeam[teamNamePart]) {
-                            mainKeysByTeam[teamNamePart] = [];
-                        }
-                        mainKeysByTeam[teamNamePart].push(key);
-                    });
-
-                    const keyComparison = Object.keys(tableKeysByTeam).map(teamName => ({
-                        teamName,
-                        keysInMainView: mainKeysByTeam[teamName] || [],
-                        keysInTable: tableKeysByTeam[teamName]
-                    }));
-
-                    // console.log('[teamSeasonKey debug][STEP8b] Nyckeljämförelse per lag:', keyComparison);
-
-                    // NYTT: hitta lag där tabellen valt en annan säsong än huvudvyn (1?1-byte)
-                    const keysNeedingUpdate = [];
-
-                    keyComparison.forEach(row => {
-                        if (row.keysInMainView.length === 1 && row.keysInTable.length === 1) {
-                            if (row.keysInMainView[0] !== row.keysInTable[0]) {
-                                keysNeedingUpdate.push({
-                                    teamName: row.teamName,
-                                    oldKey: row.keysInMainView[0],
-                                    newKey: row.keysInTable[0]
-                                });
-                            }
-                        }
-                    });
-
-                    // console.log('[teamSeasonKey debug][STEP9] Keys needing update:', keysNeedingUpdate);
-
-                    // console.log('[teamSeasonKey debug][STEP9] Keys needing update:', keysNeedingUpdate);
-
-                    // NYTT: kartlägg lag där tabellen vill ha FLERA säsonger samtidigt (multi-season add)
-                    const multiSeasonAddCandidates = keyComparison
-                        .filter(row =>
-                            row.keysInMainView.length === 0 &&    // laget finns inte alls i huvudvyn
-                            row.keysInTable.length > 1            // men tabellen har markerat flera säsonger
-                        )
-                        .map(row => ({
-                            teamName: row.teamName,
-                            keysToAdd: row.keysInTable.slice()
-                        }));
-
-                    // console.log('[teamSeasonKey debug][STEP10] Multi-season ADD candidates:', multiSeasonAddCandidates);
-                    // 
-                    // console.log('[ARBETSURVAL] Huvudvyn (före):', Array.from(mainViewTeams));
-                    // console.log('[ARBETSURVAL] Arbetsurval (tabell, NAMN):', Array.from(workingSelectedTeams));
-                    // 
-                    // console.log('[ARBETSURVAL] Huvudvyn (före):', Array.from(mainViewTeams));
-                    // console.log('[ARBETSURVAL] Arbetsurval (tabell, NAMN):', Array.from(workingSelectedTeams));
-
-
-                    // 3) Räkna ut A/B/C (fortfarande på lagnamn)
-                    const wouldAdd = Array.from(workingSelectedTeams).filter(t => !mainViewTeams.has(t));
-                    const wouldKeep = Array.from(workingSelectedTeams).filter(t => mainViewTeams.has(t));
-                    const wouldRemove = Array.from(mainViewTeams).filter(t => !workingSelectedTeams.has(t));
-
-                    // console.log('[ARBETSURVAL] Regel A - Nya lag som ska läggas till:', wouldAdd);
-                    // console.log('[ARBETSURVAL] Regel B - Befintliga lag som ligger kvar:', wouldKeep);
-                    // console.log('[ARBETSURVAL] Regel C - Lag som ska tas bort:', wouldRemove);
-
-                    // Hjälpfunktion för att hitta wrappern för ett lag i huvudvyn
-                    const findWrapperForTeam = (teamName) => {
-                        const cb = teamSelectionContainer.querySelector(
-                            `.team-item-wrapper input.team-checkbox[value="${teamName}"]`
+                    missingKeys.forEach(teamKey => {
+                        const meta = seasonSummaryRows.find(r => r.teamSeasonKey === teamKey);
+                        const matchingCheckbox = rowCheckboxes.find(cb =>
+                            (cb.closest('tr')?.dataset.teamSeasonKey || cb.dataset.teamSeasonKey) === teamKey
                         );
-                        return cb ? cb.closest('.team-item-wrapper') : null;
-                    };
-
-                    // 4C) Tillämpa Regel C - ta bort lag helt ur huvudvyn (ALLA chips för laget)
-                    wouldRemove.forEach(teamName => {
-                        const checkboxesForTeam = Array.from(
-                            teamSelectionContainer.querySelectorAll(
-                                `.team-item-wrapper input.team-checkbox[value="${teamName}"]`
-                            )
-                        );
-                        if (!checkboxesForTeam.length) return;
-
-                        // console.log('[ARBETSURVAL] Tar bort lag ur huvudvyn (Regel C, alla chip för laget):', {
-                        // teamName,
-                        // count: checkboxesForTeam.length
-                        // });
-
-                        checkboxesForTeam.forEach(cb => {
-                            const wrapper = cb.closest('.team-item-wrapper');
-                            if (wrapper) {
-                                wrapper.remove();
-                            }
-                        });
-                    });
-
-
-                    // 4A) Tillämpa Regel A - lägg till nya lag i huvudvyn (KEY-baserat, kan bli flera chip per lag)
-                    const findWrapperForKey = (teamSeasonKey) => {
-                        if (!teamSeasonKey) return null;
-                        return teamSelectionContainer.querySelector(
-                            `.team-item-wrapper[data-team-season-key="${teamSeasonKey}"]`
-                        );
-                    };
-
-                    wouldAdd.forEach(teamName => {
-                        // Keys från tabellen för just det här laget (kan vara 1 eller flera)
-                        const keysForTeam = (tableKeysByTeam[teamName] || []).slice();
-
-                        if (!keysForTeam.length) {
-                            // console.warn('[teamSeasonKey debug][STEP10] Hittar inga keys från tabellen för lag i Regel A, använder bara namn:', teamName);
-                            keysForTeam.push(null); // fallback, väldigt ovanligt
-                        }
-
-                        keysForTeam.forEach(teamKey => {
-                            // Skapa inte chip om exakt denna key redan finns
-                            // if (teamKey && findWrapperForKey(teamKey)) {
-                            // console.warn('[ARBETSURVAL] Försöker skapa chip för key som redan finns:', teamKey);
-                            // return;
-                            // }
-
-                            // console.log('[ARBETSURVAL] Lägger till nytt lag i huvudvyn (Regel A, key-baserad):', {
-                            // teamName,
-                            // teamSeasonKey: teamKey
-                            // });
+                        const teamName = matchingCheckbox?.dataset.team ||
+                            matchingCheckbox?.closest('tr')?.dataset.team || meta?.teamLabel;
+                        if (!teamName || !meta) return;
 
                             const wrapper = document.createElement('div');
                             wrapper.className = 'team-item-wrapper';
@@ -11906,10 +11741,8 @@
                             label.className = 'team-label';
 
                             // Meta direkt via key (om vi har en)
-                            let meta = null;
                             if (teamKey) {
                                 wrapper.dataset.teamSeasonKey = teamKey;
-                                meta = seasonSummaryRows.find(r => r.teamSeasonKey === teamKey) || null;
                             }
 
                             const displayName = getTeamSeasonDisplayName(meta, teamName);
@@ -12009,337 +11842,18 @@
                             wrapper.appendChild(label);
                             wrapper.appendChild(colorIcon);
                             teamSelectionContainer.appendChild(wrapper);
-                        });
                     });
 
-
-
-
-
-
-
-                    // === 4B) Regel B - lag som ligger kvar i urvalet ska vara AKTIVA ===
-                    // NYTT: om STEP9 hittat en nyckel för samma lag (1?1-byte) så uppdaterar vi chipet.
-                    const keyUpdateByTeam = {};
-                    keysNeedingUpdate.forEach(u => {
-                        keyUpdateByTeam[u.teamName] = u;
-                    });
-
-                    wouldKeep.forEach(teamName => {
-                        const wrapper = findWrapperForTeam(teamName);
-                        if (!wrapper) return;
-
-                        const cb = wrapper.querySelector('input.team-checkbox');
-                        if (!cb) return;
-
-                        const before = cb.checked;
-                        cb.checked = true;
-
-                        // Kolla om det här laget ska byta säsong enligt STEP9
-                        const updateInfo = keyUpdateByTeam[teamName];
-                        let appliedMeta = null;
-
-                        if (updateInfo) {
-                            const { oldKey, newKey } = updateInfo;
-
-                            // 1) Uppdatera dataset-key på wrapper + checkbox
-                            wrapper.dataset.teamSeasonKey = newKey;
-                            cb.dataset.teamSeasonKey = newKey;
-
-                            // 2) Flytta ev. specialfärg från oldKey -> newKey
-                            if (teamSeasonColors && teamSeasonColors[oldKey]) {
-                                const oldColor = teamSeasonColors[oldKey];
-                                delete teamSeasonColors[oldKey];
-                                teamSeasonColors[newKey] = oldColor;
-                            }
-
-                            // 3) Hämta metadata för nya key:n
-                            appliedMeta = seasonSummaryRows.find(r => r.teamSeasonKey === newKey) || null;
-
-                            // 4) Uppdatera visat namn i chipet
-                            if (appliedMeta) {
-                                const nameSpan = wrapper.querySelector('.team-label span');
-                                if (nameSpan) {
-                                    nameSpan.textContent = getTeamSeasonDisplayName(appliedMeta, teamName);
-                                }
-
-                                // 5) Uppdatera tooltip baserat på nya säsongen
-                                const gd = appliedMeta.goalDifference;
-                                const gdText = (typeof gd === 'number' && !Number.isNaN(gd))
-                                    ? (gd > 0 ? `+${gd}` : `${gd}`)
-                                    : 'okänd';
-
-                                let playoffSymbol = '';
-                                switch (appliedMeta.playoffResult) {
-                                    case 'champion':
-                                        playoffSymbol = '\u{1F3C6} Mästare';
-                                        break;
-                                    case 'final':
-                                        playoffSymbol = '\u2605 Final';
-                                        break;
-                                    case 'semi':
-                                        playoffSymbol = '\u25B2 Semifinal';
-                                        break;
-                                    case 'kvart':
-                                        playoffSymbol = '\u25FC Kvartsfinal';
-                                        break;
-                                    case 'play_in':
-                                        playoffSymbol = '\u2299 Play-in';
-                                        break;
-
-                                    // NYTT – Play-out, kvar i ligan
-                                    case 'play_out':
-                                        playoffSymbol = '\u2B07 Play-out';
-                                        break;
-
-                                    // NYTT – Play-out, åkte ur
-                                    case 'relegated':
-                                        playoffSymbol = '\u26A0 Åkte ur';
-                                        break;
-
-                                    case 'none':
-                                    default:
-                                        playoffSymbol = getUnclassifiedPlayoffFallback(appliedMeta);
-                                        break;
-                                }
-
-
-                                // NYTT: tooltiptext för lagchip när vi uppdaterar med appliedMeta
-                                const isOngoingSeason = !appliedMeta.playoffResult;
-
-                                if (isOngoingSeason) {
-                                    const leagueShort = appliedMeta.league || '';
-                                    if (leagueShort) {
-                                        wrapper.title = `${leagueShort}-säsongen pågår fortfarande`;
-                                    } else {
-                                        wrapper.title = 'Säsongen pågår fortfarande';
-                                    }
-                                } else {
-                                    const leagueShort = appliedMeta.league || '';
-
-                                    const firstLine = leagueShort
-                                        ? `Plats ${appliedMeta.regularSeasonRank} (${leagueShort}) • ${appliedMeta.regularSeasonPoints}p • Målskillnad ${gdText}`
-                                        : `Plats ${appliedMeta.regularSeasonRank} • ${appliedMeta.regularSeasonPoints}p • Målskillnad ${gdText}`;
-
-                                    wrapper.title = `${firstLine}\n${playoffSymbol}`;
-                                }
-
-
-                            }
-
-                            // console.log('[teamSeasonKey debug][STEP9] Uppdaterat befintligt lagchip:', {
-                            // teamName,
-                            // oldKey,
-                            // newKey,
-                            // appliedMeta
-                            // });
-                        }
-
-                        // console.log('[ARBETSURVAL] Regel B - behåller lag och gör aktivt:', {
-                        // teamName,
-                        // wasCheckedBefore: before,
-                        // isCheckedNow: cb.checked,
-                        // updatedSeason: updateInfo ? updateInfo.newKey : null
-                        // });
-                    });
-
-                    // 4B-extra: synka säsongsnycklar per lag som ligger kvar (delvisa tillägg/borttagning)
-                    (function syncExtraSeasonKeysForKeptTeams() {
-                        if (!wouldKeep.length) return;
-
-                        const extraAddByTeam = {};
-                        const extraRemoveByTeam = {};
-
-                        wouldKeep.forEach(teamName => {
-                            // Hoppa över lag som redan hanterats via ren 1-1-byte i STEP9
-                            if (keyUpdateByTeam[teamName]) {
-                                return;
-                            }
-
-                            const keysInTable = (tableKeysByTeam[teamName] || []);
-                            const keysInMain = (mainKeysByTeam[teamName] || []);
-
-                            if (!keysInTable.length && !keysInMain.length) return;
-
-                            // Nycklar som fanns i huvudvyn men inte längre är markerade i tabellen
-                            const toRemove = keysInMain.filter(k => !keysInTable.includes(k));
-                            // Nycklar som är markerade i tabellen men saknas i huvudvyn
-                            const toAdd = keysInTable.filter(k => !keysInMain.includes(k));
-
-                            if (toRemove.length) {
-                                extraRemoveByTeam[teamName] = toRemove;
-                            }
-                            if (toAdd.length) {
-                                extraAddByTeam[teamName] = toAdd;
-                            }
-                        });
-
-                        // console.log('[teamSeasonKey debug][STEP10c] Extra keys per befintligt lag – REMOVE:', extraRemoveByTeam);
-                        // console.log('[teamSeasonKey debug][STEP10d] Extra keys per befintligt lag – ADD:', extraAddByTeam);
-
-                        // 1) Ta bort chips för keys som inte längre är markerade i tabellen
-                        Object.keys(extraRemoveByTeam).forEach(teamName => {
-                            extraRemoveByTeam[teamName].forEach(teamKey => {
-                                const wrapper = findWrapperForKey(teamKey);
-                                if (!wrapper) return;
-
-                                // console.log('[ARBETSURVAL] (Regel B extra) Tar bort säsong för befintligt lag:', {
-                                // teamName,
-                                // teamSeasonKey: teamKey
-                                // });
-
-                                const cb = wrapper.querySelector('input.team-checkbox');
-                                if (cb) {
-                                    cb.checked = false;
-                                }
-
-                                // Ta bort ev. färgkoppling för denna nyckel
-                                if (typeof teamSeasonColors === 'object' && teamSeasonColors && teamSeasonColors[teamKey]) {
-                                    delete teamSeasonColors[teamKey];
-                                }
-
-                                wrapper.remove();
-                            });
-                        });
-
-                        // 2) Lägg till chips för keys som är markerade i tabellen men saknas i huvudvyn
-                        Object.keys(extraAddByTeam).forEach(teamName => {
-                            extraAddByTeam[teamName].forEach(teamKey => {
-                                // Säkerhet: skapa inte chip om det redan finns
-                                // if (teamKey && findWrapperForKey(teamKey)) {
-                                // console.warn('[ARBETSURVAL] (Regel B extra) Chip för key finns redan, hoppar över:', teamKey);
-                                // return;
-                                // }
-
-                                // console.log('[ARBETSURVAL] (Regel B extra) Lägger till extra säsong för befintligt lag:', {
-                                // teamName,
-                                // teamSeasonKey: teamKey
-                                // });
-
-                                // Samma chip-bygge som i Regel A
-                                const wrapper = document.createElement('div');
-                                wrapper.className = 'team-item-wrapper';
-
-                                const label = document.createElement('label');
-                                label.className = 'team-label';
-
-                                let meta = null;
-                                if (teamKey) {
-                                    wrapper.dataset.teamSeasonKey = teamKey;
-                                    meta = seasonSummaryRows.find(r => r.teamSeasonKey === teamKey) || null;
-                                }
-
-                                const displayName = meta ? meta.teamLabel : teamName;
-
-                                const checkbox = document.createElement('input');
-                                checkbox.type = 'checkbox';
-                                checkbox.className = 'team-checkbox';
-                                checkbox.value = teamName;
-                                checkbox.checked = true;
-                                if (teamKey) {
-                                    checkbox.dataset.teamSeasonKey = teamKey;
-                                }
-
-                                const span = document.createElement('span');
-                                span.textContent = displayName;
-
-                                label.appendChild(checkbox);
-                                label.appendChild(span);
-
-                                const colorIcon = document.createElement('span');
-                                colorIcon.className = 'color-picker-icon';
-                                colorIcon.innerHTML = '&#x1F3A8;';
-                                colorIcon.dataset.team = teamName;
-                                colorIcon.title = 'Ändra färg';
-                                if (teamKey) {
-                                    colorIcon.dataset.teamSeasonKey = teamKey;
-                                }
-
-                                if (meta) {
-                                    const gd = meta.goalDifference;
-                                    const gdText =
-                                        typeof gd === 'number' && !Number.isNaN(gd)
-                                            ? (gd > 0 ? `+${gd}` : `${gd}`)
-                                            : 'okänd';
-
-                                    let playoffSymbol = '';
-                                    switch (meta.playoffResult) {
-                                        case 'champion':
-                                            playoffSymbol = '\u{1F3C6} Mästare';
-                                            break;
-                                        case 'final':
-                                            playoffSymbol = '\u2605 Final';
-                                            break;
-                                        case 'semi':
-                                            playoffSymbol = '\u25B2 Semifinal';
-                                            break;
-                                        case 'kvart':
-                                            playoffSymbol = '\u25FC Kvartsfinal';
-                                            break;
-                                        case 'play_in':
-                                            playoffSymbol = '\u2299 Play-in';
-                                            break;
-                                        case 'none':
-                                        default:
-                                            playoffSymbol = getUnclassifiedPlayoffFallback(meta);
-                                            break;
-                                    }
-
-                                    const leagueShort = meta.league || '';
-
-                                    const firstLine = leagueShort
-                                        ? `Plats ${meta.regularSeasonRank} (${leagueShort}) • ${meta.regularSeasonPoints}p • Målskillnad ${gdText}`
-                                        : `Plats ${meta.regularSeasonRank} • ${meta.regularSeasonPoints}p • Målskillnad ${gdText}`;
-
-                                    wrapper.title = `${firstLine}\n${playoffSymbol}`;
-                                } else {
-                                    wrapper.title = teamName;
-                                }
-
-                                wrapper.appendChild(label);
-                                wrapper.appendChild(colorIcon);
-                                teamSelectionContainer.appendChild(wrapper);
-                            });
-                        });
-                    })();
-
-
-                    // 5) Uppdatera färgikonerna (om funktionen finns)
-                    if (typeof updateColorIcons === 'function') {
-                        updateColorIcons();
-                    }
-
-                    // 6) Uppdatera diagrammet (om funktionerna finns)
-                    if (typeof stopPlayback === 'function') {
-                        // stopPlayback();
-                    }
-
-                    if (typeof updateManualSortHints === 'function') {
-                        updateManualSortHints();
-                    }
-
+                    if (typeof updateColorIcons === 'function') updateColorIcons();
+                    if (typeof updateManualSortHints === 'function') updateManualSortHints();
                     if (typeof syncManualDnDAttributes === 'function') syncManualDnDAttributes();
-
-                    if (typeof updateChart === 'function') {
-                        updateChart();
-                    }
-
-                    /* Uppdatera bekräftelsebockarna en gång, efter att lagbrickorna ändrats. */
+                    updateChart();
                     refreshDeluxeSavedColorDots();
-                    // NYTT: uppdatera knappar + instruktion efter att huvudvyns lagchips ändrats
                     updateChipActionsUI();
 
-                    // console.log('=== [ARBETSURVAL] FÄRDIG - huvudvyn uppdaterad enligt A/B/C ===');
+                    const confirmedFirst = document.getElementById('sort-checked-first');
+                    if (confirmedFirst?.checked) confirmedFirst.dispatchEvent(new Event('change'));
 
-                    // Bekräftade lag överst: gruppera om även när alternativet redan är ikryssat.
-                    // Huvudvyns urval är nu uppdaterat, så sorteringen får rätt nycklar.
-                    const confirmedFirstAfterApply = document.getElementById('sort-checked-first');
-                    if (confirmedFirstAfterApply?.checked) {
-                        confirmedFirstAfterApply.dispatchEvent(new Event('change'));
-                    }
-
-                    // Urvalet är sparat: uppdatera jämförelsen och visa en kort bekräftelse.
-                    lastConfirmedSelection = new Set(workingSelectedKeys);
                     updateWorkingSelectionSummary();
                     hideSelectionConfirmation();
                     if (confirmationMessage) {
@@ -12349,12 +11863,8 @@
                             confirmationHideTimer = null;
                         }, 3000);
                     }
-                    // Användaren stannar kvar i tabellen; Återgå är separat.
-
                 });
             }
-
-
 
             // Sätt initial text och knappstatus
             updateWorkingSelectionSummary();
@@ -14315,27 +13825,14 @@
 })();
 </script>
 <script>
-// Rensa lagurval: omfattar ALLA tabellrader, inte bara dem som visas av filtren.
-// Återanvänd den befintliga Bekräfta-logiken så att chips, diagram och urvalsnycklar synkas.
+/* Rensa urval tar bort bekräftade lag, inte tabellens arbetskryss. */
 (function () {
-    function clearSelection(event) {
-        event.preventDefault();
-        event.stopPropagation(); // Öppna inte details när länken ligger i summary.
-        const apply = document.getElementById('apply-working-selection');
-        const rows = document.querySelectorAll('.team-table tbody .team-table-row-checkbox');
-        if (!apply || !rows.length) return;
-        rows.forEach(cb => { cb.checked = false; });
-        // Uppdatera knappstatus innan det programstyrda klicket.
-        window._updateWorkingSelectionSummaryFromOutside?.();
-        if (!apply.disabled) apply.click();
-        // Uppdatera arbetsurvalets räknare utan att ändra filterinställningar.
-        const counter = document.getElementById('working-selection-text');
-        if (counter) window._updateWorkingSelectionSummaryFromOutside?.();
-        const clearLink = document.getElementById('clear-team-selection-table');
-        if (clearLink) clearLink.hidden = true;
-    }
     document.querySelectorAll('.clear-team-selection').forEach(btn => {
-        btn.addEventListener('click', clearSelection);
+        btn.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            window._clearConfirmedTeamSelection?.();
+        });
         btn.addEventListener('keydown', event => event.stopPropagation());
     });
 })();
