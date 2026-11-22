@@ -1953,7 +1953,11 @@
 .deluxe-color-filter label { display:inline-flex; align-items:center; gap:.35rem; cursor:pointer; }
 .deluxe-color-filter > label { font-weight:600; }
 .deluxe-color-filter-options { display:inline-flex; align-items:center; flex-wrap:wrap; gap:.8rem; }
-.deluxe-color-filter-options[hidden] { display:none; }
+.deluxe-color-filter-options[hidden], #deluxe-color-filter-simple-options[hidden], #deluxe-color-filter-advanced-options[hidden] { display:none; }
+.deluxe-color-filter-mode { display:inline-flex; align-items:center; gap:0; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden; }
+.deluxe-color-filter-mode button { border:0; padding:.32rem .7rem; background:#fff; color:#475569; cursor:pointer; font:inherit; }
+.deluxe-color-filter-mode button + button { border-left:1px solid #cbd5e1; }
+.deluxe-color-filter-mode button[aria-pressed="true"] { background:#dbeafe; color:#1d4ed8; font-weight:650; }
 #deluxe-color-filter-dialog-button { padding:.3rem .65rem; border:1px solid #9ca3af; border-radius:8px; background:#fff; color:inherit; cursor:pointer; }
 #deluxe-color-filter-dialog-button:hover { background:#f3f4f6; }
 #deluxe-color-filter-dialog { border:1px solid #cbd5e1; border-radius:12px; padding:1.25rem; min-width:min(360px, 85vw); max-width:90vw; box-shadow:0 15px 45px #0003; }
@@ -2627,9 +2631,18 @@
                                 <div class="deluxe-color-filter" id="deluxe-color-filter">
                                     <label><input type="checkbox" id="deluxe-color-filter-enabled"> Färgfilter</label>
                                     <div class="deluxe-color-filter-options" id="deluxe-color-filter-options" hidden>
-                                        <label><input type="checkbox" id="deluxe-color-filter-colored" checked> Färgade</label>
-                                        <label><input type="checkbox" id="deluxe-color-filter-uncolored" checked> Ofärgade</label>
-                                        <button type="button" id="deluxe-color-filter-dialog-button">Välj färger…</button>
+                                        <div class="deluxe-color-filter-mode" role="group" aria-label="Färgfilterläge">
+                                            <button type="button" id="deluxe-color-filter-simple" aria-pressed="true">Enkelt</button>
+                                            <button type="button" id="deluxe-color-filter-advanced" aria-pressed="false">Avancerat</button>
+                                        </div>
+                                        <div id="deluxe-color-filter-simple-options" class="deluxe-color-filter-options">
+                                            <label><input type="checkbox" id="deluxe-color-filter-colored" checked> Färgade</label>
+                                            <label><input type="checkbox" id="deluxe-color-filter-uncolored" checked> Ofärgade</label>
+                                        </div>
+                                        <div id="deluxe-color-filter-advanced-options" hidden>
+                                            <button type="button" id="deluxe-color-filter-dialog-button">Välj färger…</button>
+                                            <span style="font-size:.78rem;color:#64748b">Detaljval kommer i nästa steg</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <dialog id="deluxe-color-filter-dialog" aria-labelledby="deluxe-color-filter-dialog-title">
@@ -9629,7 +9642,9 @@
                 const showColored = !!document.getElementById('deluxe-color-filter-colored')?.checked;
                 const showUncolored = !!document.getElementById('deluxe-color-filter-uncolored')?.checked;
                 const savedColor = teamSeasonColors[row.dataset.teamSeasonKey] || '';
-                const colorOk = !colorEnabled || (savedColor ? showColored : showUncolored);
+                /* Avancerat läge är ännu bara ett gränssnittstest: filtrerar inte. */
+                const advancedMode = document.getElementById('deluxe-color-filter-advanced')?.getAttribute('aria-pressed') === 'true';
+                const colorOk = !colorEnabled || advancedMode || (savedColor ? showColored : showUncolored);
                 const rowVisible = currentFiltersOk && historicalOk && colorOk;
                 row.style.display = rowVisible ? '' : 'none';
                 if (rowVisible) remainingRowCount += 1;
@@ -12956,15 +12971,42 @@
                 const close = document.getElementById('deluxe-color-filter-dialog-close');
                 if (!enabled || !colored || !uncolored || !options || !dialog) return;
 
+                const simpleButton = document.getElementById('deluxe-color-filter-simple');
+                const advancedButton = document.getElementById('deluxe-color-filter-advanced');
+                const simpleOptions = document.getElementById('deluxe-color-filter-simple-options');
+                const advancedOptions = document.getElementById('deluxe-color-filter-advanced-options');
+                const STORAGE_KEY = 'SHL_DELUXE_COLOR_FILTER_MODE_V1';
+                const SIMPLE_KEY = 'SHL_DELUXE_COLOR_FILTER_SIMPLE_V1';
+                let mode = 'simple';
+                try {
+                    mode = localStorage.getItem(STORAGE_KEY) === 'advanced' ? 'advanced' : 'simple';
+                    const saved = JSON.parse(localStorage.getItem(SIMPLE_KEY) || 'null');
+                    if (saved && typeof saved === 'object') {
+                        if (typeof saved.colored === 'boolean') colored.checked = saved.colored;
+                        if (typeof saved.uncolored === 'boolean') uncolored.checked = saved.uncolored;
+                    }
+                } catch (_) {}
+                const saveMode = () => {
+                    try { localStorage.setItem(STORAGE_KEY, mode); } catch (_) {}
+                };
+                const saveSimple = () => {
+                    try { localStorage.setItem(SIMPLE_KEY, JSON.stringify({colored: colored.checked, uncolored: uncolored.checked})); } catch (_) {}
+                };
                 const update = () => {
                     options.hidden = !enabled.checked;
+                    simpleButton.setAttribute('aria-pressed', String(mode === 'simple'));
+                    advancedButton.setAttribute('aria-pressed', String(mode === 'advanced'));
+                    simpleOptions.hidden = mode !== 'simple';
+                    advancedOptions.hidden = mode !== 'advanced';
                     applyTableFilters();
                     const shortcut = document.getElementById('reset-all-table-filters-shortcut');
                     if (shortcut && enabled.checked) shortcut.disabled = false;
                 };
                 enabled.addEventListener('change', update);
-                colored.addEventListener('change', update);
-                uncolored.addEventListener('change', update);
+                colored.addEventListener('change', () => { saveSimple(); update(); });
+                uncolored.addEventListener('change', () => { saveSimple(); update(); });
+                simpleButton.addEventListener('click', () => { mode = 'simple'; saveMode(); update(); });
+                advancedButton.addEventListener('click', () => { mode = 'advanced'; saveMode(); update(); });
                 open?.addEventListener('click', () => {
                     window.refreshDeluxeColorFilter?.();
                     dialog.showModal();
@@ -12972,8 +13014,7 @@
                 close?.addEventListener('click', () => dialog.close());
                 window.resetDeluxeColorFilter = () => {
                     enabled.checked = false;
-                    colored.checked = true;
-                    uncolored.checked = true;
+                    /* Återställ filtertillämpningen, men behåll sparade lägesval. */
                     options.hidden = true;
                     if (dialog.open) dialog.close();
                 };
@@ -13016,7 +13057,7 @@
                             name.textContent = paletteIndex >= 0 ? `Färg ${paletteIndex + 1}` : color;
                             const number = document.createElement('span');
                             number.className = 'deluxe-color-count';
-                            number.textContent = outside ? `${totals.get(color)} totalt · 0 i grundurvalet` : `${count} i grundurvalet`;
+                            number.textContent = `${count} i grundurvalet · ${totals.get(color) - count} utanför`;
                             item.append(swatch, name, number);
                             section.append(item);
                         });
@@ -13042,6 +13083,7 @@
          * ============================================================ */
         (function setupBatchPaletteAddon() {
             const STORAGE = 'SHL_DELUXE_CUSTOM_PALETTE_V1';
+            const ONLY_BLANK_STORAGE = 'SHL_DELUXE_BATCH_PALETTE_ONLY_BLANK_V1';
             const colorIsValid = v => /^#[0-9a-f]{6}$/i.test(v);
             let custom = [];
             try { const saved = JSON.parse(localStorage.getItem(STORAGE) || '[]');
@@ -13069,12 +13111,13 @@
                     <p id="batch-palette-count"></p>
                     <strong>Välj färg</strong><div id="batch-palette-swatches" class="batch-palette-swatches"></div>
                     <label class="batch-palette-custom">Egen färg <input id="batch-palette-hex" type="color" value="#5f2570"><button type="button" id="batch-palette-add">Lägg till</button></label>
-                    <label class="batch-palette-only"><input id="batch-palette-only-blank" type="checkbox" checked> Färglägg endast rader som saknar aktiv färg</label>
+                    <label class="batch-palette-only"><input id="batch-palette-only-blank" type="checkbox"> Färglägg endast rader som saknar aktiv färg</label>
                     <p id="batch-palette-impact"></p><p id="batch-palette-message" role="status"></p>
                     <div class="batch-palette-buttons"><button type="button" id="batch-palette-clear">Ta bort färg från ikryssade</button><button type="button" id="batch-palette-cancel">Avbryt</button><button type="button" id="batch-palette-apply">Använd färg</button></div>
                 </div>`;
                 document.body.append(dialog);
                 const $=id=>dialog.querySelector('#'+id);
+                try { $('batch-palette-only-blank').checked = localStorage.getItem(ONLY_BLANK_STORAGE) === 'true'; } catch (_) {}
                 let chosen=PALETTE_COLORS[0];
                 const message = t => $('batch-palette-message').textContent=t;
                 const activeColor = key => teamSeasonColors[key] || null;
@@ -13108,7 +13151,10 @@
                     });
                 }
                 btn.addEventListener('click',()=>{if(!selected().length)return;message('');render();impact();dialog.showModal();});
-                $('batch-palette-only-blank').addEventListener('change',impact);
+                $('batch-palette-only-blank').addEventListener('change',()=>{
+                    try { localStorage.setItem(ONLY_BLANK_STORAGE, String($('batch-palette-only-blank').checked)); } catch (_) {}
+                    impact();
+                });
                 $('batch-palette-cancel').addEventListener('click',()=>dialog.close());
                 $('batch-palette-add').addEventListener('click',()=>{
                     const hex=$('batch-palette-hex').value.toLowerCase();const rgba=toRgba(hex);
