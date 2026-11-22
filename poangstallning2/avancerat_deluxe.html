@@ -1954,6 +1954,26 @@
 .filter-color-disable-shortcut { border:0; padding:0; background:none; color:#2563eb; text-decoration:underline; text-underline-offset:2px; cursor:pointer; font:inherit; }
 .filter-color-disable-shortcut:hover { color:#1d4ed8; }
 .filter-color-disable-shortcut:focus-visible { outline:2px solid #2563eb; outline-offset:3px; border-radius:2px; }
+
+/* Kompakt statusrad under urvalsknapparna, ovanför färgfiltret och tabellen. */
+.deluxe-table-status {
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start;
+    gap:.45rem; width:100%; box-sizing:border-box; padding-left:5px;
+    min-height:24px; font-size:.8rem; color:#64748b;
+}
+.deluxe-table-status .deluxe-table-count { font-weight:600; color:#334155; white-space:nowrap; }
+.deluxe-table-status .deluxe-table-extra-notice:not([hidden]) { display:inline-flex; align-items:center; gap:.45rem; }
+.deluxe-table-status .deluxe-table-extra-notice.all-hidden { font-weight:600; color:#9a3412; }
+.deluxe-table-status .deluxe-status-separator { height:16px; width:1px; background:#cbd5e1; margin:0 .3rem; }
+.deluxe-table-status .deluxe-status-link { font:inherit; color:#087e85; text-decoration:underline; text-underline-offset:2px; border:0; padding:0; background:none; cursor:pointer; white-space:nowrap; }
+.deluxe-table-status .deluxe-status-link:disabled { color:#9ca3af; text-decoration:none; cursor:default; }
+.deluxe-table-status .deluxe-status-link[hidden] { display:none; }
+.deluxe-table-status #deluxe-confirmation-view { font:inherit; padding:2px 4px; max-width:130px; border:1px solid #cbd5e1; border-radius:5px; background:white; }
+.deluxe-table-status .deluxe-status-sort { display:inline-flex; align-items:center; gap:.3rem; white-space:nowrap; margin-left:.35rem; }
+.deluxe-table-status .deluxe-status-sort input { margin:0; }
+.filter-groups-toolbar { justify-content:flex-start; }
+.filter-remaining-group { margin-right:auto; }
+.filter-color-hidden-notice[hidden], .deluxe-table-extra-notice[hidden] { display:none !important; }
 </style>
 <style>
 /* Färgfilter – separat, kompakt verktygsrad ovanför tabellen. */
@@ -2171,9 +2191,8 @@
                                     <span class="filter-remaining-group" role="status" aria-live="polite">
                                         <span id="filter-remaining-rows" class="filter-remaining-rows">– rader återstår</span>
                                         <span id="filter-color-hidden-notice" class="filter-color-hidden-notice" hidden>
-                                            <span aria-hidden="true">🎨</span>
                                             <span id="filter-color-hidden-count"></span>
-                                            <button type="button" id="filter-color-disable-shortcut" class="filter-color-disable-shortcut">Stäng av färgfiltret</button>
+                                            <button type="button" id="filter-color-disable-shortcut" class="filter-color-disable-shortcut" data-disable-extra-filters>Stäng av extrafilter</button>
                                         </span>
                                     </span>
                                     <button type="button" id="toggle-filter-groups">Fäll ut alla</button>
@@ -2629,12 +2648,6 @@
 
                                 <div class="working-selection-bar">
 
-                                    <!-- NYTT: Sorteringskryss – bara UI än så länge -->
-                                    <label class="working-selection-toggle">
-                                        <input type="checkbox" id="sort-checked-first">
-                                        Visa bekräftade lag överst
-                                    </label>
-
                                     <div class="working-selection-actions">
                                         <button id="apply-working-selection" type="button">
                                             Lägg till
@@ -2651,13 +2664,35 @@
                                         </button>
                                     </div>
                                     <div class="working-selection-meta">
-                                        <span class="working-selection-text" id="working-selection-text">Bekräftade lag: 0</span>
-                                        <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Ta bort samtliga bekräftade lag, även dem som inte syns i tabellen" hidden>Rensa urval</button>
-                                        <button type="button" class="clear-team-selection" id="reset-all-table-filters-shortcut" title="Återställ alla tabellfilter till standardvärden">Återställ alla filter</button>
                                         <span id="working-selection-confirmation" role="status" aria-live="polite" hidden>✓ Lag har lagts till!</span>
                                     </div>
                                 </div>
 
+
+                                <!-- Kompakt tabellstatus: antal, extrafilter och bekräftade lag. -->
+                                <div class="deluxe-table-status" id="deluxe-table-status">
+                                    <span id="deluxe-table-visible-count" class="deluxe-table-count">– rader</span>
+                                    <span id="deluxe-table-extra-notice" class="deluxe-table-extra-notice" hidden>
+                                        · <span id="deluxe-table-extra-count"></span>
+                                        <button type="button" class="deluxe-status-link" data-disable-extra-filters>Stäng av extrafilter</button>
+                                    </span>
+                                    <span class="deluxe-status-separator" aria-hidden="true"></span>
+                                    <span class="working-selection-text" id="working-selection-text">Bekräftade lag: 0</span>
+                                    <button type="button" class="deluxe-status-link" id="clear-team-selection-table" title="Ta bort samtliga bekräftade lag, även dem som inte syns i tabellen" hidden>Rensa urval</button>
+                                    <span class="deluxe-status-separator" aria-hidden="true"></span>
+                                    <label class="deluxe-status-view-label" for="deluxe-confirmation-view">Visa:</label>
+                                    <select id="deluxe-confirmation-view" aria-label="Visa bekräftade eller obekräftade lag">
+                                        <option value="all">Alla</option>
+                                        <option value="confirmed">Bekräftade</option>
+                                        <option value="unconfirmed">Obekräftade</option>
+                                    </select>
+                                    <label class="working-selection-toggle deluxe-status-sort">
+                                        <input type="checkbox" id="sort-checked-first">
+                                        Visa bekräftade överst
+                                    </label>
+                                    <span class="deluxe-status-separator" aria-hidden="true"></span>
+                                    <button type="button" class="deluxe-status-link" id="reset-all-table-filters-shortcut" title="Återställ alla tabellfilter till standardvärden">Återställ alla filter</button>
+                                </div>
 
                                 <!-- Färgfilter: separat från övriga filter. -->
                                 <div class="deluxe-color-filter" id="deluxe-color-filter">
@@ -9681,7 +9716,12 @@
                     (advancedMode
                         ? (window.deluxeAdvancedColorAllowed?.(savedColor) ?? true)
                         : (savedColor ? showColored : showUncolored));
-                const rowVisible = currentFiltersOk && historicalOk && colorOk;
+                const confirmationView = document.getElementById('deluxe-confirmation-view')?.value || 'all';
+                const confirmed = mainViewSelectedKeys instanceof Set &&
+                    mainViewSelectedKeys.has(row.dataset.teamSeasonKey);
+                const confirmationOk = confirmationView === 'all' ||
+                    (confirmationView === 'confirmed' ? confirmed : !confirmed);
+                const rowVisible = currentFiltersOk && historicalOk && colorOk && confirmationOk;
                 row.style.display = rowVisible ? '' : 'none';
                 if (rowVisible) remainingRowCount += 1;
 
@@ -9715,14 +9755,27 @@
             if (remainingRowsLabel) {
                 remainingRowsLabel.textContent = `${remainingRowCount} ${remainingRowCount === 1 ? 'rad' : 'rader'} återstår`;
             }
-            /* Visa endast rader som döljs av just färgfiltret, inte av övriga filter. */
-            const hiddenByColor = Math.max(0, deluxeColorBaseKeys.size - remainingRowCount);
-            const colorNotice = document.getElementById('filter-color-hidden-notice');
-            const colorCount = document.getElementById('filter-color-hidden-count');
-            if (colorNotice && colorCount) {
-                colorNotice.hidden = hiddenByColor === 0;
-                colorNotice.classList.toggle('all-hidden', hiddenByColor > 0 && remainingRowCount === 0);
-                colorCount.textContent = `${hiddenByColor} ${hiddenByColor === 1 ? 'rad döljs' : 'rader döljs'} av färgfiltret`;
+            /* Grundurval minus synliga rader = unika rader dolda av extrafilter.
+               Detta fungerar även om samma rad utesluts av båda extrafiltren. */
+            const hiddenByExtra = Math.max(0, deluxeColorBaseKeys.size - remainingRowCount);
+            const extraText = `${hiddenByExtra} ${hiddenByExtra === 1 ? 'rad döljs' : 'rader döljs'} av extrafilter`;
+            const filterNotice = document.getElementById('filter-color-hidden-notice');
+            const filterCount = document.getElementById('filter-color-hidden-count');
+            const tableNotice = document.getElementById('deluxe-table-extra-notice');
+            const tableCount = document.getElementById('deluxe-table-extra-count');
+            if (filterNotice && filterCount) {
+                filterNotice.hidden = hiddenByExtra === 0;
+                filterNotice.classList.toggle('all-hidden', hiddenByExtra > 0 && remainingRowCount === 0);
+                filterCount.textContent = extraText;
+            }
+            if (tableNotice && tableCount) {
+                tableNotice.hidden = hiddenByExtra === 0;
+                tableNotice.classList.toggle('all-hidden', hiddenByExtra > 0 && remainingRowCount === 0);
+                tableCount.textContent = extraText;
+            }
+            const tableVisibleCount = document.getElementById('deluxe-table-visible-count');
+            if (tableVisibleCount) {
+                tableVisibleCount.textContent = `${remainingRowCount} ${remainingRowCount === 1 ? 'rad' : 'rader'}`;
             }
 
             // --- FÖRKLARING: räkna tratten steg för steg ---
@@ -12877,7 +12930,8 @@
                     const shortcut = document.getElementById('reset-all-table-filters-shortcut');
                     if (shortcut) {
                         shortcut.disabled = !functionalGroups.some(group => groupIsChanged(group)) &&
-                            !document.getElementById('deluxe-color-filter-enabled')?.checked;
+                            !document.getElementById('deluxe-color-filter-enabled')?.checked &&
+                            (document.getElementById('deluxe-confirmation-view')?.value || 'all') === 'all';
                     }
                 }
 
@@ -12962,6 +13016,7 @@
                 document.getElementById('reset-all-table-filters')?.addEventListener('click', () => {
                     /* Färgfilter ingår i samma återställning som övriga filter. */
                     window.resetDeluxeColorFilter?.();
+                    window.resetDeluxeConfirmationView?.();
                     beginDeluxeFilterResetBatch();
                     try {
                         functionalGroups.forEach(resetOneGroup);
@@ -13062,9 +13117,30 @@
                 };
                 enabled.addEventListener('change', update);
                 /* Snabbvalet slår enbart av färgfiltret och bevarar alla färgval. */
-                document.getElementById('filter-color-disable-shortcut')?.addEventListener('click', () => {
-                    enabled.checked = false;
-                    enabled.dispatchEvent(new Event('change', { bubbles: true }));
+                const confirmationView = document.getElementById('deluxe-confirmation-view');
+                try {
+                    const saved = localStorage.getItem('SHL_DELUXE_CONFIRMATION_VIEW_V1');
+                    if (['all', 'confirmed', 'unconfirmed'].includes(saved)) confirmationView.value = saved;
+                } catch (_) {}
+                confirmationView?.addEventListener('change', () => {
+                    try { localStorage.setItem('SHL_DELUXE_CONFIRMATION_VIEW_V1', confirmationView.value); } catch (_) {}
+                    applyTableFilters();
+                });
+                window.resetDeluxeConfirmationView = () => {
+                    if (confirmationView) confirmationView.value = 'all';
+                    try { localStorage.setItem('SHL_DELUXE_CONFIRMATION_VIEW_V1', 'all'); } catch (_) {}
+                };
+                document.querySelectorAll('[data-disable-extra-filters]').forEach(button => {
+                    button.addEventListener('click', () => {
+                        if (confirmationView) confirmationView.value = 'all';
+                        try { localStorage.setItem('SHL_DELUXE_CONFIRMATION_VIEW_V1', 'all'); } catch (_) {}
+                        if (enabled.checked) {
+                            enabled.checked = false;
+                            enabled.dispatchEvent(new Event('change', { bubbles: true }));
+                        } else {
+                            applyTableFilters();
+                        }
+                    });
                 });
                 colored.addEventListener('change', () => { saveSimple(); update(); });
                 uncolored.addEventListener('change', () => { saveSimple(); update(); });
