@@ -2584,7 +2584,7 @@
                                         </button>
                                     </div>
                                     <div class="working-selection-meta">
-                                        <span class="working-selection-text" id="working-selection-text">Urval: 0 rader</span>
+                                        <span class="working-selection-text" id="working-selection-text">Bekräftade lag: 0</span>
                                         <span id="working-selection-confirmation" role="status" aria-live="polite" hidden>✓ Urvalet har uppdaterats!</span>
                                         <button type="button" class="clear-team-selection" id="clear-team-selection-table" title="Rensa alla valda rader, även dem som döljs av filtren" hidden>Rensa urval</button>
                                     </div>
@@ -7008,6 +7008,7 @@
 
                 // Sätt state: nu är teamSeasonKey från UI den enda sanningen
                 mainViewSelectedKeys = new Set(keysFromUI);
+                window._updateWorkingSelectionSummaryFromOutside?.();
 
                 // Debug-logg för övergångsfasen
                 //console.log('[teamSeasonKey debug][STEP5] mainViewSelectedKeys bygger nu direkt på data-team-season-key', {
@@ -11517,7 +11518,15 @@
                 });
 
                 if (workingTextEl) {
-                    workingTextEl.textContent = `Urval: ${count} rader`;
+                    /* Bekräftade lag räknas från lagbrickorna, inte arbetskryssen.
+                       Även avbockade (diagramdolda) brickor ingår. */
+                    const confirmedKeys = new Set(
+                        Array.from(document.querySelectorAll('#team-selection .team-item-wrapper'))
+                            .map(wrapper => wrapper.dataset.teamSeasonKey ||
+                                wrapper.querySelector('input.team-checkbox')?.dataset.teamSeasonKey)
+                            .filter(Boolean)
+                    );
+                    workingTextEl.textContent = `Bekräftade lag: ${confirmedKeys.size}`;
                 }
                 const clearLink = document.getElementById('clear-team-selection-table');
                 if (clearLink) {
@@ -14321,7 +14330,7 @@
         if (!apply.disabled) apply.click();
         // Uppdatera arbetsurvalets räknare utan att ändra filterinställningar.
         const counter = document.getElementById('working-selection-text');
-        if (counter) counter.textContent = 'Urval: 0 rader';
+        if (counter) window._updateWorkingSelectionSummaryFromOutside?.();
         const clearLink = document.getElementById('clear-team-selection-table');
         if (clearLink) clearLink.hidden = true;
     }
