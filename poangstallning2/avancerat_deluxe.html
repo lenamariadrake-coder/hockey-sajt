@@ -885,6 +885,17 @@
         }
 
 
+        /*
+         * Stabil höjd mellan lagväljarens avgränsare.
+         * När lagbrickor ersätter hjälptexten blir innehållsområdet
+         * cirka 5 px lägre med ett lag. Kompensera enbart i läget
+         * med lagbrickor, utan att ändra knapparnas egen höjd.
+         * Om fler brickor radbryts får området fortsätta växa.
+         */
+        .filter-content:has(> #team-selection > .team-item-wrapper) > .action-buttons {
+            padding-bottom: 5px;
+        }
+
         .action-buttons button {
             padding: 0.5rem 1rem;
             border: 1px solid #6c757d;
