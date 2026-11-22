@@ -692,6 +692,7 @@
         /* --- Knappar i arbetsurvalet: samma stil som Markera/Avmarkera --- */
         #apply-working-selection,
         #remove-working-selection,
+        #replace-working-selection,
         #return-working-selection,
         #cancel-working-selection,
         #range-working-selection {
@@ -707,7 +708,8 @@
 
         /* Disabled-läget ska också se snyggt ut */
         #apply-working-selection:disabled,
-        #remove-working-selection:disabled {
+        #remove-working-selection:disabled,
+        #replace-working-selection:disabled {
             background-color: #f3f4f6;
             color: #9ca3af;
             border-color: #e5e7eb;
@@ -717,6 +719,7 @@
         /* Hover-effekt (endast för aktiva knappar) */
         #apply-working-selection:not(:disabled):hover,
         #remove-working-selection:not(:disabled):hover,
+        #replace-working-selection:not(:disabled):hover,
         #return-working-selection:hover,
         #cancel-working-selection:hover,
         #range-working-selection:hover {
@@ -2582,6 +2585,9 @@
                                         </button>
                                         <button id="remove-working-selection" type="button" disabled>
                                             Ta bort
+                                        </button>
+                                        <button id="replace-working-selection" type="button" disabled>
+                                            Ersätt urval
                                         </button>
                                         <button id="return-working-selection" type="button">Återgå</button>
                                         <button id="cancel-working-selection" type="button">Avbryt</button>
@@ -11286,6 +11292,7 @@
             const workingTextEl = document.getElementById('working-selection-text');
             const applyBtn = document.getElementById('apply-working-selection');
             const removeBtn = document.getElementById('remove-working-selection');
+            const replaceBtn = document.getElementById('replace-working-selection');
             const rangeBtn = document.getElementById('range-working-selection');
             const returnBtn = document.getElementById('return-working-selection');
             if (returnBtn) returnBtn.addEventListener('click', () => {
@@ -11521,6 +11528,13 @@
                 return Array.from(getWorkingSelectionKeys()).some(key => confirmed.has(key));
             }
 
+            function workingSelectionDiffersFromConfirmed() {
+                const working = getWorkingSelectionKeys();
+                const confirmed = getConfirmedSelectionKeys();
+                return working.size !== confirmed.size ||
+                    Array.from(working).some(key => !confirmed.has(key));
+            }
+
             function hideSelectionConfirmation() {
                 if (confirmationHideTimer !== null) clearTimeout(confirmationHideTimer);
                 confirmationHideTimer = null;
@@ -11547,6 +11561,7 @@
 
                 if (applyBtn) applyBtn.disabled = !hasUnconfirmedWorkingRows();
                 if (removeBtn) removeBtn.disabled = !hasConfirmedWorkingRows();
+                if (replaceBtn) replaceBtn.disabled = !workingSelectionDiffersFromConfirmed();
                 if (hasUnconfirmedWorkingRows()) {
                     hideSelectionConfirmation();
                 }
@@ -11752,6 +11767,52 @@
                     hideSelectionConfirmation();
                     if (confirmationMessage) {
                         confirmationMessage.textContent = `✓ ${removed} lag har tagits bort!`;
+                        confirmationMessage.hidden = false;
+                        confirmationHideTimer = setTimeout(hideSelectionConfirmation, 3000);
+                    }
+                });
+            }
+
+            /* Ersätt urval: gör bekräftade lag identiska med arbetskryssen.
+               Befintliga brickor som ingår i båda urvalen bevaras, inklusive
+               diagram-synlighet, färg och ordning. Noll arbetskryss är giltigt. */
+            if (replaceBtn) {
+                replaceBtn.addEventListener('click', () => {
+                    if (!workingSelectionDiffersFromConfirmed()) return;
+                    const container = document.getElementById('team-selection');
+                    if (!container) return;
+
+                    const working = getWorkingSelectionKeys();
+                    let removed = 0;
+                    container.querySelectorAll('.team-item-wrapper').forEach(wrapper => {
+                        const key = wrapper.dataset.teamSeasonKey ||
+                            wrapper.querySelector('input.team-checkbox')?.dataset.teamSeasonKey;
+                        if (!working.has(key)) {
+                            wrapper.remove();
+                            removed++;
+                        }
+                    });
+
+                    /* Använd den befintliga Lägg till-funktionen för att skapa
+                       nya brickor med samma metadata och händelsehantering. */
+                    const needsAdding = hasUnconfirmedWorkingRows();
+                    if (needsAdding && applyBtn) applyBtn.click();
+
+                    /* Om inga nya brickor tillkom måste vi själva uppdatera vyn. */
+                    if (!needsAdding) {
+                        updateChart();
+                        updateChipActionsUI();
+                        refreshDeluxeSavedColorDots();
+                        if (typeof updateColorIcons === 'function') updateColorIcons();
+                        const confirmedFirst = document.getElementById('sort-checked-first');
+                        if (confirmedFirst?.checked) confirmedFirst.dispatchEvent(new Event('change'));
+                    }
+
+                    updateWorkingSelectionSummary();
+                    hideSelectionConfirmation();
+                    if (confirmationMessage) {
+                        confirmationMessage.textContent =
+                            `✓ Urvalet ersatt: ${getConfirmedSelectionKeys().size} bekräftade lag!`;
                         confirmationMessage.hidden = false;
                         confirmationHideTimer = setTimeout(hideSelectionConfirmation, 3000);
                     }
