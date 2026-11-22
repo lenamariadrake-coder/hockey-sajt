@@ -1878,6 +1878,7 @@
          * Isolerad formgivning. Ändrar inte övriga färgkontroller.
          * ============================================================ */
         #deluxe-batch-palette-button {
+            border-radius: 8px;
             min-width: 2.3rem;
             cursor: pointer;
         }
@@ -1946,6 +1947,16 @@
         }
 
     </style>
+<style>
+/* Färgfilter ovanför tabellen – egen rad för att inte flytta verktygsknapparna. */
+.deluxe-color-filter { display:flex; align-items:center; flex-wrap:wrap; gap:.55rem; margin:.55rem 0; font-size:.85rem; }
+.deluxe-color-filter > label { font-weight:600; }
+#deluxe-color-filter-mode { border:1px solid #cbd5e1; border-radius:7px; padding:.3rem .5rem; background:#fff; }
+#deluxe-color-filter-choices { display:flex; flex-wrap:wrap; gap:.4rem .8rem; }
+#deluxe-color-filter-choices[hidden] { display:none; }
+#deluxe-color-filter-choices label { display:inline-flex; align-items:center; gap:.25rem; white-space:nowrap; cursor:pointer; }
+.deluxe-color-filter-swatch { display:inline-block; width:15px; height:15px; border-radius:4px; border:1px solid #9ca3af; }
+</style>
 <style>
 .team-summary-sort[hidden], #deluxe-paint-toggle[hidden], #deluxe-quick-palette[hidden] {display:none!important}
 /* Test 3H: behåll sorteringens plats i rubriken även utan bekräftade lag.
@@ -2599,6 +2610,18 @@
                                     </div>
                                 </div>
 
+
+                                <!-- Färgfilter: oberoende av bekräftade lag och arbetskryss. -->
+                                <div class="deluxe-color-filter" id="deluxe-color-filter">
+                                    <label for="deluxe-color-filter-mode">Färgfilter</label>
+                                    <select id="deluxe-color-filter-mode" aria-label="Filtrera på sparad färg">
+                                        <option value="all">Alla färger</option>
+                                        <option value="colored">Har färg</option>
+                                        <option value="uncolored">Saknar färg</option>
+                                        <option value="specific">Valda färger</option>
+                                    </select>
+                                    <div id="deluxe-color-filter-choices" hidden aria-label="Välj färger"></div>
+                                </div>
 
                                 <!-- Tabell med lag att välja i -->
                                 <div class="team-table-wrapper">
@@ -5799,6 +5822,7 @@
         // --------------------------------------------------------------------------
 
         function refreshDeluxeSavedColorDots() {
+            window.refreshDeluxeColorFilter?.();
             /* Enbart presentation: inga arbetskryss, lagbrickor eller bekräftelser ändras. */
             /* Bekräftelse = att lagbrickan finns, även om dess synlighetskryss är av. */
             const confirmed = new Set(Array.from(document.querySelectorAll(
@@ -9580,7 +9604,15 @@
                     }
                 }
 
-                const rowVisible = currentFiltersOk && historicalOk;
+                /* Färgfilter kombineras med alla befintliga filter. */
+                const colorMode = document.getElementById('deluxe-color-filter-mode')?.value || 'all';
+                const savedColor = teamSeasonColors[row.dataset.teamSeasonKey] || '';
+                const selectedColors = Array.from(document.querySelectorAll('#deluxe-color-filter-choices input:checked')).map(cb => cb.value);
+                const colorOk = colorMode === 'all' ||
+                    (colorMode === 'colored' && !!savedColor) ||
+                    (colorMode === 'uncolored' && !savedColor) ||
+                    (colorMode === 'specific' && selectedColors.includes(savedColor));
+                const rowVisible = currentFiltersOk && historicalOk && colorOk;
                 row.style.display = rowVisible ? '' : 'none';
                 if (rowVisible) remainingRowCount += 1;
 
@@ -12764,7 +12796,8 @@
                     /* Samma ändringsbedömning som används för filtergruppernas etiketter. */
                     const shortcut = document.getElementById('reset-all-table-filters-shortcut');
                     if (shortcut) {
-                        shortcut.disabled = !functionalGroups.some(group => groupIsChanged(group));
+                        shortcut.disabled = !functionalGroups.some(group => groupIsChanged(group)) &&
+                            (document.getElementById('deluxe-color-filter-mode')?.value || 'all') === 'all';
                     }
                 }
 
@@ -12847,6 +12880,8 @@
                 });
 
                 document.getElementById('reset-all-table-filters')?.addEventListener('click', () => {
+                    /* Färgfilter ingår i samma återställning som övriga filter. */
+                    window.resetDeluxeColorFilter?.();
                     beginDeluxeFilterResetBatch();
                     try {
                         functionalGroups.forEach(resetOneGroup);
@@ -12886,6 +12921,60 @@
             attachManualDnDListenersOnce();
         }
 
+
+        /* ============================================================
+         * FÄRGFILTER – återanvänder exakt samma färgvärden som masspaletten.
+         * ============================================================ */
+        (function setupDeluxeColorFilter() {
+            const init = () => {
+                const mode = document.getElementById('deluxe-color-filter-mode');
+                const choices = document.getElementById('deluxe-color-filter-choices');
+                if (!mode || !choices) return;
+                const storageKey = 'SHL_DELUXE_CUSTOM_PALETTE_V1';
+                const rgba = hex => {
+                    const n = parseInt(hex.slice(1), 16);
+                    return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, 0.7)`;
+                };
+                const allColors = () => {
+                    let custom = [];
+                    try { custom = JSON.parse(localStorage.getItem(storageKey) || '[]'); } catch (_) {}
+                    return [...new Set([...PALETTE_COLORS, ...(Array.isArray(custom) ? custom.filter(x => /^#[0-9a-f]{6}$/i.test(x)).map(rgba) : [])])];
+                };
+                const sync = () => {
+                    const old = new Set(Array.from(choices.querySelectorAll('input:checked')).map(el => el.value));
+                    choices.replaceChildren();
+                    allColors().forEach((color, i) => {
+                        const label = document.createElement('label');
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox'; cb.value = color;
+                        cb.checked = old.has(color);
+                        const swatch = document.createElement('span');
+                        swatch.className = 'deluxe-color-filter-swatch';
+                        swatch.style.backgroundColor = color;
+                        label.append(cb, swatch, document.createTextNode(i < PALETTE_COLORS.length ? ` Färg ${i + 1}` : ` Egen ${i + 1 - PALETTE_COLORS.length}`));
+                        choices.append(label);
+                    });
+                };
+                const update = () => {
+                    choices.hidden = mode.value !== 'specific';
+                    applyTableFilters();
+                    const shortcut = document.getElementById('reset-all-table-filters-shortcut');
+                    if (shortcut && mode.value !== 'all') shortcut.disabled = false;
+                };
+                mode.addEventListener('change', () => { sync(); update(); });
+                choices.addEventListener('change', update);
+                window.resetDeluxeColorFilter = () => {
+                    mode.value = 'all';
+                    choices.querySelectorAll('input').forEach(cb => { cb.checked = false; });
+                    choices.hidden = true;
+                };
+                window.refreshDeluxeColorFilter = () => { sync(); if (mode.value !== 'all') update(); };
+                /* Paletten kan få nya egna färger medan sidan är öppen. */
+                document.getElementById('deluxe-batch-palette-button')?.addEventListener('click', sync);
+                sync();
+            };
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true}); else init();
+        })();
 
         /* ============================================================
          * MASSFÄRGLÄGGNING – ISOLERAT TILLÄGG (FÖRSTA TESTVERSIONEN)
