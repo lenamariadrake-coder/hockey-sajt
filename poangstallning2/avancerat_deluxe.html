@@ -2728,7 +2728,7 @@
                                                 <th class="col-select">
                                                     <input type="checkbox" disabled>
                                                 </th>
-                                                <th class="sortable">Lagsäsong</th>
+                                                <th class="sortable">Lagsäsong<input type="search" id="deluxe-team-prefix" aria-label="Filtrera lagsäsong på inledning" placeholder="Sök, t.ex. DJU" style="display:block;width:100%;min-width:95px;box-sizing:border-box;font:inherit;font-weight:normal;padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;cursor:text;margin-top:4px"></th>
                                                 <th class="sortable">Liga</th>
                                                 <th class="sortable">Säsong</th>
                                                 <th class="sortable">Grundserie</th>
@@ -9214,6 +9214,7 @@
         function applyTableFilters() {
             if (deluxeFilterResetBatch > 0) return;
             const deluxeColorBaseKeys = new Set();
+            const teamPrefix = (document.getElementById('deluxe-team-prefix')?.value || '').trim().toLocaleLowerCase('sv-SE');
             setupHistoricalResultTooltips();
             hideHistoricalResultTooltip();
 
@@ -9511,7 +9512,7 @@
             const rows = tbody.querySelectorAll('tr');
             const currentFilterRows = [];
             let remainingRowCount = 0;
-            let clearedWorkingChecks = false;
+
 
             rows.forEach(row => {
                 clearHistoricalTooltipFromRow(row);
@@ -9776,7 +9777,8 @@
                     mainViewSelectedKeys.has(row.dataset.teamSeasonKey);
                 const confirmationOk = confirmationView === 'all' ||
                     (confirmationView === 'confirmed' ? confirmed : !confirmed);
-                const rowVisible = currentFiltersOk && historicalOk && colorOk && confirmationOk;
+                const prefixOk = (row.dataset.teamLabel || row.dataset.team || '').toLocaleLowerCase('sv-SE').startsWith(teamPrefix);
+                const rowVisible = currentFiltersOk && historicalOk && colorOk && confirmationOk && prefixOk;
                 row.style.display = rowVisible ? '' : 'none';
                 if (rowVisible) remainingRowCount += 1;
 
@@ -9788,7 +9790,7 @@
                     if (workCheckbox?.checked) {
                         workCheckbox.checked = false;
                         row.classList.remove('working-selected-row');
-                        clearedWorkingChecks = true;
+
                     }
                 }
 
@@ -9799,11 +9801,9 @@
 
             window.refreshDeluxeColorFilter?.(deluxeColorBaseKeys);
 
-            /* Synka räknare, huvudkryss och bekräftelseknapp en gång
-               efter filtreringen, men bara om något arbetskryss försvann. */
-            if (clearedWorkingChecks) {
-                window._updateWorkingSelectionSummaryFromOutside?.();
-            }
+            /* Synka även när enbart mängden synliga rader ändras. */
+            window._updateWorkingSelectionSummaryFromOutside?.();
+            window.refreshDeluxeFilterChangedStates?.();
 
             // Samma slutliga radurval som tabellen, inklusive historiska filter.
             const remainingRowsLabel = document.getElementById('filter-remaining-rows');
@@ -9811,7 +9811,7 @@
                 remainingRowsLabel.textContent = `${remainingRowCount} ${remainingRowCount === 1 ? 'rad' : 'rader'} återstår`;
             }
             /* Grundurval minus synliga rader = unika rader dolda av extrafilter.
-               Detta fungerar även om samma rad utesluts av båda extrafiltren. */
+               Detta fungerar även om samma rad utesluts av flera extrafilter. */
             const hiddenByExtra = Math.max(0, deluxeColorBaseKeys.size - remainingRowCount);
             const extraText = `${hiddenByExtra} ${hiddenByExtra === 1 ? 'rad döljs' : 'rader döljs'} av extrafilter`;
             const filterNotice = document.getElementById('filter-color-hidden-notice');
@@ -13013,9 +13013,23 @@
                     if (shortcut) {
                         shortcut.disabled = !functionalGroups.some(group => groupIsChanged(group)) &&
                             !document.getElementById('deluxe-color-filter-enabled')?.checked &&
-                            (document.getElementById('deluxe-confirmation-view')?.value || 'all') === 'all';
+                            (document.getElementById('deluxe-confirmation-view')?.value || 'all') === 'all' &&
+                            !(document.getElementById('deluxe-team-prefix')?.value || '').trim();
                     }
                 }
+
+                window.refreshDeluxeFilterChangedStates = refreshChangedStates;
+                const prefixInput = document.getElementById('deluxe-team-prefix');
+                prefixInput?.addEventListener('click', event => event.stopPropagation());
+                prefixInput?.addEventListener('input', () => applyTableFilters());
+                prefixInput?.addEventListener('keydown', event => {
+                    if (event.key === 'Enter') event.preventDefault();
+                    if (event.key === 'Escape' && prefixInput.value) {
+                        event.preventDefault();
+                        prefixInput.value = '';
+                        applyTableFilters();
+                    }
+                });
 
                 function resetOneGroup(group) {
                     const key = group.dataset.filterGroup;
@@ -13099,6 +13113,7 @@
                     /* Färgfilter ingår i samma återställning som övriga filter. */
                     window.resetDeluxeColorFilter?.();
                     window.resetDeluxeConfirmationView?.();
+                    if (prefixInput) prefixInput.value = '';
                     beginDeluxeFilterResetBatch();
                     try {
                         functionalGroups.forEach(resetOneGroup);
@@ -13219,6 +13234,8 @@
                 };
                 document.querySelectorAll('[data-disable-extra-filters]').forEach(button => {
                     button.addEventListener('click', () => {
+                        const prefixInput = document.getElementById('deluxe-team-prefix');
+                        if (prefixInput) prefixInput.value = '';
                         if (confirmationView) confirmationView.value = 'all';
                         try { localStorage.setItem('SHL_DELUXE_CONFIRMATION_VIEW_V1', 'all'); } catch (_) {}
                         if (enabled.checked) {
