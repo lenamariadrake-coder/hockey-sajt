@@ -180,7 +180,7 @@
             color: #334155;
         }
 
-        #toggle-filter-groups {
+        #toggle-filter-groups, #collapse-filter-groups {
             font-size: 0.82rem;
             padding: 0.3rem 0.65rem;
             border: 1px solid #d1d5db;
@@ -189,7 +189,7 @@
             cursor: pointer;
         }
 
-        #toggle-filter-groups:hover { background: #f9fafb; }
+        #toggle-filter-groups:hover, #collapse-filter-groups:hover { background: #f9fafb; }
 
         .filter-groups {
             flex: 0 0 100%;
@@ -297,7 +297,7 @@
         .streak-help {font-size:.8rem; color:#6b7280; margin:.2rem 0 .65rem;}
         .streak-advanced {display:grid; grid-template-columns:1fr; gap:.4rem; margin:.7rem 0 1.1rem; padding:.75rem; border:1px solid #dce3e8; border-radius:.6rem;}
         .streak-advanced label {font-size:.85rem; font-weight:550;}
-        .streak-advanced select, .streak-advanced input {min-width:0; max-width:100%; box-sizing:border-box; padding:.35rem;}
+        .streak-advanced select, .streak-advanced input[type="number"] {border-radius:5px;min-width:0; max-width:100%; box-sizing:border-box; padding:.35rem;}
         .streak-inline {display:grid; grid-template-columns:1fr 1fr; gap:.5rem;}
         /* Anpassad målsvit: flervalskryss utan påverkan på andra filter. */
         .streak-choice-heading { font-size:.85rem; font-weight:550; margin-top:.25rem; }
@@ -1977,11 +1977,12 @@
 </style>
 <style>
 /* Färgfilter – separat, kompakt verktygsrad ovanför tabellen. */
-.deluxe-color-filter { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; margin:.55rem 0; font-size:.85rem; }
+.deluxe-color-filter { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; margin:.55rem 0 20px; font-size:.85rem; }
 .deluxe-color-filter label { display:inline-flex; align-items:center; gap:.35rem; cursor:pointer; }
 .deluxe-color-filter > label { font-weight:600; }
 .deluxe-color-filter-options { display:inline-flex; align-items:center; flex-wrap:wrap; gap:.8rem; }
 .deluxe-color-filter-options[hidden], #deluxe-color-filter-simple-options[hidden], #deluxe-color-filter-advanced-options[hidden] { display:none; }
+#deluxe-color-filter-options[hidden] { display:inline-flex !important; visibility:hidden !important; pointer-events:none !important; }
 .deluxe-color-filter-mode { display:inline-flex; align-items:center; gap:0; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden; }
 .deluxe-color-filter-mode button { border:0; padding:.32rem .7rem; background:#fff; color:#475569; cursor:pointer; font:inherit; }
 .deluxe-color-filter-mode button + button { border-left:1px solid #cbd5e1; }
@@ -2150,7 +2151,7 @@
                     <p id="manual-sort-hint" class="manual-sort-hint hidden">Manuell sortering: Dra lagknapparna för att
                         ändra ordning.</p>
                     <p id="manual-sort-empty-hint" class="manual-sort-hint hidden">Manuell sortering: Välj först några
-                        lag (via “Ändra lag att välja mellan”), så kan du dra lagknapparna och ändra ordning.</p>
+                        lagsäsonger (via “Ändra”), så kan du dra lagknapparna och ändra ordning.</p>
 
 
                     <div class="action-buttons">
@@ -2175,12 +2176,10 @@
                         <div class="advanced-filter-content">
 
                             <div class="filter-header">
-                                <p class="filter-header-title">Ändra lag att välja mellan och klicka på Bekräfta urval
+                                <p class="filter-header-title">Ändra urvalet av lagsäsonger
                                 </p>
                                 <p class="filter-header-subtitle">
-                                    Använd filtren nedan för att begränsa tabellen enligt önskemål. Välj sedan lag med
-                                    hjälp av kryssrutorna.
-                                    Klicka på Bekräfta urval för att spara ändringar.
+                                    Använd filtren nedan för att begränsa tabellen enligt önskemål. Markera önskade rader med hjälp av kryssrutorna och använd knapparna Lägg till, Ta bort eller Ersätt urval för att uppdatera ditt urval.
                                 </p>
                             </div>
 
@@ -2196,6 +2195,7 @@
                                         </span>
                                     </span>
                                     <button type="button" id="toggle-filter-groups">Fäll ut alla</button>
+                                    <button type="button" id="collapse-filter-groups">Fäll ihop alla</button>
                                     <button type="button" id="reset-all-table-filters">Återställ alla filter</button>
                                 </div>
 
@@ -2630,8 +2630,8 @@
                                         <div>
                                             <h3>Jämförande filter</h3>
                                             <p class="historical-filter-help">
-                                                Lägg kriterier på samma lag en eller flera säsonger före eller efter.
-                                                Varje lager räknas relativt den aktuella raden och alla lager måste matcha.
+                                                Lägg till kriterier för samma lag under tidigare eller senare säsonger.
+                                                Varje jämförelselager utgår från den aktuella lagsäsongen och samtliga lager måste matcha.
                                             </p>
                                         </div>
                                         <button type="button" id="add-historical-filter">+ Lägg till jämförande filter</button>
@@ -2677,7 +2677,7 @@
                                         <button type="button" class="deluxe-status-link" data-disable-extra-filters>Stäng av extrafilter</button>
                                     </span>
                                     <span class="deluxe-status-separator" aria-hidden="true"></span>
-                                    <span class="working-selection-text" id="working-selection-text">Bekräftade lag: 0</span>
+                                    <span class="working-selection-text" id="working-selection-text">Bekräftade rader: 0</span>
                                     <button type="button" class="deluxe-status-link" id="clear-team-selection-table" title="Ta bort samtliga bekräftade lag, även dem som inte syns i tabellen" hidden>Rensa urval</button>
                                     <span class="deluxe-status-separator" aria-hidden="true"></span>
                                     <label class="deluxe-status-view-label" for="deluxe-confirmation-view">Visa:</label>
@@ -2728,7 +2728,7 @@
                                                 <th class="col-select">
                                                     <input type="checkbox" disabled>
                                                 </th>
-                                                <th class="sortable">Lag</th>
+                                                <th class="sortable">Lagsäsong</th>
                                                 <th class="sortable">Liga</th>
                                                 <th class="sortable">Säsong</th>
                                                 <th class="sortable">Grundserie</th>
@@ -2914,8 +2914,7 @@
         <p class="source-info">
             Statistik hämtad från:
             <a href="https://www.hockeyallsvenskan.se/" target="_blank">hockeyallsvenskan.se</a>,
-            <a href="https://www.shl.se/" target="_blank">shl.se</a>,
-            <a href="https://www.hockey-reference.com/" target="_blank">hockey-reference.com</a>.
+            <a href="https://www.shl.se/" target="_blank">shl.se</a>.
         </p>
     </div>
     <div id="color-palette"></div>
@@ -5113,7 +5112,7 @@
                     loadingIndicator.classList.remove('hidden');
                     loadingIndicator.innerHTML = `
     <p><strong>Välj lag och säsonger för att komma igång.</strong></p>
-    <p>Klicka på <strong>Ändra</strong> ovan och markera de lag och säsonger du vill jämföra. Bekräfta sedan urvalet för att visa dem i diagrammet.</p>
+    <p>Klicka på <strong>Ändra</strong> ovan och markera de lag och säsonger du vill jämföra. Klicka sedan på Lägg till för att visa dem i diagrammet.</p>
     <p>När du har valt lag kan du använda reglaget under diagrammet för att följa poängutvecklingen under säsongen.</p>`;
 
                 }
@@ -11161,7 +11160,7 @@
                 const newDir = dir === 'desc' ? 'desc' : 'asc';
 
                 // --- SORTERING PÅ LAG (alfabetiskt, text) ---
-                if (label === 'Lag') {
+                if (label === 'Lag' || label === 'Lagsäsong') {
                     rowsCopy.sort((a, b) => {
                         const aText = a.children[colIndex].textContent.trim().toLowerCase();
                         const bText = b.children[colIndex].textContent.trim().toLowerCase();
@@ -11765,7 +11764,7 @@
                     /* Bekräftade lag räknas från lagbrickorna, inte arbetskryssen.
                        Även avbockade (diagramdolda) brickor ingår. */
                     const confirmedKeys = getConfirmedSelectionKeys();
-                    workingTextEl.textContent = `Bekräftade lag: ${confirmedKeys.size}`;
+                    workingTextEl.textContent = `Bekräftade rader: ${confirmedKeys.size}`;
                 }
                 const clearLink = document.getElementById('clear-team-selection-table');
                 if (clearLink) {
@@ -12941,6 +12940,7 @@
             (function initFilterGroupUI() {
                 const groupsRoot = document.getElementById('filter-groups');
                 const toggleButton = document.getElementById('toggle-filter-groups');
+                const collapseButton = document.getElementById('collapse-filter-groups');
                 if (!groupsRoot || groupsRoot.dataset.uiBound === '1') return;
                 groupsRoot.dataset.uiBound = '1';
 
@@ -13112,7 +13112,8 @@
                 function refreshToggleLabel() {
                     if (!toggleButton) return;
                     const allOpen = groups.length > 0 && groups.every(group => group.open);
-                    toggleButton.textContent = allOpen ? 'Fäll ihop alla' : 'Fäll ut alla';
+                    toggleButton.disabled = allOpen;
+                    if (collapseButton) collapseButton.disabled = !groups.some(group => group.open);
                 }
 
                 groupsRoot.addEventListener('change', refreshChangedStates);
@@ -13125,12 +13126,16 @@
 
                 if (toggleButton) {
                     toggleButton.addEventListener('click', () => {
-                        const shouldOpen = !groups.every(group => group.open);
+                        const shouldOpen = true;
                         groups.forEach(group => { group.open = shouldOpen; });
                         refreshToggleLabel();
                     });
                 }
 
+                collapseButton?.addEventListener('click', () => {
+                    groups.forEach(group => { group.open = false; });
+                    refreshToggleLabel();
+                });
                 refreshChangedStates();
                 refreshToggleLabel();
             })();
@@ -13872,6 +13877,7 @@
    Oberoende av tidslinje, filter och vilka lag som är valda.
    En egen tabellvy sparas, standardvyn förblir orörd. */
 (function () {
+    const columnLabel = id => id === 'Lag' ? 'Lagsäsong' : id;
     const original = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall','Slutspel'];
     const defaults = ['Lag','Liga','Säsong','Grundserie','Säsongsutfall','Utfallsvärde'];
     const groups = [
@@ -13887,7 +13893,7 @@
     // Kom ihåg vilka grupper besökaren har öppnat även när kolumnvalen ritas om.
     const openGroups = new Set(['Grunduppgifter']);
     const columnDescriptions = {
-      "Lag": "Lagets namn.",
+      "Lag": "Lagets namn och säsong.",
       "Liga": "SHL eller Hockeyallsvenskan.",
       "Säsong": "Säsongens beteckning.",
       "Grundserie": "Lagets slutplacering i grundserien.",
@@ -14118,7 +14124,7 @@
             header.insertBefore(colorHead,header.firstElementChild);
             for(const id of ids){
                 if(!existing.has(id)){
-                    const th=document.createElement('th');th.textContent=id;th.dataset.columnId=id;
+                    const th=document.createElement('th');th.textContent=columnLabel(id);th.dataset.columnId=id;
                     // Den ursprungliga sorteringen finns kvar på de sex gamla kolumnerna.
                     th.className='deluxe-extra-sortable';
                     th.addEventListener('click',()=>sortExtra(th,table));
@@ -14163,7 +14169,7 @@
     }
     function visibleOrder(){return custom.order.filter(id=>custom.visible.includes(id));}
     function syncText(){
-        if(textArea && document.activeElement!==textArea)textArea.value=visibleOrder().join('; ');
+        if(textArea && document.activeElement!==textArea)textArea.value=visibleOrder().map(columnLabel).join('; ');
         if(selectedHost){
             selectedHost.replaceChildren();
             const chosen=visibleOrder();
@@ -14196,7 +14202,7 @@
                     custom.order=[...current,...custom.order.filter(x=>!current.includes(x))];
                     save();apply();
                 });
-                const num=document.createElement('span');num.className='deluxe-column-position';num.textContent=String(i+1)+'. '+id;
+                const num=document.createElement('span');num.className='deluxe-column-position';num.textContent=String(i+1)+'. '+columnLabel(id);
                 item.append(num);
                 for(const delta of [-1,1]){
                     const b=document.createElement('button');b.type='button';
@@ -14219,6 +14225,7 @@
     function applyTextOrder(){
         const entered=textArea.value.split(';').map(s=>s.trim()).filter(Boolean);
         const known=new Map(ids.map(id=>[id.toLocaleLowerCase('sv'),id]));
+        known.set('lagsäsong','Lag');
         const resolved=[],unknown=[],duplicates=[];
         for(const name of entered){
             const id=known.get(name.toLocaleLowerCase('sv'));
@@ -14280,7 +14287,7 @@
         list.replaceChildren();
         const state=active(),q=(searchInput?.value||'').trim().toLocaleLowerCase('sv');
         for(const [group,items] of groups){
-            const matches=items.filter(id=>!q||id.toLocaleLowerCase('sv').includes(q)||group.toLocaleLowerCase('sv').includes(q));
+            const matches=items.filter(id=>!q||id.toLocaleLowerCase('sv').includes(q)||columnLabel(id).toLocaleLowerCase('sv').includes(q)||group.toLocaleLowerCase('sv').includes(q));
             if(!matches.length)continue;
             const section=document.createElement('details');section.className='deluxe-column-group';
             section.open=!!q||openGroups.has(group);
@@ -14294,7 +14301,7 @@
                 const label=document.createElement('label'),check=document.createElement('input');
                 check.type='checkbox';check.checked=state.visible.includes(id);check.disabled=false;
                 check.addEventListener('change',()=>{if(check.checked&&!custom.visible.includes(id))custom.visible.push(id);else if(!check.checked)custom.visible=custom.visible.filter(x=>x!==id);save();apply();});
-                label.append(check,document.createTextNode(' '+id));item.append(label);
+                label.append(check,document.createTextNode(' '+columnLabel(id)));item.append(label);
                 itemsBox.append(item);
             }
             section.append(itemsBox);list.append(section);
@@ -14446,11 +14453,25 @@
     const outer = document.querySelector('.filter-section');
     const inner = document.querySelector('.advanced-filter-section');
     if (!edit || !outer || !inner) return;
+    function syncEditLabel() {
+        const expanded = outer.open && inner.open;
+        edit.textContent = expanded ? 'Återgå' : 'Ändra';
+        edit.setAttribute('aria-expanded', String(expanded));
+        edit.setAttribute('aria-label', expanded ? 'Återgå från urval och filter' : 'Ändra urval och filter');
+    }
+    outer.addEventListener('toggle', syncEditLabel);
+    inner.addEventListener('toggle', syncEditLabel);
+    syncEditLabel();
     edit.addEventListener('click', function (event) {
         event.preventDefault();
         event.stopPropagation();
-        outer.open = true;
-        inner.open = true;
+        if (outer.open && inner.open) {
+            inner.open = false;
+        } else {
+            outer.open = true;
+            inner.open = true;
+        }
+        syncEditLabel();
     });
     edit.addEventListener('keydown', function (event) {
         event.stopPropagation();
