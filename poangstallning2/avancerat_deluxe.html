@@ -1988,6 +1988,8 @@
 .deluxe-color-filter { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; margin:.55rem 0 20px; font-size:.85rem; }
 .deluxe-color-filter label { display:inline-flex; align-items:center; gap:.35rem; cursor:pointer; }
 .deluxe-color-filter > label { font-weight:600; }
+#deluxe-clear-all-colors { font:inherit; color:#087e85; text-decoration:underline; text-underline-offset:2px; border:0; border-left:1px solid #cbd5e1; padding:0 0 0 .75rem; background:none; cursor:pointer; white-space:nowrap; }
+#deluxe-clear-all-colors[hidden] { display:none; }
 .deluxe-color-filter-options { display:inline-flex; align-items:center; flex-wrap:wrap; gap:.8rem; }
 .deluxe-color-filter-options[hidden], #deluxe-color-filter-simple-options[hidden], #deluxe-color-filter-advanced-options[hidden] { display:none; }
 #deluxe-color-filter-options[hidden] { display:inline-flex !important; visibility:hidden !important; pointer-events:none !important; }
@@ -2705,6 +2707,7 @@
                                 <!-- Färgfilter: separat från övriga filter. -->
                                 <div class="deluxe-color-filter" id="deluxe-color-filter">
                                     <label><input type="checkbox" id="deluxe-color-filter-enabled"> Färgfilter</label>
+                                    <button type="button" id="deluxe-clear-all-colors" hidden>Rensa alla färger</button>
                                     <div class="deluxe-color-filter-options" id="deluxe-color-filter-options" hidden>
                                         <div class="deluxe-color-filter-mode" role="group" aria-label="Färgfilterläge">
                                             <button type="button" id="deluxe-color-filter-simple" aria-pressed="true">Enkelt</button>
@@ -5981,6 +5984,8 @@
         // --------------------------------------------------------------------------
 
         function refreshDeluxeSavedColorDots() {
+            const clearAllLink = document.getElementById('deluxe-clear-all-colors');
+            if (clearAllLink) clearAllLink.hidden = !Object.values(teamSeasonColors).some(Boolean) && !Object.values(teamColors).some(Boolean);
             window.refreshDeluxeColorFilter?.();
             /* Enbart presentation: inga arbetskryss, lagbrickor eller bekräftelser ändras. */
             /* Bekräftelse = att lagbrickan finns, även om dess synlighetskryss är av. */
@@ -13505,6 +13510,21 @@
             }
             if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
         })();
+
+        /* Global avfärgning utan arbetsurval. Egna palettfärger behålls. */
+        document.getElementById('deluxe-clear-all-colors')?.addEventListener('click', () => {
+            const count = Object.values(teamSeasonColors).filter(Boolean).length;
+            const legacy = Object.values(teamColors).some(Boolean);
+            if (!count && !legacy) return;
+            const scope = count ? `Sparade färger för ${count} ${count === 1 ? 'lagsäsong' : 'lagsäsonger'}` : 'Alla sparade färger';
+            if (!confirm(`${scope} tas bort, även för rader som inte visas i tabellen.${legacy && count ? '\nÄven färger sparade per lag tas bort.' : ''}\n\nBekräftade urval och egna färger i paletten påverkas inte.\n\nVill du fortsätta?`)) return;
+            teamSeasonColors = {};
+            teamColors = {};
+            updateChart();
+            if (typeof updateColorIcons === 'function') updateColorIcons();
+            refreshDeluxeSavedColorDots();
+            refreshTableAfterColorChange();
+        });
 
         // --- STARTA PROGRAMMET ---
         loadAndProcessData(); // Initierar datahämtning och sedan UI
