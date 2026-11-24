@@ -2621,8 +2621,11 @@
                                             </div>
                                             <div class="filter-subgroup match-selection-numbers">
                                                 <label class="filter-subgroup-title" for="filter-match-numbers">Matchnummer</label>
-                                                <input type="text" id="filter-match-numbers" inputmode="numeric" placeholder="T.ex. 1-10, 15, 20-25" aria-label="Matchnummer, intervall eller sekvens" aria-describedby="match-number-help">
+                                                <input type="text" id="filter-match-numbers" inputmode="numeric" placeholder="T.ex. 1-10, 15, 20-25" aria-label="Matchnummer, intervall eller sekvens" aria-describedby="match-number-help match-number-error">
+                                                <div id="match-number-error" role="status" style="color:#b45309;font-size:0.85em" hidden></div>
                                                 <div class="filter-help" id="match-number-help">Ange enstaka matcher eller intervall, separerade med komma eller semikolon.<div class="match-number-examples"><span><strong>–5</strong> = match 1–5</span><span><strong>10–</strong> = match 10 och framåt</span></div></div>
+                                                <label style="display:flex;align-items:flex-start;gap:8px;margin-top:10px"><input type="checkbox" id="filter-match-complete"> <span>Kräv att alla angivna matcher har spelats</span></label>
+                                                <div class="filter-help">Öppna intervall kräver endast att startmatchen har spelats. Matchnummer räknas före valet av spelplats.</div>
                                             </div>
                                         </div>
                                     </details>
@@ -9100,7 +9103,7 @@
         // MATCHURVAL – väljer vilka av lagets matcher som får räknas
         // =========================================================
         function parseMatchNumberText(text, maxGameNumber) {
-            const cleaned = String(text || '').trim();
+            const cleaned = String(text || '').replace(/[–—]/g, '-').trim();
             if (!cleaned) return null; // null = alla matchnummer
             const maxN = Math.max(0, Number(maxGameNumber) || 0);
             const result = new Set();
@@ -9134,10 +9137,25 @@
             return result;
         }
 
+        function validateMatchNumberText(text) {
+            const cleaned = String(text || '').replace(/[–—]/g, '-').trim();
+            if (!cleaned) return { valid: true, required: 0 };
+            let required = 0;
+            for (const part of cleaned.split(/[,;]/)) {
+                const token = part.trim();
+                if (!/^(?:\d+|\d+\s*-\s*\d*|-\s*\d+)$/.test(token)) return { valid: false, required: 0 };
+                const numbers = token.match(/\d+/g).map(Number);
+                if (numbers.some(n => !Number.isSafeInteger(n) || n < 1)) return { valid: false, required: 0 };
+                required = Math.max(required, ...numbers);
+            }
+            return { valid: true, required };
+        }
+
         function getMatchSelectionConfig() {
             return {
                 location: document.querySelector('input[name="filter-match-location"]:checked')?.value || 'all',
-                numbersText: document.getElementById('filter-match-numbers')?.value?.trim() || ''
+                numbersText: document.getElementById('filter-match-numbers')?.value?.trim() || '',
+                requireComplete: !!document.getElementById('filter-match-complete')?.checked
             };
         }
 
@@ -9148,7 +9166,9 @@
 
         function getSelectedTeamSeasonMatches(team, seasonId, league, config = getMatchSelectionConfig()) {
             const all = matches.filter(m => m.seasonId === seasonId && m.league === league && (m.homeTeam === team || m.awayTeam === team));
-            const numberSet = parseMatchNumberText(config.numbersText, all.length);
+            const validation = config.validation || validateMatchNumberText(config.numbersText);
+            if (config.requireComplete && validation.valid && all.length < validation.required) return [];
+            const numberSet = parseMatchNumberText(validation.valid ? config.numbersText : '', all.length);
             return all.filter((m, index) => {
                 const gameNo = index + 1; // numreras före hemma/borta-urvalet
                 if (numberSet && !numberSet.has(gameNo)) return false;
@@ -9212,7 +9232,7 @@
         function setupMatchSelectionListeners() {
             const group=document.querySelector('.filter-group[data-filter-group="match-selection"]'); if(!group||group.dataset.bound==='1')return; group.dataset.bound='1';
             const state=document.getElementById('match-selection-state');
-            const refresh=()=>{const c=getMatchSelectionConfig();const changed=c.location!=='all'||c.numbersText!=='';group.classList.toggle('is-changed',changed);if(state)state.textContent=changed?'Ändrad':'';applyTableFilters();};
+            const refresh=()=>{const c=getMatchSelectionConfig();const changed=c.location!=='all'||c.numbersText!==''||c.requireComplete;group.classList.toggle('is-changed',changed);if(state)state.textContent=changed?'Ändrad':'';applyTableFilters();};
             group.querySelectorAll('input').forEach(el=>{el.addEventListener('input',refresh);el.addEventListener('change',refresh);});
         }
 
@@ -9492,7 +9512,15 @@
             const decisionFilters = getActiveDecisionFilters();
             const pointsFilter = getActivePointsFilter();
             const matchSelection = getMatchSelectionConfig();
-            const matchSelectionActive = matchSelection.location !== 'all' || matchSelection.numbersText !== '';
+            matchSelection.validation = validateMatchNumberText(matchSelection.numbersText);
+            const matchNumberInput = document.getElementById('filter-match-numbers');
+            const matchNumberError = document.getElementById('match-number-error');
+            matchNumberInput?.setAttribute('aria-invalid', String(!matchSelection.validation.valid));
+            if (matchNumberError) {
+                matchNumberError.hidden = matchSelection.validation.valid;
+                matchNumberError.textContent = matchSelection.validation.valid ? '' : 'Kontrollera matchnumren. Matchnummerfiltret används inte förrän syntaxen är giltig.';
+            }
+            const matchSelectionActive = matchSelection.location !== 'all' || (matchSelection.validation.valid && matchSelection.numbersText !== '');
 
             // --- HISTORISKA FILTER: bygg lookup EN gång per filtrering ---
             const historicalConfigs = getHistoricalFilterConfigs();
