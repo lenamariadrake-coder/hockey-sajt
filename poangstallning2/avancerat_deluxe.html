@@ -4441,8 +4441,7 @@
                 window.teamSeasonSingleGameStats = teamSeasonSingleGameStats;
 
                 // SVITER steg 1: bygg längsta sviter från games.
-                // Poängen avgör matchtypen:
-                // 3 = trepoängsvinst, 2 = OT/SO-vinst, 1 = OT/SO-förlust, 0 = nollpoängsförlust.
+                // Matchresultatet avgör vinst/förlust; poängen avgör poängsviter.
                 // Därmed fungerar beräkningen även för pågående säsonger.
                 teamSeasonStreakStats = {};
 
@@ -4463,10 +4462,10 @@
                     return teamSeasonStreakStats[key];
                 }
 
-                function addStreakGame(key, points) {
+                function addStreakGame(key, points, gf, ga) {
                     const stats = ensureStreakStats(key);
-                    const isWin = points === 2 || points === 3;
-                    const isLoss = points === 0 || points === 1;
+                    const isWin = gf > ga;
+                    const isLoss = gf < ga;
                     const isThreePointWin = points === 3;
                     const isZeroPointLoss = points === 0;
 
@@ -4486,8 +4485,8 @@
                 matches.forEach(match => {
                     const homeKey = `${match.league}::${match.seasonId}::${match.homeTeam}`;
                     const awayKey = `${match.league}::${match.seasonId}::${match.awayTeam}`;
-                    addStreakGame(homeKey, match.homePoints);
-                    addStreakGame(awayKey, match.awayPoints);
+                    addStreakGame(homeKey, match.homePoints, match.homeGoals, match.awayGoals);
+                    addStreakGame(awayKey, match.awayPoints, match.awayGoals, match.homeGoals);
                 });
 
                 // Tillfällig testyta för steg 1. Påverkar inte UI eller filtrering.
@@ -4523,27 +4522,29 @@
                 function ensureDecisionStats(key) {
                     if (!teamSeasonDecisionStats[key]) {
                         teamSeasonDecisionStats[key] = {
-                            FT: { games: 0, wins: 0, losses: 0 },
-                            OT: { games: 0, wins: 0, losses: 0 },
-                            SO: { games: 0, wins: 0, losses: 0 },
-                            OTSO: { games: 0, wins: 0, losses: 0 },
+                            FT: { games: 0, wins: 0, losses: 0, draws: 0 },
+                            OT: { games: 0, wins: 0, losses: 0, draws: 0 },
+                            SO: { games: 0, wins: 0, losses: 0, draws: 0 },
+                            OTSO: { games: 0, wins: 0, losses: 0, draws: 0 },
                             totalGames: 0
                         };
                     }
                     return teamSeasonDecisionStats[key];
                 }
 
-                function addDecisionGame(key, decision, isWin) {
+                function addDecisionGame(key, decision, margin) {
                     const stats = ensureDecisionStats(key);
                     const bucket = stats[decision];
                     bucket.games += 1;
-                    if (isWin) bucket.wins += 1;
-                    else bucket.losses += 1;
+                    if (margin > 0) bucket.wins += 1;
+                    else if (margin < 0) bucket.losses += 1;
+                    else bucket.draws += 1;
 
                     if (decision === 'OT' || decision === 'SO') {
                         stats.OTSO.games += 1;
-                        if (isWin) stats.OTSO.wins += 1;
-                        else stats.OTSO.losses += 1;
+                        if (margin > 0) stats.OTSO.wins += 1;
+                        else if (margin < 0) stats.OTSO.losses += 1;
+                        else stats.OTSO.draws += 1;
                     }
                     stats.totalGames += 1;
                 }
@@ -4552,8 +4553,8 @@
                     const decision = classifyDecision(match.resultText);
                     const homeKey = `${match.league}::${match.seasonId}::${match.homeTeam}`;
                     const awayKey = `${match.league}::${match.seasonId}::${match.awayTeam}`;
-                    addDecisionGame(homeKey, decision, match.homeGoals > match.awayGoals);
-                    addDecisionGame(awayKey, decision, match.awayGoals > match.homeGoals);
+                    addDecisionGame(homeKey, decision, match.homeGoals - match.awayGoals);
+                    addDecisionGame(awayKey, decision, match.awayGoals - match.homeGoals);
                 });
 
                 window.teamSeasonDecisionStats = teamSeasonDecisionStats;
@@ -4582,20 +4583,24 @@
                                 FT_games: stats.FT.games,
                                 FT_wins: stats.FT.wins,
                                 FT_losses: stats.FT.losses,
+                                FT_draws: stats.FT.draws,
                                 OT_games: stats.OT.games,
                                 OT_wins: stats.OT.wins,
                                 OT_losses: stats.OT.losses,
+                                OT_draws: stats.OT.draws,
                                 SO_games: stats.SO.games,
                                 SO_wins: stats.SO.wins,
                                 SO_losses: stats.SO.losses,
+                                SO_draws: stats.SO.draws,
                                 OTSO_games: stats.OTSO.games,
                                 OTSO_wins: stats.OTSO.wins,
                                 OTSO_losses: stats.OTSO.losses,
+                                OTSO_draws: stats.OTSO.draws,
                                 checks: {
                                     total: stats.FT.games + stats.OT.games + stats.SO.games === stats.totalGames,
-                                    FT: stats.FT.wins + stats.FT.losses === stats.FT.games,
-                                    OT: stats.OT.wins + stats.OT.losses === stats.OT.games,
-                                    SO: stats.SO.wins + stats.SO.losses === stats.SO.games,
+                                    FT: stats.FT.wins + stats.FT.losses + stats.FT.draws === stats.FT.games,
+                                    OT: stats.OT.wins + stats.OT.losses + stats.OT.draws === stats.OT.games,
+                                    SO: stats.SO.wins + stats.SO.losses + stats.SO.draws === stats.SO.games,
                                     OTSO: stats.OTSO.games === stats.OT.games + stats.SO.games
                                 }
                             };
@@ -9191,7 +9196,7 @@
             const goals = { goalsFor:0, goalsAgainst:0, goalDifference:0, games:0 };
             const streak = { longestWin:0,longestLoss:0,longestThreePointWin:0,longestZeroPointLoss:0,currentWin:0,currentLoss:0,currentThreePointWin:0,currentZeroPointLoss:0,games:0 };
             const single = { biggestWinMargin:0,biggestLossMargin:0,goalsForValues:[],goalsAgainstValues:[],oneGoalWins:0,oneGoalLosses:0,games:0 };
-            const decision = { FT:{games:0,wins:0,losses:0},OT:{games:0,wins:0,losses:0},SO:{games:0,wins:0,losses:0},OTSO:{games:0,wins:0,losses:0},totalGames:0 };
+            const decision = { FT:{games:0,wins:0,losses:0,draws:0},OT:{games:0,wins:0,losses:0,draws:0},SO:{games:0,wins:0,losses:0,draws:0},OTSO:{games:0,wins:0,losses:0,draws:0},totalGames:0 };
             let points = 0;
             selected.forEach(m => {
                 const home = m.homeTeam === team;
@@ -9206,13 +9211,13 @@
                 if (diff<0) single.biggestLossMargin=Math.max(single.biggestLossMargin,-diff);
                 if (diff===1) single.oneGoalWins++;
                 if (diff===-1) single.oneGoalLosses++;
-                const win = pts===2 || pts===3, loss=pts===0 || pts===1, three=pts===3, zero=pts===0;
+                const win = diff>0, loss=diff<0, three=pts===3, zero=pts===0;
                 streak.currentWin=win?streak.currentWin+1:0; streak.currentLoss=loss?streak.currentLoss+1:0;
                 streak.currentThreePointWin=three?streak.currentThreePointWin+1:0; streak.currentZeroPointLoss=zero?streak.currentZeroPointLoss+1:0;
                 streak.longestWin=Math.max(streak.longestWin,streak.currentWin); streak.longestLoss=Math.max(streak.longestLoss,streak.currentLoss);
                 streak.longestThreePointWin=Math.max(streak.longestThreePointWin,streak.currentThreePointWin); streak.longestZeroPointLoss=Math.max(streak.longestZeroPointLoss,streak.currentZeroPointLoss); streak.games++;
-                const d=classifySelectedMatchDecision(m.resultText), b=decision[d]; b.games++; if(win)b.wins++;else b.losses++;
-                if(d==='OT'||d==='SO'){decision.OTSO.games++;if(win)decision.OTSO.wins++;else decision.OTSO.losses++;} decision.totalGames++;
+                const d=classifySelectedMatchDecision(m.resultText), b=decision[d]; b.games++; if(win)b.wins++;else if(loss)b.losses++;else b.draws++;
+                if(d==='OT'||d==='SO'){decision.OTSO.games++;if(win)decision.OTSO.wins++;else if(loss)decision.OTSO.losses++;else decision.OTSO.draws++;} decision.totalGames++;
             });
             goals.goalDifference=goals.goalsFor-goals.goalsAgainst;
             return {goals,streak,single,decision,points};
@@ -9454,8 +9459,8 @@
                     const gf = home ? m.homeGoals : m.awayGoals;
                     const ga = home ? m.awayGoals : m.homeGoals;
                     const pts = home ? m.homePoints : m.awayPoints;
-                    const win = pts === 2 || pts === 3;
-                    const checks = {points:pts>0,withoutWin:!win,withoutLoss:pts!==0 && pts!==1,scoring:gf>0,cleanSheet:ga===0,scorelessStreak:gf===0};
+                    const win = gf > ga;
+                    const checks = {points:pts>0,withoutWin:!win,withoutLoss:gf>=ga,scoring:gf>0,cleanSheet:ga===0,scorelessStreak:gf===0};
                     for (const k of extraStreakKeys) {
                         current[k] = checks[k] ? current[k]+1 : 0;
                         totals[k] = Math.max(totals[k],current[k]);
