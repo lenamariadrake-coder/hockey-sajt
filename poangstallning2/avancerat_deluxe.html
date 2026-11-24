@@ -2353,6 +2353,24 @@
                                         </div>
                                     </details>
 
+                                    <details class="filter-group" data-filter-group="interim-placement">
+                                        <summary><span class="filter-group-title">Tabellplacering under säsongen</span><span class="filter-group-state" aria-hidden="true"></span></summary>
+                                        <div class="filter-group-content filter-block">
+                                            <label for="interim-placement-mode">Beräkningsmetod</label>
+                                            <select id="interim-placement-mode" style="width:100%;margin-bottom:8px">
+                                                <option value="equal">Efter lika många spelade matcher</option>
+                                                <option value="date">Faktiskt tabelläge</option>
+                                            </select>
+                                            <label for="interim-placement-n">Efter antal spelade matcher</label>
+                                            <input id="interim-placement-n" type="number" min="1" step="1" placeholder="T.ex. 10" style="width:100%;margin-bottom:8px">
+                                            <label for="interim-placement-ranks">Placeringar</label>
+                                            <input id="interim-placement-ranks" type="text" placeholder="T.ex. 1, 3–6" style="width:100%">
+                                            <p style="font-size:.85em;margin:8px 0" id="interim-placement-hint">Alla lag jämförs efter samma antal matcher. Oberoende av Matchurval.</p>
+                                            <p id="interim-placement-error" hidden role="status" style="color:#b45309;font-size:.85em"></p>
+                                            <p style="font-size:.8em;margin:6px 0">Poäng, målskillnad och gjorda mål avgör placeringen. Vid full likhet delas placeringen.</p>
+                                        </div>
+                                    </details>
+
                                     <details class="filter-group" data-filter-group="streaks">
                                         <summary><span class="filter-group-title">Resultatsviter</span><span class="filter-group-state" id="streak-filter-count" aria-hidden="true"></span></summary>
                                         <div class="filter-group-content filter-block">
@@ -5837,6 +5855,7 @@
             setupSingleGameFilterListeners(); // extremvärden från enskilda matcher
             setupDecisionFilterListeners();   // FT / OT / SO / OT+SO
             setupPointsFilterListeners();     // poäng i valt matchunderlag
+            setupInterimPlacementListeners();
             setupMatchSelectionListeners();  // matchnummer + alla/hemma/borta
             setupHistoricalFilters();      // jämförande lager (relativa per lag+säsongsrad)
 
@@ -9249,6 +9268,88 @@
             if (deluxeFilterResetBatch === 0) applyTableFilters();
         }
 
+        // Tabellplacering under säsongen – separat från matchurval och radfilter.
+        let interimPlacementSource = null;
+        let interimPlacementSummarySource = null;
+        let interimPlacementIndex = new Map();
+        let interimPlacementCache = new Map();
+        function getInterimPlacementIndex() {
+            if (interimPlacementSource === matches && interimPlacementSummarySource === seasonSummaryRows) return interimPlacementIndex;
+            interimPlacementSource = matches;
+            interimPlacementSummarySource = seasonSummaryRows;
+            interimPlacementIndex = new Map();
+            interimPlacementCache = new Map();
+            const ensure = (league, season) => {
+                const key = `${league}::${season}`;
+                if (!interimPlacementIndex.has(key)) interimPlacementIndex.set(key, new Map());
+                return interimPlacementIndex.get(key);
+            };
+            for (const r of seasonSummaryRows) {
+                const teams = ensure(r.league, r.seasonId);
+                if (!teams.has(r.team)) teams.set(r.team, []);
+            }
+            for (const m of matches) {
+                const teams = ensure(m.league, m.seasonId);
+                for (const [team, points, gf, ga] of [[m.homeTeam,m.homePoints,m.homeGoals,m.awayGoals],[m.awayTeam,m.awayPoints,m.awayGoals,m.homeGoals]]) {
+                    if (!teams.has(team)) teams.set(team, []);
+                    const list = teams.get(team), prev = list[list.length-1];
+                    list.push({date:m.date, games:list.length+1, points:(prev?.points||0)+points, gf:(prev?.gf||0)+gf, gd:(prev?.gd||0)+gf-ga});
+                }
+            }
+            return interimPlacementIndex;
+        }
+        function interimPlacementTable(league, season, n, mode, date = '') {
+            const index = getInterimPlacementIndex();
+            const key = JSON.stringify([league,season,n,mode,date]);
+            if (interimPlacementCache.has(key)) return interimPlacementCache.get(key);
+            const teams = index.get(`${league}::${season}`);
+            if (!teams || !teams.size || (mode === 'equal' && [...teams.values()].some(list=>list.length<n))) return null;
+            const rows = [...teams].map(([team,list]) => {
+                let snap;
+                if (mode === 'equal') snap = list[n-1];
+                else { for (const item of list) { if (item.date > date) break; snap=item; } }
+                return {team,...(snap || {games:0,points:0,gf:0,gd:0})};
+            });
+            const compare = (a,b)=>b.points-a.points || b.gd-a.gd || b.gf-a.gf;
+            rows.sort((a,b)=>compare(a,b)||a.team.localeCompare(b.team,'sv'));
+            rows.forEach((r,i)=>{r.rank=i && compare(r,rows[i-1])===0 ? rows[i-1].rank : i+1;});
+            if (interimPlacementCache.size >= 4000) interimPlacementCache.clear();
+            interimPlacementCache.set(key,rows);
+            return rows;
+        }
+        function getInterimPlacementConfig() {
+            const nText=document.getElementById('interim-placement-n').value.trim();
+            const ranks=document.getElementById('interim-placement-ranks').value.trim();
+            const n=Number(nText), mode=document.getElementById('interim-placement-mode').value;
+            const valid=Number.isSafeInteger(n)&&n>0&&!!ranks&&validateMatchNumberText(ranks).valid;
+            const error=document.getElementById('interim-placement-error');
+            error.hidden=valid||(!nText&&!ranks);
+            error.textContent=error.hidden?'':'Ange ett positivt antal matcher och giltiga placeringar. Filtret används först när båda är giltiga.';
+            document.getElementById('interim-placement-hint').textContent=mode==='equal'?'Alla lag jämförs efter samma antal matcher. Oberoende av Matchurval.':'Tabellen vid dagens slut då laget spelade sin N:e match. Oberoende av Matchurval.';
+            return {active:valid,n,mode,ranks};
+        }
+        function interimPlacementForTeam(team,league,season,n,mode) {
+            const teams=getInterimPlacementIndex().get(`${league}::${season}`);
+            const snap=teams?.get(team)?.[n-1];
+            if (!snap) return null;
+            const table=interimPlacementTable(league,season,n,mode,mode==='date'?snap.date:'');
+            return table ? {table,rank:table.find(r=>r.team===team)?.rank,date:snap.date} : null;
+        }
+        window.debugInterimPlacement = function(team,season,league,n,mode='equal') {
+            const result=interimPlacementForTeam(team,league,season,n,mode);
+            if(result) console.table(result.table); else console.info('Otillräckliga matchdata.');
+            return result;
+        };
+        function setupInterimPlacementListeners() {
+            const group=document.querySelector('[data-filter-group="interim-placement"]');
+            if (!group || group.dataset.bound) return;
+            group.dataset.bound='1';
+            group.querySelectorAll('input,select').forEach(el=>{
+                el.addEventListener('input',applyTableFilters);
+                el.addEventListener('change',applyTableFilters);
+            });
+        }
+
         function applyTableFilters() {
             if (deluxeFilterResetBatch > 0) return;
             const deluxeColorBaseKeys = new Set();
@@ -9516,6 +9617,7 @@
             const extraStatsCache = new Map();
             const decisionFilters = getActiveDecisionFilters();
             const pointsFilter = getActivePointsFilter();
+            const interimPlacement = getInterimPlacementConfig();
             const matchSelection = getMatchSelectionConfig();
             matchSelection.validation = validateMatchNumberText(matchSelection.numbersText);
             const matchNumberInput = document.getElementById('filter-match-numbers');
@@ -9775,7 +9877,12 @@
                     });
                 }
 
-                const currentFiltersOk = leagueOk && seasonOk && regularOk && playoffOk && outcomeOk && progressionOk && matchSelectionOk && seasonLengthOk && teamCountOk && pointSystemOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
+                let interimPlacementOk = true;
+                if (interimPlacement.active && leagueOk && seasonOk) {
+                    const snapshot = interimPlacementForTeam(row.dataset.team || '', league, seasonId, interimPlacement.n, interimPlacement.mode);
+                    interimPlacementOk = !!snapshot && parseMatchNumberText(interimPlacement.ranks, snapshot.table.length).has(snapshot.rank);
+                }
+                const currentFiltersOk = interimPlacementOk && leagueOk && seasonOk && regularOk && playoffOk && outcomeOk && progressionOk && matchSelectionOk && seasonLengthOk && teamCountOk && pointSystemOk && pointsOk && goalsOk && streaksOk && singleGamesOk && decisionsOk;
                 if (currentFiltersOk) currentFilterRows.push(row);
 
                 let historicalOk = true;
