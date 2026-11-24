@@ -2369,9 +2369,10 @@
                                             <select id="interim-placement-condition" style="width:100%;margin-bottom:8px">
                                                 <option value="any">Vid minst ett tillfälle</option>
                                                 <option value="all">Vid samtliga tillfällen</option>
-                                                <option value="minimum">Vid minst ett visst antal tillfällen</option>
+                                                <option value="custom">Vid angivet antal tillfällen</option>
                                             </select>
-                                            <div id="interim-placement-minimum-wrap" hidden><label for="interim-placement-minimum">Minsta antal tillfällen</label><input id="interim-placement-minimum" type="number" min="1" step="1" value="1" style="width:100%"></div>
+                                            <div id="interim-placement-count-wrap" hidden><label for="interim-placement-count">Antal tillfällen</label><input id="interim-placement-count" type="text" placeholder="T.ex. 0, 2, 4–10" style="width:100%" aria-describedby="interim-placement-count-help"><p id="interim-placement-count-help" style="font-size:.8em;margin:6px 0">0 = aldrig, –2 = högst två, 10– = minst tio. Separera antal och intervall med komma eller semikolon.</p></div>
+                                            <label style="display:flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" id="interim-placement-complete"> Kräv att hela matchintervallet kan utvärderas</label>
                                             <p style="font-size:.8em;margin:6px 0">Öppna intervall (10–) gäller fram till senaste tillgängliga tabellavläsning. Samtliga tillfällen kräver att hela ett slutet intervall kan beräknas.</p>
                                             <p style="font-size:.85em;margin:8px 0" id="interim-placement-hint">Alla lag jämförs efter samma antal matcher. Oberoende av Matchurval.</p>
                                             <p id="interim-placement-error" hidden role="status" style="color:#b45309;font-size:.85em"></p>
@@ -9324,20 +9325,37 @@
             interimPlacementCache.set(key,rows);
             return rows;
         }
+        function parseInterimCountRanges(text) {
+            const cleaned=String(text || '').replace(/[–—]/g,'-').trim();
+            if (!cleaned) return null;
+            const ranges=[];
+            for (const part of cleaned.split(/[,;]/)) {
+                const token=part.trim();
+                if (!/^(?:\d+|\d+\s*-\s*\d*|-\s*\d+)$/.test(token)) return null;
+                const nums=token.match(/\d+/g).map(Number);
+                if (nums.some(n=>!Number.isSafeInteger(n)||n<0)) return null;
+                if (nums.length===2) ranges.push([Math.min(...nums),Math.max(...nums)]);
+                else if (token.startsWith('-')) ranges.push([0,nums[0]]);
+                else if (token.endsWith('-')) ranges.push([nums[0],Infinity]);
+                else ranges.push([nums[0],nums[0]]);
+            }
+            return ranges;
+        }
         function getInterimPlacementConfig() {
             const nText=document.getElementById('interim-placement-n').value.trim();
             const ranks=document.getElementById('interim-placement-ranks').value.trim();
             const mode=document.getElementById('interim-placement-mode').value;
             const condition=document.getElementById('interim-placement-condition').value;
-            const minimum=Number(document.getElementById('interim-placement-minimum').value);
-            document.getElementById('interim-placement-minimum-wrap').hidden=condition!=='minimum';
+            const countRanges=parseInterimCountRanges(document.getElementById('interim-placement-count').value);
+            const requireComplete=document.getElementById('interim-placement-complete').checked;
+            document.getElementById('interim-placement-count-wrap').hidden=condition!=='custom';
             const validation=validateMatchNumberText(nText);
-            const valid=!!nText&&validation.valid&&!!ranks&&validateMatchNumberText(ranks).valid&&(condition!=='minimum'||(Number.isSafeInteger(minimum)&&minimum>0));
+            const valid=!!nText&&validation.valid&&!!ranks&&validateMatchNumberText(ranks).valid&&(condition!=='custom'||!!countRanges);
             const error=document.getElementById('interim-placement-error');
             error.hidden=valid||(!nText&&!ranks);
-            error.textContent=error.hidden?'':'Ange giltiga matchnummer, placeringar och eventuellt minsta antal tillfällen. Filtret används först när alla uppgifter är giltiga.';
+            error.textContent=error.hidden?'':'Ange giltiga matchnummer, placeringar och eventuellt antal tillfällen. Filtret används först när alla uppgifter är giltiga.';
             document.getElementById('interim-placement-hint').textContent=mode==='equal'?'Alla lag jämförs efter samma antal matcher. Oberoende av Matchurval.':'Tabellen vid dagens slut då laget spelade sin N:e match. Oberoende av Matchurval.';
-            return {active:valid,nText,validation,mode,ranks,condition,minimum};
+            return {active:valid,nText,validation,mode,ranks,condition,countRanges,requireComplete};
         }
         function interimPlacementForTeam(team,league,season,n,mode) {
             const teams=getInterimPlacementIndex().get(`${league}::${season}`);
@@ -9350,19 +9368,22 @@
             const teams=getInterimPlacementIndex().get(`${league}::${season}`);
             if (!teams?.has(team)) return false;
             const maxN=config.mode==='equal' ? Math.min(...[...teams.values()].map(list=>list.length)) : teams.get(team).length;
-            if (config.condition==='all' && maxN<config.validation.required) return false;
+            if ((config.condition==='all' || config.requireComplete) && maxN<config.validation.required) return false;
             const numbers=parseMatchNumberText(config.nText,maxN);
             if (!numbers?.size) return false;
             const ranks=parseMatchNumberText(config.ranks,teams.size);
-            let hits=0;
+            let hits=0, evaluated=0;
             for (const n of numbers) {
                 const snapshot=interimPlacementForTeam(team,league,season,n,config.mode);
+                if (snapshot && Number.isInteger(snapshot.rank)) evaluated++;
+                else if (config.requireComplete || config.condition==='all') return false;
                 const hit=!!snapshot && ranks.has(snapshot.rank);
                 if (hit) hits++;
                 if (config.condition==='any' && hit) return true;
                 if (config.condition==='all' && !hit) return false;
-                if (config.condition==='minimum' && hits>=config.minimum) return true;
             }
+            if (!evaluated) return false;
+            if (config.condition==='custom') return config.countRanges.some(([lo,hi])=>hits>=lo && hits<=hi);
             return config.condition==='all';
         }
         window.debugInterimPlacement = function(team,season,league,n,mode='equal') {
